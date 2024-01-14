@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package metadata contains types to record/retrieve metadata stored in MLMD
-// for individual pipeline steps.
 package config
 
 import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"sigs.k8s.io/yaml"
 	"strings"
 
 	"github.com/golang/glog"
@@ -28,10 +27,40 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+type BucketAuth struct {
+	Minio *ProviderConfig `json:"minio"`
+	S3    *ProviderConfig `json:"s3"`
+	GCS   *ProviderConfig `json:"gcs"`
+}
+
+type ProviderConfig struct {
+	// required for s3/gcs, for minio if this field is not provided resolve to default mino
+	Endpoint                 string     `json:"endpoint"`
+	DefaultProviderSecretRef *SecretRef `json:"defaultProviderSecretRef"`
+	Region                   string     `json:"region"`
+	// optional
+	DisableSSL bool `json:"disableSSL"`
+	// optional, ordered, the auth config for the first matching prefix is used
+	AuthConfigs []AuthConfig `json:"authConfigs"`
+}
+
+type AuthConfig struct {
+	BucketName string `json:"bucketName"`
+	KeyPrefix  string `json:"keyPrefix"`
+	*SecretRef `json:"secretRef"`
+}
+
+type SecretRef struct {
+	SecretName   string `json:"secretName"`
+	AccessKeyKey string `json:"accessKeyKey"`
+	SecretKeyKey string `json:"secretKeyKey"`
+}
+
 const (
 	configMapName                = "kfp-launcher"
-	defaultPipelineRoot          = "minio://mlpipeline/v2/artifacts"
 	configKeyDefaultPipelineRoot = "defaultPipelineRoot"
+	configBucketAuth             = "providers"
+	defaultPipelineRoot          = "minio://mlpipeline/v2/artifacts"
 )
 
 // Config is the KFP runtime configuration.
@@ -60,6 +89,20 @@ func (c *Config) DefaultPipelineRoot() string {
 		return defaultPipelineRoot
 	}
 	return c.data[configKeyDefaultPipelineRoot]
+}
+
+// GetBucketAuth gets the bucket auth configuration
+func (c *Config) GetBucketAuth() (*BucketAuth, error) {
+	if c == nil || c.data[configBucketAuth] == "" {
+		return nil, nil
+	}
+	bucketAuth := &BucketAuth{}
+	configAuth := c.data[configBucketAuth]
+	err := yaml.Unmarshal([]byte(configAuth), bucketAuth)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshall kfp bucket auth, ensure that providers config is well formed: %w", err)
+	}
+	return bucketAuth, nil
 }
 
 // InPodNamespace gets current namespace from inside a Kubernetes Pod.

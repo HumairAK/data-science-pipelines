@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -50,6 +51,8 @@ type LauncherV2Options struct {
 	PodUID,
 	MLMDServerAddress,
 	MLMDServerPort,
+	MLPipelineServerAddress,
+	MLPipelineServerGrpcPort,
 	PipelineName,
 	RunID string
 }
@@ -112,7 +115,9 @@ func NewLauncherV2(ctx context.Context, executionID int64, executorInputJSON, co
 	if err != nil {
 		return nil, err
 	}
-	cacheClient, err := cacheutils.NewClient()
+
+	mlPipelineEndpoint := opts.MLPipelineServerAddress + ":" + opts.MLPipelineServerGrpcPort
+	cacheClient, err := cacheutils.NewClient(mlPipelineEndpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -156,9 +161,18 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		return err
 	}
 	fingerPrint := execution.FingerPrint()
-	bucketConfig, err := objectstore.ParseBucketConfig(execution.GetPipeline().GetPipelineRoot())
+	pipelineRoot := execution.GetPipeline().GetPipelineRoot()
+	bucketConfig, err := objectstore.ParseBucketConfig(pipelineRoot)
 	if err != nil {
 		return err
+	}
+	cfg, err := config.FromConfigMap(ctx, l.k8sClient, l.options.Namespace)
+	if err != nil {
+		return fmt.Errorf("failed to read kfp-launcher configmap: %w", err)
+	}
+	bucketConfig.BucketAuth, err = cfg.GetBucketAuth()
+	if err != nil {
+		return fmt.Errorf("error when attempting to retrieve bucket auth config from kfp-launcher configmap: %w", err)
 	}
 	bucket, err := objectstore.OpenBucket(ctx, l.k8sClient, l.options.Namespace, bucketConfig)
 	if err != nil {
