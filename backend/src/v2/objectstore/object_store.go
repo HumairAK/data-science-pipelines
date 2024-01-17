@@ -17,8 +17,8 @@ package objectstore
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	"io"
 	"io/ioutil"
 	"os"
@@ -43,114 +43,37 @@ type Config struct {
 	BucketName  string
 	Prefix      string
 	QueryString string
-	// optional, bucket auth contains provider authentication configurations
-	BucketAuth *config.BucketAuth
+	SessionInfo *SessionInfo
 }
 
-// The endpoint uses Kubernetes service DNS name with namespace:
-// https://kubernetes.io/docs/concepts/services-networking/service/#dns
-const defaultMinioEndpointInMultiUserMode = "minio-service.kubeflow:9000"
-const minioArtifactSecretName = "mlpipeline-minio-artifact"
-const minioArtifactSecretKeyKey = "secretkey"
-const minioArtifactAccessKeyKey = "accesskey"
-
-// return the first authconfig found with a matching prefix
-func getBucketAuthByPrefix(authConfigs []config.AuthConfig, bucketName, prefix string) *config.AuthConfig {
-	for _, authConfig := range authConfigs {
-		if authConfig.BucketName == bucketName && strings.HasPrefix(prefix, authConfig.KeyPrefix) {
-			return &authConfig
-		}
-	}
-	return nil
+type SessionInfo struct {
+	Region       string
+	Endpoint     string
+	DisableSSL   bool
+	SecretName   string
+	AccessKeyKey string
+	SecretKeyKey string
 }
 
-func createBucketSession(ctx context.Context, provider, namespace string, bucketConfig *Config, client kubernetes.Interface) (*session.Session, error) {
-	bucketAuth := bucketConfig.BucketAuth
-	if bucketAuth == nil {
-		// Use default minio if provider is minio, otherwise we default to executor env
-		if provider == "minio" {
-			return getDefaultMinioSession(ctx, client, namespace)
-		} else {
-			// If not using minio, and no other provider config is provided
-			// rely on executor env (e.g. IRSA) for authenticating with provider
-			return nil, nil
-		}
+func createBucketSession(ctx context.Context, namespace string, bucketConfig *Config, client kubernetes.Interface) (*session.Session, error) {
+	sessionInfo := bucketConfig.SessionInfo
+	if sessionInfo == nil {
+		return nil, nil
 	}
-
-	var providerConfig *config.ProviderConfig
-	switch provider {
-	case "minio":
-		providerConfig = bucketAuth.Minio
-		break
-	case "s3":
-		providerConfig = bucketAuth.S3
-		break
-	case "gcs":
-		providerConfig = bucketAuth.Minio
-		break
-	default:
-		return nil, fmt.Errorf("Encountered unsupported provider in BucketAuth %s", provider)
-	}
-
-	if providerConfig == nil {
-		if provider == "minio" {
-			return getDefaultMinioSession(ctx, client, namespace)
-		} else {
-			return nil, nil
-		}
-	}
-
-	endpoint := providerConfig.Endpoint
-	if endpoint == "" {
-		if provider == "minio" {
-			endpoint = MinioDefaultEndpoint()
-		} else {
-			return nil, fmt.Errorf("Invalid bucket auth config, %s.defaultProviderSecretRef is required for this storage provider", provider)
-		}
-	}
-
-	// DefaultProviderSecretRef takes precedent over other configs
-	secretRef := providerConfig.DefaultProviderSecretRef
-	if secretRef == nil {
-		if provider == "minio" {
-			secretRef = &config.SecretRef{
-				SecretName:   minioArtifactSecretName,
-				SecretKeyKey: minioArtifactSecretKeyKey,
-				AccessKeyKey: minioArtifactAccessKeyKey,
-			}
-		} else {
-			return nil, fmt.Errorf("Invalid bucket auth config, %s.defaultProviderSecretRef is required for this storage provider", provider)
-		}
-	}
-
-	disableSSL := providerConfig.DisableSSL
-	region := providerConfig.Region
-
-	authConfig := getBucketAuthByPrefix(providerConfig.AuthConfigs, bucketConfig.BucketName, bucketConfig.Prefix)
-	if authConfig != nil {
-		if authConfig.SecretRef == nil {
-			return nil, fmt.Errorf("Invalid bucket auth config, %s.AuthConfigs[].secretConfig is required", provider)
-		}
-		secretRef = authConfig.SecretRef
-	}
-
-	// AuthConfig.secretRef takes precedence over defaultProviderSecretRef
-	creds, err := getBucketCredential(ctx, client, namespace, secretRef.SecretName, secretRef.SecretKeyKey, secretRef.AccessKeyKey)
+	creds, err := getBucketCredential(ctx, client, namespace, sessionInfo.SecretName, sessionInfo.SecretKeyKey, sessionInfo.AccessKeyKey)
 	if err != nil {
 		return nil, err
 	}
-
 	sess, err := session.NewSession(&aws.Config{
 		Credentials:      creds,
-		Region:           aws.String(region),
-		Endpoint:         aws.String(endpoint),
-		DisableSSL:       aws.Bool(disableSSL),
+		Region:           aws.String(sessionInfo.Region),
+		Endpoint:         aws.String(sessionInfo.Endpoint),
+		DisableSSL:       aws.Bool(sessionInfo.DisableSSL),
 		S3ForcePathStyle: aws.Bool(true),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create session to access minio: %v", err)
 	}
-
 	return sess, nil
 }
 
@@ -160,13 +83,10 @@ func OpenBucket(ctx context.Context, k8sClient kubernetes.Interface, namespace s
 			err = fmt.Errorf("Failed to open bucket %q: %w", bucketConfig.BucketName, err)
 		}
 	}()
-
-	provider := strings.TrimSuffix(bucketConfig.Scheme, "://")
-	sess, err := createBucketSession(ctx, provider, namespace, bucketConfig, k8sClient)
+	sess, err := createBucketSession(ctx, namespace, bucketConfig, k8sClient)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to retrieve credentials for bucket %s: %w", bucketConfig.BucketName, err)
 	}
-
 	if sess != nil {
 		openedBucket, err := s3blob.OpenBucket(ctx, sess, bucketConfig.BucketName, nil)
 		if err != nil {
@@ -283,7 +203,7 @@ func DownloadBlob(ctx context.Context, bucket *blob.Bucket, localDir, blobDir st
 
 var bucketPattern = regexp.MustCompile(`(^[a-z][a-z0-9]+:///?)([^/?]+)(/[^?]*)?(\?.+)?$`)
 
-func ParseBucketConfig(path string) (*Config, error) {
+func ParseBucketConfig(path string, bucketSessionInfo string) (*Config, error) {
 	ms := bucketPattern.FindStringSubmatch(path)
 	if ms == nil || len(ms) != 5 {
 		return nil, fmt.Errorf("parse bucket config failed: unrecognized pipeline root format: %q", path)
@@ -298,13 +218,21 @@ func ParseBucketConfig(path string) (*Config, error) {
 	if len(prefix) > 0 && !strings.HasSuffix(prefix, "/") {
 		prefix = prefix + "/"
 	}
-
-	return &Config{
+	cfg := &Config{
 		Scheme:      ms[1],
 		BucketName:  ms[2],
 		Prefix:      prefix,
 		QueryString: ms[4],
-	}, nil
+	}
+	if bucketSessionInfo != "" {
+		sessionInfo := &SessionInfo{}
+		err := json.Unmarshal([]byte(bucketSessionInfo), sessionInfo)
+		if err != nil {
+			return nil, fmt.Errorf("Encountered error when attempting to unmarshall bucket session properties: %w", err)
+		}
+		cfg.SessionInfo = sessionInfo
+	}
+	return cfg, nil
 }
 
 func ParseBucketConfigForArtifactURI(uri string) (*Config, error) {
@@ -388,41 +316,6 @@ func downloadFile(ctx context.Context, bucket *blob.Bucket, blobFilePath, localF
 	return nil
 }
 
-func MinioDefaultEndpoint() string {
-	// Discover minio-service in the same namespace by env var.
-	// https://kubernetes.io/docs/concepts/services-networking/service/#environment-variables
-	minioHost := os.Getenv("MINIO_SERVICE_SERVICE_HOST")
-	minioPort := os.Getenv("MINIO_SERVICE_SERVICE_PORT")
-	if minioHost != "" && minioPort != "" {
-		// If there is a minio-service Kubernetes service in the same namespace,
-		// MINIO_SERVICE_SERVICE_HOST and MINIO_SERVICE_SERVICE_PORT env vars should
-		// exist by default, so we use it as default.
-		return minioHost + ":" + minioPort
-	}
-	// If the env vars do not exist, we guess that we are running in KFP multi user mode, so default minio service should be `minio-service.kubeflow:9000`.
-	glog.Infof("Cannot detect minio-service in the same namespace, default to %s as MinIO endpoint.", defaultMinioEndpointInMultiUserMode)
-	return defaultMinioEndpointInMultiUserMode
-}
-
-func getDefaultMinioSession(ctx context.Context, clientSet kubernetes.Interface, namespace string) (cred *session.Session, err error) {
-	creds, err := getBucketCredential(ctx, clientSet, namespace, minioArtifactSecretName, minioArtifactSecretKeyKey,
-		minioArtifactAccessKeyKey)
-	if err != nil {
-		return nil, err
-	}
-	sess, err := session.NewSession(&aws.Config{
-		Credentials:      creds,
-		Region:           aws.String("minio"),
-		Endpoint:         aws.String(MinioDefaultEndpoint()),
-		DisableSSL:       aws.Bool(true),
-		S3ForcePathStyle: aws.Bool(true),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return sess, nil
-}
-
 func getBucketCredential(
 	ctx context.Context,
 	clientSet kubernetes.Interface,
@@ -451,5 +344,5 @@ func getBucketCredential(
 		cred = credentials.NewStaticCredentials(accessKey, secretKey, "")
 		return cred, err
 	}
-	return nil, fmt.Errorf("does not have 'accesskey' or 'secretkey' key")
+	return nil, fmt.Errorf("could not find specified keys '%s' or '%s'", bucketAccessKeyKey, bucketSecretKeyKey)
 }

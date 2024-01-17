@@ -17,6 +17,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 	"path"
 	"strconv"
 	"strings"
@@ -136,6 +137,7 @@ func RootDAG(ctx context.Context, opts Options, mlmd *metadata.Client) (executio
 	}
 	// TODO(v2): in pipeline spec, rename GCS output directory to pipeline root.
 	pipelineRoot := opts.RuntimeConfig.GetGcsOutputDirectory()
+	pipelineBucketSessionInfo := objectstore.SessionInfo{}
 	if pipelineRoot != "" {
 		glog.Infof("PipelineRoot=%q", pipelineRoot)
 	} else {
@@ -153,9 +155,20 @@ func RootDAG(ctx context.Context, opts Options, mlmd *metadata.Client) (executio
 		}
 		pipelineRoot = cfg.DefaultPipelineRoot()
 		glog.Infof("PipelineRoot=%q from default config", pipelineRoot)
+
+		pipelineBucketSessionInfo, err = cfg.GetBucketSessionInfo()
+		if err != nil {
+			return nil, err
+		}
 	}
+	bucketSessionInfo, err := json.Marshal(pipelineBucketSessionInfo)
+	if err != nil {
+		return nil, err
+	}
+	bucketSessionInfoEntry := string(bucketSessionInfo)
+	glog.Infof("Bucket Sesssion Info Entry: %s", bucketSessionInfo)
 	// TODO(Bobgy): fill in run resource.
-	pipeline, err := mlmd.GetPipeline(ctx, opts.PipelineName, opts.RunID, opts.Namespace, "run-resource", pipelineRoot)
+	pipeline, err := mlmd.GetPipeline(ctx, opts.PipelineName, opts.RunID, opts.Namespace, "run-resource", pipelineRoot, bucketSessionInfoEntry)
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +247,7 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 	}
 	// TODO(Bobgy): there's no need to pass any parameters, because pipeline
 	// and pipeline run context have been created by root DAG driver.
-	pipeline, err := mlmd.GetPipeline(ctx, opts.PipelineName, opts.RunID, "", "", "")
+	pipeline, err := mlmd.GetPipeline(ctx, opts.PipelineName, opts.RunID, "", "", "", "")
 	if err != nil {
 		return nil, err
 	}
@@ -546,7 +559,7 @@ func DAG(ctx context.Context, opts Options, mlmd *metadata.Client) (execution *E
 	}
 	// TODO(Bobgy): there's no need to pass any parameters, because pipeline
 	// and pipeline run context have been created by root DAG driver.
-	pipeline, err := mlmd.GetPipeline(ctx, opts.PipelineName, opts.RunID, "", "", "")
+	pipeline, err := mlmd.GetPipeline(ctx, opts.PipelineName, opts.RunID, "", "", "", "")
 	if err != nil {
 		return nil, err
 	}
@@ -1217,7 +1230,7 @@ func createPVC(
 	// Create execution regardless the operation succeeds or not
 	defer func() {
 		if createdExecution == nil {
-			pipeline, err := mlmd.GetPipeline(ctx, opts.PipelineName, opts.RunID, "", "", "")
+			pipeline, err := mlmd.GetPipeline(ctx, opts.PipelineName, opts.RunID, "", "", "", "")
 			if err != nil {
 				return
 			}
@@ -1297,7 +1310,7 @@ func createPVC(
 	ecfg.CachedMLMDExecutionID = cachedMLMDExecutionID
 	ecfg.FingerPrint = fingerPrint
 
-	pipeline, err := mlmd.GetPipeline(ctx, opts.PipelineName, opts.RunID, "", "", "")
+	pipeline, err := mlmd.GetPipeline(ctx, opts.PipelineName, opts.RunID, "", "", "", "")
 	if err != nil {
 		return "", createdExecution, pb.Execution_FAILED, fmt.Errorf("error getting pipeline from MLMD: %w", err)
 	}
@@ -1387,7 +1400,7 @@ func deletePVC(
 	// Create execution regardless the operation succeeds or not
 	defer func() {
 		if createdExecution == nil {
-			pipeline, err := mlmd.GetPipeline(ctx, opts.PipelineName, opts.RunID, "", "", "")
+			pipeline, err := mlmd.GetPipeline(ctx, opts.PipelineName, opts.RunID, "", "", "", "")
 			if err != nil {
 				return
 			}
@@ -1417,7 +1430,7 @@ func deletePVC(
 	ecfg.CachedMLMDExecutionID = cachedMLMDExecutionID
 	ecfg.FingerPrint = fingerPrint
 
-	pipeline, err := mlmd.GetPipeline(ctx, opts.PipelineName, opts.RunID, "", "", "")
+	pipeline, err := mlmd.GetPipeline(ctx, opts.PipelineName, opts.RunID, "", "", "", "")
 	if err != nil {
 		return createdExecution, pb.Execution_FAILED, fmt.Errorf("error getting pipeline from MLMD: %w", err)
 	}

@@ -17,7 +17,9 @@ package config
 import (
 	"context"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 	"io/ioutil"
+	"os"
 	"sigs.k8s.io/yaml"
 	"strings"
 
@@ -27,7 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type BucketAuth struct {
+type BucketProviders struct {
 	Minio *ProviderConfig `json:"minio"`
 	S3    *ProviderConfig `json:"s3"`
 	GCS   *ProviderConfig `json:"gcs"`
@@ -59,8 +61,14 @@ type SecretRef struct {
 const (
 	configMapName                = "kfp-launcher"
 	configKeyDefaultPipelineRoot = "defaultPipelineRoot"
-	configBucketAuth             = "providers"
+	configBucketProviders        = "providers"
 	defaultPipelineRoot          = "minio://mlpipeline/v2/artifacts"
+	// The endpoint uses Kubernetes service DNS name with namespace:
+	// https://kubernetes.io/docs/concepts/services-networking/service/#dns
+	defaultMinioEndpointInMultiUserMode = "minio-service.kubeflow:9000"
+	minioArtifactSecretName             = "mlpipeline-minio-artifact"
+	minioArtifactSecretKeyKey           = "secretkey"
+	minioArtifactAccessKeyKey           = "accesskey"
 )
 
 // Config is the KFP runtime configuration.
@@ -91,20 +99,6 @@ func (c *Config) DefaultPipelineRoot() string {
 	return c.data[configKeyDefaultPipelineRoot]
 }
 
-// GetBucketAuth gets the bucket auth configuration
-func (c *Config) GetBucketAuth() (*BucketAuth, error) {
-	if c == nil || c.data[configBucketAuth] == "" {
-		return nil, nil
-	}
-	bucketAuth := &BucketAuth{}
-	configAuth := c.data[configBucketAuth]
-	err := yaml.Unmarshal([]byte(configAuth), bucketAuth)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshall kfp bucket auth, ensure that providers config is well formed: %w", err)
-	}
-	return bucketAuth, nil
-}
-
 // InPodNamespace gets current namespace from inside a Kubernetes Pod.
 func InPodNamespace() (string, error) {
 	// The path is available in Pods.
@@ -124,4 +118,162 @@ func InPodName() (string, error) {
 	}
 	name := string(podName)
 	return strings.TrimSuffix(name, "\n"), nil
+}
+
+func (c *Config) GetBucketSessionInfo() (objectstore.SessionInfo, error) {
+	path := c.DefaultPipelineRoot()
+	bucketConfig, err := objectstore.ParseBucketConfig(path, "")
+	if err != nil {
+		return objectstore.SessionInfo{}, err
+	}
+	bucketName := bucketConfig.BucketName
+	bucketPrefix := bucketConfig.Prefix
+	provider := strings.TrimSuffix(bucketConfig.Scheme, "://")
+	bucketProviders, err := c.getBucketProviders()
+	if err != nil {
+		return objectstore.SessionInfo{}, err
+	}
+
+	// Case 1: No "providers" field in kfp-launcher
+	if bucketProviders == nil {
+		// Use default minio if provider is minio, otherwise we default to executor env
+		if provider == "minio" {
+			return getDefaultMinioSessionInfo(), nil
+		} else {
+			// If not using minio, and no other provider config is provided
+			// rely on executor env (e.g. IRSA) for authenticating with provider
+			return objectstore.SessionInfo{}, nil
+		}
+	}
+
+	var providerConfig *ProviderConfig
+	switch provider {
+	case "minio":
+		providerConfig = bucketProviders.Minio
+		break
+	case "s3":
+		providerConfig = bucketProviders.S3
+		break
+	case "gs":
+		providerConfig = bucketProviders.Minio
+		break
+	default:
+		return objectstore.SessionInfo{}, fmt.Errorf("Encountered unsupported provider in BucketProviders %s", provider)
+	}
+
+	// Case 2: "providers" field is empty {}
+	if providerConfig == nil {
+		if provider == "minio" {
+			return getDefaultMinioSessionInfo(), nil
+		} else {
+			return objectstore.SessionInfo{}, nil
+		}
+	}
+
+	// Case 3: a provider is specified
+	endpoint := providerConfig.Endpoint
+	if endpoint == "" {
+		if provider == "minio" {
+			endpoint = minioDefaultEndpoint()
+		} else {
+			return objectstore.SessionInfo{}, fmt.Errorf("Invalid provider config, %s.defaultProviderSecretRef is required for this storage provider", provider)
+		}
+	}
+
+	// DefaultProviderSecretRef takes precedent over other configs
+	secretRef := providerConfig.DefaultProviderSecretRef
+	if secretRef == nil {
+		if provider == "minio" {
+			secretRef = &SecretRef{
+				SecretName:   minioArtifactSecretName,
+				SecretKeyKey: minioArtifactSecretKeyKey,
+				AccessKeyKey: minioArtifactAccessKeyKey,
+			}
+		} else {
+			return objectstore.SessionInfo{}, fmt.Errorf("Invalid provider config, %s.defaultProviderSecretRef is required for this storage provider", provider)
+		}
+	}
+
+	// if not provided, defaults to false
+	disableSSL := providerConfig.DisableSSL
+
+	region := providerConfig.Region
+	if region == "" {
+		return objectstore.SessionInfo{}, fmt.Errorf("Invalid provider config, missing provider region")
+	}
+
+	// if another secret is specified for a given bucket/prefix then that takes
+	// higher precedent over DefaultProviderSecretRef
+	authConfig := getBucketAuthByPrefix(providerConfig.AuthConfigs, bucketName, bucketPrefix)
+	if authConfig != nil {
+		if authConfig.SecretRef == nil || authConfig.SecretRef.SecretKeyKey == "" || authConfig.SecretRef.AccessKeyKey == "" || authConfig.SecretRef.SecretName == "" {
+			return objectstore.SessionInfo{}, fmt.Errorf("Invalid provider config, %s.AuthConfigs[].secretConfig is missing or invalid", provider)
+		}
+		secretRef = authConfig.SecretRef
+	}
+
+	return objectstore.SessionInfo{
+		Region:       region,
+		Endpoint:     endpoint,
+		DisableSSL:   disableSSL,
+		SecretName:   secretRef.SecretName,
+		AccessKeyKey: secretRef.AccessKeyKey,
+		SecretKeyKey: secretRef.SecretKeyKey,
+	}, nil
+}
+
+func getDefaultMinioSessionInfo() (sessionInfo objectstore.SessionInfo) {
+	sess := objectstore.SessionInfo{
+		Region:       "minio",
+		Endpoint:     minioDefaultEndpoint(),
+		DisableSSL:   true,
+		SecretName:   minioArtifactSecretName,
+		AccessKeyKey: minioArtifactAccessKeyKey,
+		SecretKeyKey: minioArtifactSecretKeyKey,
+	}
+	return sess
+}
+
+// getBucketProviders gets the provider configuration
+func (c *Config) getBucketProviders() (*BucketProviders, error) {
+	if c == nil || c.data[configBucketProviders] == "" {
+		return nil, nil
+	}
+	bucketProviders := &BucketProviders{}
+	configAuth := c.data[configBucketProviders]
+	err := yaml.Unmarshal([]byte(configAuth), bucketProviders)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshall kfp bucket auth, ensure that providers config is well formed: %w", err)
+	}
+	return bucketProviders, nil
+}
+
+func getBucketAuthByPrefix(authConfigs []AuthConfig, bucketName, prefix string) *AuthConfig {
+	for _, authConfig := range authConfigs {
+		if authConfig.BucketName == bucketName && strings.HasPrefix(prefix, authConfig.KeyPrefix) {
+			return &authConfig
+		}
+	}
+	return nil
+}
+
+// todo: before this change we were pulling this in the launcher
+// does that break backwards compatibility?
+// I think so, because older saved pipelines would not have "sessionInfo" in the mlmd tables
+// for backwards compatibility, if sessionInfo is not present, we can:
+// use minio sessionInfo if provider is minio, or just do the blob.bucket open (??)
+func minioDefaultEndpoint() string {
+	// Discover minio-service in the same namespace by env var.
+	// https://kubernetes.io/docs/concepts/services-networking/service/#environment-variables
+	minioHost := os.Getenv("MINIO_SERVICE_SERVICE_HOST")
+	minioPort := os.Getenv("MINIO_SERVICE_SERVICE_PORT")
+	if minioHost != "" && minioPort != "" {
+		// If there is a minio-service Kubernetes service in the same namespace,
+		// MINIO_SERVICE_SERVICE_HOST and MINIO_SERVICE_SERVICE_PORT env vars should
+		// exist by default, so we use it as default.
+		return minioHost + ":" + minioPort
+	}
+	// If the env vars do not exist, we guess that we are running in KFP multi user mode, so default minio service should be `minio-service.kubeflow:9000`.
+	glog.Infof("Cannot detect minio-service in the same namespace, default to %s as MinIO endpoint.", defaultMinioEndpointInMultiUserMode)
+	return defaultMinioEndpointInMultiUserMode
 }

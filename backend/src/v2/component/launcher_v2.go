@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -161,18 +160,10 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		return err
 	}
 	fingerPrint := execution.FingerPrint()
-	pipelineRoot := execution.GetPipeline().GetPipelineRoot()
-	bucketConfig, err := objectstore.ParseBucketConfig(pipelineRoot)
+	pipelineRoot, bucketSessionInfo := execution.GetPipeline().GetPipelineBucketSessionProperties()
+	bucketConfig, err := objectstore.ParseBucketConfig(pipelineRoot, bucketSessionInfo)
 	if err != nil {
 		return err
-	}
-	cfg, err := config.FromConfigMap(ctx, l.k8sClient, l.options.Namespace)
-	if err != nil {
-		return fmt.Errorf("failed to read kfp-launcher configmap: %w", err)
-	}
-	bucketConfig.BucketAuth, err = cfg.GetBucketAuth()
-	if err != nil {
-		return fmt.Errorf("error when attempting to retrieve bucket auth config from kfp-launcher configmap: %w", err)
 	}
 	bucket, err := objectstore.OpenBucket(ctx, l.k8sClient, l.options.Namespace, bucketConfig)
 	if err != nil {
