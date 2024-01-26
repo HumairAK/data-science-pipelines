@@ -97,7 +97,7 @@ typing-extensions==4.7.1
     # via
     #   importlib-metadata
     #   kfp
-urllib3==1.26.16
+urllib3==1.26.18
     # via
     #   google-auth
     #   kfp
@@ -111,3 +111,4 @@ zipp==3.15.0
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools
+setuptools>=65.5.1 # not directly required, pinned by Snyk to avoid a vulnerability
