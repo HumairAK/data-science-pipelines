@@ -41,31 +41,74 @@ const (
 )
 
 type BucketProviders struct {
-	Minio *ProviderConfig `json:"minio"`
-	S3    *ProviderConfig `json:"s3"`
-	GCS   *ProviderConfig `json:"gcs"`
+	Minio *MinioProviderConfig `json:"minio"`
+	S3    *S3ProviderConfig    `json:"s3"`
+	GCS   *GCSProviderConfig   `json:"gcs"`
 }
 
-type ProviderConfig struct {
-	Endpoint                 string     `json:"endpoint"`
-	DefaultProviderSecretRef *SecretRef `json:"defaultProviderSecretRef"`
-	Region                   string     `json:"region"`
+type MinioProviderConfig struct {
+	Endpoint    string         `json:"endpoint"`
+	Credentials *S3Credentials `json:"credentials"`
 	// optional
 	DisableSSL bool `json:"disableSSL"`
 	// optional, ordered, the auth config for the first matching prefix is used
-	AuthConfigs []AuthConfig `json:"authConfigs"`
+	Overrides []MinioOverrides `json:"Overrides"`
+}
+type MinioOverrides struct {
+	Endpoint     string `json:"endpoint"`
+	BucketName   string `json:"bucketName"`
+	KeyPrefix    string `json:"keyPrefix"`
+	*S3SecretRef `json:"secretRef"`
 }
 
-type AuthConfig struct {
-	BucketName string `json:"bucketName"`
-	KeyPrefix  string `json:"keyPrefix"`
-	*SecretRef `json:"secretRef"`
+type S3ProviderConfig struct {
+	Endpoint    string         `json:"endpoint"`
+	Credentials *S3Credentials `json:"credentials"`
+	Region      string         `json:"region"`
+	// optional
+	DisableSSL bool `json:"disableSSL"`
+	// optional, ordered, the auth config for the first matching prefix is used
+	Overrides []S3Overrides `json:"Overrides"`
 }
-
-type SecretRef struct {
+type S3Credentials struct {
+	// optional
+	FromeEnv  bool         `json:"fromEnv"`
+	SecretRef *S3SecretRef `json:"secretRef"`
+}
+type S3Overrides struct {
+	Endpoint    string         `json:"endpoint"`
+	Region      string         `json:"region"`
+	BucketName  string         `json:"bucketName"`
+	KeyPrefix   string         `json:"keyPrefix"`
+	Credentials *S3Credentials `json:"credentials"`
+}
+type S3SecretRef struct {
 	SecretName   string `json:"secretName"`
 	AccessKeyKey string `json:"accessKeyKey"`
 	SecretKeyKey string `json:"secretKeyKey"`
+}
+
+type GCSProviderConfig struct {
+	Endpoint    string          `json:"endpoint"`
+	Credentials *GCSCredentials `json:"credentials"`
+	// optional
+	DisableSSL bool `json:"disableSSL"`
+	// optional, ordered, the auth config for the first matching prefix is used
+	Overrides []GCSOverrides `json:"Overrides"`
+}
+type GCSOverrides struct {
+	BucketName  string          `json:"bucketName"`
+	KeyPrefix   string          `json:"keyPrefix"`
+	Credentials *GCSCredentials `json:"credentials"`
+}
+type GCSCredentials struct {
+	// optional
+	FromeEnv  bool          `json:"fromEnv"`
+	SecretRef *GCSSecretRef `json:"secretRef"`
+}
+type GCSSecretRef struct {
+	SecretName string `json:"secretName"`
+	TokenKey   string `json:"tokenKey"`
 }
 
 // Config is the KFP runtime configuration.
@@ -203,7 +246,7 @@ func (c *Config) GetBucketSessionInfo(path string) (objectstore.SessionInfo, err
 	authConfig := getBucketAuthByPrefix(providerConfig.AuthConfigs, bucketName, bucketPrefix)
 	if authConfig != nil {
 		if authConfig.SecretRef == nil || authConfig.SecretRef.SecretKeyKey == "" || authConfig.SecretRef.AccessKeyKey == "" || authConfig.SecretRef.SecretName == "" {
-			return objectstore.SessionInfo{}, fmt.Errorf("Invalid provider config, %s.AuthConfigs[].secretRef is missing or invalid", provider)
+			return objectstore.SessionInfo{}, fmt.Errorf("Invalid provider config, %s.Overrides[].secretRef is missing or invalid", provider)
 		}
 		secretRef = authConfig.SecretRef
 	}
@@ -245,7 +288,7 @@ func (c *Config) getBucketProviders() (*BucketProviders, error) {
 }
 
 // getBucketAuthByPrefix returns first matching bucketname and prefix in authConfigs
-func getBucketAuthByPrefix(authConfigs []AuthConfig, bucketName, prefix string) *AuthConfig {
+func getBucketAuthByPrefix(authConfigs []Overrides, bucketName, prefix string) *Overrides {
 	for _, authConfig := range authConfigs {
 		if authConfig.BucketName == bucketName && strings.HasPrefix(prefix, authConfig.KeyPrefix) {
 			return &authConfig

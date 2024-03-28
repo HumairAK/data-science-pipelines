@@ -51,9 +51,19 @@ type Config struct {
 }
 
 type SessionInfo struct {
-	Region       string
-	Endpoint     string
-	DisableSSL   bool
+	Region     string
+	Endpoint   string
+	DisableSSL bool
+	GCSCredentialsSecret
+	S3CredentialsSecret
+}
+
+type GCSCredentialsSecret struct {
+	SecretName string
+	TokenKey   string
+}
+
+type S3CredentialsSecret struct {
 	SecretName   string
 	AccessKeyKey string
 	SecretKeyKey string
@@ -70,6 +80,7 @@ func OpenBucket(ctx context.Context, k8sClient kubernetes.Interface, namespace s
 		return nil, fmt.Errorf("Failed to retrieve credentials for bucket %s: %w", config.BucketName, err)
 	}
 	if sess != nil {
+
 		openedBucket, err := s3blob.OpenBucket(ctx, sess, config.BucketName, nil)
 		if err != nil {
 			return nil, err
