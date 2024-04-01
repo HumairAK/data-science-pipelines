@@ -47,7 +47,7 @@ type GCSSecretRef struct {
 func (p GCSProviderConfig) ProvideSessionInfo(bucketName, bucketPrefix string) (objectstore.SessionInfo, error) {
 	params := map[string]string{}
 
-	if p.Credentials != nil {
+	if p.Credentials == nil {
 		return objectstore.SessionInfo{}, fmt.Errorf("no default credentials provided in provider config")
 	}
 
@@ -66,7 +66,7 @@ func (p GCSProviderConfig) ProvideSessionInfo(bucketName, bucketPrefix string) (
 	// If there's a matching override, then override defaults with provided configs
 	override := p.getOverrideByPrefix(bucketName, bucketPrefix)
 	if override != nil {
-		if override.Credentials != nil {
+		if override.Credentials == nil {
 			return objectstore.SessionInfo{}, fmt.Errorf("no override credentials provided in provider config")
 		}
 		params["fromEnv"] = strconv.FormatBool(override.Credentials.FromEnv)

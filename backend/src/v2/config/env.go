@@ -22,6 +22,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 	"io/ioutil"
 	"sigs.k8s.io/yaml"
+	"strconv"
 	"strings"
 
 	"github.com/golang/glog"
@@ -152,14 +153,15 @@ func (c *Config) GetBucketSessionInfo(path string) (objectstore.SessionInfo, err
 
 func getDefaultMinioSessionInfo() (objectstore.SessionInfo, error) {
 	sess := objectstore.SessionInfo{
-		Region:     "minio",
-		Endpoint:   objectstore.MinioDefaultEndpoint(),
-		DisableSSL: true,
-		S3CredentialsSecret: objectstore.S3CredentialsSecret{
-			FromEnv:      false,
-			SecretName:   minioArtifactSecretName,
-			AccessKeyKey: minioArtifactAccessKeyKey,
-			SecretKeyKey: minioArtifactSecretKeyKey,
+		Provider: "minio",
+		Params: map[string]string{
+			"region":       "minio",
+			"endpoint":     objectstore.MinioDefaultEndpoint(),
+			"disableSsl":   strconv.FormatBool(true),
+			"fromEnv":      strconv.FormatBool(false),
+			"secretName":   minioArtifactSecretName,
+			"accessKeyKey": minioArtifactAccessKeyKey,
+			"secretKeyKey": minioArtifactSecretKeyKey,
 		},
 	}
 	return sess, nil

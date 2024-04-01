@@ -55,6 +55,10 @@ type S3SecretRef struct {
 }
 
 func (p S3ProviderConfig) ProvideSessionInfo(bucketName, bucketPrefix string) (objectstore.SessionInfo, error) {
+	invalidConfigErr := func(err error) error {
+		return fmt.Errorf("invalid provider config: %w", err)
+	}
+
 	params := map[string]string{}
 	params["region"] = p.Region
 	params["endpoint"] = p.Endpoint
@@ -65,8 +69,8 @@ func (p S3ProviderConfig) ProvideSessionInfo(bucketName, bucketPrefix string) (o
 		params["disableSSL"] = strconv.FormatBool(*p.DisableSSL)
 	}
 
-	if p.Credentials != nil {
-		return objectstore.SessionInfo{}, fmt.Errorf("no default credentials provided in provider config")
+	if p.Credentials == nil {
+		return objectstore.SessionInfo{}, invalidConfigErr(fmt.Errorf("no default credentials provided in provider config"))
 	}
 
 	params["fromEnv"] = strconv.FormatBool(p.Credentials.FromEnv)
@@ -94,7 +98,7 @@ func (p S3ProviderConfig) ProvideSessionInfo(bucketName, bucketPrefix string) (o
 		if override.DisableSSL != nil {
 			sessionInfo.Params["disableSSL"] = strconv.FormatBool(*override.DisableSSL)
 		}
-		if override.Credentials != nil {
+		if override.Credentials == nil {
 			return objectstore.SessionInfo{}, fmt.Errorf("no override credentials provided in provider config")
 		}
 		params["fromEnv"] = strconv.FormatBool(override.Credentials.FromEnv)
