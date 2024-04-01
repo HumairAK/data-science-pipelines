@@ -42,7 +42,6 @@ func OpenBucket(ctx context.Context, k8sClient kubernetes.Interface, namespace s
 			err = fmt.Errorf("Failed to open bucket %q: %w", config.BucketName, err)
 		}
 	}()
-
 	if config.Session != nil {
 		if config.Session.Provider == "minio" || config.Session.Provider == "s3" {
 			sess, err1 := createS3BucketSession(ctx, namespace, config.Session, k8sClient)
@@ -205,23 +204,20 @@ func downloadFile(ctx context.Context, bucket *blob.Bucket, blobFilePath, localF
 }
 
 func getGCSTokenClient(ctx context.Context, namespace string, sessionInfo *SessionInfo, clientSet kubernetes.Interface) (client *gcp.HTTPClient, err error) {
-	credsInfo := sessionInfo.GCSCredentialsSecret
-	secretName, tokenKey := credsInfo.SecretName, credsInfo.TokenKey
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("Failed to get Bucket credentials from secret name=%q namespace=%q: %w", secretName, namespace, err)
-		}
-	}()
-	if credsInfo.FromEnv {
-		return nil, nil
-	}
-	secret, err := clientSet.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
+	params, err := StructuredGCSParams(sessionInfo.Params)
 	if err != nil {
 		return nil, err
 	}
-	tokenJson, ok := secret.Data[tokenKey]
+	if params.FromEnv {
+		return nil, nil
+	}
+	secret, err := clientSet.CoreV1().Secrets(namespace).Get(ctx, params.SecretName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	tokenJson, ok := secret.Data[params.TokenKey]
 	if !ok || len(tokenJson) == 0 {
-		return nil, fmt.Errorf("key '%s' not found or is empty", tokenKey)
+		return nil, fmt.Errorf("key '%s' not found or is empty", params.TokenKey)
 	}
 	creds, err := google.CredentialsFromJSON(ctx, tokenJson)
 	if err != nil {
@@ -238,23 +234,23 @@ func createS3BucketSession(ctx context.Context, namespace string, sessionInfo *S
 	if sessionInfo == nil {
 		return nil, nil
 	}
-
 	config := &aws.Config{}
-	credsLocation := sessionInfo.S3CredentialsSecret
-
-	if credsLocation.FromEnv {
+	params, err := StructuredS3Params(sessionInfo.Params)
+	if err != nil {
+		return nil, err
+	}
+	if params.FromEnv {
 		return nil, nil
 	}
-	creds, err := getS3BucketCredential(ctx, client, namespace, credsLocation.SecretName, credsLocation.SecretKeyKey, credsLocation.AccessKeyKey)
+	creds, err := getS3BucketCredential(ctx, client, namespace, params.SecretName, params.SecretKeyKey, params.AccessKeyKey)
 	if err != nil {
 		return nil, err
 	}
 	config.Credentials = creds
-	config.Region = aws.String(sessionInfo.Region)
-	config.Endpoint = aws.String(sessionInfo.Endpoint)
-	config.DisableSSL = aws.Bool(sessionInfo.DisableSSL)
+	config.Region = aws.String(params.Region)
+	config.Endpoint = aws.String(params.Endpoint)
+	config.DisableSSL = aws.Bool(params.DisableSSL)
 	config.S3ForcePathStyle = aws.Bool(true)
-
 	sess, err := session.NewSession(config)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create object store session, %v", err)

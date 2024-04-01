@@ -22,6 +22,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -38,25 +39,24 @@ type Config struct {
 }
 
 type SessionInfo struct {
-	Provider   string
-	Region     string
-	Endpoint   string
-	DisableSSL bool
-	GCSCredentialsSecret
-	S3CredentialsSecret
+	Provider string
+	Params   map[string]string
 }
 
-type GCSCredentialsSecret struct {
+type GCSParams struct {
 	FromEnv    bool
 	SecretName string
 	TokenKey   string
 }
 
-type S3CredentialsSecret struct {
+type S3Params struct {
 	FromEnv      bool
 	SecretName   string
 	AccessKeyKey string
 	SecretKeyKey string
+	Region       string
+	Endpoint     string
+	DisableSSL   bool
 }
 
 func (b *Config) bucketURL() string {
@@ -176,4 +176,58 @@ func GetSessionInfoFromString(sessionInfoJSON string) (*SessionInfo, error) {
 		return nil, fmt.Errorf("Encountered error when attempting to unmarshall bucket session properties: %w", err)
 	}
 	return sessionInfo, nil
+}
+
+// Todo: Add validation?
+func StructuredS3Params(p map[string]string) (*S3Params, error) {
+	sparams := &S3Params{}
+	if val, ok := p["fromEnv"]; ok {
+		boolVal, err := strconv.ParseBool(val)
+		if err != nil {
+			return nil, err
+		}
+		sparams.FromEnv = boolVal
+	}
+	if val, ok := p["secretName"]; ok {
+		sparams.SecretName = val
+	}
+	if val, ok := p["accessKeyKey"]; ok {
+		sparams.AccessKeyKey = val
+	}
+	if val, ok := p["secretKeyKey"]; ok {
+		sparams.SecretKeyKey = val
+	}
+	if val, ok := p["region"]; ok {
+		sparams.Region = val
+	}
+	if val, ok := p["endpoint"]; ok {
+		sparams.Endpoint = val
+	}
+	if val, ok := p["disableSSL"]; ok {
+		boolVal, err := strconv.ParseBool(val)
+		if err != nil {
+			return nil, err
+		}
+		sparams.DisableSSL = boolVal
+	}
+	return sparams, nil
+}
+
+// Todo: Add validation?
+func StructuredGCSParams(p map[string]string) (*GCSParams, error) {
+	sparams := &GCSParams{}
+	if val, ok := p["fromEnv"]; ok {
+		boolVal, err := strconv.ParseBool(val)
+		if err != nil {
+			return nil, err
+		}
+		sparams.FromEnv = boolVal
+	}
+	if val, ok := p["secretName"]; ok {
+		sparams.SecretName = val
+	}
+	if val, ok := p["tokenKey"]; ok {
+		sparams.TokenKey = val
+	}
+	return sparams, nil
 }
