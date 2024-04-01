@@ -343,7 +343,7 @@ func Test_createBucketSession(t *testing.T) {
 				fmt.Printf(testersecret.Namespace)
 			}
 
-			actualSession, err := createBucketSession(ctx, test.ns, test.sessionInfo, fakeKubernetesClientset)
+			actualSession, err := createS3BucketSession(ctx, test.ns, test.sessionInfo, fakeKubernetesClientset)
 			if test.wantErr {
 				assert.Error(t, err)
 				if test.errorMsg != "" {

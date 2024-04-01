@@ -41,74 +41,13 @@ const (
 )
 
 type BucketProviders struct {
-	Minio *MinioProviderConfig `json:"minio"`
-	S3    *S3ProviderConfig    `json:"s3"`
-	GCS   *GCSProviderConfig   `json:"gcs"`
+	Minio *S3ProviderConfig  `json:"minio"`
+	S3    *S3ProviderConfig  `json:"s3"`
+	GCS   *GCSProviderConfig `json:"gcs"`
 }
 
-type MinioProviderConfig struct {
-	Endpoint    string         `json:"endpoint"`
-	Credentials *S3Credentials `json:"credentials"`
-	// optional
-	DisableSSL bool `json:"disableSSL"`
-	// optional, ordered, the auth config for the first matching prefix is used
-	Overrides []MinioOverrides `json:"Overrides"`
-}
-type MinioOverrides struct {
-	Endpoint     string `json:"endpoint"`
-	BucketName   string `json:"bucketName"`
-	KeyPrefix    string `json:"keyPrefix"`
-	*S3SecretRef `json:"secretRef"`
-}
-
-type S3ProviderConfig struct {
-	Endpoint    string         `json:"endpoint"`
-	Credentials *S3Credentials `json:"credentials"`
-	Region      string         `json:"region"`
-	// optional
-	DisableSSL bool `json:"disableSSL"`
-	// optional, ordered, the auth config for the first matching prefix is used
-	Overrides []S3Overrides `json:"Overrides"`
-}
-type S3Credentials struct {
-	// optional
-	FromeEnv  bool         `json:"fromEnv"`
-	SecretRef *S3SecretRef `json:"secretRef"`
-}
-type S3Overrides struct {
-	Endpoint    string         `json:"endpoint"`
-	Region      string         `json:"region"`
-	BucketName  string         `json:"bucketName"`
-	KeyPrefix   string         `json:"keyPrefix"`
-	Credentials *S3Credentials `json:"credentials"`
-}
-type S3SecretRef struct {
-	SecretName   string `json:"secretName"`
-	AccessKeyKey string `json:"accessKeyKey"`
-	SecretKeyKey string `json:"secretKeyKey"`
-}
-
-type GCSProviderConfig struct {
-	Endpoint    string          `json:"endpoint"`
-	Credentials *GCSCredentials `json:"credentials"`
-	// optional
-	DisableSSL bool `json:"disableSSL"`
-	// optional, ordered, the auth config for the first matching prefix is used
-	Overrides []GCSOverrides `json:"Overrides"`
-}
-type GCSOverrides struct {
-	BucketName  string          `json:"bucketName"`
-	KeyPrefix   string          `json:"keyPrefix"`
-	Credentials *GCSCredentials `json:"credentials"`
-}
-type GCSCredentials struct {
-	// optional
-	FromeEnv  bool          `json:"fromEnv"`
-	SecretRef *GCSSecretRef `json:"secretRef"`
-}
-type GCSSecretRef struct {
-	SecretName string `json:"secretName"`
-	TokenKey   string `json:"tokenKey"`
+type SessionInfoProvider interface {
+	ProvideSessionInfo(bucketName, bucketPrefix string) (objectstore.SessionInfo, error)
 }
 
 // Config is the KFP runtime configuration.
@@ -177,7 +116,11 @@ func (c *Config) GetBucketSessionInfo(path string) (objectstore.SessionInfo, err
 	if bucketProviders == nil {
 		// Use default minio if provider is minio, otherwise we default to executor env
 		if provider == "minio" {
-			return getDefaultMinioSessionInfo(), nil
+			sess, sessErr := getDefaultMinioSessionInfo()
+			if sessErr != nil {
+				return objectstore.SessionInfo{}, nil
+			}
+			return sess, nil
 		} else {
 			// If not using minio, and no other provider config is provided
 			// rely on executor env (e.g. IRSA) for authenticating with provider
@@ -185,92 +128,42 @@ func (c *Config) GetBucketSessionInfo(path string) (objectstore.SessionInfo, err
 		}
 	}
 
-	var providerConfig *ProviderConfig
+	var sessProvider SessionInfoProvider
+
 	switch provider {
 	case "minio":
-		providerConfig = bucketProviders.Minio
+		sessProvider = bucketProviders.Minio
 		break
 	case "s3":
-		providerConfig = bucketProviders.S3
+		sessProvider = bucketProviders.S3
 		break
 	case "gs":
-		providerConfig = bucketProviders.GCS
+		sessProvider = bucketProviders.GCS
 		break
 	default:
 		return objectstore.SessionInfo{}, fmt.Errorf("Encountered unsupported provider in BucketProviders %s", provider)
 	}
 
-	// Case 2: "providers" field is empty {}
-	if providerConfig == nil {
-		if provider == "minio" {
-			return getDefaultMinioSessionInfo(), nil
-		} else {
-			return objectstore.SessionInfo{}, nil
-		}
+	sess, err := sessProvider.ProvideSessionInfo(bucketName, bucketPrefix)
+	if err != nil {
+		return objectstore.SessionInfo{}, err
 	}
-
-	// Case 3: a provider is specified
-	endpoint := providerConfig.Endpoint
-	if endpoint == "" {
-		if provider == "minio" {
-			endpoint = objectstore.MinioDefaultEndpoint()
-		} else {
-			return objectstore.SessionInfo{}, fmt.Errorf("Invalid provider config, %s.defaultProviderSecretRef is required for this storage provider", provider)
-		}
-	}
-
-	// DefaultProviderSecretRef takes precedent over other configs
-	secretRef := providerConfig.DefaultProviderSecretRef
-	if secretRef == nil {
-		if provider == "minio" {
-			secretRef = &SecretRef{
-				SecretName:   minioArtifactSecretName,
-				SecretKeyKey: minioArtifactSecretKeyKey,
-				AccessKeyKey: minioArtifactAccessKeyKey,
-			}
-		} else {
-			return objectstore.SessionInfo{}, fmt.Errorf("Invalid provider config, %s.defaultProviderSecretRef is required for this storage provider", provider)
-		}
-	}
-
-	// if not provided, defaults to false
-	disableSSL := providerConfig.DisableSSL
-
-	region := providerConfig.Region
-	if region == "" {
-		return objectstore.SessionInfo{}, fmt.Errorf("Invalid provider config, missing provider region")
-	}
-
-	// if another secret is specified for a given bucket/prefix then that takes
-	// higher precedent over DefaultProviderSecretRef
-	authConfig := getBucketAuthByPrefix(providerConfig.AuthConfigs, bucketName, bucketPrefix)
-	if authConfig != nil {
-		if authConfig.SecretRef == nil || authConfig.SecretRef.SecretKeyKey == "" || authConfig.SecretRef.AccessKeyKey == "" || authConfig.SecretRef.SecretName == "" {
-			return objectstore.SessionInfo{}, fmt.Errorf("Invalid provider config, %s.Overrides[].secretRef is missing or invalid", provider)
-		}
-		secretRef = authConfig.SecretRef
-	}
-
-	return objectstore.SessionInfo{
-		Region:       region,
-		Endpoint:     endpoint,
-		DisableSSL:   disableSSL,
-		SecretName:   secretRef.SecretName,
-		AccessKeyKey: secretRef.AccessKeyKey,
-		SecretKeyKey: secretRef.SecretKeyKey,
-	}, nil
+	return sess, nil
 }
 
-func getDefaultMinioSessionInfo() (sessionInfo objectstore.SessionInfo) {
+func getDefaultMinioSessionInfo() (objectstore.SessionInfo, error) {
 	sess := objectstore.SessionInfo{
-		Region:       "minio",
-		Endpoint:     objectstore.MinioDefaultEndpoint(),
-		DisableSSL:   true,
-		SecretName:   minioArtifactSecretName,
-		AccessKeyKey: minioArtifactAccessKeyKey,
-		SecretKeyKey: minioArtifactSecretKeyKey,
+		Region:     "minio",
+		Endpoint:   objectstore.MinioDefaultEndpoint(),
+		DisableSSL: true,
+		S3CredentialsSecret: objectstore.S3CredentialsSecret{
+			FromEnv:      false,
+			SecretName:   minioArtifactSecretName,
+			AccessKeyKey: minioArtifactAccessKeyKey,
+			SecretKeyKey: minioArtifactSecretKeyKey,
+		},
 	}
-	return sess
+	return sess, nil
 }
 
 // getBucketProviders gets the provider configuration
@@ -285,14 +178,4 @@ func (c *Config) getBucketProviders() (*BucketProviders, error) {
 		return nil, fmt.Errorf("failed to unmarshall kfp bucket providers, ensure that providers config is well formed: %w", err)
 	}
 	return bucketProviders, nil
-}
-
-// getBucketAuthByPrefix returns first matching bucketname and prefix in authConfigs
-func getBucketAuthByPrefix(authConfigs []Overrides, bucketName, prefix string) *Overrides {
-	for _, authConfig := range authConfigs {
-		if authConfig.BucketName == bucketName && strings.HasPrefix(prefix, authConfig.KeyPrefix) {
-			return &authConfig
-		}
-	}
-	return nil
 }
