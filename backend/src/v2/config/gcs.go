@@ -15,6 +15,7 @@
 package config
 
 import (
+	"fmt"
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 	"strings"
 )
@@ -22,10 +23,10 @@ import (
 type GCSProviderConfig struct {
 	Credentials *GCSCredentials `json:"credentials"`
 	// optional, ordered, the auth config for the first matching prefix is used
-	Overrides []GCSOverrides `json:"Overrides"`
+	Overrides []GCSOverride `json:"Overrides"`
 }
 
-type GCSOverrides struct {
+type GCSOverride struct {
 	BucketName  string          `json:"bucketName"`
 	KeyPrefix   string          `json:"keyPrefix"`
 	Credentials *GCSCredentials `json:"credentials"`
@@ -40,16 +41,54 @@ type GCSSecretRef struct {
 	TokenKey   string `json:"tokenKey"`
 }
 
-func (p *GCSProviderConfig) ProvideSessionInfo(bucketName, bucketPrefix string) (objectstore.SessionInfo, error) {
-	//TODO implement me
-	panic("implement me")
+func (p GCSProviderConfig) ProvideSessionInfo(bucketName, bucketPrefix string) (objectstore.SessionInfo, error) {
+	// Get defaults
+	sessionInfo := objectstore.SessionInfo{
+		Provider: "gcs",
+		Region:   p.Region,
+		Endpoint: p.Endpoint,
+		S3CredentialsSecret: objectstore.S3CredentialsSecret{
+			FromEnv:      p.Credentials.FromEnv,
+			SecretName:   p.Credentials.SecretRef.SecretName,
+			AccessKeyKey: p.Credentials.SecretRef.AccessKeyKey,
+			SecretKeyKey: p.Credentials.SecretRef.SecretKeyKey,
+		},
+	}
+	if p.DisableSSL == nil {
+		sessionInfo.DisableSSL = false
+	} else {
+		sessionInfo.DisableSSL = *p.DisableSSL
+	}
+	// If there'p a matching override, then override defaults with provided configs
+	override := p.getBucketAuthByPrefix(bucketName, bucketPrefix)
+	if override != nil {
+		if override.Endpoint != "" {
+			sessionInfo.Endpoint = override.Endpoint
+		}
+		if override.Region != "" {
+			sessionInfo.Region = override.Region
+		}
+		if override.DisableSSL != nil {
+			sessionInfo.DisableSSL = *p.DisableSSL
+		}
+		if override.Credentials != nil {
+			return objectstore.SessionInfo{}, fmt.Errorf("no override credentials provided in provider config")
+		}
+		sessionInfo.S3CredentialsSecret = objectstore.S3CredentialsSecret{
+			FromEnv:      override.Credentials.FromEnv,
+			SecretName:   override.Credentials.SecretRef.SecretName,
+			AccessKeyKey: override.Credentials.SecretRef.AccessKeyKey,
+			SecretKeyKey: override.Credentials.SecretRef.SecretKeyKey,
+		}
+	}
+	return sessionInfo, nil
 }
 
 // getBucketAuthByPrefix returns first matching bucketname and prefix in authConfigs
-func (p *GCSProviderConfig) GetBucketAuthByPrefix() (objectstore.SessionInfo, error) {
-	for _, authConfig := range authConfigs {
-		if authConfig.BucketName == bucketName && strings.HasPrefix(prefix, authConfig.KeyPrefix) {
-			return &authConfig
+func (p GCSProviderConfig) getBucketAuthByPrefix(bucketName, prefix string) *GCSOverride {
+	for _, override := range p.Overrides {
+		if override.BucketName == bucketName && strings.HasPrefix(prefix, override.KeyPrefix) {
+			return &override
 		}
 	}
 	return nil

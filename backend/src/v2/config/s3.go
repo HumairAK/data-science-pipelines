@@ -14,7 +14,11 @@
 
 package config
 
-import "github.com/kubeflow/pipelines/backend/src/v2/objectstore"
+import (
+	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
+	"strings"
+)
 
 type S3ProviderConfig struct {
 	Endpoint    string         `json:"endpoint"`
@@ -22,20 +26,24 @@ type S3ProviderConfig struct {
 	// optional for any non aws s3 provider
 	Region string `json:"region"`
 	// optional
-	DisableSSL bool `json:"disableSSL"`
+	DisableSSL *bool `json:"disableSSL"`
 	// optional, ordered, the auth config for the first matching prefix is used
-	Overrides []S3Overrides `json:"Overrides"`
+	Overrides []S3Override `json:"Overrides"`
 }
 type S3Credentials struct {
 	// optional
-	FromeEnv  bool         `json:"fromEnv"`
+	FromEnv   bool         `json:"fromEnv"`
 	SecretRef *S3SecretRef `json:"secretRef"`
 }
-type S3Overrides struct {
-	Endpoint    string         `json:"endpoint"`
-	Region      string         `json:"region"`
-	BucketName  string         `json:"bucketName"`
-	KeyPrefix   string         `json:"keyPrefix"`
+type S3Override struct {
+	Endpoint string `json:"endpoint"`
+	// optional for any non aws s3 provider
+	Region string `json:"region"`
+	// optional
+	DisableSSL *bool  `json:"disableSSL"`
+	BucketName string `json:"bucketName"`
+	KeyPrefix  string `json:"keyPrefix"`
+	// required
 	Credentials *S3Credentials `json:"credentials"`
 }
 type S3SecretRef struct {
@@ -44,7 +52,55 @@ type S3SecretRef struct {
 	SecretKeyKey string `json:"secretKeyKey"`
 }
 
-func (s S3ProviderConfig) ProvideSessionInfo(bucketName, bucketPrefix string) (objectstore.SessionInfo, error) {
-	//TODO implement me
-	panic("implement me")
+func (p S3ProviderConfig) ProvideSessionInfo(bucketName, bucketPrefix string) (objectstore.SessionInfo, error) {
+	// Get defaults
+	sessionInfo := objectstore.SessionInfo{
+		Provider: "s3",
+		Region:   p.Region,
+		Endpoint: p.Endpoint,
+		S3CredentialsSecret: objectstore.S3CredentialsSecret{
+			FromEnv:      p.Credentials.FromEnv,
+			SecretName:   p.Credentials.SecretRef.SecretName,
+			AccessKeyKey: p.Credentials.SecretRef.AccessKeyKey,
+			SecretKeyKey: p.Credentials.SecretRef.SecretKeyKey,
+		},
+	}
+	if p.DisableSSL == nil {
+		sessionInfo.DisableSSL = false
+	} else {
+		sessionInfo.DisableSSL = *p.DisableSSL
+	}
+	// If there'p a matching override, then override defaults with provided configs
+	override := p.getBucketAuthByPrefix(bucketName, bucketPrefix)
+	if override != nil {
+		if override.Endpoint != "" {
+			sessionInfo.Endpoint = override.Endpoint
+		}
+		if override.Region != "" {
+			sessionInfo.Region = override.Region
+		}
+		if override.DisableSSL != nil {
+			sessionInfo.DisableSSL = *p.DisableSSL
+		}
+		if override.Credentials != nil {
+			return objectstore.SessionInfo{}, fmt.Errorf("no override credentials provided in provider config")
+		}
+		sessionInfo.S3CredentialsSecret = objectstore.S3CredentialsSecret{
+			FromEnv:      override.Credentials.FromEnv,
+			SecretName:   override.Credentials.SecretRef.SecretName,
+			AccessKeyKey: override.Credentials.SecretRef.AccessKeyKey,
+			SecretKeyKey: override.Credentials.SecretRef.SecretKeyKey,
+		}
+	}
+	return sessionInfo, nil
+}
+
+// getBucketAuthByPrefix returns first matching bucketname and prefix in authConfigs
+func (p S3ProviderConfig) getBucketAuthByPrefix(bucketName, prefix string) *S3Override {
+	for _, override := range p.Overrides {
+		if override.BucketName == bucketName && strings.HasPrefix(prefix, override.KeyPrefix) {
+			return &override
+		}
+	}
+	return nil
 }

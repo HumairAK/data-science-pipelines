@@ -71,6 +71,7 @@ func OpenBucket(ctx context.Context, k8sClient kubernetes.Interface, namespace s
 				return blob.PrefixedBucket(openedBucket, config.Prefix), nil
 			}
 		}
+
 	}
 	// When no provider config is provided, or "FromEnv" is specified, use default credentials from the environment
 	return blob.OpenBucket(ctx, config.bucketURL())

@@ -112,7 +112,6 @@ func (c *Config) GetBucketSessionInfo(path string) (objectstore.SessionInfo, err
 		return objectstore.SessionInfo{}, err
 	}
 
-	// Case 1: No "providers" field in kfp-launcher
 	if bucketProviders == nil {
 		// Use default minio if provider is minio, otherwise we default to executor env
 		if provider == "minio" {
