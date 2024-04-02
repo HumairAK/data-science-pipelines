@@ -103,6 +103,9 @@ func (p S3ProviderConfig) ProvideSessionInfo(bucketName, bucketPrefix string) (o
 		}
 		params["fromEnv"] = strconv.FormatBool(override.Credentials.FromEnv)
 		if !override.Credentials.FromEnv {
+			if override.Credentials.SecretRef == nil {
+				return objectstore.SessionInfo{}, fmt.Errorf("no override credentials secretref field provided in provider config")
+			}
 			params["secretName"] = override.Credentials.SecretRef.SecretName
 			params["accessKeyKey"] = override.Credentials.SecretRef.AccessKeyKey
 			params["secretKeyKey"] = override.Credentials.SecretRef.SecretKeyKey

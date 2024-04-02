@@ -42,9 +42,9 @@ const (
 )
 
 type BucketProviders struct {
-	Minio *S3ProviderConfig  `json:"minio"`
-	S3    *S3ProviderConfig  `json:"s3"`
-	GCS   *GCSProviderConfig `json:"gcs"`
+	Minio *MinioProviderConfig `json:"minio"`
+	S3    *S3ProviderConfig    `json:"s3"`
+	GCS   *GCSProviderConfig   `json:"gcs"`
 }
 
 type SessionInfoProvider interface {
@@ -151,6 +151,20 @@ func (c *Config) GetBucketSessionInfo(path string) (objectstore.SessionInfo, err
 	return sess, nil
 }
 
+// getBucketProviders gets the provider configuration
+func (c *Config) getBucketProviders() (*BucketProviders, error) {
+	if c == nil || c.data[configBucketProviders] == "" {
+		return nil, nil
+	}
+	bucketProviders := &BucketProviders{}
+	configAuth := c.data[configBucketProviders]
+	err := yaml.Unmarshal([]byte(configAuth), bucketProviders)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshall kfp bucket providers, ensure that providers config is well formed: %w", err)
+	}
+	return bucketProviders, nil
+}
+
 func getDefaultMinioSessionInfo() (objectstore.SessionInfo, error) {
 	sess := objectstore.SessionInfo{
 		Provider: "minio",
@@ -165,18 +179,4 @@ func getDefaultMinioSessionInfo() (objectstore.SessionInfo, error) {
 		},
 	}
 	return sess, nil
-}
-
-// getBucketProviders gets the provider configuration
-func (c *Config) getBucketProviders() (*BucketProviders, error) {
-	if c == nil || c.data[configBucketProviders] == "" {
-		return nil, nil
-	}
-	bucketProviders := &BucketProviders{}
-	configAuth := c.data[configBucketProviders]
-	err := yaml.Unmarshal([]byte(configAuth), bucketProviders)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshall kfp bucket providers, ensure that providers config is well formed: %w", err)
-	}
-	return bucketProviders, nil
 }

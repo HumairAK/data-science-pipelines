@@ -15,10 +15,21 @@
 package config
 
 import (
+	"fmt"
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 	"github.com/stretchr/testify/assert"
+	"os"
+	"sigs.k8s.io/yaml"
 	"testing"
 )
+
+type TestcaseData struct {
+	Testcases []ProviderCase `json:"cases"`
+}
+type ProviderCase struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
 
 func Test_getDefaultMinioSessionInfo(t *testing.T) {
 	actualDefaultSession, err := getDefaultMinioSessionInfo()
@@ -39,6 +50,18 @@ func Test_getDefaultMinioSessionInfo(t *testing.T) {
 }
 
 func TestGetBucketSessionInfo(t *testing.T) {
+
+	providersDataFile, err := os.ReadFile("testdata/provider_cases.yaml")
+	if os.IsNotExist(err) {
+		panic(err)
+	}
+
+	var providersData TestcaseData
+	err = yaml.Unmarshal(providersDataFile, &providersData)
+	if err != nil {
+		panic(err)
+	}
+
 	tt := []struct {
 		msg                 string
 		config              Config
@@ -47,12 +70,12 @@ func TestGetBucketSessionInfo(t *testing.T) {
 		// optional
 		shouldError bool
 		// optional
-		errorMsg string
+		errorMsg     string
+		testDataCase string
 	}{
 		{
 			msg:                 "invalid_unsupported_object_store_protocol",
 			pipelineroot:        "unsupported://my-bucket/v2/artifacts",
-			config:              Config{},
 			expectedSessionInfo: objectstore.SessionInfo{},
 			shouldError:         true,
 			errorMsg:            "unsupported Cloud bucket",
@@ -60,7 +83,6 @@ func TestGetBucketSessionInfo(t *testing.T) {
 		{
 			msg:                 "invalid_unsupported_pipeline_root_format",
 			pipelineroot:        "minio.unsupported.format",
-			config:              Config{},
 			expectedSessionInfo: objectstore.SessionInfo{},
 			shouldError:         true,
 			errorMsg:            "unrecognized pipeline root format",
@@ -68,7 +90,6 @@ func TestGetBucketSessionInfo(t *testing.T) {
 		{
 			msg:          "valid_no_providers",
 			pipelineroot: "minio://my-bucket/v2/artifacts",
-			config:       Config{},
 			expectedSessionInfo: objectstore.SessionInfo{
 				Provider: "minio",
 				Params: map[string]string{
@@ -83,101 +104,71 @@ func TestGetBucketSessionInfo(t *testing.T) {
 			},
 		},
 		{
-			msg:          "invalid_one_empty_minio_provider",
-			pipelineroot: "minio://my-bucket/v2/artifacts",
-			config: Config{
-				data: map[string]string{
-					"providers": `
-minio: {}
-`,
-				},
-			},
+			msg:                 "invalid_empty_minio_provider",
+			pipelineroot:        "minio://my-bucket/v2/artifacts",
 			expectedSessionInfo: objectstore.SessionInfo{},
 			shouldError:         true,
 			errorMsg:            "invalid provider config",
+			testDataCase:        "case1",
 		},
-		//		{
-		//			msg:          "invalid_one_empty_minio_provider_no_authconfigs",
-		//			pipelineroot: "minio://my-bucket/v2/artifacts",
-		//			config: Config{
-		//				data: map[string]string{
-		//					"providers": `
-		//minio:
-		// authConfigs: []
-		//`,
-		//				},
-		//			},
-		//			expectedSessionInfo: objectstore.SessionInfo{},
-		//			shouldError:         true,
-		//			errorMsg:            "Invalid provider config",
-		//		},
-		//		{
-		//			msg:          "invalid_one_minio_provider_endpoint_only",
-		//			pipelineroot: "minio://my-bucket/v2/artifacts",
-		//			config: Config{
-		//				data: map[string]string{
-		//					"providers": `
-		//minio:
-		// endpoint: some-endpoint.com
-		//`,
-		//				},
-		//			},
-		//			expectedSessionInfo: objectstore.SessionInfo{},
-		//			shouldError:         true,
-		//			errorMsg:            "Invalid provider config",
-		//		},
-		//		{
-		//			msg:          "valid_one_minio_provider",
-		//			pipelineroot: "minio://my-bucket/v2/artifacts",
-		//			config: Config{
-		//				data: map[string]string{
-		//					"providers": `
-		//minio:
-		// endpoint: some-endpoint.com
-		// region: minio
-		// authConfigs: []
-		//`,
-		//				},
-		//			},
-		//			expectedSessionInfo: objectstore.SessionInfo{
-		//				Region:       "minio",
-		//				Endpoint:     "some-endpoint.com",
-		//				DisableSSL:   false,
-		//				SecretName:   "mlpipeline-minio-artifact",
-		//				AccessKeyKey: "accesskey",
-		//				SecretKeyKey: "secretkey",
-		//			},
-		//		},
-		//		{
-		//			msg:          "valid_pick_matching_provider",
-		//			pipelineroot: "minio://my-bucket/v2/artifacts",
-		//			config: Config{
-		//				data: map[string]string{
-		//					"providers": `
-		//gcs:
-		// endpoint: storage.cloud.google.com
-		// region: gcs
-		// authConfigs: []
-		//minio:
-		// endpoint: some-endpoint.com
-		// region: minio
-		// authConfigs: []
-		//aws:
-		// endpoint: s3.amazonaws.com
-		// region: s3
-		// authConfigs: []
-		//`,
-		//				},
-		//			},
-		//			expectedSessionInfo: objectstore.SessionInfo{
-		//				Region:       "minio",
-		//				Endpoint:     "some-endpoint.com",
-		//				DisableSSL:   false,
-		//				SecretName:   "mlpipeline-minio-artifact",
-		//				AccessKeyKey: "accesskey",
-		//				SecretKeyKey: "secretkey",
-		//			},
-		//		},
+		{
+			msg:                 "invalid_empty_minio_provider_no_override",
+			pipelineroot:        "minio://my-bucket/v2/artifacts",
+			expectedSessionInfo: objectstore.SessionInfo{},
+			shouldError:         true,
+			errorMsg:            "invalid provider config",
+			testDataCase:        "case2",
+		},
+		{
+			msg:                 "invalid_minio_provider_endpoint_only",
+			pipelineroot:        "minio://my-bucket/v2/artifacts",
+			expectedSessionInfo: objectstore.SessionInfo{},
+			shouldError:         true,
+			errorMsg:            "invalid provider config",
+			testDataCase:        "case3",
+		},
+		{
+			msg:                 "invalid_one_minio_provider_no_creds",
+			pipelineroot:        "minio://my-bucket/v2/artifacts",
+			expectedSessionInfo: objectstore.SessionInfo{},
+			shouldError:         true,
+			errorMsg:            "invalid provider config",
+			testDataCase:        "case4",
+		},
+		{
+			msg:          "valid_minio_provider_with_default_only",
+			pipelineroot: "minio://my-bucket/v2/artifacts",
+			expectedSessionInfo: objectstore.SessionInfo{
+				Provider: "minio",
+				Params: map[string]string{
+					"region":       "minio",
+					"endpoint":     "minio-endpoint-5.com",
+					"disableSSL":   "true",
+					"fromEnv":      "false",
+					"secretName":   "test-secret-5",
+					"accessKeyKey": "test-accessKeyKey-5",
+					"secretKeyKey": "test-secretKeyKey-5",
+				},
+			},
+			testDataCase: "case5",
+		},
+		{
+			msg:          "valid_pick_minio_provider",
+			pipelineroot: "minio://minio-bucket-a/some/minio/path/a",
+			expectedSessionInfo: objectstore.SessionInfo{
+				Provider: "minio",
+				Params: map[string]string{
+					"region":       "minio-a",
+					"endpoint":     "minio-endpoint-6.com",
+					"disableSSL":   "true",
+					"fromEnv":      "false",
+					"secretName":   "minio-test-secret-6-a",
+					"accessKeyKey": "minio-test-accessKeyKey-6-a",
+					"secretKeyKey": "minio-test-secretKeyKey-6-a",
+				},
+			},
+			testDataCase: "case6",
+		},
 		//		{
 		//			msg:          "invalid_non_minio_should_require_secret",
 		//			pipelineroot: "s3://my-bucket/v2/artifacts",
@@ -371,7 +362,15 @@ minio: {}
 
 	for _, test := range tt {
 		t.Run(test.msg, func(t *testing.T) {
-			actualSession, err := test.config.GetBucketSessionInfo(test.pipelineroot)
+			config := Config{data: map[string]string{}}
+			if test.testDataCase != "" {
+				config.data["providers"] = fetchProviderFromdata(providersData, test.testDataCase)
+				if config.data["providers"] == "" {
+					panic(fmt.Errorf("provider not found in testdata"))
+				}
+			}
+
+			actualSession, err := config.GetBucketSessionInfo(test.pipelineroot)
 			if test.shouldError {
 				assert.Error(t, err)
 				if err != nil && test.errorMsg != "" {
@@ -380,7 +379,17 @@ minio: {}
 			} else {
 				assert.Nil(t, err)
 			}
+
 			assert.Equal(t, test.expectedSessionInfo, actualSession)
 		})
 	}
+}
+
+func fetchProviderFromdata(cases TestcaseData, name string) string {
+	for _, c := range cases.Testcases {
+		if c.Name == name {
+			return c.Value
+		}
+	}
+	return ""
 }
