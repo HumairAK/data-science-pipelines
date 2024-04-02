@@ -67,11 +67,9 @@ func TestGetBucketSessionInfo(t *testing.T) {
 		config              Config
 		expectedSessionInfo objectstore.SessionInfo
 		pipelineroot        string
-		// optional
-		shouldError bool
-		// optional
-		errorMsg     string
-		testDataCase string
+		shouldError         bool
+		errorMsg            string
+		testDataCase        string
 	}{
 		{
 			msg:                 "invalid - unsupported object store protocol",
@@ -322,6 +320,41 @@ func TestGetBucketSessionInfo(t *testing.T) {
 				},
 			},
 			testDataCase: "case6",
+		},
+		{
+			msg:          "valid - gs secretref not required when default is set to env",
+			pipelineroot: "gs://path/does/not/exist/so/use/default",
+			expectedSessionInfo: objectstore.SessionInfo{
+				Provider: "gs",
+				Params: map[string]string{
+					"fromEnv": "true",
+				},
+			},
+			testDataCase: "case11",
+		},
+		{
+			msg:          "valid - gs secretref not required when matching override is set to env",
+			pipelineroot: "gs://gs-bucket/some/gs/path/1/2",
+			expectedSessionInfo: objectstore.SessionInfo{
+				Provider: "gs",
+				Params: map[string]string{
+					"fromEnv": "true",
+				},
+			},
+			testDataCase: "case11",
+		},
+		{
+			msg:          "valid - gs secretref is required when matching override is fromEnv:false",
+			pipelineroot: "gs://gs-bucket/some/gs/path/1",
+			expectedSessionInfo: objectstore.SessionInfo{
+				Provider: "gs",
+				Params: map[string]string{
+					"fromEnv":    "false",
+					"secretName": "gs-test-secret-11",
+					"tokenKey":   "gs-test-tokenKey-11",
+				},
+			},
+			testDataCase: "case11",
 		},
 	}
 

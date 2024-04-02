@@ -57,7 +57,7 @@ func OpenBucket(ctx context.Context, k8sClient kubernetes.Interface, namespace s
 				// Therefore, we need to explicitly configure the prefixed bucket.
 				return blob.PrefixedBucket(openedBucket, config.Prefix), nil
 			}
-		} else if config.Session.Provider == "gcs" {
+		} else if config.Session.Provider == "gs" {
 			client, err1 := getGCSTokenClient(ctx, namespace, config.Session, k8sClient)
 			if err1 != nil {
 				return nil, err1

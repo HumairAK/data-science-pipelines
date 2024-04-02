@@ -137,12 +137,16 @@ func Test_parseCloudBucket(t *testing.T) {
 				Prefix:      "my-path/123/",
 				QueryString: "",
 				Session: &SessionInfo{
-					Region:       "us-east-1",
-					Endpoint:     "s3.amazonaws.com",
-					DisableSSL:   true,
-					SecretName:   "s3-provider-secret",
-					SecretKeyKey: "different_secret_key",
-					AccessKeyKey: "different_access_key",
+					Provider: "s3",
+					Params: map[string]string{
+						"region":       "us-east-1",
+						"endpoint":     "s3.amazonaws.com",
+						"disableSSL":   "false",
+						"fromEnv":      "false",
+						"secretName":   "s3-testsecret",
+						"accessKeyKey": "s3-testaccessKeyKey",
+						"secretKeyKey": "s3-testsecretKeyKey",
+					},
 				},
 			},
 			wantErr: false,
@@ -253,7 +257,7 @@ func Test_GetMinioDefaultEndpoint(t *testing.T) {
 	}
 }
 
-func Test_createBucketSession(t *testing.T) {
+func Test_createS3BucketSession(t *testing.T) {
 	tt := []struct {
 		msg            string
 		ns             string
@@ -267,12 +271,16 @@ func Test_createBucketSession(t *testing.T) {
 			msg: "Bucket with session",
 			ns:  "testnamespace",
 			sessionInfo: &SessionInfo{
-				Region:       "us-east-1",
-				Endpoint:     "s3.amazonaws.com",
-				DisableSSL:   false,
-				SecretName:   "s3-provider-secret",
-				SecretKeyKey: "test_secret_key",
-				AccessKeyKey: "test_access_key",
+				Provider: "s3",
+				Params: map[string]string{
+					"region":       "us-east-1",
+					"endpoint":     "s3.amazonaws.com",
+					"disableSSL":   "false",
+					"fromEnv":      "false",
+					"secretName":   "s3-provider-secret",
+					"accessKeyKey": "test_access_key",
+					"secretKeyKey": "test_secret_key",
+				},
 			},
 			sessionSecret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Name: "s3-provider-secret", Namespace: "testnamespace"},
@@ -297,12 +305,16 @@ func Test_createBucketSession(t *testing.T) {
 			msg: "Bucket with session but secret doesn't exist",
 			ns:  "testnamespace",
 			sessionInfo: &SessionInfo{
-				Region:       "us-east-1",
-				Endpoint:     "s3.amazonaws.com",
-				DisableSSL:   false,
-				SecretName:   "does-not-exist",
-				SecretKeyKey: "test_secret_key",
-				AccessKeyKey: "test_access_key",
+				Provider: "s3",
+				Params: map[string]string{
+					"region":       "us-east-1",
+					"endpoint":     "s3.amazonaws.com",
+					"disableSSL":   "false",
+					"fromEnv":      "false",
+					"secretName":   "does-not-exist",
+					"accessKeyKey": "test_access_key",
+					"secretKeyKey": "test_secret_key",
+				},
 			},
 			sessionSecret:  nil,
 			expectedConfig: nil,
@@ -313,12 +325,16 @@ func Test_createBucketSession(t *testing.T) {
 			msg: "Bucket with session secret exists but key mismatch",
 			ns:  "testnamespace",
 			sessionInfo: &SessionInfo{
-				Region:       "us-east-1",
-				Endpoint:     "s3.amazonaws.com",
-				DisableSSL:   false,
-				SecretName:   "s3-provider-secret",
-				SecretKeyKey: "does_not_exist_secret_key",
-				AccessKeyKey: "does_not_exist_access_key",
+				Provider: "s3",
+				Params: map[string]string{
+					"region":       "us-east-1",
+					"endpoint":     "s3.amazonaws.com",
+					"disableSSL":   "false",
+					"fromEnv":      "false",
+					"secretName":   "s3-provider-secret",
+					"accessKeyKey": "does_not_exist_secret_key",
+					"secretKeyKey": "does_not_exist_access_key",
+				},
 			},
 			sessionSecret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Name: "s3-provider-secret", Namespace: "testnamespace"},

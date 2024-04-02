@@ -59,7 +59,6 @@ cases:
               secretRef:
                 secretName: gs-test-secret-6-a
                 tokenKey: gs-test-tokenKey-6-a
-
       minio:
         endpoint: minio-endpoint-6.com
         region: minio
@@ -211,3 +210,20 @@ cases:
                 secretName: minio-test-secret-10
                 accessKeyKey: minio-test-accessKeyKey-10
                 secretKeyKey: minio-test-secretKeyKey-10
+  - name: case11
+    value: |
+      gs:
+        credentials:
+          fromEnv: true
+        overrides:
+          - bucketName: gs-bucket
+            keyPrefix: some/gs/path/1/2
+            credentials:
+              fromEnv: true
+          - bucketName: gs-bucket
+            keyPrefix: some/gs/path/1
+            credentials:
+              fromEnv: false
+              secretRef:
+                secretName: gs-test-secret-11
+                tokenKey: gs-test-tokenKey-11
