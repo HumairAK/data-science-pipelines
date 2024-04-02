@@ -70,7 +70,7 @@ func (p S3ProviderConfig) ProvideSessionInfo(bucketName, bucketPrefix string) (o
 	}
 
 	if p.Credentials == nil {
-		return objectstore.SessionInfo{}, invalidConfigErr(fmt.Errorf("no default credentials provided in provider config"))
+		return objectstore.SessionInfo{}, invalidConfigErr(fmt.Errorf("missing default credentials"))
 	}
 
 	params["fromEnv"] = strconv.FormatBool(p.Credentials.FromEnv)
@@ -99,16 +99,21 @@ func (p S3ProviderConfig) ProvideSessionInfo(bucketName, bucketPrefix string) (o
 			sessionInfo.Params["disableSSL"] = strconv.FormatBool(*override.DisableSSL)
 		}
 		if override.Credentials == nil {
-			return objectstore.SessionInfo{}, fmt.Errorf("no override credentials provided in provider config")
+			return objectstore.SessionInfo{}, invalidConfigErr(fmt.Errorf("missing override credentials"))
 		}
 		params["fromEnv"] = strconv.FormatBool(override.Credentials.FromEnv)
 		if !override.Credentials.FromEnv {
 			if override.Credentials.SecretRef == nil {
-				return objectstore.SessionInfo{}, fmt.Errorf("no override credentials secretref field provided in provider config")
+				return objectstore.SessionInfo{}, invalidConfigErr(fmt.Errorf("missing override secretref"))
 			}
 			params["secretName"] = override.Credentials.SecretRef.SecretName
 			params["accessKeyKey"] = override.Credentials.SecretRef.AccessKeyKey
 			params["secretKeyKey"] = override.Credentials.SecretRef.SecretKeyKey
+		} else {
+			// Don't need a secret if pulling from Env
+			delete(params, "secretName")
+			delete(params, "accessKeyKey")
+			delete(params, "secretKeyKey")
 		}
 	}
 	return sessionInfo, nil

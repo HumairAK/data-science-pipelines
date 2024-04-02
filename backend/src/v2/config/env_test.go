@@ -74,21 +74,21 @@ func TestGetBucketSessionInfo(t *testing.T) {
 		testDataCase string
 	}{
 		{
-			msg:                 "invalid_unsupported_object_store_protocol",
+			msg:                 "invalid - unsupported object store protocol",
 			pipelineroot:        "unsupported://my-bucket/v2/artifacts",
 			expectedSessionInfo: objectstore.SessionInfo{},
 			shouldError:         true,
 			errorMsg:            "unsupported Cloud bucket",
 		},
 		{
-			msg:                 "invalid_unsupported_pipeline_root_format",
+			msg:                 "invalid - unsupported pipeline root format",
 			pipelineroot:        "minio.unsupported.format",
 			expectedSessionInfo: objectstore.SessionInfo{},
 			shouldError:         true,
 			errorMsg:            "unrecognized pipeline root format",
 		},
 		{
-			msg:          "valid_no_providers",
+			msg:          "valid - no providers, should use minio default",
 			pipelineroot: "minio://my-bucket/v2/artifacts",
 			expectedSessionInfo: objectstore.SessionInfo{
 				Provider: "minio",
@@ -104,7 +104,7 @@ func TestGetBucketSessionInfo(t *testing.T) {
 			},
 		},
 		{
-			msg:                 "invalid_empty_minio_provider",
+			msg:                 "invalid - empty minio provider",
 			pipelineroot:        "minio://my-bucket/v2/artifacts",
 			expectedSessionInfo: objectstore.SessionInfo{},
 			shouldError:         true,
@@ -112,7 +112,7 @@ func TestGetBucketSessionInfo(t *testing.T) {
 			testDataCase:        "case1",
 		},
 		{
-			msg:                 "invalid_empty_minio_provider_no_override",
+			msg:                 "invalid - empty minio provider no override",
 			pipelineroot:        "minio://my-bucket/v2/artifacts",
 			expectedSessionInfo: objectstore.SessionInfo{},
 			shouldError:         true,
@@ -120,7 +120,7 @@ func TestGetBucketSessionInfo(t *testing.T) {
 			testDataCase:        "case2",
 		},
 		{
-			msg:                 "invalid_minio_provider_endpoint_only",
+			msg:                 "invalid - minio provider endpoint only",
 			pipelineroot:        "minio://my-bucket/v2/artifacts",
 			expectedSessionInfo: objectstore.SessionInfo{},
 			shouldError:         true,
@@ -128,15 +128,15 @@ func TestGetBucketSessionInfo(t *testing.T) {
 			testDataCase:        "case3",
 		},
 		{
-			msg:                 "invalid_one_minio_provider_no_creds",
+			msg:                 "invalid - one minio provider no creds",
 			pipelineroot:        "minio://my-bucket/v2/artifacts",
 			expectedSessionInfo: objectstore.SessionInfo{},
 			shouldError:         true,
-			errorMsg:            "invalid provider config",
+			errorMsg:            "missing default credentials",
 			testDataCase:        "case4",
 		},
 		{
-			msg:          "valid_minio_provider_with_default_only",
+			msg:          "valid - minio provider with default only",
 			pipelineroot: "minio://my-bucket/v2/artifacts",
 			expectedSessionInfo: objectstore.SessionInfo{
 				Provider: "minio",
@@ -153,7 +153,7 @@ func TestGetBucketSessionInfo(t *testing.T) {
 			testDataCase: "case5",
 		},
 		{
-			msg:          "valid_pick_minio_provider",
+			msg:          "valid - pick minio provider",
 			pipelineroot: "minio://minio-bucket-a/some/minio/path/a",
 			expectedSessionInfo: objectstore.SessionInfo{
 				Provider: "minio",
@@ -169,195 +169,160 @@ func TestGetBucketSessionInfo(t *testing.T) {
 			},
 			testDataCase: "case6",
 		},
-		//		{
-		//			msg:          "invalid_non_minio_should_require_secret",
-		//			pipelineroot: "s3://my-bucket/v2/artifacts",
-		//			config: Config{
-		//				data: map[string]string{
-		//					"providers": `
-		//s3:
-		// endpoint: s3.amazonaws.com
-		// region: us-east-1
-		// authConfigs: []
-		//`,
-		//				},
-		//			},
-		//			expectedSessionInfo: objectstore.SessionInfo{},
-		//			shouldError:         true,
-		//			errorMsg:            "Invalid provider config",
-		//		},
-		//		{
-		//			msg:          "invalid_matching_prefix_should_require_secretref",
-		//			pipelineroot: "minio://my-bucket/v2/artifacts/pick/this",
-		//			config: Config{
-		//				data: map[string]string{
-		//					"providers": `
-		//minio:
-		// endpoint: minio.endpoint.com
-		// region: minio
-		// authConfigs:
-		//   - bucketName: my-bucket
-		//     keyPrefix: v2/artifacts/skip/this
-		//     secretRef:
-		//       secretName: minio-skip-this-secret
-		//       accessKeyKey: minio_skip_this_access_key
-		//       secretKeyKey: minio_skip_this_secret_key
-		//   - bucketName: my-bucket
-		//     keyPrefix: v2/artifacts/pick/this
-		//`,
-		//				},
-		//			},
-		//			expectedSessionInfo: objectstore.SessionInfo{},
-		//			shouldError:         true,
-		//			errorMsg:            "Invalid provider config",
-		//		},
-		//		{
-		//			msg:          "valid_s3_with_secret",
-		//			pipelineroot: "s3://my-bucket/v2/artifacts",
-		//			config: Config{
-		//				data: map[string]string{
-		//					"providers": `
-		//s3:
-		// endpoint: s3.amazonaws.com
-		// region: us-east-1
-		// defaultProviderSecretRef:
-		//   secretName: "s3-provider-secret"
-		//   accessKeyKey: "different_access_key"
-		//   secretKeyKey: "different_secret_key"
-		//`,
-		//				},
-		//			},
-		//			expectedSessionInfo: objectstore.SessionInfo{
-		//				Region:       "us-east-1",
-		//				Endpoint:     "s3.amazonaws.com",
-		//				DisableSSL:   false,
-		//				SecretName:   "s3-provider-secret",
-		//				SecretKeyKey: "different_secret_key",
-		//				AccessKeyKey: "different_access_key",
-		//			},
-		//		},
-		//		{
-		//			msg:          "valid_minio_first_matching_auth_config",
-		//			pipelineroot: "minio://my-bucket/v2/artifacts/pick/this",
-		//			config: Config{
-		//				data: map[string]string{
-		//					"providers": `
-		//minio:
-		// endpoint: minio.endpoint.com
-		// region: minio
-		// defaultProviderSecretRef:
-		//     secretName: minio-default-provider-secret
-		//     accessKeyKey: minio_default_different_access_key
-		//     secretKeyKey: minio_default_different_secret_key
-		// authConfigs:
-		//   - bucketName: my-bucket
-		//     keyPrefix: v2/artifacts/skip/this
-		//     secretRef:
-		//       secretName: minio-skip-this-secret
-		//       accessKeyKey: minio_skip_this_access_key
-		//       secretKeyKey: minio_skip_this_secret_key
-		//   - bucketName: my-bucket
-		//     keyPrefix: v2/artifacts/pick/this
-		//     secretRef:
-		//       secretName: minio-pick-this-secret
-		//       accessKeyKey: minio_pick_this_access_key
-		//       secretKeyKey: minio_pick_this_secret_key
-		//   - bucketName: my-bucket
-		//     keyPrefix: v2/artifacts
-		//     secretRef:
-		//       secretName: minio-not-reached-secret
-		//       accessKeyKey: minio_not_reached_access_key
-		//       secretKeyKey: minio_not_reached_secret_key
-		//`,
-		//				},
-		//			},
-		//			expectedSessionInfo: objectstore.SessionInfo{
-		//				Region:       "minio",
-		//				Endpoint:     "minio.endpoint.com",
-		//				DisableSSL:   false,
-		//				SecretName:   "minio-pick-this-secret",
-		//				SecretKeyKey: "minio_pick_this_secret_key",
-		//				AccessKeyKey: "minio_pick_this_access_key",
-		//			},
-		//		},
-		//		{
-		//			msg:          "valid_gs_first_matching_auth_config",
-		//			pipelineroot: "gs://my-bucket/v2/artifacts/pick/this",
-		//			config: Config{
-		//				data: map[string]string{
-		//					"providers": `
-		//minio:
-		// endpoint: minio.endpoint.com
-		// region: minio
-		// defaultProviderSecretRef:
-		//     secretName: minio-default-provider-secret
-		//     accessKeyKey: minio_default_different_access_key
-		//     secretKeyKey: minio_default_different_secret_key
-		// authConfigs:
-		//   - bucketName: my-bucket
-		//     keyPrefix: v2/artifacts/skip/this
-		//     secretRef:
-		//       secretName: minio-skip-this-secret
-		//       accessKeyKey: minio_skip_this_access_key
-		//       secretKeyKey: minio_skip_this_secret_key
-		//gcs:
-		// endpoint: storage.googleapis.com
-		// region: gcs
-		// defaultProviderSecretRef:
-		//   secretName: gcs-default-provider-secret
-		//   accessKeyKey: gcs_default_different_access_key
-		//   secretKeyKey: gcs_default_different_secret_key
-		// authConfigs:
-		//   - bucketName: my-bucket
-		//     keyPrefix: v2/artifacts/pick/this
-		//     secretRef:
-		//       secretName: gcs-pick-this-secret
-		//       accessKeyKey: gcs_pick_this_access_key
-		//       secretKeyKey: gcs_pick_this_secret_key
-		//`,
-		//				},
-		//			},
-		//			expectedSessionInfo: objectstore.SessionInfo{
-		//				Region:       "gcs",
-		//				Endpoint:     "storage.googleapis.com",
-		//				DisableSSL:   false,
-		//				SecretName:   "gcs-pick-this-secret",
-		//				SecretKeyKey: "gcs_pick_this_secret_key",
-		//				AccessKeyKey: "gcs_pick_this_access_key",
-		//			},
-		//		},
-		//		{
-		//			msg:          "valid_pick_default_when_no_matching_prefix",
-		//			pipelineroot: "gs://my-bucket/v2/artifacts/pick/default",
-		//			config: Config{
-		//				data: map[string]string{
-		//					"providers": `
-		//gcs:
-		// endpoint: storage.googleapis.com
-		// region: gcs
-		// defaultProviderSecretRef:
-		//   secretName: gcs-default-provider-secret
-		//   accessKeyKey: gcs_default_different_access_key
-		//   secretKeyKey: gcs_default_different_secret_key
-		// authConfigs:
-		//   - bucketName: my-bucket
-		//     keyPrefix: v2/artifacts/skip/this
-		//     secretRef:
-		//       secretName: gcs-skip-this-secret
-		//       accessKeyKey: gcs_skip_this_access_key
-		//       secretKeyKey: gcs_skip_this_secret_key
-		//`,
-		//				},
-		//			},
-		//			expectedSessionInfo: objectstore.SessionInfo{
-		//				Region:       "gcs",
-		//				Endpoint:     "storage.googleapis.com",
-		//				DisableSSL:   false,
-		//				SecretName:   "gcs-default-provider-secret",
-		//				SecretKeyKey: "gcs_default_different_secret_key",
-		//				AccessKeyKey: "gcs_default_different_access_key",
-		//			},
-		//		},
+		{
+			msg:                 "invalid - s3 should require default creds",
+			pipelineroot:        "s3://my-bucket/v2/artifacts",
+			expectedSessionInfo: objectstore.SessionInfo{},
+			shouldError:         true,
+			errorMsg:            "missing default credentials",
+			testDataCase:        "case7",
+		},
+		{
+			msg:                 "invalid - gs should require default creds",
+			pipelineroot:        "gs://my-bucket/v2/artifacts",
+			expectedSessionInfo: objectstore.SessionInfo{},
+			shouldError:         true,
+			errorMsg:            "missing default credentials",
+			testDataCase:        "case7",
+		},
+		{
+			msg:                 "invalid - minio should require default creds",
+			pipelineroot:        "minio://my-bucket/v2/artifacts",
+			expectedSessionInfo: objectstore.SessionInfo{},
+			shouldError:         true,
+			errorMsg:            "missing default credentials",
+			testDataCase:        "case7",
+		},
+		{
+			msg:                 "invalid - matching prefix override should require secretref, if fromEnv is false",
+			pipelineroot:        "minio://minio-bucket-a/some/minio/path/a",
+			expectedSessionInfo: objectstore.SessionInfo{},
+			shouldError:         true,
+			errorMsg:            "missing override secretref",
+			testDataCase:        "case8",
+		},
+		{
+			msg:          "valid - matching prefix override should use creds from env, if fromEnv is true",
+			pipelineroot: "minio://minio-bucket-a/some/minio/path/a",
+			expectedSessionInfo: objectstore.SessionInfo{
+				Provider: "minio",
+				Params: map[string]string{
+					"region":     "minio-a",
+					"endpoint":   "minio-endpoint-9.com",
+					"disableSSL": "true",
+					"fromEnv":    "true",
+				},
+			},
+			testDataCase: "case9",
+		},
+		{
+			msg:          "valid - matching prefix override should use secret creds, even if default uses FromEnv",
+			pipelineroot: "minio://minio-bucket-a/some/minio/path/a",
+			expectedSessionInfo: objectstore.SessionInfo{
+				Provider: "minio",
+				Params: map[string]string{
+					"region":       "minio-a",
+					"endpoint":     "minio-endpoint-10.com",
+					"disableSSL":   "true",
+					"fromEnv":      "false",
+					"secretName":   "minio-test-secret-10",
+					"accessKeyKey": "minio-test-accessKeyKey-10",
+					"secretKeyKey": "minio-test-secretKeyKey-10",
+				},
+			},
+			testDataCase: "case10",
+		},
+		{
+			msg:          "valid - secret ref is not required for default s3 when fromEnv is true",
+			pipelineroot: "minio://minio-bucket-a/some/minio/path/b",
+			expectedSessionInfo: objectstore.SessionInfo{
+				Provider: "minio",
+				Params: map[string]string{
+					"region":     "minio",
+					"endpoint":   "minio-endpoint-10.com",
+					"disableSSL": "true",
+					"fromEnv":    "true",
+				},
+			},
+			testDataCase: "case10",
+		},
+		{
+			msg:          "valid - match s3 default config when no override match exists",
+			pipelineroot: "s3://s3-bucket/no/override/path",
+			expectedSessionInfo: objectstore.SessionInfo{
+				Provider: "s3",
+				Params: map[string]string{
+					"region":       "us-east-1",
+					"endpoint":     "s3.amazonaws.com",
+					"disableSSL":   "false",
+					"fromEnv":      "false",
+					"secretName":   "s3-testsecret-6",
+					"accessKeyKey": "s3-testaccessKeyKey-6",
+					"secretKeyKey": "s3-testsecretKeyKey-6",
+				},
+			},
+			testDataCase: "case6",
+		},
+		{
+			msg:          "valid - override should match first subpath prefix in pipelineroot",
+			pipelineroot: "s3://s3-bucket/some/s3/path/b",
+			expectedSessionInfo: objectstore.SessionInfo{
+				Provider: "s3",
+				Params: map[string]string{
+					"region":       "us-east-1",
+					"endpoint":     "s3.amazonaws.com",
+					"disableSSL":   "false",
+					"fromEnv":      "false",
+					"secretName":   "s3-test-secret-6-b",
+					"accessKeyKey": "s3-test-accessKeyKey-6-b",
+					"secretKeyKey": "s3-test-secretKeyKey-6-b",
+				},
+			},
+			testDataCase: "case6",
+		},
+		{
+			msg:          "valid - test order, match first subpath prefix in pipelineroot, ignoring deeper path prefix further in list",
+			pipelineroot: "s3://s3-bucket/some/s3/path/a/b",
+			expectedSessionInfo: objectstore.SessionInfo{
+				Provider: "s3",
+				Params: map[string]string{
+					"region":       "us-east-1",
+					"endpoint":     "s3.amazonaws.com",
+					"disableSSL":   "false",
+					"fromEnv":      "false",
+					"secretName":   "s3-test-secret-6-a",
+					"accessKeyKey": "s3-test-accessKeyKey-6-a",
+					"secretKeyKey": "s3-test-secretKeyKey-6-a",
+				},
+			},
+			testDataCase: "case6",
+		},
+		{
+			msg:          "valid - first matching gs override",
+			pipelineroot: "gs://gs-bucket-a/some/gs/path/1",
+			expectedSessionInfo: objectstore.SessionInfo{
+				Provider: "gs",
+				Params: map[string]string{
+					"fromEnv":    "false",
+					"secretName": "gs-test-secret-6-a",
+					"tokenKey":   "gs-test-tokenKey-6-a",
+				},
+			},
+			testDataCase: "case6",
+		},
+		{
+			msg:          "valid - pick default gs when no matching prefix",
+			pipelineroot: "gs://path/does/not/exist/so/use/default",
+			expectedSessionInfo: objectstore.SessionInfo{
+				Provider: "gs",
+				Params: map[string]string{
+					"fromEnv":    "false",
+					"secretName": "gs-test-secret-6",
+					"tokenKey":   "gs-test-tokenKey-6",
+				},
+			},
+			testDataCase: "case6",
+		},
 	}
 
 	for _, test := range tt {

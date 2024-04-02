@@ -1,21 +1,27 @@
+# Case names should be unique
 cases:
+  # invalid
   - name: case1
     value: |
       minio: {}
+  # invalid
   - name: case2
     value: |
       minio:
         overrides: []
+  # invalid
   - name: case3
     value: |
       minio:
         endpoint: minio-endpoint-3.com
+  # invalid
   - name: case4
     value: |
       minio:
         endpoint: minio-endpoint-4.com
         region: minio
         overrides: []
+  # valid
   - name: case5
     value: |
       minio:
@@ -29,29 +35,31 @@ cases:
             accessKeyKey: test-accessKeyKey-5
             secretKeyKey: test-secretKeyKey-5
         overrides: []
+  # valid
   - name: case6
     value: |
-      gcs:
+      gs:
         credentials:
           fromEnv: false
           secretRef:
-            secretName: gcs-test-secret-6
-            tokenKey: gcs-test-tokenKey-6
+            secretName: gs-test-secret-6
+            tokenKey: gs-test-tokenKey-6
         overrides:
-          - bucketName: gcs-bucket-a
-            keyPrefix: some/gcs/path/1
+          - bucketName: gs-bucket-a
+            keyPrefix: some/gs/path/1/2
             credentials:
               fromEnv: false
               secretRef:
-                secretName: gcs-test-secret-6-a
-                tokenKey: gcs-test-tokenKey-6-a
-          - bucketName: gcs-bucket-a
-            keyPrefix: some/gcs/path/1/2
+                secretName: gs-test-secret-6-a-1
+                tokenKey: gs-test-tokenKey-6-a-1
+          - bucketName: gs-bucket-a
+            keyPrefix: some/gs/path/1
             credentials:
               fromEnv: false
               secretRef:
-                secretName: gcs-test-secret-6-a-1
-                tokenKey: gcs-test-tokenKey-6-a-1
+                secretName: gs-test-secret-6-a
+                tokenKey: gs-test-tokenKey-6-a
+
       minio:
         endpoint: minio-endpoint-6.com
         region: minio
@@ -85,10 +93,7 @@ cases:
             accessKeyKey: s3-testaccessKeyKey-6
             secretKeyKey: s3-testsecretKeyKey-6
         overrides:
-          - endpoint: s3.amazonaws.com
-            region: us-west-1
-            disableSSL: false
-            bucketName: s3-bucket-a
+          - bucketName: s3-bucket
             keyPrefix: some/s3/path/a
             credentials:
               fromEnv: false
@@ -96,7 +101,7 @@ cases:
                 secretName: s3-test-secret-6-a
                 accessKeyKey: s3-test-accessKeyKey-6-a
                 secretKeyKey: s3-test-secretKeyKey-6-a
-          - bucketName: s3-bucket-a
+          - bucketName: s3-bucket
             keyPrefix: some/s3/path/a/b
             credentials:
               fromEnv: false
@@ -104,7 +109,7 @@ cases:
                 secretName: s3-test-secret-6-a-1
                 accessKeyKey: s3-test-accessKeyKey-6-a-1
                 secretKeyKey: s3-test-secretKeyKey-6-a-1
-          - bucketName: s3-bucket-b
+          - bucketName: s3-bucket
             keyPrefix: some/s3/path/b
             credentials:
               fromEnv: false
@@ -112,7 +117,7 @@ cases:
                 secretName: s3-test-secret-6-b
                 accessKeyKey: s3-test-accessKeyKey-6-b
                 secretKeyKey: s3-test-secretKeyKey-6-b
-          - bucketName: s3-bucket-b
+          - bucketName: s3-bucket
             keyPrefix: some/s3/path/b/c
             credentials:
               fromEnv: false
@@ -120,3 +125,89 @@ cases:
                 secretName: s3-test-secret-6-b-1
                 accessKeyKey: s3-test-accessKeyKey-6-b-1
                 secretKeyKey: s3-test-secretKeyKey-6-b-1
+          - bucketName: s3-bucket-2
+            keyPrefix: some/s3/path/a
+            credentials:
+              fromEnv: false
+              secretRef:
+                secretName: s3-test-secret-6-a-2
+                accessKeyKey: s3-test-accessKeyKey-6-a-2
+                secretKeyKey: s3-test-secretKeyKey-6-a-2
+  # invalid
+  - name: case7
+    value: |
+      s3:
+        endpoint: s3-endpoint-7.com
+        region: auto
+        overrides: []
+      gs:
+        overrides: []
+      minio:
+        endpoint: minio-endpoint-7.com
+        region: auto
+        overrides: []
+  # valid for default case
+  # invalid override - missing secretref in credentials
+  - name: case8
+    value: |
+      minio:
+        endpoint: minio-endpoint-8.com
+        region: minio
+        disableSSL: true
+        credentials:
+          fromEnv: false
+          secretRef:
+            secretName: minio-test-secret-8
+            accessKeyKey: minio-test-accessKeyKey-8
+            secretKeyKey: minio-test-secretKeyKey-8
+        overrides:
+          - endpoint: minio-endpoint-8.com
+            region: minio-a
+            disableSSL: true
+            bucketName: minio-bucket-a
+            keyPrefix: some/minio/path/a
+            credentials:
+              fromEnv: false
+  # valid
+  # note that since override has "FromEnv: true"
+  # no secretRef is required
+  - name: case9
+    value: |
+      minio:
+        endpoint: minio-endpoint-9.com
+        region: minio
+        disableSSL: true
+        credentials:
+          fromEnv: false
+          secretRef:
+            secretName: minio-test-secret-9
+            accessKeyKey: minio-test-accessKeyKey-9
+            secretKeyKey: minio-test-secretKeyKey-9
+        overrides:
+          - endpoint: minio-endpoint-9.com
+            region: minio-a
+            disableSSL: true
+            bucketName: minio-bucket-a
+            keyPrefix: some/minio/path/a
+            credentials:
+              fromEnv: true
+  - name: case10
+    value: |
+      minio:
+        endpoint: minio-endpoint-10.com
+        region: minio
+        disableSSL: true
+        credentials:
+          fromEnv: true
+        overrides:
+          - endpoint: minio-endpoint-10.com
+            region: minio-a
+            disableSSL: true
+            bucketName: minio-bucket-a
+            keyPrefix: some/minio/path/a
+            credentials:
+              fromEnv: false
+              secretRef:
+                secretName: minio-test-secret-10
+                accessKeyKey: minio-test-accessKeyKey-10
+                secretKeyKey: minio-test-secretKeyKey-10

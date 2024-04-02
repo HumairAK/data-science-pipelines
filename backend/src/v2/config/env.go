@@ -44,7 +44,7 @@ const (
 type BucketProviders struct {
 	Minio *MinioProviderConfig `json:"minio"`
 	S3    *S3ProviderConfig    `json:"s3"`
-	GCS   *GCSProviderConfig   `json:"gcs"`
+	GCS   *GCSProviderConfig   `json:"gs"`
 }
 
 type SessionInfoProvider interface {

@@ -45,10 +45,14 @@ type GCSSecretRef struct {
 }
 
 func (p GCSProviderConfig) ProvideSessionInfo(bucketName, bucketPrefix string) (objectstore.SessionInfo, error) {
+	invalidConfigErr := func(err error) error {
+		return fmt.Errorf("invalid provider config: %w", err)
+	}
+
 	params := map[string]string{}
 
 	if p.Credentials == nil {
-		return objectstore.SessionInfo{}, fmt.Errorf("no default credentials provided in provider config")
+		return objectstore.SessionInfo{}, invalidConfigErr(fmt.Errorf("missing default credentials"))
 	}
 
 	params["fromEnv"] = strconv.FormatBool(p.Credentials.FromEnv)
@@ -59,7 +63,7 @@ func (p GCSProviderConfig) ProvideSessionInfo(bucketName, bucketPrefix string) (
 
 	// Set defaults
 	sessionInfo := objectstore.SessionInfo{
-		Provider: "gcs",
+		Provider: "gs",
 		Params:   params,
 	}
 
@@ -67,12 +71,19 @@ func (p GCSProviderConfig) ProvideSessionInfo(bucketName, bucketPrefix string) (
 	override := p.getOverrideByPrefix(bucketName, bucketPrefix)
 	if override != nil {
 		if override.Credentials == nil {
-			return objectstore.SessionInfo{}, fmt.Errorf("no override credentials provided in provider config")
+			return objectstore.SessionInfo{}, invalidConfigErr(fmt.Errorf("missing override secretref"))
 		}
 		params["fromEnv"] = strconv.FormatBool(override.Credentials.FromEnv)
 		if !override.Credentials.FromEnv {
+			if override.Credentials.SecretRef == nil {
+				return objectstore.SessionInfo{}, invalidConfigErr(fmt.Errorf("missing override secretref"))
+			}
 			params["secretName"] = override.Credentials.SecretRef.SecretName
-			params["tokenKey"] = p.Credentials.SecretRef.TokenKey
+			params["tokenKey"] = override.Credentials.SecretRef.TokenKey
+		} else {
+			// Don't need a secret if pulling from Env
+			delete(params, "secretName")
+			delete(params, "tokenKey")
 		}
 	}
 	return sessionInfo, nil
