@@ -178,7 +178,6 @@ func GetSessionInfoFromString(sessionInfoJSON string) (*SessionInfo, error) {
 	return sessionInfo, nil
 }
 
-// Todo: Add validation?
 func StructuredS3Params(p map[string]string) (*S3Params, error) {
 	sparams := &S3Params{}
 	if val, ok := p["fromEnv"]; ok {
@@ -213,7 +212,6 @@ func StructuredS3Params(p map[string]string) (*S3Params, error) {
 	return sparams, nil
 }
 
-// Todo: Add validation?
 func StructuredGCSParams(p map[string]string) (*GCSParams, error) {
 	sparams := &GCSParams{}
 	if val, ok := p["fromEnv"]; ok {

@@ -218,7 +218,7 @@ func getGCSTokenClient(ctx context.Context, namespace string, sessionInfo *Sessi
 	if !ok || len(tokenJson) == 0 {
 		return nil, fmt.Errorf("key '%s' not found or is empty", params.TokenKey)
 	}
-	creds, err := google.CredentialsFromJSON(ctx, tokenJson)
+	creds, err := google.CredentialsFromJSON(ctx, tokenJson, "https://www.googleapis.com/auth/devstorage.read_write")
 	if err != nil {
 		return nil, err
 	}
