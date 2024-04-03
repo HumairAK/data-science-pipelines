@@ -22,15 +22,20 @@ import (
 )
 
 type S3ProviderConfig struct {
+	Default *S3ProviderDefault `json:"default"`
+	// optional, ordered, the auth config for the first matching prefix is used
+	Overrides []S3Override `json:"Overrides"`
+}
+
+type S3ProviderDefault struct {
 	Endpoint    string         `json:"endpoint"`
 	Credentials *S3Credentials `json:"credentials"`
 	// optional for any non aws s3 provider
 	Region string `json:"region"`
 	// optional
 	DisableSSL *bool `json:"disableSSL"`
-	// optional, ordered, the auth config for the first matching prefix is used
-	Overrides []S3Override `json:"Overrides"`
 }
+
 type S3Credentials struct {
 	// optional
 	FromEnv bool `json:"fromEnv"`
@@ -60,24 +65,24 @@ func (p S3ProviderConfig) ProvideSessionInfo(bucketName, bucketPrefix string) (o
 	}
 
 	params := map[string]string{}
-	params["region"] = p.Region
-	params["endpoint"] = p.Endpoint
-
-	if p.DisableSSL == nil {
-		params["disableSSL"] = "false"
-	} else {
-		params["disableSSL"] = strconv.FormatBool(*p.DisableSSL)
-	}
-
-	if p.Credentials == nil {
+	if p.Default == nil || p.Default.Credentials == nil {
 		return objectstore.SessionInfo{}, invalidConfigErr(fmt.Errorf("missing default credentials"))
 	}
 
-	params["fromEnv"] = strconv.FormatBool(p.Credentials.FromEnv)
-	if !p.Credentials.FromEnv {
-		params["secretName"] = p.Credentials.SecretRef.SecretName
-		params["accessKeyKey"] = p.Credentials.SecretRef.AccessKeyKey
-		params["secretKeyKey"] = p.Credentials.SecretRef.SecretKeyKey
+	params["region"] = p.Default.Region
+	params["endpoint"] = p.Default.Endpoint
+
+	if p.Default.DisableSSL == nil {
+		params["disableSSL"] = "false"
+	} else {
+		params["disableSSL"] = strconv.FormatBool(*p.Default.DisableSSL)
+	}
+
+	params["fromEnv"] = strconv.FormatBool(p.Default.Credentials.FromEnv)
+	if !p.Default.Credentials.FromEnv {
+		params["secretName"] = p.Default.Credentials.SecretRef.SecretName
+		params["accessKeyKey"] = p.Default.Credentials.SecretRef.AccessKeyKey
+		params["secretKeyKey"] = p.Default.Credentials.SecretRef.SecretKeyKey
 	}
 
 	// Set defaults

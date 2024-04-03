@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 	"io/ioutil"
+	"reflect"
 	"sigs.k8s.io/yaml"
 	"strconv"
 	"strings"
@@ -142,6 +143,10 @@ func (c *Config) GetBucketSessionInfo(path string) (objectstore.SessionInfo, err
 		break
 	default:
 		return objectstore.SessionInfo{}, fmt.Errorf("Encountered unsupported provider in BucketProviders %s", provider)
+	}
+
+	if sessProvider == nil || reflect.ValueOf(sessProvider).IsNil() {
+		return objectstore.SessionInfo{}, fmt.Errorf("Encountered unsupported provider in provider config %s", provider)
 	}
 
 	sess, err := sessProvider.ProvideSessionInfo(bucketName, bucketPrefix)

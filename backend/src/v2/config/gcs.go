@@ -22,10 +22,15 @@ import (
 )
 
 type GCSProviderConfig struct {
-	// required
-	Credentials *GCSCredentials `json:"credentials"`
+	Default *GCSProviderDefault `json:"default"`
+
 	// optional, ordered, the auth config for the first matching prefix is used
 	Overrides []GCSOverride `json:"Overrides"`
+}
+
+type GCSProviderDefault struct {
+	// required
+	Credentials *GCSCredentials `json:"credentials"`
 }
 
 type GCSOverride struct {
@@ -51,14 +56,14 @@ func (p GCSProviderConfig) ProvideSessionInfo(bucketName, bucketPrefix string) (
 
 	params := map[string]string{}
 
-	if p.Credentials == nil {
+	if p.Default == nil || p.Default.Credentials == nil {
 		return objectstore.SessionInfo{}, invalidConfigErr(fmt.Errorf("missing default credentials"))
 	}
 
-	params["fromEnv"] = strconv.FormatBool(p.Credentials.FromEnv)
-	if !p.Credentials.FromEnv {
-		params["secretName"] = p.Credentials.SecretRef.SecretName
-		params["tokenKey"] = p.Credentials.SecretRef.TokenKey
+	params["fromEnv"] = strconv.FormatBool(p.Default.Credentials.FromEnv)
+	if !p.Default.Credentials.FromEnv {
+		params["secretName"] = p.Default.Credentials.SecretRef.SecretName
+		params["tokenKey"] = p.Default.Credentials.SecretRef.TokenKey
 	}
 
 	// Set defaults

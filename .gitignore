@@ -88,9 +88,3 @@ __pycache__
 
 # kfp local execution default directory
 local_outputs/
-
-.env/
-backend/tmp/
-manifests/kustomize/env/openshift
-manifests/kustomize/third-party/argo/installs/openshift/
-update-licenses.sh

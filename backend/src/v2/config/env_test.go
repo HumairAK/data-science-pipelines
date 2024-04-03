@@ -102,6 +102,14 @@ func TestGetBucketSessionInfo(t *testing.T) {
 			},
 		},
 		{
+			msg:                 "invalid - unsupported provider in providers config",
+			pipelineroot:        "s3://my-bucket",
+			expectedSessionInfo: objectstore.SessionInfo{},
+			shouldError:         true,
+			errorMsg:            "unsupported provider in provider config",
+			testDataCase:        "case0",
+		},
+		{
 			msg:                 "invalid - empty minio provider",
 			pipelineroot:        "minio://my-bucket/v2/artifacts",
 			expectedSessionInfo: objectstore.SessionInfo{},
@@ -267,8 +275,8 @@ func TestGetBucketSessionInfo(t *testing.T) {
 			expectedSessionInfo: objectstore.SessionInfo{
 				Provider: "s3",
 				Params: map[string]string{
-					"region":       "us-east-1",
-					"endpoint":     "s3.amazonaws.com",
+					"region":       "us-east-2",
+					"endpoint":     "s3.us-east-2.amazonaws.com",
 					"disableSSL":   "false",
 					"fromEnv":      "false",
 					"secretName":   "s3-test-secret-6-b",
