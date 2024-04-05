@@ -16,8 +16,13 @@ import { Transform, PassThrough } from 'stream';
 import * as tar from 'tar-stream';
 import peek from 'peek-stream';
 import gunzip from 'gunzip-maybe';
+import { URL } from 'url';
 import { Client as MinioClient, ClientOptions as MinioClientOptions } from 'minio';
 import { awsInstanceProfileCredentials, isS3Endpoint } from './aws-helper';
+import {AWSConfigs, MinioConfigs} from "./configs";
+import { S3ProviderInfo} from "./handlers/artifacts";
+import {getK8sSecret} from "./k8s-helper";
+import {parseJSONString} from "./utils";
 const { fromNodeProviderChain } = require('@aws-sdk/credential-providers');
 
 /** MinioRequestConfig describes the info required to retrieve an artifact. */
@@ -33,11 +38,31 @@ export interface MinioClientOptionsWithOptionalSecrets extends Partial<MinioClie
   endPoint: string;
 }
 
+
 /**
  * Create minio client with aws instance profile credentials if needed.
  * @param config minio client options where `accessKey` and `secretKey` are optional.
+ * @param providerType provider type ('s3' or 'minio')
+ * @param providerInfoString json string container optional provider info
  */
-export async function createMinioClient(config: MinioClientOptionsWithOptionalSecrets) {
+export async function createMinioClient(config: MinioClientOptionsWithOptionalSecrets, providerType: string, providerInfoString?: string) {
+  if(providerInfoString) {
+    const providerInfo  = parseJSONString<S3ProviderInfo>(providerInfoString);
+    if (providerInfo && providerInfo.Params.fromEnv === "false") {
+      let mc : MinioClient;
+      config = await parseS3ProviderInfo(config, providerInfo);
+      try {
+        mc = await new MinioClient(config as MinioClientOptions);
+      } catch (err) {
+        throw new Error(`Failed to create MinioClient via the given Provider Info: ${err}`);
+      }
+      return mc;
+    }
+  }
+  if (providerType === "minio") {
+    return new MinioClient(config as MinioClientOptions);
+  }
+
   // This logic is AWS S3 specific
   if (isS3Endpoint(config.endPoint)) {
     try {
@@ -76,6 +101,48 @@ export async function createMinioClient(config: MinioClientOptionsWithOptionalSe
     }
   }
   return new MinioClient(config as MinioClientOptions);
+}
+
+async function parseS3ProviderInfo(config: MinioClientOptionsWithOptionalSecrets, providerInfo: S3ProviderInfo) : Promise<MinioClientOptionsWithOptionalSecrets> {
+  if (!providerInfo.Params.accessKeyKey || !providerInfo.Params.secretKeyKey || !providerInfo.Params.secretName) {
+    throw new Error('Provider info with fromEnv:false supplied with incomplete secret credential info.');
+  } else {
+    config.accessKey = await getK8sSecret(providerInfo.Params.secretName, providerInfo.Params.accessKeyKey);
+    config.secretKey = await getK8sSecret(providerInfo.Params.secretName, providerInfo.Params.secretKeyKey);
+    if (providerInfo.Params.endpoint) {
+      let parseEndpoint = new URL(providerInfo.Params.endpoint);
+      const host = parseEndpoint.host;
+      const port = parseEndpoint.port;
+      const protocol = parseEndpoint.protocol;
+
+      // minio config seems to default to port "9000" so we infer it here from the url
+      switch (protocol) {
+        case "http:":
+          config.port = 80;
+          break;
+        case "https:":
+          config.port = 8080;
+          break;
+        default:
+          // continue with minio default
+          break;
+      }
+      // user provided port in endpoint takes precedence
+      // e.g. if the user has provided <service-name>.<namespace>.svc.cluster.local:<service-port>
+      if (port) {
+        config.port = Number(port);
+      }
+
+      config.endPoint = host;
+    }
+    if (providerInfo.Params.region) {
+      config.region = providerInfo.Params.region;
+    }
+    if (providerInfo.Params.disableSSL) {
+      config.useSSL = !(providerInfo.Params.disableSSL.toLowerCase() === "true");
+    }
+  }
+  return config;
 }
 
 /**
