@@ -34,7 +34,7 @@ import {
 } from 'src/lib/v2/StaticFlow';
 import { getArtifactNameFromEvent, LinkedArtifact } from 'src/mlmd/MlmdUtils';
 import { NodeMlmdInfo } from 'src/pages/RunDetailsV2';
-import { Artifact, Event, Execution, Value } from 'src/third_party/mlmd';
+import {Artifact, Context, Event, Execution, Value} from 'src/third_party/mlmd';
 
 export const TASK_NAME_KEY = 'task_name';
 export const PARENT_DAG_ID_KEY = 'parent_dag_id';
@@ -334,6 +334,7 @@ export function getNodeMlmdInfo(
   executions: Execution[],
   events: Event[],
   artifacts: Artifact[],
+  context: Context,
 ): NodeMlmdInfo {
   if (!elem) {
     return {};
@@ -352,7 +353,7 @@ export function getNodeMlmdInfo(
     const executions = taskNameToExecution
       .get(taskLabel)
       ?.filter(exec => exec.getId() === elem.data?.mlmdId);
-    return executions ? { execution: executions[0] } : {};
+    return executions ? { execution: executions[0], context: context } : {};
   } else if (NodeTypeNames.ARTIFACT === elem.type) {
     let linkedArtifact = artifactNodeKeyToArtifact.get(elem.id);
 
@@ -369,14 +370,14 @@ export function getNodeMlmdInfo(
 
     const executionId = linkedArtifact?.event.getExecutionId();
     const execution = executionId ? executionIdToExectuion.get(executionId) : undefined;
-    return { execution, linkedArtifact };
+    return { execution, linkedArtifact, context };
   } else if (NodeTypeNames.SUB_DAG === elem.type) {
     // TODO: Update sub-dag state based on future design.
     const taskLabel = getTaskLabelByPipelineFlowElement(elem);
     const executions = taskNameToExecution
       .get(taskLabel)
       ?.filter(exec => exec.getId() === elem.data?.mlmdId);
-    return executions ? { execution: executions[0] } : {};
+    return executions ? { execution: executions[0], context: context } : {};
   }
   return {};
 }

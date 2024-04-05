@@ -2,7 +2,7 @@
 
 set -e
 
-NAMESPACE=${NAMESPACE:-kubeflow}
+NAMESPACE=dspa1
 
 cat << EOF
 ===============================================================================
@@ -14,4 +14,4 @@ What this does:
 EOF
 
 echo "Starting to port forward frontend server in a KFP standalone deployment to respond to apis..."
-kubectl port-forward -n $NAMESPACE svc/ml-pipeline-ui 3001:80
+kubectl port-forward -n $NAMESPACE svc/ds-pipeline-ui-sample 3001:3000

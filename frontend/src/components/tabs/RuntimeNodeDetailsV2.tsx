@@ -95,6 +95,9 @@ export function RuntimeNodeDetailsV2({
   if (!element) {
     return NODE_INFO_UNKNOWN;
   }
+  let custom_props = elementMlmdInfo?.execution?.getCustomPropertiesMap()
+  let custom_context_props = elementMlmdInfo?.context?.getCustomPropertiesMap()
+  let providerInfo = custom_context_props?.get('bucket_session_info')?.toObject().stringValue
 
   return (() => {
     if (NodeTypeNames.EXECUTION === element.type) {
@@ -113,6 +116,7 @@ export function RuntimeNodeDetailsV2({
         <ArtifactNodeDetail
           execution={elementMlmdInfo?.execution}
           linkedArtifact={elementMlmdInfo?.linkedArtifact}
+          providerInfo={providerInfo}
           namespace={namespace}
         />
       );
@@ -333,9 +337,10 @@ async function getLogsInfo(execution: Execution, runId?: string): Promise<Map<st
 interface ArtifactNodeDetailProps {
   execution?: Execution;
   linkedArtifact?: LinkedArtifact;
+  providerInfo?: string
   namespace: string | undefined;
 }
-function ArtifactNodeDetail({ execution, linkedArtifact, namespace }: ArtifactNodeDetailProps) {
+function ArtifactNodeDetail({ execution, linkedArtifact, providerInfo, namespace }: ArtifactNodeDetailProps) {
   const { data } = useQuery<ArtifactType[], Error>(
     ['artifact_types', { linkedArtifact }],
     () => getArtifactTypes(),
@@ -357,6 +362,7 @@ function ArtifactNodeDetail({ execution, linkedArtifact, namespace }: ArtifactNo
             execution={execution}
             artifactTypes={data}
             linkedArtifact={linkedArtifact}
+            providerInfo={providerInfo}
             namespace={namespace}
           ></ArtifactInfo>
         )}
@@ -379,6 +385,7 @@ interface ArtifactNodeDetailProps {
   execution?: Execution;
   artifactTypes?: ArtifactType[];
   linkedArtifact?: LinkedArtifact;
+  providerInfo?: string;
   namespace: string | undefined;
 }
 
@@ -386,6 +393,7 @@ function ArtifactInfo({
   execution,
   artifactTypes,
   linkedArtifact,
+  providerInfo,
   namespace,
 }: ArtifactNodeDetailProps) {
   if (!execution || !linkedArtifact) {
@@ -435,6 +443,7 @@ function ArtifactInfo({
           valueComponent={ArtifactPreview}
           valueComponentProps={{
             namespace: namespace,
+            providerInfo: providerInfo,
           }}
         />
       </div>

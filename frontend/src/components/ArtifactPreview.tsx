@@ -50,6 +50,7 @@ const css = stylesheet({
 
 export interface ArtifactPreviewProps extends ValueComponentProps<string> {
   namespace?: string;
+  providerInfo?: string;
   maxbytes?: number;
   maxlines?: number;
 }
@@ -60,6 +61,7 @@ export interface ArtifactPreviewProps extends ValueComponentProps<string> {
 const ArtifactPreview: React.FC<ArtifactPreviewProps> = ({
   value,
   namespace,
+  providerInfo,
   maxbytes = 255,
   maxlines = 20,
 }) => {

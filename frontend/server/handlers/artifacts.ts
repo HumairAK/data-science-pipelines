@@ -83,38 +83,39 @@ export function getArtifactsHandler({
     console.log(`Getting storage artifact at: ${source}: ${bucket}/${key}`);
     switch (source) {
       case 'gcs':
-        getGCSArtifactHandler({ bucket, key }, peek)(req, res);
+        await getGCSArtifactHandler({bucket, key}, peek)(req, res);
         break;
 
       case 'minio':
-        getMinioArtifactHandler(
-          {
-            bucket,
-            client: new MinioClient(minio),
-            key,
-            tryExtract,
-          },
-          peek,
+        await getMinioArtifactHandler(
+            {
+              bucket,
+              client: new MinioClient(minio),
+              key,
+              tryExtract,
+            },
+            peek,
         )(req, res);
         break;
+
       case 's3':
-        getMinioArtifactHandler(
-          {
-            bucket,
-            client: await createMinioClient(aws),
-            key,
-          },
-          peek,
+        await getMinioArtifactHandler(
+            {
+              bucket,
+              client: await createMinioClient(aws),
+              key,
+            },
+            peek,
         )(req, res);
         break;
 
       case 'http':
       case 'https':
-        getHttpArtifactsHandler(
-          allowedDomain,
-          getHttpUrl(source, http.baseUrl || '', bucket, key),
-          http.auth,
-          peek,
+        await getHttpArtifactsHandler(
+            allowedDomain,
+            getHttpUrl(source, http.baseUrl || '', bucket, key),
+            http.auth,
+            peek,
         )(req, res);
         break;
 

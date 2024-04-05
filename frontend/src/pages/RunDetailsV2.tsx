@@ -46,7 +46,7 @@ import {
   getKfpV2RunContext,
   LinkedArtifact,
 } from 'src/mlmd/MlmdUtils';
-import { Artifact, Event, Execution } from 'src/third_party/mlmd';
+import {Artifact, Context, Event, Execution} from 'src/third_party/mlmd';
 import { classes } from 'typestyle';
 import { RunDetailsProps } from './RunDetails';
 import { statusToIcon } from './StatusV2';
@@ -57,6 +57,7 @@ const QUERY_REFETCH_INTERNAL = 10000; // 10000 milliseconds == 10 seconds.
 const TAB_NAMES = ['Graph', 'Detail', 'Pipeline Spec'];
 
 interface MlmdPackage {
+  context: Context;
   executions: Execution[];
   artifacts: Artifact[];
   events: Event[];
@@ -65,6 +66,7 @@ interface MlmdPackage {
 export interface NodeMlmdInfo {
   execution?: Execution;
   linkedArtifact?: LinkedArtifact;
+  context?: Context;
 }
 
 interface RunDetailsV2Info {
@@ -106,7 +108,7 @@ export function RunDetailsV2(props: RunDetailsV2Props) {
       const artifacts = await getArtifactsFromContext(context);
       const events = await getEventsByExecutions(executions);
 
-      return { executions, artifacts, events };
+      return { context, executions, artifacts, events };
     },
     {
       staleTime: QUERY_STALE_TIME,
@@ -149,7 +151,7 @@ export function RunDetailsV2(props: RunDetailsV2Props) {
       setSelectedNode(elements[0]);
       if (data) {
         setSelectedNodeMlmdInfo(
-          getNodeMlmdInfo(elements[0], data.executions, data.events, data.artifacts),
+          getNodeMlmdInfo(elements[0], data.executions, data.events, data.artifacts, data.context),
         );
       }
     }
