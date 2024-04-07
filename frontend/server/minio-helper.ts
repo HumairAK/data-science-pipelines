@@ -19,8 +19,9 @@ import gunzip from 'gunzip-maybe';
 import { Client as MinioClient, ClientOptions as MinioClientOptions } from 'minio';
 import { awsInstanceProfileCredentials, isS3Endpoint } from './aws-helper';
 import {AWSConfigs, MinioConfigs} from "./configs";
-import {ProviderInfo} from "./handlers/artifacts";
+import { S3ProviderInfo} from "./handlers/artifacts";
 import {getK8sSecret} from "./k8s-helper";
+import {parseJSONString} from "./utils";
 const { fromNodeProviderChain } = require('@aws-sdk/credential-providers');
 
 /** MinioRequestConfig describes the info required to retrieve an artifact. */
@@ -41,14 +42,16 @@ export interface MinioClientOptionsWithOptionalSecrets extends Partial<MinioClie
  * Create minio client with aws instance profile credentials if needed.
  * @param config minio client options where `accessKey` and `secretKey` are optional.
  * @param providerType provider type ('s3' or 'minio')
- * @param providerInfo contains optional configuration for s3 provider
+ * @param providerInfoString json string container optional provider info
  */
-export async function createMinioClient(config: MinioClientOptionsWithOptionalSecrets, providerType: string, providerInfo?: ProviderInfo) {
-  if(providerInfo && providerInfo.Params.fromEnv === "false") {
-    config = await parseS3ProviderInfo(config, providerInfo);
-    return new MinioClient(config as MinioClientOptions);
+export async function createMinioClient(config: MinioClientOptionsWithOptionalSecrets, providerType: string, providerInfoString?: string) {
+  if(providerInfoString) {
+    const providerInfo  = parseJSONString<S3ProviderInfo>(providerInfoString);
+    if (providerInfo && providerInfo.Params.fromEnv === "false") {
+      config = await parseS3ProviderInfo(config, providerInfo);
+      return new MinioClient(config as MinioClientOptions);
+    }
   }
-
   if (providerType === "minio") {
     return new MinioClient(config as MinioClientOptions);
   }
@@ -93,7 +96,7 @@ export async function createMinioClient(config: MinioClientOptionsWithOptionalSe
   return new MinioClient(config as MinioClientOptions);
 }
 
-async function parseS3ProviderInfo(config: MinioClientOptionsWithOptionalSecrets, providerInfo: ProviderInfo) : Promise<MinioClientOptionsWithOptionalSecrets> {
+async function parseS3ProviderInfo(config: MinioClientOptionsWithOptionalSecrets, providerInfo: S3ProviderInfo) : Promise<MinioClientOptionsWithOptionalSecrets> {
   if (!providerInfo.Params.accessKeyKey || !providerInfo.Params.secretKeyKey || !providerInfo.Params.secretName) {
     throw new Error('Provider info with fromEnv:false supplied with incomplete secret credential info.');
   } else {
