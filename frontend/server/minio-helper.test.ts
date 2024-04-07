@@ -34,7 +34,7 @@ describe('minio-helper', () => {
         accessKey: 'accesskey',
         endPoint: 'minio.kubeflow:80',
         secretKey: 'secretkey',
-      });
+      }, 's3');
 
       expect(client).toBeInstanceOf(MinioClient);
       expect(MockedMinioClient).toHaveBeenCalledWith({
@@ -47,7 +47,7 @@ describe('minio-helper', () => {
     it('fallbacks to the provided configs if EC2 metadata is not available.', async () => {
       const client = await createMinioClient({
         endPoint: 'minio.kubeflow:80',
-      });
+      }, 's3');
 
       expect(client).toBeInstanceOf(MinioClient);
       expect(MockedMinioClient).toHaveBeenCalledWith({
@@ -71,7 +71,7 @@ describe('minio-helper', () => {
         Promise.resolve(true),
       );
 
-      const client = await createMinioClient({ endPoint: 's3.awsamazon.com' });
+      const client = await createMinioClient({ endPoint: 's3.awsamazon.com' }, 's3');
 
       expect(client).toBeInstanceOf(MinioClient);
       expect(MockedMinioClient).toHaveBeenCalledWith({

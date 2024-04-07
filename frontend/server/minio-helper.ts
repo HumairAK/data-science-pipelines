@@ -18,6 +18,9 @@ import peek from 'peek-stream';
 import gunzip from 'gunzip-maybe';
 import { Client as MinioClient, ClientOptions as MinioClientOptions } from 'minio';
 import { awsInstanceProfileCredentials, isS3Endpoint } from './aws-helper';
+import {AWSConfigs, MinioConfigs} from "./configs";
+import {ProviderInfo} from "./handlers/artifacts";
+import {getK8sSecret} from "./k8s-helper";
 const { fromNodeProviderChain } = require('@aws-sdk/credential-providers');
 
 /** MinioRequestConfig describes the info required to retrieve an artifact. */
@@ -33,11 +36,23 @@ export interface MinioClientOptionsWithOptionalSecrets extends Partial<MinioClie
   endPoint: string;
 }
 
+
 /**
  * Create minio client with aws instance profile credentials if needed.
  * @param config minio client options where `accessKey` and `secretKey` are optional.
+ * @param providerType provider type ('s3' or 'minio')
+ * @param providerInfo contains optional configuration for s3 provider
  */
-export async function createMinioClient(config: MinioClientOptionsWithOptionalSecrets) {
+export async function createMinioClient(config: MinioClientOptionsWithOptionalSecrets, providerType: string, providerInfo?: ProviderInfo) {
+  if(providerInfo && providerInfo.Params.fromEnv === "false") {
+    config = await parseS3ProviderInfo(config, providerInfo);
+    return new MinioClient(config as MinioClientOptions);
+  }
+
+  if (providerType === "minio") {
+    return new MinioClient(config as MinioClientOptions);
+  }
+
   // This logic is AWS S3 specific
   if (isS3Endpoint(config.endPoint)) {
     try {
@@ -76,6 +91,25 @@ export async function createMinioClient(config: MinioClientOptionsWithOptionalSe
     }
   }
   return new MinioClient(config as MinioClientOptions);
+}
+
+async function parseS3ProviderInfo(config: MinioClientOptionsWithOptionalSecrets, providerInfo: ProviderInfo) : Promise<MinioClientOptionsWithOptionalSecrets> {
+  if (!providerInfo.Params.accessKeyKey || !providerInfo.Params.secretKeyKey || !providerInfo.Params.secretName) {
+    throw new Error('Provider info with fromEnv:false supplied with incomplete secret credential info.');
+  } else {
+    config.accessKey = await getK8sSecret(providerInfo.Params.secretName, providerInfo.Params.accessKeyKey);
+    config.secretKey = await getK8sSecret(providerInfo.Params.secretName, providerInfo.Params.secretKeyKey);
+    if (providerInfo.Params.endpoint) {
+      config.endPoint = providerInfo.Params.endpoint;
+    }
+    if (providerInfo.Params.region) {
+      config.region = providerInfo.Params.region;
+    }
+    if (providerInfo.Params.disableSSL) {
+      config.useSSL = !(providerInfo.Params.disableSSL.toLowerCase() === "true");
+    }
+  }
+  return config;
 }
 
 /**

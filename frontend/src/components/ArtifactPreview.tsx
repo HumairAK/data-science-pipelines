@@ -76,7 +76,7 @@ const ArtifactPreview: React.FC<ArtifactPreviewProps> = ({
 
   const { isSuccess, isError, data, error } = useQuery<string, Error>(
     ['artifact_preview', { value, namespace, maxbytes, maxlines }],
-    () => getPreview(storage, namespace, maxbytes, maxlines),
+    () => getPreview(storage, providerInfo, namespace, maxbytes, maxlines),
     { staleTime: Infinity },
   );
 
@@ -127,6 +127,7 @@ export default ArtifactPreview;
 
 async function getPreview(
   storagePath: StoragePath | undefined,
+  providerInfo: string | undefined,
   namespace: string | undefined,
   maxbytes: number,
   maxlines?: number,
@@ -135,7 +136,7 @@ async function getPreview(
     return ``;
   }
   // TODO how to handle binary data (can probably use magic number to id common mime types)
-  let data = await Apis.readFile(storagePath, namespace, maxbytes + 1);
+  let data = await Apis.readFile({path: storagePath, providerInfo: providerInfo, peek: maxbytes +1});
   // is preview === data and no maxlines
   if (data.length <= maxbytes && (!maxlines || data.split('\n').length < maxlines)) {
     return data;
