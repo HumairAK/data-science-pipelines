@@ -42,9 +42,10 @@ type ParamList = Array<KeyValue<string>>;
 export interface IOTabProps {
   execution: Execution;
   namespace: string | undefined;
+  providerInfo?: string;
 }
 
-export function InputOutputTab({ execution, namespace }: IOTabProps) {
+export function InputOutputTab({ execution, namespace, providerInfo }: IOTabProps) {
   const executionId = execution.getId();
 
   // TODO(jlyaoyuli): Showing input/output parameter for unexecuted node (retrieves from PipelineSpec).
@@ -129,6 +130,7 @@ export function InputOutputTab({ execution, namespace }: IOTabProps) {
                 valueComponent={ArtifactPreview}
                 valueComponentProps={{
                   namespace: namespace,
+                  providerInfo: providerInfo,
                 }}
               />
             </div>
@@ -153,6 +155,7 @@ export function InputOutputTab({ execution, namespace }: IOTabProps) {
                 valueComponent={ArtifactPreview}
                 valueComponentProps={{
                   namespace: namespace,
+                  providerInfo: providerInfo,
                 }}
               />
             </div>

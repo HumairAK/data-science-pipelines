@@ -107,6 +107,7 @@ export function RuntimeNodeDetailsV2({
           runId={runId}
           element={element}
           execution={elementMlmdInfo?.execution}
+          providerInfo={providerInfo}
           layers={layers}
           namespace={namespace}
         ></TaskNodeDetail>
@@ -140,6 +141,7 @@ interface TaskNodeDetailProps {
   runId?: string;
   element?: FlowElement<FlowElementDataBase> | null;
   execution?: Execution;
+  providerInfo?: string;
   layers: string[];
   namespace: string | undefined;
 }
@@ -149,6 +151,7 @@ function TaskNodeDetail({
   runId,
   element,
   execution,
+  providerInfo,
   layers,
   namespace,
 }: TaskNodeDetailProps) {
@@ -181,7 +184,7 @@ function TaskNodeDetail({
         {selectedTab === 0 &&
           (() => {
             if (execution) {
-              return <InputOutputTab execution={execution} namespace={namespace}></InputOutputTab>;
+              return <InputOutputTab execution={execution} namespace={namespace} providerInfo={providerInfo}/>;
             }
             return NODE_STATE_UNAVAILABLE;
           })()}
