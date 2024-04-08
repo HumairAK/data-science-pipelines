@@ -376,6 +376,7 @@ function ArtifactNodeDetail({ execution, linkedArtifact, providerInfo, namespace
             linkedArtifacts={linkedArtifact ? [linkedArtifact] : []}
             artifactTypes={data ? data : []}
             execution={execution}
+            providerInfo={providerInfo}
             namespace={namespace}
           />
         )}

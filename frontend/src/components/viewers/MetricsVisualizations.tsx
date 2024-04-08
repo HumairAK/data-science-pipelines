@@ -72,6 +72,7 @@ interface MetricsVisualizationsProps {
   linkedArtifacts: LinkedArtifact[];
   artifactTypes: ArtifactType[];
   execution: Execution;
+  providerInfo?: string;
   namespace: string | undefined;
 }
 
@@ -83,6 +84,7 @@ export function MetricsVisualizations({
   linkedArtifacts,
   artifactTypes,
   execution,
+  providerInfo,
   namespace,
 }: MetricsVisualizationsProps) {
   // There can be multiple system.ClassificationMetrics or system.Metrics artifacts per execution.
@@ -130,7 +132,7 @@ export function MetricsVisualizations({
         namespace: namespace,
       },
     ],
-    () => getHtmlViewerConfig(htmlArtifacts, namespace),
+    () => getHtmlViewerConfig(htmlArtifacts, namespace, providerInfo),
     { staleTime: Infinity },
   );
 
@@ -149,7 +151,7 @@ export function MetricsVisualizations({
         namespace: namespace,
       },
     ],
-    () => getMarkdownViewerConfig(mdArtifacts, namespace),
+    () => getMarkdownViewerConfig(mdArtifacts, namespace, providerInfo),
     { staleTime: Infinity },
   );
 
@@ -871,6 +873,7 @@ async function getViewConfig(
 export async function getHtmlViewerConfig(
   htmlArtifacts: LinkedArtifact[] | undefined,
   namespace: string | undefined,
+  providerInfo?: string,
 ): Promise<HTMLViewerConfig[]> {
   if (!htmlArtifacts) {
     return [];
@@ -888,7 +891,7 @@ export async function getHtmlViewerConfig(
     }
 
     // TODO(zijianjoy): Limit the size of HTML file fetching to prevent UI frozen.
-    let data = await Apis.readFile({path: storagePath, namespace: namespace});
+    let data = await Apis.readFile({path: storagePath, providerInfo, namespace: namespace});
     return { htmlContent: data, type: PlotType.WEB_APP } as HTMLViewerConfig;
   });
   return Promise.all(htmlViewerConfigs);
@@ -897,6 +900,7 @@ export async function getHtmlViewerConfig(
 export async function getMarkdownViewerConfig(
   markdownArtifacts: LinkedArtifact[] | undefined,
   namespace: string | undefined,
+  providerInfo?: string,
 ): Promise<MarkdownViewerConfig[]> {
   if (!markdownArtifacts) {
     return [];
@@ -914,7 +918,7 @@ export async function getMarkdownViewerConfig(
     }
 
     // TODO(zijianjoy): Limit the size of Markdown file fetching to prevent UI frozen.
-    let data = await Apis.readFile({path: storagePath, namespace: namespace});
+    let data = await Apis.readFile({path: storagePath, providerInfo, namespace: namespace});
     return { markdownContent: data, type: PlotType.MARKDOWN } as MarkdownViewerConfig;
   });
   return Promise.all(markdownViewerConfigs);
