@@ -115,36 +115,44 @@ export function getArtifactsHandler({
 
     // todo validate
 
-
+    let client :  MinioClient;
     switch (source) {
       case 'gcs':
         await getGCSArtifactHandler({bucket, key}, peek, providerInfo)(req, res);
         break;
-
       case 'minio':
-
+        try {
+          client = await createMinioClient(minio, 'minio', providerInfo);
+        } catch (e) {
+          res.status(500).send(`Failed to initialize Minio Client for Minio Provider: ${e}`);
+          return;
+        }
         await getMinioArtifactHandler(
             {
               bucket,
-              client: await createMinioClient(minio, 'minio', providerInfo),
+              client,
               key,
               tryExtract,
             },
             peek,
         )(req, res);
         break;
-
       case 's3':
+        try {
+          client = await createMinioClient(minio, 'minio', providerInfo);
+        } catch (e) {
+          res.status(500).send(`Failed to initialize Minio Client for S3 Provider: ${e}`);
+          return;
+        }
         await getMinioArtifactHandler(
             {
               bucket,
-              client: await createMinioClient(aws, 's3', providerInfo),
+              client,
               key,
             },
             peek,
         )(req, res);
         break;
-
       case 'http':
       case 'https':
         await getHttpArtifactsHandler(

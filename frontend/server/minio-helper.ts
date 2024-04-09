@@ -48,8 +48,14 @@ export async function createMinioClient(config: MinioClientOptionsWithOptionalSe
   if(providerInfoString) {
     const providerInfo  = parseJSONString<S3ProviderInfo>(providerInfoString);
     if (providerInfo && providerInfo.Params.fromEnv === "false") {
+      let mc : MinioClient;
       config = await parseS3ProviderInfo(config, providerInfo);
-      return new MinioClient(config as MinioClientOptions);
+      try {
+        mc = await new MinioClient(config as MinioClientOptions);
+      } catch (err) {
+        throw new Error(`Failed to create MinioClient via the given Provider Info: ${err}`);
+      }
+      return mc;
     }
   }
   if (providerType === "minio") {
