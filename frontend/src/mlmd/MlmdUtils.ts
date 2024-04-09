@@ -285,6 +285,7 @@ async function getContextType(contextTypeName: string): Promise<ContextType | un
 export interface LinkedArtifact {
   event: Event;
   artifact: Artifact;
+  providerInfo?: string;
 }
 
 export async function getLinkedArtifactsByEvents(events: Event[]): Promise<LinkedArtifact[]> {

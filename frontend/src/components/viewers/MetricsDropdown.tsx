@@ -122,6 +122,10 @@ export default function MetricsDropdown(props: MetricsDropdownProps) {
     return <p>There are no {metricsTabText} artifacts available on the selected runs.</p>;
   }
 
+  if(selectedArtifacts[0].linkedArtifact){
+    console.log("blah")
+  }
+
   return (
     <table>
       <tbody>
@@ -200,9 +204,9 @@ function VisualizationPanelItem(props: VisualizationPanelItemProps) {
       if (linkedArtifact) {
         try {
           if (metricsTab === MetricsType.HTML) {
-            viewerConfigs = await getHtmlViewerConfig([linkedArtifact], namespace);
+            viewerConfigs = await getHtmlViewerConfig([linkedArtifact], namespace, linkedArtifact.providerInfo);
           } else if (metricsTab === MetricsType.MARKDOWN) {
-            viewerConfigs = await getMarkdownViewerConfig([linkedArtifact], namespace);
+            viewerConfigs = await getMarkdownViewerConfig([linkedArtifact], namespace, linkedArtifact.providerInfo);
           }
         } catch (err) {
           throw err;
@@ -357,6 +361,10 @@ function getLinkedArtifactFromSelectedItem(
       getArtifactName(linkedArtifact) || linkedArtifact.artifact.getId().toString();
     return linkedArtifactText === selectedItem.subItemSecondaryName;
   });
+
+  if(linkedArtifact){
+    linkedArtifact.providerInfo = filteredRunArtifact?.providerInfo
+  }
 
   return linkedArtifact;
 }

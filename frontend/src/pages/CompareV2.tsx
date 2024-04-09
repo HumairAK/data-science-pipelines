@@ -35,7 +35,7 @@ import {
   getKfpV2RunContext,
   LinkedArtifact,
 } from 'src/mlmd/MlmdUtils';
-import { Artifact, ArtifactType, Event, Execution } from 'src/third_party/mlmd';
+import {Artifact, ArtifactType, Context, Event, Execution} from 'src/third_party/mlmd';
 import { PageProps } from './Page';
 import RunList from './RunList';
 import { METRICS_SECTION_NAME, OVERVIEW_SECTION_NAME, PARAMS_SECTION_NAME } from './Compare';
@@ -77,6 +77,7 @@ const css = stylesheet({
 });
 
 interface MlmdPackage {
+  context: Context;
   executions: Execution[];
   artifacts: Artifact[];
   events: Event[];
@@ -137,6 +138,7 @@ function filterRunArtifactsByType(
       typeRuns.push({
         run: runArtifact.run,
         executionArtifacts: typeExecutions,
+        providerInfo: runArtifact.providerInfo,
       } as RunArtifact);
     }
   }
@@ -149,6 +151,8 @@ function filterRunArtifactsByType(
 function getRunArtifacts(runs: V2beta1Run[], mlmdPackages: MlmdPackage[]): RunArtifact[] {
   return mlmdPackages.map((mlmdPackage, index) => {
     const events = mlmdPackage.events.filter(e => e.getType() === Event.Type.OUTPUT);
+    const custom_context_props = mlmdPackage?.context?.getCustomPropertiesMap()
+    const providerInfo = custom_context_props?.get('bucket_session_info')?.toObject().stringValue
 
     // Match artifacts to executions.
     const artifactMap = new Map();
@@ -176,6 +180,7 @@ function getRunArtifacts(runs: V2beta1Run[], mlmdPackages: MlmdPackage[]): RunAr
     return {
       run: runs[index],
       executionArtifacts,
+      providerInfo,
     } as RunArtifact;
   });
 }
@@ -320,6 +325,7 @@ function CompareV2(props: CompareV2Props) {
           const events = await getEventsByExecutions(executions);
           return {
             executions,
+            context,
             artifacts,
             events,
           } as MlmdPackage;
