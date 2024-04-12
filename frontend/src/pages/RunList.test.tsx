@@ -111,7 +111,7 @@ describe('RunList', () => {
   }
 
   beforeEach(() => {
-    formatDateStringSpy.mockImplementation((date?: Date) => {
+    formatDateStringSpy.mockImplementation((date?: Date | string) => {
       return date ? '1/2/2019, 12:34:56 PM' : '-';
     });
     onErrorSpy.mockClear();
