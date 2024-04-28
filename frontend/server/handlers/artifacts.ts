@@ -137,7 +137,7 @@ export function getArtifactsHandler({
         break;
       case 's3':
         try {
-          client = await createMinioClient(minio, 'minio', providerInfo);
+          client = await createMinioClient(minio, 's3', providerInfo);
         } catch (e) {
           res.status(500).send(`Failed to initialize Minio Client for S3 Provider: ${e}`);
           return;
@@ -160,7 +160,6 @@ export function getArtifactsHandler({
             peek,
         )(req, res);
         break;
-
       case 'volume':
         await getVolumeArtifactsHandler(
             {
@@ -170,7 +169,6 @@ export function getArtifactsHandler({
             peek,
         )(req, res);
         break;
-
       default:
         res.status(500).send('Unknown storage source');
         return;

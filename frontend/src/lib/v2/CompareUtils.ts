@@ -43,7 +43,6 @@ export interface ExecutionArtifact {
 export interface RunArtifact {
   run: V2beta1Run;
   executionArtifacts: ExecutionArtifact[];
-  providerInfo?: string;
 }
 
 interface ScalarRowData {

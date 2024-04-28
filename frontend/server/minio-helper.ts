@@ -18,7 +18,7 @@ import peek from 'peek-stream';
 import gunzip from 'gunzip-maybe';
 import { URL } from 'url';
 import { Client as MinioClient, ClientOptions as MinioClientOptions } from 'minio';
-import { awsInstanceProfileCredentials, isS3Endpoint } from './aws-helper';
+import { awsInstanceProfileCredentials, isAWSS3Endpoint } from './aws-helper';
 import {AWSConfigs, MinioConfigs} from "./configs";
 import { S3ProviderInfo} from "./handlers/artifacts";
 import {getK8sSecret} from "./k8s-helper";
@@ -40,67 +40,83 @@ export interface MinioClientOptionsWithOptionalSecrets extends Partial<MinioClie
 
 
 /**
- * Create minio client with aws instance profile credentials if needed.
- * @param config minio client options where `accessKey` and `secretKey` are optional.
+ * Create minio client for s3 compatible storage
+ *
+ * If providerInfoString is available, overwrite these with defaultConfigs.
+ *
+ * If providerInfo is not provided or, if credentials are sourced fromEnv,
+ * then, if using aws s3 (via provider chain or instance profile), create a
+ * minio client backed by aws s3 client.
+ *
+ * Otherwise, assume s3 compatible credentials have been provided via configs
+ * (defaultConfigs or ProviderInfo), and return a minio client configured
+ * respectively.
+ *
+ * @param defaultConfig minio client options where `accessKey` and `secretKey` are optional.
  * @param providerType provider type ('s3' or 'minio')
  * @param providerInfoString json string container optional provider info
  */
-export async function createMinioClient(config: MinioClientOptionsWithOptionalSecrets, providerType: string, providerInfoString?: string) {
+export async function createMinioClient(defaultConfig: MinioClientOptionsWithOptionalSecrets, providerType: string, providerInfoString?: string) {
+  let config = defaultConfig;
+
   if(providerInfoString) {
     const providerInfo  = parseJSONString<S3ProviderInfo>(providerInfoString);
+    // If fromEnv == false, we rely on the default credentials or env to provide credentials (e.g. IRSA)
     if (providerInfo && providerInfo.Params.fromEnv === "false") {
-      let mc : MinioClient;
       config = await parseS3ProviderInfo(config, providerInfo);
+    }
+  }
+
+  // If using s3 and sourcing credentials from environment
+  if (providerType === "s3" && (!config.accessKey || !config.secretKey)) {
+    // AWS S3 with credentials from provider chain
+    if (isAWSS3Endpoint(config.endPoint)) {
       try {
-        mc = await new MinioClient(config as MinioClientOptions);
-      } catch (err) {
-        throw new Error(`Failed to create MinioClient via the given Provider Info: ${err}`);
-      }
-      return mc;
-    }
-  }
-  if (providerType === "minio") {
-    return new MinioClient(config as MinioClientOptions);
-  }
-
-  // This logic is AWS S3 specific
-  if (isS3Endpoint(config.endPoint)) {
-    try {
-      const credentials = fromNodeProviderChain();
-      const aws_credentials = await credentials();
-      if (aws_credentials) {
-        const {
-          accessKeyId: accessKey,
-          secretAccessKey: secretKey,
-          sessionToken: sessionToken,
-        } = aws_credentials;
-        return new MinioClient({ ...config, accessKey, secretKey, sessionToken });
-      }
-    } catch (err) {
-      console.error('Unable to get credentials from AWS credential provider chain: ', err);
-    }
-  }
-
-  // This logic is S3 generic
-  if (!config.accessKey || !config.secretKey) {
-    try {
-      if (await awsInstanceProfileCredentials.ok()) {
-        const credentials = await awsInstanceProfileCredentials.getCredentials();
-        if (credentials) {
+        const credentials = fromNodeProviderChain();
+        const aws_credentials = await credentials();
+        if (aws_credentials) {
           const {
-            AccessKeyId: accessKey,
-            SecretAccessKey: secretKey,
-            Token: sessionToken,
-          } = credentials;
+            accessKeyId: accessKey,
+            secretAccessKey: secretKey,
+            sessionToken: sessionToken,
+          } = aws_credentials;
           return new MinioClient({ ...config, accessKey, secretKey, sessionToken });
         }
-        console.error('unable to get credentials from AWS metadata store.');
+      } catch (err) {
+        console.error('Unable to get credentials from AWS credential provider chain: ', err);
       }
-    } catch (err) {
-      console.error('Unable to get aws instance profile credentials: ', err);
+    } else {
+      // If no access/secret key or endpoint provided
+      // attempt to fetch AWS S3 instance profile credentials
+      if (!config.accessKey || !config.secretKey) {
+        try {
+          if (await awsInstanceProfileCredentials.ok()) {
+            const credentials = await awsInstanceProfileCredentials.getCredentials();
+            if (credentials) {
+              const {
+                AccessKeyId: accessKey,
+                SecretAccessKey: secretKey,
+                Token: sessionToken,
+              } = credentials;
+              return new MinioClient({ ...config, accessKey, secretKey, sessionToken });
+            }
+            console.error('Unable to get credentials from AWS metadata store.');
+          }
+        } catch (err) {
+          console.error('Unable to get aws instance profile credentials: ', err);
+        }
+      }
     }
   }
-  return new MinioClient(config as MinioClientOptions);
+
+  // If using any AWS or S3 compatible store (e.g. minio, ceph, etc.)
+  let mc : MinioClient;
+  try {
+    mc = await new MinioClient(config as MinioClientOptions);
+  } catch (err) {
+    throw new Error(`Failed to create MinioClient: ${err}`);
+  }
+  return mc;
 }
 
 async function parseS3ProviderInfo(config: MinioClientOptionsWithOptionalSecrets, providerInfo: S3ProviderInfo) : Promise<MinioClientOptionsWithOptionalSecrets> {
@@ -110,31 +126,37 @@ async function parseS3ProviderInfo(config: MinioClientOptionsWithOptionalSecrets
     config.accessKey = await getK8sSecret(providerInfo.Params.secretName, providerInfo.Params.accessKeyKey);
     config.secretKey = await getK8sSecret(providerInfo.Params.secretName, providerInfo.Params.secretKeyKey);
     if (providerInfo.Params.endpoint) {
-      let parseEndpoint = new URL(providerInfo.Params.endpoint);
-      const host = parseEndpoint.host;
-      const port = parseEndpoint.port;
-      const protocol = parseEndpoint.protocol;
+      if (isAWSS3Endpoint(providerInfo.Params.endpoint)) {
+        config.endPoint = providerInfo.Params.endpoint;
+        config.port = 443;
+      } else {
+        const parseEndpoint = new URL(providerInfo.Params.endpoint);
+        const host = parseEndpoint.host;
+        const port = parseEndpoint.port;
+        const protocol = parseEndpoint.protocol;
 
-      // minio config seems to default to port "9000" so we infer it here from the url
-      switch (protocol) {
-        case "http:":
-          config.port = 80;
-          break;
-        case "https:":
-          config.port = 8080;
-          break;
-        default:
-          // continue with minio default
-          break;
+        config.endPoint = host;
+        // user provided port in endpoint takes precedence
+        // e.g. if the user has provided <service-name>.<namespace>.svc.cluster.local:<service-port>
+        if (port) {
+          config.port = Number(port);
+        } else {
+          // minio config seems to default to port "9000" so we infer it here from the url
+          switch (protocol) {
+            case "http:":
+              config.port = 80;
+              break;
+            case "https:":
+              config.port = 8443;
+              break;
+            default:
+              // continue with minio default
+              break;
+          }
+        }
       }
-      // user provided port in endpoint takes precedence
-      // e.g. if the user has provided <service-name>.<namespace>.svc.cluster.local:<service-port>
-      if (port) {
-        config.port = Number(port);
-      }
-
-      config.endPoint = host;
     }
+
     if (providerInfo.Params.region) {
       config.region = providerInfo.Params.region;
     }
