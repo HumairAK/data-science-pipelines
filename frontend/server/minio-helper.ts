@@ -19,7 +19,6 @@ import gunzip from 'gunzip-maybe';
 import { URL } from 'url';
 import { Client as MinioClient, ClientOptions as MinioClientOptions } from 'minio';
 import { awsInstanceProfileCredentials, isAWSS3Endpoint } from './aws-helper';
-import {AWSConfigs, MinioConfigs} from "./configs";
 import { S3ProviderInfo} from "./handlers/artifacts";
 import {getK8sSecret} from "./k8s-helper";
 import {parseJSONString} from "./utils";
@@ -38,11 +37,10 @@ export interface MinioClientOptionsWithOptionalSecrets extends Partial<MinioClie
   endPoint: string;
 }
 
-
 /**
  * Create minio client for s3 compatible storage
  *
- * If providerInfoString is available, overwrite these with defaultConfigs.
+ * If providerInfoString is available, use these over defaultConfigs.
  *
  * If providerInfo is not provided or, if credentials are sourced fromEnv,
  * then, if using aws s3 (via provider chain or instance profile), create a
@@ -59,15 +57,14 @@ export interface MinioClientOptionsWithOptionalSecrets extends Partial<MinioClie
 export async function createMinioClient(defaultConfig: MinioClientOptionsWithOptionalSecrets, providerType: string, providerInfoString?: string) {
   let config = defaultConfig;
 
-  if(providerInfoString) {
+  if (providerInfoString) {
     const providerInfo  = parseJSONString<S3ProviderInfo>(providerInfoString);
     // If fromEnv == false, we rely on the default credentials or env to provide credentials (e.g. IRSA)
     if (providerInfo && providerInfo.Params.fromEnv === "false") {
       config = await parseS3ProviderInfo(config, providerInfo);
     }
   }
-
-  // If using s3 and sourcing credentials from environment
+  // If using s3 and sourcing credentials from environment (currently only check aws env)
   if (providerType === "s3" && (!config.accessKey || !config.secretKey)) {
     // AWS S3 with credentials from provider chain
     if (isAWSS3Endpoint(config.endPoint)) {
@@ -109,7 +106,7 @@ export async function createMinioClient(defaultConfig: MinioClientOptionsWithOpt
     }
   }
 
-  // If using any AWS or S3 compatible store (e.g. minio, ceph, etc.)
+  // If using any AWS or S3 compatible store (e.g. minio, aws s3 when using manual creds, ceph, etc.)
   let mc : MinioClient;
   try {
     mc = await new MinioClient(config as MinioClientOptions);
@@ -119,49 +116,53 @@ export async function createMinioClient(defaultConfig: MinioClientOptionsWithOpt
   return mc;
 }
 
+// Parse provider info for any s3 compatible store that's not AWS S3
 async function parseS3ProviderInfo(config: MinioClientOptionsWithOptionalSecrets, providerInfo: S3ProviderInfo) : Promise<MinioClientOptionsWithOptionalSecrets> {
   if (!providerInfo.Params.accessKeyKey || !providerInfo.Params.secretKeyKey || !providerInfo.Params.secretName) {
     throw new Error('Provider info with fromEnv:false supplied with incomplete secret credential info.');
-  } else {
-    config.accessKey = await getK8sSecret(providerInfo.Params.secretName, providerInfo.Params.accessKeyKey);
-    config.secretKey = await getK8sSecret(providerInfo.Params.secretName, providerInfo.Params.secretKeyKey);
-    if (providerInfo.Params.endpoint) {
-      if (isAWSS3Endpoint(providerInfo.Params.endpoint)) {
-        config.endPoint = providerInfo.Params.endpoint;
-        config.port = 443;
-      } else {
-        const parseEndpoint = new URL(providerInfo.Params.endpoint);
-        const host = parseEndpoint.host;
-        const port = parseEndpoint.port;
-        const protocol = parseEndpoint.protocol;
+  }
+  config.accessKey = await getK8sSecret(providerInfo.Params.secretName, providerInfo.Params.accessKeyKey);
+  config.secretKey = await getK8sSecret(providerInfo.Params.secretName, providerInfo.Params.secretKeyKey);
 
-        config.endPoint = host;
-        // user provided port in endpoint takes precedence
-        // e.g. if the user has provided <service-name>.<namespace>.svc.cluster.local:<service-port>
-        if (port) {
-          config.port = Number(port);
-        } else {
-          // minio config seems to default to port "9000" so we infer it here from the url
-          switch (protocol) {
-            case "http:":
-              config.port = 80;
-              break;
-            case "https:":
-              config.port = 8443;
-              break;
-            default:
-              // continue with minio default
-              break;
-          }
-        }
+  if (isAWSS3Endpoint(providerInfo.Params.endpoint)) {
+    if (providerInfo.Params.endpoint) {
+      if(providerInfo.Params.endpoint.startsWith("https")){
+        const parseEndpoint = new URL(providerInfo.Params.endpoint);
+        config.endPoint = parseEndpoint.hostname;
+      } else {
+        config.endPoint = providerInfo.Params.endpoint;
       }
+
+    } else {
+      throw new Error('Provider info missing endpoint parameter.');
     }
 
     if (providerInfo.Params.region) {
       config.region = providerInfo.Params.region;
     }
+
+    // It's possible the user specifies these via config
+    // since aws s3 and s3-compatible use the same config parameters
+    // safeguard the user by ensuring these remain unset (default)
+    config.port = undefined;
+    config.useSSL = undefined;
+  } else {
+    if (providerInfo.Params.endpoint) {
+      const parseEndpoint = new URL(providerInfo.Params.endpoint);
+      const host = parseEndpoint.hostname;
+      const port = parseEndpoint.port;
+      config.endPoint = host;
+      // user provided port in endpoint takes precedence
+      // e.g. if the user has provided <service-name>.<namespace>.svc.cluster.local:<service-port>
+      config.port = port ? Number(port) : undefined;
+    }
+
+    config.region = providerInfo.Params.region ? providerInfo.Params.region : undefined;
+
     if (providerInfo.Params.disableSSL) {
       config.useSSL = !(providerInfo.Params.disableSSL.toLowerCase() === "true");
+    } else {
+      config.useSSL = undefined;
     }
   }
   return config;
