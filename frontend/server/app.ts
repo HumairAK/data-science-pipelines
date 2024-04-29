@@ -135,16 +135,22 @@ function createUIServer(options: UIConfigs) {
       namespacedServiceGetter: getArtifactServiceGetter(options.artifacts.proxy),
     }),
   );
+
+  /** Authorize function */
+  const authorizeFn = getAuthorizeFn(options.auth, { apiServerAddress });
+
   // /artifacts/get endpoint tries to extract the artifact to return pure text content
   registerHandler(
     app.get,
     '/artifacts/get',
     getArtifactsHandler({
-      artifactsConfigs: options.artifacts,
-      useParameter: false,
-      tryExtract: true,
+        artifactsConfigs: options.artifacts,
+        authorizeFn,
+        tryExtract: true,
+        useParameter: false,
     }),
   );
+
   // /artifacts/ endpoint downloads the artifact as is, it does not try to unzip or untar.
   registerHandler(
     app.get,
@@ -155,14 +161,12 @@ function createUIServer(options: UIConfigs) {
     // whether the file can be opened by the correct application by default.
     '/artifacts/:source/:bucket/*',
     getArtifactsHandler({
-      artifactsConfigs: options.artifacts,
-      useParameter: true,
-      tryExtract: false,
+        artifactsConfigs: options.artifacts,
+        authorizeFn,
+        tryExtract: false,
+        useParameter: true,
     }),
   );
-
-  /** Authorize function */
-  const authorizeFn = getAuthorizeFn(options.auth, { apiServerAddress });
 
   /** Tensorboard viewer */
   const {

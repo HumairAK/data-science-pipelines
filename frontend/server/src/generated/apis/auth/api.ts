@@ -115,6 +115,7 @@ export interface ApiStatus {
 export enum AuthorizeRequestResources {
   UNASSIGNEDRESOURCES = <any>'UNASSIGNED_RESOURCES',
   VIEWERS = <any>'VIEWERS',
+  SECRETS = 'SECRETS' as any,
 }
 
 /**

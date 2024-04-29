@@ -21,7 +21,12 @@ import { Client as MinioClient, ClientOptions as MinioClientOptions } from 'mini
 import { awsInstanceProfileCredentials, isAWSS3Endpoint } from './aws-helper';
 import { S3ProviderInfo} from "./handlers/artifacts";
 import {getK8sSecret} from "./k8s-helper";
-import {parseJSONString} from "./utils";
+import {ErrorDetails, parseError, parseJSONString} from "./utils";
+import {AuthorizeFn} from "./helpers/auth";
+import {AuthorizeRequestResources, AuthorizeRequestVerb} from "./src/generated/apis/auth";
+import * as k8sHelper from "./k8s-helper";
+import {ParamsDictionary} from "express-serve-static-core";
+import { Request } from 'express';
 const { fromNodeProviderChain } = require('@aws-sdk/credential-providers');
 
 /** MinioRequestConfig describes the info required to retrieve an artifact. */
@@ -52,16 +57,19 @@ export interface MinioClientOptionsWithOptionalSecrets extends Partial<MinioClie
  *
  * @param defaultConfig minio client options where `accessKey` and `secretKey` are optional.
  * @param providerType provider type ('s3' or 'minio')
- * @param providerInfoString json string container optional provider info
+ * @param authorizeFn
+ * @param req
+ * @param namespace
+ * @param providerInfoString?? json string container optional provider info
  */
-export async function createMinioClient(defaultConfig: MinioClientOptionsWithOptionalSecrets, providerType: string, providerInfoString?: string) {
+export async function createMinioClient(defaultConfig: MinioClientOptionsWithOptionalSecrets, providerType: string, authorizeFn: AuthorizeFn, req: Request, providerInfoString?: string) {
   let config = defaultConfig;
 
   if (providerInfoString) {
     const providerInfo  = parseJSONString<S3ProviderInfo>(providerInfoString);
     // If fromEnv == false, we rely on the default credentials or env to provide credentials (e.g. IRSA)
     if (providerInfo && providerInfo.Params.fromEnv === "false") {
-      config = await parseS3ProviderInfo(config, providerInfo);
+      config = await parseS3ProviderInfo(config, providerInfo, authorizeFn, req);
     }
   }
   // If using s3 and sourcing credentials from environment (currently only check aws env)
@@ -117,10 +125,28 @@ export async function createMinioClient(defaultConfig: MinioClientOptionsWithOpt
 }
 
 // Parse provider info for any s3 compatible store that's not AWS S3
-async function parseS3ProviderInfo(config: MinioClientOptionsWithOptionalSecrets, providerInfo: S3ProviderInfo) : Promise<MinioClientOptionsWithOptionalSecrets> {
+async function parseS3ProviderInfo(config: MinioClientOptionsWithOptionalSecrets, providerInfo: S3ProviderInfo, authorizeFn: AuthorizeFn, req: Request) : Promise<MinioClientOptionsWithOptionalSecrets> {
   if (!providerInfo.Params.accessKeyKey || !providerInfo.Params.secretKeyKey || !providerInfo.Params.secretName) {
     throw new Error('Provider info with fromEnv:false supplied with incomplete secret credential info.');
   }
+  let authError : ErrorDetails | undefined;
+
+  try {
+    authError = await authorizeFn(
+        {
+          namespace: "kubeflow",
+          resources: AuthorizeRequestResources.SECRETS,
+          verb: AuthorizeRequestVerb.GET,
+        }, req );
+  } catch (err) {
+    const details = await parseError(err);
+    throw Error(`Failed to fetch Artifact Provider Secret: ${details.message}`);
+  }
+
+  if (authError) {
+    throw Error(authError.message);
+  }
+
   config.accessKey = await getK8sSecret(providerInfo.Params.secretName, providerInfo.Params.accessKeyKey);
   config.secretKey = await getK8sSecret(providerInfo.Params.secretName, providerInfo.Params.secretKeyKey);
 
@@ -132,7 +158,6 @@ async function parseS3ProviderInfo(config: MinioClientOptionsWithOptionalSecrets
       } else {
         config.endPoint = providerInfo.Params.endpoint;
       }
-
     } else {
       throw new Error('Provider info missing endpoint parameter.');
     }

@@ -31,6 +31,8 @@ import {JWTOptions} from "google-auth-library";
 import {OAuth2ClientOptions} from "google-auth-library/build/src/auth/oauth2client";
 import {UserRefreshClientOptions} from "google-auth-library/build/src/auth/refreshclient";
 import {CredentialBody} from "google-auth-library/build/src/auth/credentials";
+import {AuthorizeFn} from "../helpers/auth";
+import {ParamsDictionary} from "express-serve-static-core";
 
 /**
  * ArtifactsQueryStrings describes the expected query strings key value pairs
@@ -47,6 +49,7 @@ interface ArtifactsQueryStrings {
   peek?: number;
   /** optional provider info to use to query object store */
   providerInfo?: string;
+  namespace?: string;
 }
 
 export interface S3ProviderInfo {
@@ -83,6 +86,7 @@ export function getArtifactsHandler({
                                       artifactsConfigs,
                                       useParameter,
                                       tryExtract,
+                                      authorizeFn,
                                     }: {
   artifactsConfigs: {
     aws: AWSConfigs;
@@ -92,13 +96,14 @@ export function getArtifactsHandler({
   };
   tryExtract: boolean;
   useParameter: boolean;
+  authorizeFn: AuthorizeFn;
 }): Handler {
   const { aws, http, minio, allowedDomain } = artifactsConfigs;
   return async (req, res) => {
     const source = useParameter ? req.params.source : req.query.source;
     const bucket = useParameter ? req.params.bucket : req.query.bucket;
     const key = useParameter ? req.params[0] : req.query.key;
-    const { peek = 0, providerInfo = "" } = req.query as Partial<ArtifactsQueryStrings>;
+    const { peek = 0, providerInfo = ""} = req.query as Partial<ArtifactsQueryStrings>;
     if (!source) {
       res.status(500).send('Storage source is missing from artifact request');
       return;
@@ -116,11 +121,11 @@ export function getArtifactsHandler({
     let client :  MinioClient;
     switch (source) {
       case 'gcs':
-        await getGCSArtifactHandler({bucket, key}, peek, providerInfo)(req, res);
+        await getGCSArtifactHandler({bucket, key}, peek, authorizeFn, req, providerInfo)(req, res);
         break;
       case 'minio':
         try {
-          client = await createMinioClient(minio, 'minio', providerInfo);
+          client = await createMinioClient(minio, 'minio', authorizeFn, req, providerInfo);
         } catch (e) {
           res.status(500).send(`Failed to initialize Minio Client for Minio Provider: ${e}`);
           return;
@@ -137,7 +142,7 @@ export function getArtifactsHandler({
         break;
       case 's3':
         try {
-          client = await createMinioClient(minio, 's3', providerInfo);
+          client = await createMinioClient(minio, 's3', authorizeFn, req, providerInfo);
         } catch (e) {
           res.status(500).send(`Failed to initialize Minio Client for S3 Provider: ${e}`);
           return;
@@ -237,7 +242,7 @@ function getMinioArtifactHandler(
   };
 }
 
-async function parseGCSProviderInfo(providerInfo: GCSProviderInfo): Promise<StorageOptions> {
+async function parseGCSProviderInfo(providerInfo: GCSProviderInfo, authorizeFn: AuthorizeFn, request: Request): Promise<StorageOptions> {
   if (!providerInfo.Params.tokenKey || !providerInfo.Params.secretName) {
     throw new Error('Provider info with fromEnv:false supplied with incomplete secret credential info.');
   }
@@ -253,7 +258,7 @@ async function parseGCSProviderInfo(providerInfo: GCSProviderInfo): Promise<Stor
   }
 }
 
-function getGCSArtifactHandler(options: { key: string; bucket: string }, peek: number = 0, providerInfoString?: string) {
+function getGCSArtifactHandler(options: { key: string; bucket: string }, peek: number = 0, authorizeFn: AuthorizeFn, req: Request, providerInfoString?: string) {
   const { key, bucket } = options;
   return async (_: Request, res: Response) => {
     try {
@@ -262,7 +267,7 @@ function getGCSArtifactHandler(options: { key: string; bucket: string }, peek: n
       if(providerInfoString) {
         const providerInfo  = parseJSONString<GCSProviderInfo>(providerInfoString);
         if (providerInfo && providerInfo.Params.fromEnv === "false") {
-          storageOptions = await parseGCSProviderInfo(providerInfo);
+          storageOptions = await parseGCSProviderInfo(providerInfo, authorizeFn, req);
         }
       }
 
