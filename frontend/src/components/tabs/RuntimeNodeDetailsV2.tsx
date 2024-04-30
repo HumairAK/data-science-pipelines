@@ -48,7 +48,6 @@ import { getResourceStateText, ResourceType } from 'src/components/ResourceInfo'
 import { MetricsVisualizations } from 'src/components/viewers/MetricsVisualizations';
 import { ArtifactTitle } from 'src/components/tabs/ArtifactTitle';
 import InputOutputTab, {
-  ArtifactParamsWithSessionInfo,
   getArtifactParamList,
   ParamList
 } from 'src/components/tabs/InputOutputTab';

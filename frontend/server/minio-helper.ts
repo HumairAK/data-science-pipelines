@@ -62,14 +62,14 @@ export interface MinioClientOptionsWithOptionalSecrets extends Partial<MinioClie
  * @param namespace
  * @param providerInfoString?? json string container optional provider info
  */
-export async function createMinioClient(defaultConfig: MinioClientOptionsWithOptionalSecrets, providerType: string, authorizeFn: AuthorizeFn, req: Request, providerInfoString?: string) {
+export async function createMinioClient(defaultConfig: MinioClientOptionsWithOptionalSecrets, providerType: string, providerInfoString?: string) {
   let config = defaultConfig;
 
   if (providerInfoString) {
     const providerInfo  = parseJSONString<S3ProviderInfo>(providerInfoString);
     // If fromEnv == false, we rely on the default credentials or env to provide credentials (e.g. IRSA)
     if (providerInfo && providerInfo.Params.fromEnv === "false") {
-      config = await parseS3ProviderInfo(config, providerInfo, authorizeFn, req);
+      config = await parseS3ProviderInfo(config, providerInfo);
     }
   }
   // If using s3 and sourcing credentials from environment (currently only check aws env)
@@ -125,28 +125,10 @@ export async function createMinioClient(defaultConfig: MinioClientOptionsWithOpt
 }
 
 // Parse provider info for any s3 compatible store that's not AWS S3
-async function parseS3ProviderInfo(config: MinioClientOptionsWithOptionalSecrets, providerInfo: S3ProviderInfo, authorizeFn: AuthorizeFn, req: Request) : Promise<MinioClientOptionsWithOptionalSecrets> {
+async function parseS3ProviderInfo(config: MinioClientOptionsWithOptionalSecrets, providerInfo: S3ProviderInfo) : Promise<MinioClientOptionsWithOptionalSecrets> {
   if (!providerInfo.Params.accessKeyKey || !providerInfo.Params.secretKeyKey || !providerInfo.Params.secretName) {
     throw new Error('Provider info with fromEnv:false supplied with incomplete secret credential info.');
   }
-  let authError : ErrorDetails | undefined;
-
-  try {
-    authError = await authorizeFn(
-        {
-          namespace: "kubeflow",
-          resources: AuthorizeRequestResources.SECRETS,
-          verb: AuthorizeRequestVerb.GET,
-        }, req );
-  } catch (err) {
-    const details = await parseError(err);
-    throw Error(`Failed to fetch Artifact Provider Secret: ${details.message}`);
-  }
-
-  if (authError) {
-    throw Error(authError.message);
-  }
-
   config.accessKey = await getK8sSecret(providerInfo.Params.secretName, providerInfo.Params.accessKeyKey);
   config.secretKey = await getK8sSecret(providerInfo.Params.secretName, providerInfo.Params.secretKeyKey);
 

@@ -57,7 +57,7 @@ export function getPodLogsHandler(
     },
     // if archive logs flag is set, then final attempt will try to retrieve the artifacts
     // from the bucket and prefix provided in the config. Otherwise, only attempts
-    // to read from worflow status if the default handler fails.
+    // to read from workflow status if the default handler fails.
     archiveLogs && archiveBucketName
       ? composePodLogsStreamHandler(getPodLogsStreamFromWorkflow, getPodLogsStreamFromArchive)
       : getPodLogsStreamFromWorkflow,

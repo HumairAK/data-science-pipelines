@@ -19,15 +19,13 @@ import { createMinioClient, isTarball, maybeTarball, getObjectStream } from './m
 import { V1beta1JobTemplateSpec } from '@kubernetes/client-node';
 import {namespace} from "d3";
 import {AuthorizeFn} from "./helpers/auth";
-import { Request } from 'express';
 
 jest.mock('minio');
 jest.mock('./aws-helper');
 
 describe('minio-helper', () => {
   const MockedMinioClient: jest.Mock = MinioClient as any;
-  const MockedAuthorizeFn: jest.Mock = jest.fn();
-  const MockedReq = {} as Request;
+  const MockedAuthorizeFn: jest.Mock = jest.fn(x => undefined);
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -39,7 +37,7 @@ describe('minio-helper', () => {
         accessKey: 'accesskey',
         endPoint: 'minio.kubeflow:80',
         secretKey: 'secretkey',
-      }, 's3', MockedAuthorizeFn, MockedReq);
+      }, 's3');
 
       expect(client).toBeInstanceOf(MinioClient);
       expect(MockedMinioClient).toHaveBeenCalledWith({
@@ -52,7 +50,7 @@ describe('minio-helper', () => {
     it('fallbacks to the provided configs if EC2 metadata is not available.', async () => {
       const client = await createMinioClient({
         endPoint: 'minio.kubeflow:80',
-      }, 's3', MockedAuthorizeFn, MockedReq);
+      }, 's3');
 
       expect(client).toBeInstanceOf(MinioClient);
       expect(MockedMinioClient).toHaveBeenCalledWith({
@@ -76,11 +74,7 @@ describe('minio-helper', () => {
         Promise.resolve(true),
       );
 
-      const client = await createMinioClient(
-          {
-            endPoint: 's3.awsamazon.com'
-          },
-          's3', MockedAuthorizeFn, MockedReq);
+      const client = await createMinioClient({ endPoint: 's3.awsamazon.com' }, 's3');
 
       expect(client).toBeInstanceOf(MinioClient);
       expect(MockedMinioClient).toHaveBeenCalledWith({

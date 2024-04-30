@@ -24,7 +24,7 @@ import { stylesheet } from 'typestyle';
 import Banner from './Banner';
 import { ValueComponentProps } from './DetailsTable';
 import { logger } from 'src/lib/Utils';
-import {ArtifactLocation, URIToSessionInfo} from "./tabs/InputOutputTab";
+import {URIToSessionInfo} from "./tabs/InputOutputTab";
 
 const css = stylesheet({
   root: {
