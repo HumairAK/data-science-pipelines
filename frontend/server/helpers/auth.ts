@@ -39,6 +39,7 @@ export const getAuthorizeFn = (
     if (!authConfigs.enabled) {
       return undefined;
     }
+    const user = req.headers[authConfigs.kubeflowUserIdHeader];
     try {
       // Resources and verb are string enums, they are used as string here, that
       // requires a force type conversion. If we generated client should accept
@@ -53,7 +54,7 @@ export const getAuthorizeFn = (
       return undefined;
     } catch (err) {
       const details = await parseError(err);
-      const message = `User is not authorized to ${verb} ${resources} in namespace ${namespace}: ${details.message}`;
+      const message = `User ${req.headers[authConfigs.kubeflowUserIdHeader]} is not authorized to ${verb} ${resources} in namespace ${namespace}: ${details.message}`;
       console.error(message, details.additionalInfo);
       return { message, additionalInfo: details.additionalInfo };
     }

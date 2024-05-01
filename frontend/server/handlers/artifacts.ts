@@ -26,13 +26,8 @@ import * as fs from 'fs';
 import { isAllowedDomain } from './domain-checker';
 import {getK8sSecret} from "../k8s-helper";
 import {StorageOptions} from "@google-cloud/storage/build/src/storage";
-import {GolfCourseSharp} from "@material-ui/icons";
-import {JWTOptions} from "google-auth-library";
-import {OAuth2ClientOptions} from "google-auth-library/build/src/auth/oauth2client";
-import {UserRefreshClientOptions} from "google-auth-library/build/src/auth/refreshclient";
 import {CredentialBody} from "google-auth-library/build/src/auth/credentials";
 import {AuthorizeFn} from "../helpers/auth";
-import {ParamsDictionary} from "express-serve-static-core";
 import {AuthorizeRequestResources, AuthorizeRequestVerb} from "../src/generated/apis/auth";
 
 /**
@@ -128,17 +123,15 @@ export function getArtifactsHandler({
 
     // TODO: Should we always enable this?
     const secretInfo  = parseJSONString<ProviderInfoSecret>(providerInfo);
-    let authError : ErrorDetails | undefined;
-
     try {
-      authError = await authorizeFn(
+      const authError = await authorizeFn(
           {
             namespace: "kubeflow",
             resources: AuthorizeRequestResources.SECRETS,
             verb: AuthorizeRequestVerb.GET,
           }, req );
       if (authError) {
-        console.error(`User does not have permissions to access secrets in the namespace there the Artifact Provider credentials are held.`);
+        console.error(`User does not have permissions to access secrets in the namespace where the Artifact Provider credentials are held.`);
         res.status(401).send(authError.message);
         return;
       }
@@ -148,8 +141,6 @@ export function getArtifactsHandler({
       res.status(500).send(`Failed to reach Secrets: ${details.message}`);
       return;
     }
-
-    console.log("hi")
 
     let client :  MinioClient;
     switch (source) {

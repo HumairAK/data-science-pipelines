@@ -17,8 +17,6 @@ import { Client as MinioClient } from 'minio';
 import { awsInstanceProfileCredentials } from './aws-helper';
 import { createMinioClient, isTarball, maybeTarball, getObjectStream } from './minio-helper';
 import { V1beta1JobTemplateSpec } from '@kubernetes/client-node';
-import {namespace} from "d3";
-import {AuthorizeFn} from "./helpers/auth";
 
 jest.mock('minio');
 jest.mock('./aws-helper');

@@ -2,8 +2,7 @@
 
 set -e
 
-NAMESPACE=dspa1
-DSPA=sample
+NAMESPACE=${NAMESPACE:-kubeflow}
 
 function clean_up() {
   set +e
@@ -33,9 +32,9 @@ popd
 # localhost:9090 port forwards to metadata_envoy pod.
 
 echo "Starting to port forward backend apis..."
-kubectl port-forward -n $NAMESPACE svc/ds-pipeline-metadata-envoy-${DSPA} 9090:9090 &
-kubectl port-forward -n $NAMESPACE svc/ds-pipeline-${DSPA} 3002:8888 &
-kubectl port-forward -n $NAMESPACE svc/minio-${DSPA} 9000:9000 &
+kubectl port-forward -n $NAMESPACE svc/metadata-envoy-service 9090:9090 &
+kubectl port-forward -n $NAMESPACE svc/ml-pipeline 3002:8888 &
+kubectl port-forward -n $NAMESPACE svc/minio-service 9000:9000 &
 export MINIO_HOST=localhost
 export MINIO_NAMESPACE=
 if [ "$1" == "--inspect" ]; then
