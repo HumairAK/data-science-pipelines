@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.alpha.openshift.io/serving-cert-secret-name: ml-pipelines-proxy-tls
+  name: ml-pipeline
+  namespace: kubeflow
+spec:
+  ports:
+    - name: https-oauth
+      port: 8443
+      protocol: TCP
+      targetPort: 8443 #https-oauth
+#    - name: http-oauth
+#      port: 8442
+#      protocol: TCP
+#      targetPort: 8442 #https-oauth

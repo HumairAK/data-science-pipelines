@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-pipeline
+  namespace: kubeflow
+spec:
+  template:
+    spec:
+      volumes:
+        - name: proxy-tls
+          secret:
+            secretName: ml-pipelines-proxy-tls
+      containers:
+        - name: ml-pipeline-api-server
+          env:
+            - name: MULTIUSER
+              value: 'true'
+            - name: KUBEFLOW_USERID_HEADER
+              value: X-Forwarded-User
+            - name: KUBEFLOW_USERID_PREFIX
+            - name: V2_LAUNCHER_IMAGE
+              value: quay.io/hukhan/kfp-launcher:pr-10625-ui-3
+            - name: V2_DRIVER_IMAGE
+              value: quay.io/hukhan/kfp-driver:pr-10625-ui-3
+        - name: oauth-proxy
+          args:
+            - --https-address=:8443
+            - --http-address=:8442
+            - --provider=openshift
+            - --openshift-service-account=ml-pipeline
+            - --upstream=http://localhost:8888
+            - --tls-cert=/etc/tls/private/tls.crt
+            - --tls-key=/etc/tls/private/tls.key
+            - --cookie-secret=SECRET
+            - '--openshift-delegate-urls={"/": {"resource": "namespaces", "verb": "get"}}'
+            - --skip-auth-regex='(^/metrics|^/apis/v1beta1/healthz)'
+            - --pass-user-headers=true # Header: X-Forwarded-User
+          image: registry.redhat.io/openshift4/ose-oauth-proxy:v4.10
+          ports:
+            - containerPort: 8442
+              name: http-oauth
+            - containerPort: 8443
+              name: https-oauth
+          volumeMounts:
+            - mountPath: /etc/tls/private
+              name: proxy-tls

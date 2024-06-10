@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    internal.kpt.dev/upstream-identifier: apps|Deployment|default|workflow-controller
+  name: workflow-controller
+spec:
+  selector:
+    matchLabels:
+      app: workflow-controller
+  template:
+    metadata:
+      labels:
+        app: workflow-controller
+    spec:
+      containers:
+        - args:
+            - --configmap
+            - workflow-controller-configmap
+            - --executor-image
+            - quay.io/argoproj/argoexec:v3.4.16
+          name: workflow-controller

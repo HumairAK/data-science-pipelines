@@ -1,0 +1,40 @@
+allowHostPorts: false
+priority: 10
+requiredDropCapabilities:
+  - KILL
+  - MKNOD
+  - SETUID
+  - SETGID
+allowPrivilegedContainer: false
+runAsUser:
+  type: RunAsAny
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+seLinuxContext:
+  type: MustRunAs
+readOnlyRootFilesystem: false
+metadata:
+  name: pipeline-runner-anyuid
+fsGroup:
+  type: RunAsAny
+groups: []
+kind: SecurityContextConstraints
+defaultAddCapabilities: null
+supplementalGroups:
+  type: RunAsAny
+users:
+  - system:serviceaccount:test-kfp:pipeline-runner
+volumes:
+  - configMap
+  - csi
+  - downwardAPI
+  - emptyDir
+  - ephemeral
+  - persistentVolumeClaim
+  - projected
+  - secret
+allowHostPID: false
+allowHostNetwork: false
+allowPrivilegeEscalation: true
+apiVersion: security.openshift.io/v1
+allowedCapabilities: null

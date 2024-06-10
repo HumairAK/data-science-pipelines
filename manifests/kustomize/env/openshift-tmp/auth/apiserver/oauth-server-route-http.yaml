@@ -1,0 +1,15 @@
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: ml-pipeline-api-oauth-http
+  annotations:
+    kubernetes.io/tls-acme: "true"
+  namespace: kubeflow
+spec:
+  to:
+    kind: Service
+    name: ml-pipeline
+  port:
+    targetPort: http-oauth
+  tls:
+    termination: Reencrypt

@@ -1,0 +1,47 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+commonLabels:
+  application-crd-id: kubeflow-pipelines
+namespace: kubeflow
+bases:
+  - ../../base/installs/generic
+  - ../../base/pipeline/cluster-scoped
+  - ../../base/metadata/base
+  - ../../third-party/argo/installs/cluster
+  - ../../third-party/minio/base
+  - ../../third-party/mysql/base
+
+
+resources:
+  - route.yaml
+  # Auth config
+#  - auth
+#  - scheduled-workflow
+#  - persistence-agent
+
+patchesStrategicMerge:
+  - api-server-patch.yaml
+  - deploy-patch.yaml
+  - cache-deploy-patch.yaml
+  # Auth configs
+  # MAKE SURE TO USE THE OAUTH UI ROUTE
+#  - auth/apiserver/patches/api-server-patch.yaml
+#  - auth/apiserver/patches/service-ml-pipeline_patch.yaml
+#  - auth/apiserver/patches/sa_patch.yaml
+#  - auth/ui/patches/ui-deployment_patch.yaml
+#  - auth/ui/patches/ui-service_patch.yaml
+#  - auth/ui/patches/ui-sa_patch.yaml
+#  - scheduled-workflow/deployment-patch.yaml
+#  - persistence-agent/deployment-patch.yaml
+
+images:
+  - name: gcr.io/ml-pipeline/workflow-controller:v3.4.16-license-compliance
+    newName: quay.io/argoproj/workflow-controller
+    newTag: v3.4.16
+
+#  - name: gcr.io/ml-pipeline/api-server
+#    newName: quay.io/hukhan/ds-pipelines-api-server
+#    newTag:pr-10625-ui-3
+#  - name: gcr.io/ml-pipeline/frontend
+#    newName: quay.io/hukhan/ds-pipelines-frontend
+#    newTag: issue-10787

@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: create-workflows
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: create-workflows
+subjects:
+  - kind: ServiceAccount
+    name: ml-pipeline
+    namespace: kubeflow
