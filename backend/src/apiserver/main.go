@@ -110,8 +110,9 @@ func startRpcServer(resourceManager *resource.ResourceManager) {
 	)
 	sharedJobServer := server.NewJobServer(resourceManager, &server.JobServerOptions{CollectMetrics: *collectMetricsFlag})
 	sharedRunServer := server.NewRunServer(resourceManager, &server.RunServerOptions{CollectMetrics: *collectMetricsFlag})
-
+	sharedArtifactServer := server.NewArtifactServer(resourceManager)
 	apiv1beta1.RegisterExperimentServiceServer(s, sharedExperimentServer)
+	apiv2beta1.RegisterArtifactServiceServer(s, sharedArtifactServer)
 	apiv1beta1.RegisterPipelineServiceServer(s, sharedPipelineServer)
 	apiv1beta1.RegisterJobServiceServer(s, sharedJobServer)
 	apiv1beta1.RegisterRunServiceServer(s, sharedRunServer)
@@ -163,6 +164,7 @@ func startHttpProxy(resourceManager *resource.ResourceManager) {
 	registerHttpHandlerFromEndpoint(apiv2beta1.RegisterPipelineServiceHandlerFromEndpoint, "PipelineService", ctx, runtimeMux)
 	registerHttpHandlerFromEndpoint(apiv2beta1.RegisterRecurringRunServiceHandlerFromEndpoint, "RecurringRunService", ctx, runtimeMux)
 	registerHttpHandlerFromEndpoint(apiv2beta1.RegisterRunServiceHandlerFromEndpoint, "RunService", ctx, runtimeMux)
+	registerHttpHandlerFromEndpoint(apiv2beta1.RegisterArtifactServiceHandlerFromEndpoint, "ArtifactService", ctx, runtimeMux)
 
 	// Create a top level mux to include both pipeline upload server and gRPC servers.
 	topMux := mux.NewRouter()
@@ -189,6 +191,9 @@ func startHttpProxy(resourceManager *resource.ResourceManager) {
 	// log streaming is provided via HTTP.
 	runLogServer := server.NewRunLogServer(resourceManager)
 	topMux.HandleFunc("/apis/v1alpha1/runs/{run_id}/nodes/{node_id}/log", runLogServer.ReadRunLogV1)
+
+	artifactServer := server.NewArtifactServer(resourceManager)
+	topMux.HandleFunc("/apis/v2beta1/artifacts/{artifact_id}:downloadhttp", artifactServer.DownloadArtifactHttp)
 
 	topMux.PathPrefix("/apis/").Handler(runtimeMux)
 
