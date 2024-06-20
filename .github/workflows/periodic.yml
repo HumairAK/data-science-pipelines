@@ -1,9 +1,8 @@
 name: Periodic Functional Tests
 
 on:
-  schedule:
-    - cron: '0 0 * * *' # Run every day at midnight
-
+  push:
+    branches: [master]
 jobs:
   run_tests:
     runs-on: ubuntu-latest

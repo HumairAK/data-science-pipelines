@@ -5,12 +5,12 @@ on:
     branches: [master]
 
   # Run tests for any PRs which change the backend code
-  pull_request:
-    paths:
-      - 'go.mod'
-      - 'backend/**'
-      - 'scripts/deploy/github/**'
-      - 'manifests/kustomize/**'
+#  pull_request:
+#    paths:
+#      - 'go.mod'
+#      - 'backend/**'
+#      - 'scripts/deploy/github/**'
+#      - 'manifests/kustomize/**'
 
 env:
   GITHUB_ACTION: "true"
