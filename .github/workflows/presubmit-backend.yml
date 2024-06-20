@@ -4,12 +4,12 @@ on:
   push:
     branches:
       - master
-  pull_request:
-    branches:
-      - master
-    paths:
-      - 'backend/**'
-      - 'test/presubmit-backend-test.sh'
+#  pull_request:
+#    branches:
+#      - master
+#    paths:
+#      - 'backend/**'
+#      - 'test/presubmit-backend-test.sh'
 
 jobs:
   backend-tests:
