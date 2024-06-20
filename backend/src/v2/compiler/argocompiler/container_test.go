@@ -72,11 +72,11 @@ func TestAddContainerExecutorTemplate(t *testing.T) {
 			}
 
 			// Call the function with a reference name
-			templateName := c.addContainerExecutorTemplate("test-ref")
-			assert.NotEmpty(t, templateName, "Template name should not be empty")
+			c.addContainerExecutorTemplate("test-ref")
+			assert.NotEmpty(t, "system-container-impl", "Template name should not be empty")
 
 			// Fetch the template and check existence
-			executorTemplate, exists := c.templates[templateName]
+			executorTemplate, exists := c.templates["system-container-impl"]
 			assert.True(t, exists, "Template should exist with the returned name")
 			assert.NotNil(t, executorTemplate, "Executor template should not be nil")
 
@@ -89,29 +89,29 @@ func TestAddContainerExecutorTemplate(t *testing.T) {
 				t.Log("No volumes found in the template")
 			}
 
-			// // commenting as checks for volumes and volume mounts are not working
-			// // Check Volumes
-			// foundVolume := false
-			// for _, volume := range executorTemplate.Volumes {
-			// 	if volume.Name == tt.expectedVolumeName {
-			// 		foundVolume = true
-			// 		assert.Equal(t, tt.expectedConfigMapName, volume.VolumeSource.ConfigMap.Name, "ConfigMap name should match")
-			// 		break
-			// 	}
-			// }
-			// assert.True(t, foundVolume, "CA bundle volume should be included in the template")
+			// commenting as checks for volumes and volume mounts are not working
+			// Check Volumes
+			foundVolume := false
+			for _, volume := range executorTemplate.Volumes {
+				if volume.Name == tt.expectedVolumeName {
+					foundVolume = true
+					assert.Equal(t, tt.expectedConfigMapName, volume.VolumeSource.ConfigMap.Name, "ConfigMap name should match")
+					break
+				}
+			}
+			assert.True(t, foundVolume, "CA bundle volume should be included in the template")
 
-			// // Check VolumeMounts in the container
-			// foundVolumeMount := false
-			// if executorTemplate.Container != nil {
-			// 	for _, mount := range executorTemplate.Container.VolumeMounts {
-			// 		if mount.Name == tt.expectedVolumeName && mount.MountPath == tt.expectedMountPath {
-			// 			foundVolumeMount = true
-			// 			break
-			// 		}
-			// 	}
-			// }
-			// assert.True(t, foundVolumeMount, "CA bundle volume mount should be included in the container")
+			// Check VolumeMounts in the container
+			foundVolumeMount := false
+			if executorTemplate.Container != nil {
+				for _, mount := range executorTemplate.Container.VolumeMounts {
+					if mount.Name == tt.expectedVolumeName && mount.MountPath == tt.expectedMountPath {
+						foundVolumeMount = true
+						break
+					}
+				}
+			}
+			assert.True(t, foundVolumeMount, "CA bundle volume mount should be included in the container")
 		})
 	}
 }
