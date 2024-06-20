@@ -78,3 +78,4 @@ Run
 ```
 docker build . -f backend/Dockerfile.conformance -t <tag>
 ```
+Test
