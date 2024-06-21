@@ -25,7 +25,6 @@ import (
 	api "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	executor "github.com/kubeflow/pipelines/backend/src/apiserver/artifactstorage"
-	"github.com/kubeflow/pipelines/backend/src/apiserver/artifactstorage/k8sresource"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/artifactstorage/types"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/resource"
 	log "github.com/sirupsen/logrus"
@@ -50,9 +49,9 @@ func (s *ArtifactServer) ListArtifacts(context.Context, *apiv2beta1.ListArtifact
 	return &apiv2beta1.Artifact{ArtifactId: "foo1", ArtifactType: "blah1"}, nil
 }
 func (s *ArtifactServer) GetArtifacts(context.Context, *apiv2beta1.GetArtifactRequest) (*apiv2beta1.Artifact, error) {
-
 	return &apiv2beta1.Artifact{ArtifactId: "foo2", ArtifactType: "blah2"}, nil
 }
+
 func (s *ArtifactServer) DownloadArtifact(request *apiv2beta1.DownloadArtifactRequest, stream apiv2beta1.ArtifactService_DownloadArtifactServer) error {
 	ctx := context.Background()
 	config := &aws.Config{
@@ -111,27 +110,28 @@ const (
 )
 
 func (s *ArtifactServer) DownloadArtifactHttp(w http.ResponseWriter, r *http.Request) {
+
 	vars := mux.Vars(r)
 	artifactId, err := strconv.ParseInt(vars[ArtifactKey], 10, 64)
 	if err != nil {
-		s.writeErrorToResponse(w, http.StatusInternalServerError, fmt.Errorf("failed to stream artifact: %v", err))
+		s.writeErrorToResponse(w, http.StatusInternalServerError, fmt.Errorf("failed to parse artifact parameter in request: %v", err))
+		return
 	}
 	ctx := context.Background()
 	artifacts, err := s.resourceManager.GetArtifactById(ctx, []int64{artifactId})
 
-	// note artifacts length will never be greater than one since artifact Id uniquely identifies one artifact
+	// note artifacts length will never be greater than one since artifact ID uniquely identifies one artifact
 	// but we add a check for completeness
 	if err != nil || artifacts == nil || len(artifacts) > 1 {
-		s.writeErrorToResponse(w, http.StatusInternalServerError, fmt.Errorf("failed to stream artifact: %v", err))
+		s.writeErrorToResponse(w, http.StatusNotFound, fmt.Errorf("failed to find artifact with id %d: %v", artifactId, err))
+		return
 	}
 
 	artifact := artifacts[0]
 	sessionInfo, namespace, err := s.resourceManager.GetArtifactSessionInfo(ctx, artifact)
-	if sessionInfo == nil {
-		s.writeErrorToResponse(w, http.StatusInternalServerError, fmt.Errorf("failed to stream artifact: %v", err))
-	}
-	if err != nil {
-		s.writeErrorToResponse(w, http.StatusInternalServerError, fmt.Errorf("failed to stream artifact: %v", err))
+	if err != nil || sessionInfo == nil {
+		s.writeErrorToResponse(w, http.StatusNotFound, fmt.Errorf("failed to retrieve session info for artifact id %d error: %v", artifactId, err))
+		return
 	}
 	endpoint, _ := url.Parse(sessionInfo.Session.Endpoint)
 
@@ -157,18 +157,24 @@ func (s *ArtifactServer) DownloadArtifactHttp(w http.ResponseWriter, r *http.Req
 			},
 		},
 	}
-	k8sres := k8sresource.Resources{
-		Namespace: namespace,
+	driver, err := executor.NewDriver(ctx, art, s.resourceManager, namespace)
+	if err != nil {
+		s.writeErrorToResponse(w, http.StatusInternalServerError, fmt.Errorf("failed to create artifact driver for artifact id %d: %v", artifactId, err))
+		return
 	}
-	driver, err := executor.NewDriver(ctx, art, k8sres)
+
 	stream, err := driver.OpenStream(art)
 	if err != nil {
 		s.writeErrorToResponse(w, http.StatusInternalServerError, fmt.Errorf("failed to stream artifact: %v", err))
+		return
 	}
 
 	defer func() {
-		if err := stream.Close(); err != nil {
-			log.WithFields(log.Fields{"stream": stream}).WithError(err).Warning("Error closing stream")
+		if stream != nil {
+			err = stream.Close()
+			if err != nil {
+				log.WithFields(log.Fields{"stream": stream}).WithError(err).Warning("Error closing stream")
+			}
 		}
 	}()
 

@@ -1964,3 +1964,11 @@ func (r *ResourceManager) GetArtifactSessionInfo(ctx context.Context, artifact *
 
 	return config, namespace, nil
 }
+
+func (r *ResourceManager) GetSecret(ctx context.Context, ns, name, key string) (string, error) {
+	secret, err := r.k8sCoreClient.SecretClient(ns).Get(ctx, name, v1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+	return string(secret.Data[key]), nil
+}

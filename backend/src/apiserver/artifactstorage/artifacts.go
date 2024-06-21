@@ -3,27 +3,26 @@ package executor
 import (
 	"context"
 	"fmt"
-	"github.com/kubeflow/pipelines/backend/src/apiserver/artifactstorage/k8sresource"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/artifactstorage/logging"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/artifactstorage/s3"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/artifactstorage/types"
-	"os"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/resource"
 )
 
 var ErrUnsupportedDriver = fmt.Errorf("unsupported artifact driver")
 
-type NewDriverFunc func(ctx context.Context, art *types.Artifact, ri k8sresource.Resources) (types.ArtifactDriver, error)
+type NewDriverFunc func(ctx context.Context, art *types.Artifact, rm resource.ResourceManager, namespace string) (types.ArtifactDriver, error)
 
 // NewDriver initializes an instance of an artifact driver
-func NewDriver(ctx context.Context, art *types.Artifact, ri k8sresource.Resources) (types.ArtifactDriver, error) {
-	drv, err := newDriver(ctx, art, ri)
+func NewDriver(ctx context.Context, art *types.Artifact, rm *resource.ResourceManager, namespace string) (types.ArtifactDriver, error) {
+	drv, err := newDriver(ctx, art, rm, namespace)
 	if err != nil {
 		return nil, err
 	}
 	return logging.New(drv), nil
 
 }
-func newDriver(ctx context.Context, art *types.Artifact, ri k8sresource.Resources) (types.ArtifactDriver, error) {
+func newDriver(ctx context.Context, art *types.Artifact, rm *resource.ResourceManager, namespace string) (types.ArtifactDriver, error) {
 	if art.S3 != nil {
 		var accessKey string
 		var secretKey string
@@ -34,19 +33,16 @@ func newDriver(ctx context.Context, art *types.Artifact, ri k8sresource.Resource
 		var caKey string
 
 		if art.S3.AccessKeySecret != nil && art.S3.AccessKeySecret.Name != "" {
-			//accessKeyBytes, err := ri.GetSecret(ctx, art.S3.AccessKeySecret.Name, art.S3.AccessKeySecret.Key)
-			//if err != nil {
-			//	return nil, err
-			//}
-			//accessKey = accessKeyBytes
-			//secretKeyBytes, err := ri.GetSecret(ctx, art.S3.SecretKeySecret.Name, art.S3.SecretKeySecret.Key)
-			//if err != nil {
-			//	return nil, err
-			//}
-			//secretKey = secretKeyBytes
-
-			accessKey = os.Getenv("AWS_ID")
-			secretKey = os.Getenv("AWS_SECRET")
+			accessKeyBytes, err := rm.GetSecret(ctx, namespace, art.S3.AccessKeySecret.Name, art.S3.AccessKeySecret.Key)
+			if err != nil {
+				return nil, err
+			}
+			accessKey = accessKeyBytes
+			secretKeyBytes, err := rm.GetSecret(ctx, namespace, art.S3.SecretKeySecret.Name, art.S3.SecretKeySecret.Key)
+			if err != nil {
+				return nil, err
+			}
+			secretKey = secretKeyBytes
 		}
 
 		if art.S3.EncryptionOptions != nil {
@@ -55,7 +51,7 @@ func newDriver(ctx context.Context, art *types.Artifact, ri k8sresource.Resource
 					return nil, fmt.Errorf("serverSideCustomerKeySecret and kmsKeyId cannot be set together")
 				}
 
-				serverSideCustomerKeyBytes, err := ri.GetSecret(ctx, art.S3.EncryptionOptions.ServerSideCustomerKeySecret.Name, art.S3.EncryptionOptions.ServerSideCustomerKeySecret.Key)
+				serverSideCustomerKeyBytes, err := rm.GetSecret(ctx, namespace, art.S3.EncryptionOptions.ServerSideCustomerKeySecret.Name, art.S3.EncryptionOptions.ServerSideCustomerKeySecret.Key)
 				if err != nil {
 					return nil, err
 				}
@@ -68,7 +64,7 @@ func newDriver(ctx context.Context, art *types.Artifact, ri k8sresource.Resource
 		}
 
 		if art.S3.CASecret != nil && art.S3.CASecret.Name != "" {
-			caBytes, err := ri.GetSecret(ctx, art.S3.CASecret.Name, art.S3.CASecret.Key)
+			caBytes, err := rm.GetSecret(ctx, namespace, art.S3.CASecret.Name, art.S3.CASecret.Key)
 			if err != nil {
 				return nil, err
 			}
