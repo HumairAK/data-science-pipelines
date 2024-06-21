@@ -32,18 +32,6 @@ service ArtifactService {
       get: "/apis/v2beta1/artifacts/{artifact_id}"
     };
   }
-
-//  rpc DownloadArtifact(DownloadArtifactRequest) returns (stream google.api.HttpBody) {
-//    option (google.api.http) = {
-//      get: "/apis/v2beta1/artifacts/{artifact_id}:download"
-//    };
-//  }
-
-  rpc DownloadArtifact(DownloadArtifactRequest) returns (stream FileResponse) {
-    option (google.api.http) = {
-      get: "/apis/v2beta1/artifacts/{artifact_id}:download"
-    };
-  }
 }
 
 message Artifact {
@@ -57,12 +45,4 @@ message GetArtifactRequest {
 
 message ListArtifactRequest {
   string execution_id = 1;
-}
-
-message DownloadArtifactRequest {
-  string artifact_id = 1;
-}
-
-message FileResponse  {
-  bytes chunk = 1;
 }
