@@ -223,6 +223,17 @@ func ParseBucketConfigForArtifactURI(uri string) (*Config, error) {
 	}, nil
 }
 
+func ParseArtifactURIPath(uri string) (string, error) {
+	ms := bucketPattern.FindStringSubmatch(uri)
+	if ms == nil || len(ms) != 5 {
+		return "", fmt.Errorf("parse uri failed: unrecognized uri format: %q", uri)
+	}
+	if ms[1] != "gs://" && ms[1] != "s3://" && ms[1] != "minio://" {
+		return "", fmt.Errorf("parse bucket config failed: unsupported Cloud bucket: %q", uri)
+	}
+	return strings.TrimPrefix(ms[3], "/"), nil
+}
+
 // TODO(neuromage): Move these helper functions to a storage package and add tests.
 func uploadFile(ctx context.Context, bucket *blob.Bucket, localFilePath, blobFilePath string) error {
 	errorF := func(err error) error {

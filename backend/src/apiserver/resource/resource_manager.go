@@ -18,6 +18,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
+	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
+	"github.com/kubeflow/pipelines/third_party/ml-metadata/go/ml_metadata"
 	"io"
 	"net"
 	"strconv"
@@ -91,6 +94,7 @@ type ClientManagerInterface interface {
 	KubernetesCoreClient() client.KubernetesCoreInterface
 	SubjectAccessReviewClient() client.SubjectAccessReviewInterface
 	TokenReviewClient() client.TokenReviewInterface
+	MetadataClient() metadata.ClientInterface
 	LogArchive() archive.LogArchiveInterface
 	Time() util.TimeInterface
 	UUID() util.UUIDGeneratorInterface
@@ -116,6 +120,7 @@ type ResourceManager struct {
 	k8sCoreClient             client.KubernetesCoreInterface
 	subjectAccessReviewClient client.SubjectAccessReviewInterface
 	tokenReviewClient         client.TokenReviewInterface
+	metadataClient            metadata.ClientInterface
 	logArchive                archive.LogArchiveInterface
 	time                      util.TimeInterface
 	uuid                      util.UUIDGeneratorInterface
@@ -139,6 +144,7 @@ func NewResourceManager(clientManager ClientManagerInterface, options *ResourceM
 		k8sCoreClient:             clientManager.KubernetesCoreClient(),
 		subjectAccessReviewClient: clientManager.SubjectAccessReviewClient(),
 		tokenReviewClient:         clientManager.TokenReviewClient(),
+		metadataClient:            clientManager.MetadataClient(),
 		logArchive:                clientManager.LogArchive(),
 		time:                      clientManager.Time(),
 		uuid:                      clientManager.UUID(),
@@ -1915,4 +1921,46 @@ func (r *ResourceManager) GetTask(taskId string) (*model.Task, error) {
 		return nil, util.Wrapf(err, "Failed to fetch task %v", taskId)
 	}
 	return task, nil
+}
+
+func (r *ResourceManager) GetArtifactById(ctx context.Context, id []int64) ([]*ml_metadata.Artifact, error) {
+	return r.metadataClient.GetArtifacts(ctx, id)
+}
+
+func (r *ResourceManager) GetArtifactSessionInfo(ctx context.Context, artifact *ml_metadata.Artifact) (*objectstore.Config, string, error) {
+	artifactCtx, err := r.metadataClient.GetContextByArtifactID(ctx, artifact.GetId())
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Retrieve Pipeline Root info
+	pipelineRoot := artifactCtx.CustomProperties["pipeline_root"].GetStringValue()
+	if pipelineRoot == "" {
+		return nil, "", fmt.Errorf("Unable to retrieve artifact pipeline_root info via context property.")
+	}
+
+	// Retrieve Session info
+	sessionInfoString := artifactCtx.CustomProperties["bucket_session_info"].GetStringValue()
+	if sessionInfoString == "" {
+		return nil, "", fmt.Errorf("Unable to retrieve artifact session info via context property.")
+	}
+	sessionInfo, err := objectstore.GetSessionInfoFromString(sessionInfoString)
+	if err != nil {
+		return nil, "", err
+	}
+	config, err := objectstore.ParseBucketConfig(pipelineRoot, sessionInfo)
+	if err != nil {
+		return nil, "", err
+	}
+
+	path, err := objectstore.ParseArtifactURIPath(*artifact.Uri)
+	config.Prefix = path
+
+	// Retrieve namespace
+	namespace := artifactCtx.CustomProperties["namespace"].GetStringValue()
+	if namespace == "" {
+		return nil, "", fmt.Errorf("Unable to retrieve artifact namespace info via context property.")
+	}
+
+	return config, namespace, nil
 }

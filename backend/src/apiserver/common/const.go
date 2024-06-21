@@ -54,6 +54,11 @@ const (
 const DefaultTokenReviewAudience string = "pipelines.kubeflow.org"
 
 const (
+	DefaultMetadataGrpcServiceServiceHost string = "metadata-grpc-service"
+	DefaultMetadataGrpcServiceServicePort string = "8080"
+)
+
+const (
 	DefaultPipelineRunnerServiceAccount = "pipeline-runner"
 	HasDefaultBucketEnvVar              = "HAS_DEFAULT_BUCKET"
 	DefaultBucketNameEnvVar             = "BUCKET_NAME"

@@ -21,6 +21,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/golang/glog"
+	"github.com/gorilla/mux"
 	api "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	executor "github.com/kubeflow/pipelines/backend/src/apiserver/artifactstorage"
@@ -35,8 +36,10 @@ import (
 	"k8s.io/utils/env"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
+	"strconv"
 )
 
 type ArtifactServer struct {
@@ -103,103 +106,59 @@ type Message struct {
 	Message string `json:"message,omitempty"`
 }
 
-//func (s *ArtifactServer) DownloadArtifactHttp(w http.ResponseWriter, r *http.Request) {
-//	ctx := context.Background()
-//	config := &aws.Config{
-//		Credentials:      credentials.NewStaticCredentials(os.Getenv("AWS_ID"), os.Getenv("AWS_SECRET"), ""),
-//		Region:           aws.String("minio"),
-//		DisableSSL:       aws.Bool(true),
-//		S3ForcePathStyle: aws.Bool(true),
-//		Endpoint:         aws.String("https://minio-dspa1.apps.hukhan-3.dev.datahub.redhat.com"),
-//	}
-//	sess, err := session.NewSession(config)
-//	if err != nil {
-//		s.writeErrorToResponse(w, http.StatusInternalServerError, err)
-//	}
-//	bucketName := "mlpipeline"
-//	openedBucket, err := s3blob.OpenBucket(ctx, sess, bucketName, nil)
-//	defer openedBucket.Close()
-//	reader, err := openedBucket.NewReader(ctx, "samplejson.json", nil)
-//	if err != nil {
-//		glog.Error(err)
-//		s.writeErrorToResponse(w, http.StatusInternalServerError, err)
-//	}
-//	defer reader.Close()
-//
-//	cn, ok := w.(http.CloseNotifier)
-//	if !ok {
-//		http.NotFound(w, r)
-//		return
-//	}
-//	flusher, ok := w.(http.Flusher)
-//	if !ok {
-//		http.NotFound(w, r)
-//		return
-//	}
-//
-//	// Send the initial headers saying we're gonna stream the response.
-//	w.Header().Set("Transfer-Encoding", "chunked")
-//	w.WriteHeader(http.StatusOK)
-//	flusher.Flush()
-//
-//	buffer := make([]byte, 1024) // Create a buffer of 1KB
-//	for {
-//		select {
-//		case <-cn.CloseNotify():
-//			glog.Infof("Client stopped listening")
-//			return
-//		default:
-//			n, err := reader.Read(buffer)
-//			if err != nil && err != io.EOF {
-//				glog.Fatal("Failed to send stream buffer data")
-//				return
-//			}
-//			if n > 0 {
-//				// Send some data.
-//				_, err := w.Write(buffer[:n])
-//				if err != nil {
-//					glog.Fatal(err)
-//					return
-//				}
-//				flusher.Flush()
-//				fmt.Print(string(buffer[:n]))
-//			}
-//			if err == io.EOF {
-//				glog.Info("Reached EOF.")
-//				return
-//			}
-//		}
-//	}
-//
-//	//glog.Info("Ending stream.")
-//}
+const (
+	ArtifactKey = "artifact_id"
+)
 
 func (s *ArtifactServer) DownloadArtifactHttp(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	artifactId, err := strconv.ParseInt(vars[ArtifactKey], 10, 64)
+	if err != nil {
+		s.writeErrorToResponse(w, http.StatusInternalServerError, fmt.Errorf("failed to stream artifact: %v", err))
+	}
+	ctx := context.Background()
+	artifacts, err := s.resourceManager.GetArtifactById(ctx, []int64{artifactId})
+
+	// note artifacts length will never be greater than one since artifact Id uniquely identifies one artifact
+	// but we add a check for completeness
+	if err != nil || artifacts == nil || len(artifacts) > 1 {
+		s.writeErrorToResponse(w, http.StatusInternalServerError, fmt.Errorf("failed to stream artifact: %v", err))
+	}
+
+	artifact := artifacts[0]
+	sessionInfo, namespace, err := s.resourceManager.GetArtifactSessionInfo(ctx, artifact)
+	if sessionInfo == nil {
+		s.writeErrorToResponse(w, http.StatusInternalServerError, fmt.Errorf("failed to stream artifact: %v", err))
+	}
+	if err != nil {
+		s.writeErrorToResponse(w, http.StatusInternalServerError, fmt.Errorf("failed to stream artifact: %v", err))
+	}
+	endpoint, _ := url.Parse(sessionInfo.Session.Endpoint)
+
 	art := &types.Artifact{
-		Name: "samplejson",
+		Name: artifact.CustomProperties["display_name"].GetStringValue(),
 		ArtifactLocation: types.ArtifactLocation{
 			S3: &types.S3Artifact{
 				S3Bucket: types.S3Bucket{
-					Bucket:   "rhods-dsp-dev",
-					Region:   "us-east-2",
-					Endpoint: "s3.amazonaws.com",
-					//Insecure: aws.Bool(true),
+					Bucket:   sessionInfo.BucketName,
+					Region:   sessionInfo.Session.Region,
+					Endpoint: endpoint.Host,
+					Insecure: aws.Bool(sessionInfo.Session.DisableSSL),
 					AccessKeySecret: &v1.SecretKeySelector{
-						LocalObjectReference: v1.LocalObjectReference{Name: "ds-pipeline-s3-sample"},
-						Key:                  "accesskey",
+						LocalObjectReference: v1.LocalObjectReference{Name: sessionInfo.Session.SecretName},
+						Key:                  sessionInfo.Session.AccessKeyKey,
 					},
 					SecretKeySecret: &v1.SecretKeySelector{
-						LocalObjectReference: v1.LocalObjectReference{Name: "ds-pipeline-s3-sample"},
-						Key:                  "secretkey",
+						LocalObjectReference: v1.LocalObjectReference{Name: sessionInfo.Session.SecretName},
+						Key:                  sessionInfo.Session.SecretKeyKey,
 					},
 				},
-				Key: "samplejson.json",
+				Key: sessionInfo.Prefix,
 			},
 		},
 	}
-	ctx := context.Background()
 	k8sres := k8sresource.Resources{
-		Namespace: "test",
+		Namespace: namespace,
 	}
 	driver, err := executor.NewDriver(ctx, art, k8sres)
 	stream, err := driver.OpenStream(art)
@@ -225,7 +184,6 @@ func (s *ArtifactServer) DownloadArtifactHttp(w http.ResponseWriter, r *http.Req
 	} else {
 		w.WriteHeader(http.StatusOK)
 	}
-	//glog.Info("Ending stream.")
 }
 func (s *ArtifactServer) writeErrorToResponse(w http.ResponseWriter, code int, err error) {
 	glog.Errorf("Failed to read artifact. Error: %+v", err)

@@ -93,6 +93,7 @@ type ClientInterface interface {
 	RecordArtifact(ctx context.Context, outputName, schema string, runtimeArtifact *pipelinespec.RuntimeArtifact, state pb.Artifact_State) (*OutputArtifact, error)
 	GetOrInsertArtifactType(ctx context.Context, schema string) (typeID int64, err error)
 	FindMatchedArtifact(ctx context.Context, artifactToMatch *pb.Artifact, pipelineContextId int64) (matchedArtifact *pb.Artifact, err error)
+	GetContextByArtifactID(ctx context.Context, id int64) (*pb.Context, error)
 }
 
 // Client is an MLMD service client.
@@ -1098,4 +1099,27 @@ func (c *Client) getContextByID(ctx context.Context, id int64) (*pb.Context, err
 		return nil, fmt.Errorf("getContext(id=%v): got nil context", id)
 	}
 	return contexts[0], nil
+}
+
+// Get the system.PipelineRun context for this Artifact ID
+func (c *Client) GetContextByArtifactID(ctx context.Context, id int64) (*pb.Context, error) {
+	res, err := c.svc.GetContextsByArtifact(ctx, &pb.GetContextsByArtifactRequest{ArtifactId: &id})
+	if err != nil {
+		return nil, fmt.Errorf("getContext(id=%v): %w", id, err)
+	}
+	contexts := res.GetContexts()
+
+	if len(contexts) == 0 {
+		return nil, fmt.Errorf("getContext(id=%v): not found", id)
+	}
+	if contexts[0] == nil {
+		return nil, fmt.Errorf("getContext(id=%v): got nil context", id)
+	}
+
+	for _, artifactContext := range contexts {
+		if *artifactContext.Type == "system.PipelineRun" {
+			return artifactContext, nil
+		}
+	}
+	return nil, fmt.Errorf("unable to find artifact context")
 }
