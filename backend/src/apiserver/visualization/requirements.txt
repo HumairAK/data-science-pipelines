@@ -547,7 +547,7 @@ wcwidth==0.2.6
     # via prompt-toolkit
 webencodings==0.5.1
     # via bleach
-werkzeug==2.1.2
+werkzeug==3.0.6
     # via tensorboard
 wheel==0.41.2
     # via
