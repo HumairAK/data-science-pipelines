@@ -1,0 +1,94 @@
+# PIPELINE DEFINITION
+# Name: pipeline-secret-env
+# Inputs:
+#    pipeline_input_param: str [Default: 'some_default']
+components:
+  comp-comp:
+    executorLabel: exec-comp
+    # resolve inputs
+    inputDefinitions:
+      parameters:
+        some_hardcoded_arg:
+          parameterType: STRING
+        some_input_arg:
+          parameterType: STRING
+deploymentSpec:
+  executors:
+    exec-comp:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - comp
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.9.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef comp(some_input_arg: str, some_hardcoded_arg: str):\n    import\
+          \ os\n    import sys\n    if os.environ['SECRET_VAR'] == \"service_account\"\
+          :\n        print(\"Success\")\n        return 0\n    else:\n        print(os.environ['SECRET_VAR']\
+          \  + \" is not service_account\")\n        sys.exit(\"Failure: cannot access\
+          \ secret as env variable\")\n    print(some_input_arg)\n    print(some_hardcoded_arg)\n\
+          \n"
+        image: quay.io/opendatahub/ds-pipelines-sample-base:v1.0
+pipelineInfo:
+  name: pipeline-secret-env
+root:
+  dag:
+    tasks:
+      comp:
+        cachingOptions: {}
+        componentRef:
+          name: comp-comp
+        # InputParameterSpec
+        inputs:
+          parameters:
+            some_hardcoded_arg:
+              runtimeValue:
+                constant: some_hardcoded_value
+            some_input_arg:
+              # getting this from upstream task
+              # case *pipelinespec.TaskInputsSpec_InputParameterSpec_ComponentInputParameter:
+              componentInputParameter: pipeline_input_param # componentInput
+              # once we fetch inputDef from below
+              # inputs.ParameterValues["some_input_arg"] = inputdef.parameters["pipeline_input_param"]
+        taskInfo:
+          name: comp
+  # resolve inputs
+  # ComponentInputsSpec
+  inputDefinitions:
+    # inputParams[componentInput] --> inputParams["pipeline_input_param"]
+    parameters:
+      pipeline_input_param:
+        defaultValue: some_default
+        isOptional: true
+        parameterType: STRING
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.9.0
+---
+platforms:
+  kubernetes:
+    deploymentSpec:
+      executors:
+        exec-comp:
+          secretAsEnv:
+          - keyToEnv:
+            - envVar: SECRET_VAR
+              secretKey: somekey
+            secretName: user-gcp-sa

@@ -1,0 +1,75 @@
+pipeline_info:
+  name: crust
+sdk_version: kfp-2.10.0
+schema_version: 2.1.0
+deployment_spec:
+  executors:
+    exec-crust:
+      container:
+        image: python:3.9
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - crust
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.10.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef crust(ds1: dsl.Input[dsl.Dataset], ds2: dsl.Input[dsl.Dataset]):\n\
+          \    with open(ds1.path, 'r') as f:\n        print('ds1: ', f.read())\n\
+          \    with open(ds2.path, 'r') as f:\n        print('ds2: ', f.read())\n\n"
+components:
+  comp-crust:
+    input_definitions:
+      artifacts:
+        ds1:
+          artifact_type:
+            schema_title: system.Dataset
+            schema_version: 0.0.1
+        ds2:
+          artifact_type:
+            schema_title: system.Dataset
+            schema_version: 0.0.1
+    executor_label: exec-crust
+root:
+  input_definitions:
+    artifacts:
+      ds1:
+        artifact_type:
+          schema_title: system.Dataset
+          schema_version: 0.0.1
+      ds2:
+        artifact_type:
+          schema_title: system.Dataset
+          schema_version: 0.0.1
+  dag:
+    tasks:
+      crust:
+        task_info:
+          name: crust
+        inputs:
+          artifacts:
+            ds1:
+              component_input_artifact: ds1
+            ds2:
+              component_input_artifact: ds2
+        caching_options:
+          enable_cache: true
+        component_ref:
+          name: comp-crust

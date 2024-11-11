@@ -1,0 +1,74 @@
+pipeline_info:
+  name: hello
+sdk_version: kfp-2.10.0
+schema_version: 2.1.0
+deployment_spec:
+  executors:
+    exec-hello:
+      container:
+        image: python:3.9
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - hello
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.10.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\nfrom builtins import str\n\ndef hello(some_in: str, someout: dsl.Output[str]):\n\
+          \    print(\"hello\")\n\n"
+components:
+  comp-hello:
+    input_definitions:
+      parameters:
+        some_in:
+          parameter_type: STRING
+    output_definitions:
+      parameters:
+        someout:
+          parameter_type: STRING
+    executor_label: exec-hello
+root:
+  input_definitions:
+    parameters:
+      some_in:
+        parameter_type: STRING
+  output_definitions:
+    parameters:
+      someout:
+        parameter_type: STRING
+  dag:
+    tasks:
+      hello:
+        task_info:
+          name: hello
+        inputs:
+          parameters:
+            some_in:
+              component_input_parameter: some_in
+        caching_options:
+          enable_cache: true
+        component_ref:
+          name: comp-hello
+    outputs:
+      parameters:
+        someout:
+          value_from_parameter:
+            producer_subtask: hello
+            output_parameter_key: someout

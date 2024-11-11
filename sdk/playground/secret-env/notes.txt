@@ -1,0 +1,37 @@
+
+
+When pipeline context is created and a graphcomponent is __init__ it will parse the inputdefs, and should create pipeline spec:
+
+      secret_input_param:
+        defaultValue: some_default_secret_name
+        isOptional: true
+        parameterType: STRING
+
+Secret name would take something similar to task inputs (i.e. runtime val or upstream task or constant val):
+
+secretName:
+  componentInputParameter: pipeline_input_param
+# OR
+#  runtimeValue:
+#    constant: some_hardcoded_value
+
+How would secret name be converted? should be similar to how task inputs are converted.
+
+Before going into __call__ note that the pipeline_spec is added to each component spec, and it has the task inputs
+After each @component has a python component created, and when we evaluate it inside pipeline @pipeline context
+and check its pipeline_spec, we see that it has the component's bits that go in the pipeline (but only its own bits)
+
+Thinking that's how it's merged. When is this created?
+
+---
+This bit:
+
+secretName:
+  componentInputParameter: pipeline_input_param
+# OR
+#  runtimeValue:
+#    constant: some_hardcoded_value
+
+Is generated before we enter pipeline context, once @component is created. By inspecting the @comonent within
+pipeline_context, we can see the .pipeline_spec value and find this component's single pipeline spec containing the
+task inputs. So we should figure out how component spec converted inputdef -> task input like this.

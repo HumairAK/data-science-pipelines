@@ -1,0 +1,91 @@
+pipeline_info:
+  name: core
+sdk_version: kfp-2.10.0
+schema_version: 2.1.0
+deployment_spec:
+  executors:
+    exec-core:
+      container:
+        image: python:3.9
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - core
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.10.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef core(core_input: str, ds1: dsl.Output[dsl.Dataset], ds2: dsl.Output[dsl.Dataset]):\n\
+          \    with open(ds1.path, 'w') as f:\n        f.write('foo')\n    with open(ds2.path,\
+          \ 'w') as f:\n        f.write('bar')\n\n"
+components:
+  comp-core:
+    input_definitions:
+      parameters:
+        core_input:
+          parameter_type: STRING
+    output_definitions:
+      artifacts:
+        ds1:
+          artifact_type:
+            schema_title: system.Dataset
+            schema_version: 0.0.1
+        ds2:
+          artifact_type:
+            schema_title: system.Dataset
+            schema_version: 0.0.1
+    executor_label: exec-core
+root:
+  input_definitions:
+    parameters:
+      core_input:
+        parameter_type: STRING
+  output_definitions:
+    artifacts:
+      ds1:
+        artifact_type:
+          schema_title: system.Dataset
+          schema_version: 0.0.1
+      ds2:
+        artifact_type:
+          schema_title: system.Dataset
+          schema_version: 0.0.1
+  dag:
+    tasks:
+      core:
+        task_info:
+          name: core
+        inputs:
+          parameters:
+            core_input:
+              component_input_parameter: core_input
+        caching_options:
+          enable_cache: true
+        component_ref:
+          name: comp-core
+    outputs:
+      artifacts:
+        ds1:
+          artifact_selectors:
+          - producer_subtask: core
+            output_artifact_key: ds1
+        ds2:
+          artifact_selectors:
+          - producer_subtask: core
+            output_artifact_key: ds2

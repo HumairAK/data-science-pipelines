@@ -1,0 +1,281 @@
+# PIPELINE DEFINITION
+# Name: outer-pipeline
+# Inputs:
+#    runtime_param: str
+# Outputs:
+#    Output: system.Dataset
+components:
+  comp-condition-1:
+    inputDefinitions:
+      parameters:
+        pipelinechannel--hello-someout:
+          parameterType: STRING
+  comp-core:
+    executorLabel: exec-core
+    inputDefinitions:
+      parameters:
+        core_input:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        ds1:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        ds2:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-crust:
+    executorLabel: exec-crust
+    inputDefinitions:
+      artifacts:
+        ds1:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        ds2:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-hello:
+    executorLabel: exec-hello
+    inputDefinitions:
+      parameters:
+        some_in:
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        someout:
+          parameterType: STRING
+  comp-inner-pipeline-a:
+    dag:
+      outputs:
+        artifacts:
+          ds1:
+            artifactSelectors:
+            - outputArtifactKey: ds1
+              producerSubtask: inner-pipeline-b
+          ds2:
+            artifactSelectors:
+            - outputArtifactKey: ds2
+              producerSubtask: inner-pipeline-b
+      tasks:
+        condition-1:
+          componentRef:
+            name: comp-condition-1
+          inputs:
+            parameters:
+              pipelinechannel--hello-someout:
+                taskOutputParameter:
+                  outputParameterKey: someout
+                  producerTask: hello
+          taskInfo:
+            name: condition-1
+          triggerPolicy:
+            condition: inputs.parameter_values['pipelinechannel--hello-someout'] ==
+              'heads'
+        hello:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-hello
+          inputs:
+            parameters:
+              some_in:
+                runtimeValue:
+                  constant: foo
+          taskInfo:
+            name: hello
+        inner-pipeline-b:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-inner-pipeline-b
+          taskInfo:
+            name: inner-pipeline-b
+    outputDefinitions:
+      artifacts:
+        ds1:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        ds2:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-inner-pipeline-b:
+    dag:
+      outputs:
+        artifacts:
+          ds1:
+            artifactSelectors:
+            - outputArtifactKey: ds1
+              producerSubtask: core
+          ds2:
+            artifactSelectors:
+            - outputArtifactKey: ds2
+              producerSubtask: core
+      tasks:
+        core:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-core
+          inputs:
+            parameters:
+              core_input:
+                runtimeValue:
+                  constant: bar
+          taskInfo:
+            name: core
+    outputDefinitions:
+      artifacts:
+        ds1:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        ds2:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-core:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - core
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.10.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef core(core_input: str, ds1: dsl.Output[dsl.Dataset], ds2: dsl.Output[dsl.Dataset]):\n\
+          \    with open(ds1.path, 'w') as f:\n        f.write('foo')\n    with open(ds2.path,\
+          \ 'w') as f:\n        f.write('bar')\n\n"
+        image: python:3.9
+    exec-crust:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - crust
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.10.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef crust(ds1: dsl.Input[dsl.Dataset], ds2: dsl.Input[dsl.Dataset]):\n\
+          \    with open(ds1.path, 'r') as f:\n        print('ds1: ', f.read())\n\
+          \    with open(ds2.path, 'r') as f:\n        print('ds2: ', f.read())\n\n"
+        image: python:3.9
+    exec-hello:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - hello
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.10.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\nfrom builtins import str\n\ndef hello(some_in: str, someout: dsl.Output[str]):\n\
+          \    print(\"hello\")\n\n"
+        image: python:3.9
+pipelineInfo:
+  name: outer-pipeline
+root:
+  dag:
+    outputs:
+      artifacts:
+        Output:
+          artifactSelectors:
+          - outputArtifactKey: ds1
+            producerSubtask: inner-pipeline-a
+    tasks:
+      crust:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-crust
+        dependentTasks:
+        - inner-pipeline-a
+        inputs:
+          artifacts:
+            ds1:
+              taskOutputArtifact:
+                outputArtifactKey: ds1
+                producerTask: inner-pipeline-a
+            ds2:
+              taskOutputArtifact:
+                outputArtifactKey: ds2
+                producerTask: inner-pipeline-a
+        taskInfo:
+          name: crust
+      inner-pipeline-a:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-inner-pipeline-a
+        taskInfo:
+          name: inner-pipeline-a
+  inputDefinitions:
+    parameters:
+      runtime_param:
+        parameterType: STRING
+  outputDefinitions:
+    artifacts:
+      Output:
+        artifactType:
+          schemaTitle: system.Dataset
+          schemaVersion: 0.0.1
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.10.0
