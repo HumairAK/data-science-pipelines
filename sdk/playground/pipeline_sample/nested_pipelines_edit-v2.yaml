@@ -5,13 +5,102 @@
 # Outputs:
 #    Output: system.Dataset
 components:
+  comp-bye:
+    executorLabel: exec-bye
+    inputDefinitions:
+      parameters:
+        some_in_b:
+          parameterType: STRING
   comp-condition-1:
+    dag:
+      tasks:
+        condition-2:
+          componentRef:
+            name: comp-condition-2
+          inputs:
+            parameters:
+              pipelinechannel--hello-someout:
+                componentInputParameter: pipelinechannel--hello-someout
+          taskInfo:
+            name: condition-2
+          triggerPolicy:
+            condition: inputs.parameter_values['pipelinechannel--hello-someout'] ==
+              'heads2'
+    inputDefinitions:
+      parameters:
+        pipelinechannel--hello-someout:
+          parameterType: STRING
+  comp-condition-2:
+    dag:
+      tasks:
+        hello-2:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-hello-2
+          inputs:
+            parameters:
+              some_in:
+                runtimeValue:
+                  constant: foo2
+          taskInfo:
+            name: hello-2
+    inputDefinitions:
+      parameters:
+        pipelinechannel--hello-someout:
+          parameterType: STRING
+  comp-condition-3:
+    dag:
+      tasks:
+        bye:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-bye
+          dependentTasks:
+          - hello-3
+          inputs:
+            parameters:
+              some_in_b:
+                taskOutputParameter:
+                  outputParameterKey: someout
+                  producerTask: hello-3
+          taskInfo:
+            name: bye
+        hello-3:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-hello-3
+          inputs:
+            parameters:
+              some_in:
+                runtimeValue:
+                  constant: foo3
+          taskInfo:
+            name: hello-3
     inputDefinitions:
       parameters:
         pipelinechannel--hello-someout:
           parameterType: STRING
   comp-core:
     executorLabel: exec-core
+    inputDefinitions:
+      parameters:
+        core_input:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        ds1:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        ds2:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-core-2:
+    executorLabel: exec-core-2
     inputDefinitions:
       parameters:
         core_input:
@@ -38,8 +127,79 @@ components:
           artifactType:
             schemaTitle: system.Dataset
             schemaVersion: 0.0.1
+  comp-exit-handler-4:
+    dag:
+      tasks:
+        inner-pipeline-b-2:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-inner-pipeline-b-2
+          taskInfo:
+            name: inner-pipeline-b-2
+  comp-for-loop-6:
+    dag:
+      outputs:
+        artifacts:
+          pipelinechannel--train-model:
+            artifactSelectors:
+            - outputArtifactKey: model
+              producerSubtask: train
+      tasks:
+        train:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-train
+          inputs:
+            parameters:
+              epochs:
+                componentInputParameter: pipelinechannel--loop-item-param-5
+          taskInfo:
+            name: train
+    inputDefinitions:
+      parameters:
+        pipelinechannel--loop-item-param-5:
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      artifacts:
+        pipelinechannel--train-model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+          isArtifactList: true
   comp-hello:
     executorLabel: exec-hello
+    inputDefinitions:
+      parameters:
+        some_in:
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        someout:
+          parameterType: STRING
+  comp-hello-2:
+    executorLabel: exec-hello-2
+    inputDefinitions:
+      parameters:
+        some_in:
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        someout:
+          parameterType: STRING
+  comp-hello-3:
+    executorLabel: exec-hello-3
+    inputDefinitions:
+      parameters:
+        some_in:
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        someout:
+          parameterType: STRING
+  comp-hello-4:
+    executorLabel: exec-hello-4
     inputDefinitions:
       parameters:
         some_in:
@@ -64,6 +224,8 @@ components:
         condition-1:
           componentRef:
             name: comp-condition-1
+          dependentTasks:
+          - hello
           inputs:
             parameters:
               pipelinechannel--hello-someout:
@@ -75,6 +237,36 @@ components:
           triggerPolicy:
             condition: inputs.parameter_values['pipelinechannel--hello-someout'] ==
               'heads'
+        condition-3:
+          componentRef:
+            name: comp-condition-3
+          dependentTasks:
+          - hello
+          inputs:
+            parameters:
+              pipelinechannel--hello-someout:
+                taskOutputParameter:
+                  outputParameterKey: someout
+                  producerTask: hello
+          taskInfo:
+            name: condition-3
+          triggerPolicy:
+            condition: inputs.parameter_values['pipelinechannel--hello-someout'] ==
+              'heads3'
+        exit-handler-4:
+          componentRef:
+            name: comp-exit-handler-4
+          taskInfo:
+            name: exit-handler-4
+        for-loop-6:
+          componentRef:
+            name: comp-for-loop-6
+          parameterIterator:
+            itemInput: pipelinechannel--loop-item-param-5
+            items:
+              raw: '[1, 5]'
+          taskInfo:
+            name: for-loop-6
         hello:
           cachingOptions:
             enableCache: true
@@ -87,6 +279,22 @@ components:
                   constant: foo
           taskInfo:
             name: hello
+        hello-4:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-hello-4
+          dependentTasks:
+          - exit-handler-4
+          inputs:
+            parameters:
+              some_in:
+                runtimeValue:
+                  constant: foo3
+          taskInfo:
+            name: hello-4
+          triggerPolicy:
+            strategy: ALL_UPSTREAM_TASKS_COMPLETED
         inner-pipeline-b:
           cachingOptions:
             enableCache: true
@@ -94,6 +302,21 @@ components:
             name: comp-inner-pipeline-b
           taskInfo:
             name: inner-pipeline-b
+        max-accuracy:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-max-accuracy
+          dependentTasks:
+          - for-loop-6
+          inputs:
+            artifacts:
+              models:
+                taskOutputArtifact:
+                  outputArtifactKey: pipelinechannel--train-model
+                  producerTask: for-loop-6
+          taskInfo:
+            name: max-accuracy
     outputDefinitions:
       artifacts:
         ds1:
@@ -139,9 +362,127 @@ components:
           artifactType:
             schemaTitle: system.Dataset
             schemaVersion: 0.0.1
+  comp-inner-pipeline-b-2:
+    dag:
+      outputs:
+        artifacts:
+          ds1:
+            artifactSelectors:
+            - outputArtifactKey: ds1
+              producerSubtask: core
+          ds2:
+            artifactSelectors:
+            - outputArtifactKey: ds2
+              producerSubtask: core
+      tasks:
+        core:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-core-2
+          inputs:
+            parameters:
+              core_input:
+                runtimeValue:
+                  constant: bar
+          taskInfo:
+            name: core
+    outputDefinitions:
+      artifacts:
+        ds1:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        ds2:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-max-accuracy:
+    executorLabel: exec-max-accuracy
+    inputDefinitions:
+      artifacts:
+        models:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+          isArtifactList: true
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: NUMBER_DOUBLE
+  comp-train:
+    executorLabel: exec-train
+    inputDefinitions:
+      parameters:
+        epochs:
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      artifacts:
+        model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
 deploymentSpec:
   executors:
+    exec-bye:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - bye
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.10.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef bye(some_in_b: str):\n    return some_in_b\n\n"
+        image: python:3.9
     exec-core:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - core
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.10.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef core(core_input: str, ds1: dsl.Output[dsl.Dataset], ds2: dsl.Output[dsl.Dataset]):\n\
+          \    with open(ds1.path, 'w') as f:\n        f.write('foo')\n    with open(ds2.path,\
+          \ 'w') as f:\n        f.write('bar')\n\n"
+        image: python:3.9
+    exec-core-2:
       container:
         args:
         - --executor_input
@@ -228,7 +569,152 @@ deploymentSpec:
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\nfrom builtins import str\n\ndef hello(some_in: str, someout: dsl.Output[str]):\n\
-          \    print(\"hello\")\n\n"
+          \    return \"bob\"\n\n"
+        image: python:3.9
+    exec-hello-2:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - hello
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.10.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\nfrom builtins import str\n\ndef hello(some_in: str, someout: dsl.Output[str]):\n\
+          \    return \"bob\"\n\n"
+        image: python:3.9
+    exec-hello-3:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - hello
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.10.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\nfrom builtins import str\n\ndef hello(some_in: str, someout: dsl.Output[str]):\n\
+          \    return \"bob\"\n\n"
+        image: python:3.9
+    exec-hello-4:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - hello
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.10.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\nfrom builtins import str\n\ndef hello(some_in: str, someout: dsl.Output[str]):\n\
+          \    return \"bob\"\n\n"
+        image: python:3.9
+    exec-max-accuracy:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - max_accuracy
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.10.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef max_accuracy(models: dsl.Input[List[dsl.Model]]) -> float:\n\
+          \    return 1.2\n\n"
+        image: python:3.9
+    exec-train:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - train
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.10.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef train(epochs: int, model: dsl.Output[dsl.Model]):\n    print('boo')\n\
+          \n"
         image: python:3.9
 pipelineInfo:
   name: outer-pipeline

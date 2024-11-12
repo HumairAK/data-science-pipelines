@@ -56,8 +56,7 @@ class GraphComponent(base_component.BaseComponent):
                     is_artifact_list=input_spec.is_artifact_list,
                 ))
 
-        with pipeline_context.Pipeline(
-                self.component_spec.name) as dsl_pipeline:
+        with pipeline_context.Pipeline(self.component_spec.name) as dsl_pipeline:
             pipeline_outputs = pipeline_func(*args_list)
 
         if not dsl_pipeline.tasks:
@@ -74,6 +73,9 @@ class GraphComponent(base_component.BaseComponent):
             pipeline_outputs=pipeline_outputs,
             pipeline_config=pipeline_config,
         )
+
+        from kfp.dsl.util import yaml_writer
+        yaml_writer.write_pb_to_yaml(pipeline_spec, pipeline_func)
 
         pipeline_root = getattr(pipeline_func, 'pipeline_root', None)
         if pipeline_root is not None:

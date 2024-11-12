@@ -1,10 +1,11 @@
+from pathlib import Path
+
 # Usage:
 # from kfp.dsl.util.yaml_writer import write_pb_to_yaml
 # write_pb_to_yaml(pipeline_spec)
 
-yaml_file_path = ("/Users/hukhan/projects/github/rhods/"
-                  "data-science-pipelines/sdk/playground/"
-                  "pipeline_sample/debug")
+wd = Path(__file__).parent.parent.parent.parent.parent
+yaml_file_path = f"{wd}/playground/pipeline_spec_yamls"
 
 
 def write_pb_to_yaml(message, func):

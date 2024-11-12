@@ -1920,6 +1920,7 @@ def create_pipeline_spec(
         dag_outputs=modified_pipeline_outputs_dict,
         structures_component_spec=component_spec)
 
+
     return pipeline_spec, platform_spec
 
 

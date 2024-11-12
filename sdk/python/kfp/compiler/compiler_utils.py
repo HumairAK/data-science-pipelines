@@ -520,7 +520,6 @@ def get_outputs_for_all_groups(
                     if parent_consumer in group_name_to_children[
                             parent_of_current_surfacer]:
                         break
-
             elif isinstance(channel, pipeline_channel.OneOfMixin):
                 if channel in processed_oneofs:
                     continue
