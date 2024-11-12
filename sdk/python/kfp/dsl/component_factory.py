@@ -617,6 +617,8 @@ def create_component_from_func(
     if output_component_file:
         component_spec.save_to_component_yaml(output_component_file)
 
+    from kfp.dsl.util.yaml_writer import write_pb_to_yaml
+    write_pb_to_yaml(component_spec.to_pipeline_spec(), func)
     return python_component.PythonComponent(
         component_spec=component_spec, python_func=func)
 

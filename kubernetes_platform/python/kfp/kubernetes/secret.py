@@ -46,7 +46,7 @@ def use_secret_as_env(
         ) for secret_key, env_var in secret_key_to_env.items()
     ]
     secret_as_env = pb.SecretAsEnv(
-        secret_name=secret_name,
+        secret_name=pb.InputParameterSpec,
         key_to_env=key_to_env,
     )
 

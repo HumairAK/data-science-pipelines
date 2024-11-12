@@ -74,8 +74,8 @@ class GraphComponent(base_component.BaseComponent):
             pipeline_config=pipeline_config,
         )
 
-        from kfp.dsl.util import yaml_writer
-        yaml_writer.write_pb_to_yaml(pipeline_spec, pipeline_func)
+        from kfp.dsl.util.yaml_writer import write_pb_to_yaml
+        write_pb_to_yaml(pipeline_spec, pipeline_func)
 
         pipeline_root = getattr(pipeline_func, 'pipeline_root', None)
         if pipeline_root is not None:
@@ -87,6 +87,7 @@ class GraphComponent(base_component.BaseComponent):
 
         self.component_spec.implementation.graph = pipeline_spec
         self.component_spec.platform_spec = platform_spec
+
 
     @property
     def pipeline_spec(self) -> pipeline_spec_pb2.PipelineSpec:

@@ -348,6 +348,12 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 		if err != nil {
 			return execution, err
 		}
+		// TODO(humair): Resolve k8s inputs, map them to inputdef of parent task
+		// this means that parent task needs this param as input def
+		// (1 pod) Root popeline > runtime config > execution param > (2 pod) container execution > here
+		// what if it's in a subdag?
+		// I think it's resolved by alex's pr (k8s happens at pipeline level, so subdag is in nested pipeline case)
+		// TODO(humair): Need to pass resolved k8sexecutor inputs here
 		err = extendPodSpecPatch(podSpec, opts.KubernetesExecutorConfig, dag, dagTasks)
 		if err != nil {
 			return execution, err
