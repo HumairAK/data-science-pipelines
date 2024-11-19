@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	workflowapi "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	errorutil "github.com/kubeflow/pipelines/backend/src/common/util"
 	log "github.com/sirupsen/logrus"
@@ -34,8 +35,13 @@ var (
 	MaxJobBackOff = 360 * time.Second
 )
 
+type QueueItem struct {
+	key       string
+	eventType string
+}
+
 type Saver interface {
-	Save(key string, namespace string, name string, nowEpoch int64) error
+	Save(key QueueItem, namespace string, name string, nowEpoch int64) error
 }
 
 type EventHandler interface {
@@ -111,16 +117,19 @@ func (p *PersistenceWorker) enqueue(obj interface{}) {
 		return
 	}
 	if p.enforceRequeueDelays {
-		p.workqueue.AddRateLimited(key) // Exponential backoff.
+		p.workqueue.AddRateLimited(QueueItem{key: key, eventType: "UpdateOrAdd"}) // Exponential backoff.
 	} else {
-		p.workqueue.Add(key) // For testing.
+		p.workqueue.Add(QueueItem{key: key, eventType: "UpdateOrAdd"}) // For testing.
 	}
 }
 
 func (p *PersistenceWorker) enqueueForDelete(obj interface{}) {
+	wf := obj.(*workflowapi.Workflow)
+	fmt.Print(wf)
+	//runid := wf.ObjectMeta.Labels["pipeline/runid"]
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err == nil {
-		p.workqueue.Add(key)
+		p.workqueue.Add(QueueItem{key: key, eventType: "delete"})
 	}
 }
 
@@ -142,14 +151,14 @@ func (p *PersistenceWorker) processNextWorkItem() bool {
 		// put back on the workqueue and attempted again after a back-off
 		// period.
 		defer p.workqueue.Done(obj)
-		var key string
+		var queueItem QueueItem
 		var ok bool
 		// We expect strings to come off the workqueue. These are of the
 		// form namespace/name. We do this as the delayed nature of the
 		// workqueue means the items in the informer cache may actually be
 		// more up to date that when the item was initially put onto the
 		// workqueue.
-		if key, ok = obj.(string); !ok {
+		if queueItem, ok = obj.(QueueItem); !ok {
 			// As the item in the workqueue is actually invalid, we call
 			// Forget here else we'd go into a loop of attempting to
 			// process a work item that is invalid.
@@ -185,8 +194,9 @@ func (p *PersistenceWorker) processNextWorkItem() bool {
 
 		// Run the syncHandler, passing it the namespace/name string of the
 		// resource to be synced.
-		err := p.syncHandler(key)
+		err := p.syncHandler(queueItem)
 		retryOnError := errorutil.HasCustomCode(err, errorutil.CUSTOM_CODE_TRANSIENT)
+		key := queueItem.key
 		if err != nil && retryOnError {
 			// Transient failure. We will retry.
 			log.Errorf("Transient failure while syncing resource (%v): %+v", key, err)
@@ -214,14 +224,14 @@ func (p *PersistenceWorker) processNextWorkItem() bool {
 
 // syncHandler picks items from the queue and passes them to the saver, which,
 // in turn, calls Report[Scheduled]Workflow to sync it with the DB
-func (p *PersistenceWorker) syncHandler(key string) error {
+func (p *PersistenceWorker) syncHandler(queueitem QueueItem) error {
 
 	// Convert the namespace/name string into a distinct namespace and name
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	namespace, name, err := cache.SplitMetaNamespaceKey(queueitem.key)
 	if err != nil {
 		// Permanent failure.
 		return errorutil.NewCustomError(err, errorutil.CUSTOM_CODE_PERMANENT,
-			"Invalid resource key (%s): %v", key, err)
+			"Invalid resource key (%s): %v", queueitem.key, err)
 	}
 
 	// Get the current time
@@ -229,5 +239,5 @@ func (p *PersistenceWorker) syncHandler(key string) error {
 	// number for the current time.
 	nowEpoch := p.time.Now().Unix()
 
-	return p.saver.Save(key, namespace, name, nowEpoch)
+	return p.saver.Save(queueitem, namespace, name, nowEpoch)
 }

@@ -23,8 +23,8 @@ clean: clean-go clean-python
 # Generate proto packages using a pre-built api-generator image.
 .PHONY: golang
 golang: proto/*.proto
-	docker run --interactive --rm \
-		--user $$(id -u):$$(id -g) \
+	podman run --interactive --rm \
+		--privileged \
 		-v "$$(pwd)/..":"/go/src/github.com/kubeflow/pipelines":z \
 		$(PREBUILT_REMOTE_IMAGE)  \
 		sh -c 'cd /go/src/github.com/kubeflow/pipelines/kubernetes_platform && make generate-go-in-container'

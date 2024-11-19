@@ -36,7 +36,7 @@ func NewScheduledWorkflowSaver(
 	}
 }
 
-func (c *ScheduledWorkflowSaver) Save(key string, namespace string, name string, nowEpoch int64) error {
+func (c *ScheduledWorkflowSaver) Save(key QueueItem, namespace string, name string, nowEpoch int64) error {
 	// Get the ScheduledWorkflow with this namespace/name
 	swf, err := c.client.Get(namespace, name)
 	isNotFound := util.HasCustomCode(err, util.CUSTOM_CODE_NOT_FOUND)

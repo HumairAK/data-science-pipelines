@@ -15,6 +15,7 @@
 package worker
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/kubeflow/pipelines/backend/src/agent/persistence/client"
@@ -41,11 +42,14 @@ func NewWorkflowSaver(client client.WorkflowClientInterface,
 	}
 }
 
-func (s *WorkflowSaver) Save(key string, namespace string, name string, nowEpoch int64) error {
+func (s *WorkflowSaver) Save(queueitem QueueItem, namespace string, name string, nowEpoch int64) error {
+	key := queueitem.key
+
 	// Get the Workflow with this namespace/name
 	wf, err := s.client.Get(namespace, name)
 	isNotFound := util.HasCustomCode(err, util.CUSTOM_CODE_NOT_FOUND)
 	if err != nil && isNotFound {
+		fmt.Print("Not FOUND hit")
 		// Permanent failure.
 		// The Workflow may no longer exist, we stop processing and do not retry.
 		return util.NewCustomError(err, util.CUSTOM_CODE_PERMANENT,
