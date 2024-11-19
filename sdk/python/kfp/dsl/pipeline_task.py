@@ -632,6 +632,13 @@ class PipelineTask:
         return self
 
     @block_if_final()
+    def set_container_image(self, name: Union[str, pipeline_channel.PipelineChannel]) -> 'PipelineTask':
+        self._ensure_container_spec_exists()
+        self.container_spec.image = name
+        return self
+
+
+    @block_if_final()
     def after(self, *tasks) -> 'PipelineTask':
         """Specifies an explicit dependency on other tasks by requiring this
         task be executed after other tasks finish completion.
