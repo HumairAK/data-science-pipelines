@@ -450,11 +450,15 @@ func initPodSpecPatch(
 	accelerator := container.GetResources().GetAccelerator()
 	if accelerator != nil {
 		if accelerator.GetType() != "" && accelerator.GetCount() > 0 {
-			q, err := k8sres.ParseQuantity(fmt.Sprintf("%v", accelerator.GetCount()))
-			if err != nil {
-				return nil, fmt.Errorf("failed to init podSpecPatch: %w", err)
+			acceleratorType, err1 := resolvePodSpecRuntimeParameter(accelerator.GetType(), executorInput)
+			if err1 != nil {
+				return nil, err1
 			}
-			res.Limits[k8score.ResourceName(accelerator.GetType())] = q
+			q, err1 := k8sres.ParseQuantity(fmt.Sprintf("%v", accelerator.GetCount()))
+			if err1 != nil {
+				return nil, fmt.Errorf("failed to init podSpecPatch: %w", err1)
+			}
+			res.Limits[k8score.ResourceName(acceleratorType)] = q
 		}
 	}
 
