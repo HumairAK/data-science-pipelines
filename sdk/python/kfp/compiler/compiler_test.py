@@ -1716,6 +1716,48 @@ class TestBooleanInputCompiledCorrectly(unittest.TestCase):
             pipeline_spec.root.dag.tasks['comp'].inputs.parameters['boolean2']
             .runtime_value.constant.bool_value)
 
+    def test_pipeline_with_parameterized_container_image(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            @dsl.component(base_image="docker.io/python:3.9.17")
+            def empty_component():
+                pass
+            @dsl.pipeline()
+            def simple_pipeline(img: str):
+                task = empty_component()
+                # overwrite base_image="docker.io/python:3.9.17"
+                task.set_container_image(img)
+            output_yaml = os.path.join(tmpdir, 'result.yaml')
+            compiler.Compiler().compile(pipeline_func=simple_pipeline,
+                                        package_path=output_yaml,
+                                        pipeline_parameters={"img": "someimage"})
+            self.assertTrue(os.path.exists(output_yaml))
+
+            with open(output_yaml, 'r') as f:
+                pipeline_spec = yaml.safe_load(f)
+                container = pipeline_spec['deploymentSpec']['executors']['exec-empty-component']['container']
+                self.assertEqual(container['image'], "{{$.inputs.parameters['pipelinechannel--img']}}")
+
+    def test_pipeline_with_constant_container_image(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            @dsl.component(base_image="docker.io/python:3.9.17")
+            def empty_component():
+                pass
+            @dsl.pipeline()
+            def simple_pipeline():
+                task = empty_component()
+                # overwrite base_image="docker.io/python:3.9.17"
+                task.set_container_image("constant-value")
+
+            output_yaml = os.path.join(tmpdir, 'result.yaml')
+            compiler.Compiler().compile(pipeline_func=simple_pipeline,
+                                        package_path=output_yaml)
+
+            self.assertTrue(os.path.exists(output_yaml))
+
+            with open(output_yaml, 'r') as f:
+                pipeline_spec = yaml.safe_load(f)
+                container = pipeline_spec['deploymentSpec']['executors']['exec-empty-component']['container']
+                self.assertEqual(container['image'], "constant-value")
 
 class TestTopologyValidation(unittest.TestCase):
 
