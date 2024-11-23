@@ -138,7 +138,7 @@ def build_task_spec_for_task(
     if task.container_spec and task.container_spec.image:
         val = task.container_spec.image
         if val and pipeline_channel.extract_pipeline_channels_from_any(val):
-            task.inputs["image"] = val
+            task.inputs["base_image"] = val
 
 
     for input_name, input_value in task.inputs.items():
