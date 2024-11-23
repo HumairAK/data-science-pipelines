@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package driver
 
 import (
@@ -309,6 +310,7 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 
 	// TODO(Bobgy): change execution state to pending, because this is driver, execution hasn't started.
 	createdExecution, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
+	//createdExecution, err := mlmd.GetExecution(ctx, 40)
 	if err != nil {
 		return execution, err
 	}
@@ -455,12 +457,17 @@ func initPodSpecPatch(
 			res.Limits[k8score.ResourceName(accelerator.GetType())] = q
 		}
 	}
+
+	containerImage, err := resolvePodSpecRuntimeParameter(container.Image, executorInput)
+	if err != nil {
+		return nil, err
+	}
 	podSpec := &k8score.PodSpec{
 		Containers: []k8score.Container{{
 			Name:      "main", // argo task user container is always called "main"
 			Command:   launcherCmd,
 			Args:      userCmdArgs,
-			Image:     container.Image,
+			Image:     containerImage,
 			Resources: res,
 			Env:       userEnvVar,
 		}},

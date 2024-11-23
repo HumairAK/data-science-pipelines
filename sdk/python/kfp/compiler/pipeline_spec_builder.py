@@ -135,6 +135,12 @@ def build_task_spec_for_task(
             if val and pipeline_channel.extract_pipeline_channels_from_any(val):
                 task.inputs[key] = val
 
+    if task.container_spec and task.container_spec.image:
+        val = pipeline_channel.extract_pipeline_channels_from_any(task.container_spec.image)
+        if val:
+            task.inputs["image"] = str(val[0])
+
+
     for input_name, input_value in task.inputs.items():
         # Since LoopParameterArgument and LoopArtifactArgument and LoopArgumentVariable are narrower
         # types than PipelineParameterChannel, start with them.
@@ -618,23 +624,19 @@ def build_container_spec_for_task(
     def convert_to_placeholder(input_value: str) -> str:
         """Checks if input is a pipeline channel and if so, converts to
         compiler injected input name."""
-        pipeline_channels = (
-            pipeline_channel.extract_pipeline_channels_from_any(input_value))
+        pipeline_channels = (pipeline_channel.extract_pipeline_channels_from_any(input_value))
         if pipeline_channels:
             assert len(pipeline_channels) == 1
             channel = pipeline_channels[0]
-            additional_input_name = (
-                compiler_utils.additional_input_name_for_pipeline_channel(
-                    channel))
-            additional_input_placeholder = placeholders.InputValuePlaceholder(
-                additional_input_name)._to_string()
-            input_value = input_value.replace(channel.pattern,
-                                              additional_input_placeholder)
+            additional_input_name = (compiler_utils.additional_input_name_for_pipeline_channel(channel))
+            additional_input_placeholder = placeholders.InputValuePlaceholder(additional_input_name)._to_string()
+            input_value = input_value.replace(channel.pattern,additional_input_placeholder)
         return input_value
 
     container_spec = (
         pipeline_spec_pb2.PipelineDeploymentConfig.PipelineContainerSpec(
-            image=task.container_spec.image,
+            # image=task.container_spec.image,
+            image=convert_to_placeholder(task.container_spec.image),
             command=task.container_spec.command,
             args=task.container_spec.args,
             env=[

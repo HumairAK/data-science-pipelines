@@ -634,6 +634,8 @@ class PipelineTask:
     @block_if_final()
     def set_container_image(self, name: Union[str, pipeline_channel.PipelineChannel]) -> 'PipelineTask':
         self._ensure_container_spec_exists()
+        if isinstance(name, pipeline_channel.PipelineChannel):
+            name = str(name)
         self.container_spec.image = name
         return self
 
