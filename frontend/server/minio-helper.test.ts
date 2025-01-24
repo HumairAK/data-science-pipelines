@@ -149,58 +149,59 @@ describe('minio-helper', () => {
       mockedMinioGetObject = minioClient.getObject as any;
     });
 
-    it('unpacks a gzipped tarball', async done => {
+    it('unpacks a gzipped tarball', async () => {
       const objStream = new PassThrough();
       objStream.end(tarGzBuffer);
       mockedMinioGetObject.mockResolvedValueOnce(Promise.resolve(objStream));
 
       const stream = await getObjectStream({ bucket: 'bucket', key: 'key', client: minioClient });
       expect(mockedMinioGetObject).toBeCalledWith('bucket', 'key');
-      stream.on('finish', () => {
-        expect(
-          stream
-            .read()
-            .toString()
-            .trim(),
-        ).toBe('hello world');
-        done();
+
+      const data = await new Promise((resolve) => {
+        let result = '';
+        stream.on('data', chunk => {
+          result += chunk;
+        });
+        stream.on('end', () => resolve(result.trim()));
       });
+
+      expect(data).toBe('hello world');
     });
 
-    it('unpacks a uncompressed tarball', async done => {
+    it('unpacks a uncompressed tarball', async () => {
       const objStream = new PassThrough();
       objStream.end(tarBuffer);
       mockedMinioGetObject.mockResolvedValueOnce(Promise.resolve(objStream));
 
       const stream = await getObjectStream({ bucket: 'bucket', key: 'key', client: minioClient });
       expect(mockedMinioGetObject).toBeCalledWith('bucket', 'key');
-      stream.on('finish', () => {
-        expect(
-          stream
-            .read()
-            .toString()
-            .trim(),
-        ).toBe('hello world');
-        done();
+      const data = await new Promise((resolve) => {
+        let result = '';
+        stream.on('data', chunk => {
+          result += chunk;
+        });
+        stream.on('end', () => resolve(result.trim()));
       });
+
+      expect(data).toBe('hello world');
     });
 
-    it('returns the content as a stream', async done => {
+    it('returns the content as a stream', async () => {
       const objStream = new PassThrough();
       objStream.end('hello world');
       mockedMinioGetObject.mockResolvedValueOnce(Promise.resolve(objStream));
 
       const stream = await getObjectStream({ bucket: 'bucket', key: 'key', client: minioClient });
       expect(mockedMinioGetObject).toBeCalledWith('bucket', 'key');
-      stream.on('finish', () => {
-        expect(
-          stream
-            .read()
-            .toString()
-            .trim(),
-        ).toBe('hello world');
-        done();
+      const data = await new Promise((resolve) => {
+        let result = '';
+        stream.on('data', chunk => {
+          result += chunk;
+        });
+        stream.on('end', () => resolve(result.trim()));
       });
+
+      expect(data).toBe('hello world');
     });
   });
 });

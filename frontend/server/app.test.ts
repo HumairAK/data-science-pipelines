@@ -21,7 +21,8 @@ import { loadConfigs } from './configs';
 import { TEST_ONLY as K8S_TEST_EXPORT } from './k8s-helper';
 import { Server } from 'http';
 import { commonSetup } from './integration-tests/test-helper';
-
+import supertest from 'supertest';
+import TestAgent from "supertest/lib/agent";
 jest.mock('node-fetch');
 
 // TODO: move sections of tests here to individual files in `frontend/server/integration-tests/`
@@ -251,7 +252,7 @@ describe('UIServer apis', () => {
   });
 
   describe('/k8s/pod', () => {
-    let request: requests.SuperTest<requests.Test>;
+    let request: TestAgent;
     beforeEach(() => {
       app = new UIServer(loadConfigs(argv, {}));
       request = requests(app.start());
@@ -303,7 +304,7 @@ describe('UIServer apis', () => {
   });
 
   describe('/k8s/pod/events', () => {
-    let request: requests.SuperTest<requests.Test>;
+    let request: TestAgent;
     beforeEach(() => {
       app = new UIServer(loadConfigs(argv, {}));
       request = requests(app.start());
@@ -368,7 +369,7 @@ describe('UIServer apis', () => {
   // describe('/k8s/pod/logs', () => {});
 
   describe('/apis/v1beta1/', () => {
-    let request: requests.SuperTest<requests.Test>;
+    let request: TestAgent;
     let kfpApiServer: Server;
 
     beforeEach(() => {

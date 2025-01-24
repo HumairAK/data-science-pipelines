@@ -21,7 +21,7 @@ import { Handler, Request, Response } from 'express';
 import { Storage } from '@google-cloud/storage';
 import proxy from 'http-proxy-middleware';
 import { HACK_FIX_HPM_PARTIAL_RESPONSE_HEADERS } from '../consts';
-
+import { URL } from 'url';
 import * as fs from 'fs';
 import { isAllowedDomain } from './domain-checker';
 import { getK8sSecret } from '../k8s-helper';
