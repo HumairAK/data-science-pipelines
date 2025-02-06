@@ -243,12 +243,8 @@ def build_task_spec_for_task(
                 # Value is from pipeline input.
                 component_input_parameter = input_value.full_name
                 if component_input_parameter not in parent_component_inputs.parameters:
-                    component_input_parameter = (
-                        compiler_utils.
-                        additional_input_name_for_pipeline_channel(input_value))
-                pipeline_task_spec.inputs.parameters[
-                    input_name].component_input_parameter = (
-                        component_input_parameter)
+                    component_input_parameter = compiler_utils.additional_input_name_for_pipeline_channel(input_value)
+                pipeline_task_spec.inputs.parameters[input_name].component_input_parameter = component_input_parameter
 
         elif isinstance(input_value, (str, int, float, bool, dict, list)):
             pipeline_channels = (

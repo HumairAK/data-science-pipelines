@@ -150,17 +150,14 @@ class Pipeline:
                 task=task,
                 add_to_group=not getattr(task, 'is_exit_handler', False))
 
-        self._old_register_task_handler = (
-            pipeline_task.PipelineTask._register_task_handler)
-        pipeline_task.PipelineTask._register_task_handler = (
-            register_task_and_generate_id)
+        self._old_register_task_handler = pipeline_task.PipelineTask._register_task_handler
+        pipeline_task.PipelineTask._register_task_handler = register_task_and_generate_id
         return self
 
     def __exit__(self, *unused_args):
 
         Pipeline._default_pipeline = None
-        pipeline_task.PipelineTask._register_task_handler = (
-            self._old_register_task_handler)
+        pipeline_task.PipelineTask._register_task_handler = self._old_register_task_handler
 
     def add_task(
         self,

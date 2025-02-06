@@ -15,7 +15,9 @@
 from typing import Dict
 
 from google.protobuf import json_format
-from kfp.dsl import PipelineTask
+
+from kfp.compiler.pipeline_spec_builder import to_protobuf_value
+from kfp.dsl import PipelineTask, pipeline_channel
 from kfp.kubernetes import common
 from kfp.kubernetes import kubernetes_executor_config_pb2 as pb
 
@@ -45,8 +47,22 @@ def use_secret_as_env(
             env_var=env_var,
         ) for secret_key, env_var in secret_key_to_env.items()
     ]
+    # Find out how we go from pipeline inputs to task inputs for channels
+    # there will be some area where @pipeline inputs, are fed into task spec inputs somehow
+    # this is probably in the to .pb conversion logic I think, replicate that here
+
+    inputParameter = pb.InputParameterSpec()
+    if isinstance(secret_name, pipeline_channel.PipelineParameterChannel):
+        inputParameter.component_input_parameter = str(secret_name)
+    elif isinstance(secret_name, str):
+        inputParameter.runtime_value.constant.CopyFrom(to_protobuf_value(secret_name))
+    else:
+        raise ValueError(
+            'Secret name supports only the following types: '
+            'str or parameter channel'
+            f'Got {secret_name} of type {type(secret_name)}.')
     secret_as_env = pb.SecretAsEnv(
-        secret_name=secret_name,
+        secret_name=inputParameter,
         key_to_env=key_to_env,
     )
 

@@ -267,90 +267,91 @@ message ComponentOutputsSpec {
   map<string, ParameterSpec> parameters = 2;
 }
 
+// The specification of a task input artifact.
+message InputArtifactSpec {
+  message TaskOutputArtifactSpec {
+    // The name of the upstream task which produces the output that matches
+    // with the `output_artifact_key`.
+    string producer_task = 1;
+
+    // The key of [TaskOutputsSpec.artifacts][] map of the producer task.
+    string output_artifact_key = 2;
+  }
+
+  oneof kind {
+    // Pass the input artifact from another task within the same parent
+    // component.
+    TaskOutputArtifactSpec task_output_artifact = 3;
+    // Pass the input artifact from parent component input artifact.
+    string component_input_artifact = 4;
+  }
+  reserved 5;
+}
+
+// Represents an input parameter. The value can be taken from an upstream
+// task's output parameter (if specifying `producer_task` and
+// `output_parameter_key`, or it can be a runtime value, which can either be
+// determined at compile-time, or from a pipeline parameter.
+message InputParameterSpec {
+  // Represents an upstream task's output parameter.
+  message TaskOutputParameterSpec {
+    // The name of the upstream task which produces the output parameter that
+    // matches with the `output_parameter_key`.
+    string producer_task = 1;
+
+    // The key of [TaskOutputsSpec.parameters][] map of the producer task.
+    string output_parameter_key = 2;
+  }
+
+  // Represents an upstream task's final status. The field can only be set if
+  // the schema version is `2.0.0`. The resolved input parameter will be a
+  // json payload in string type.
+  message TaskFinalStatus {
+    // The name of the upsteram task where the final status is coming from.
+    string producer_task = 1;
+  }
+
+  oneof kind {
+    // Output parameter from an upstream task.
+    TaskOutputParameterSpec task_output_parameter = 1;
+    // A constant value or runtime parameter.
+    ValueOrRuntimeParameter runtime_value = 2;
+    // Pass the input parameter from parent component input parameter.
+    string component_input_parameter = 3;
+    // The final status of an upstream task.
+    TaskFinalStatus task_final_status = 5;
+  }
+
+  // Selector expression of Common Expression Language (CEL)
+  // that applies to the parameter found from above kind.
+  //
+  // The expression is applied to the Value type
+  // [Value][].  For example,
+  // 'size(string_value)' will return the size of the Value.string_value.
+  //
+  // After applying the selection, the parameter will be returned as a
+  // [Value][].  The type of the Value is either deferred from the input
+  // definition in the corresponding
+  // [ComponentSpec.input_definitions.parameters][], or if not found,
+  // automatically deferred as either string value or double value.
+  //
+  // In addition to the builtin functions in CEL, The value.string_value can
+  // be treated as a json string and parsed to the [google.protobuf.Value][]
+  // proto message. Then, the CEL expression provided in this field will be
+  // used to get the requested field. For examples,
+  //  - if Value.string_value is a json array of "[1.1, 2.2, 3.3]",
+  //  'parseJson(string_value)[i]' will pass the ith parameter from the list
+  //  to the current task, or
+  //  - if the Value.string_value is a json map of "{"a": 1.1, "b": 2.2,
+  //  "c": 3.3}, 'parseJson(string_value)[key]' will pass the map value from
+  //  the struct map to the current task.
+  //
+  // If unset, the value will be passed directly to the current task.
+  string parameter_expression_selector = 4;
+}
+
 // The spec of task inputs.
 message TaskInputsSpec {
-  // The specification of a task input artifact.
-  message InputArtifactSpec {
-    message TaskOutputArtifactSpec {
-      // The name of the upstream task which produces the output that matches
-      // with the `output_artifact_key`.
-      string producer_task = 1;
-
-      // The key of [TaskOutputsSpec.artifacts][] map of the producer task.
-      string output_artifact_key = 2;
-    }
-
-    oneof kind {
-      // Pass the input artifact from another task within the same parent
-      // component.
-      TaskOutputArtifactSpec task_output_artifact = 3;
-      // Pass the input artifact from parent component input artifact.
-      string component_input_artifact = 4;
-    }
-    reserved 5;
-  }
-
-  // Represents an input parameter. The value can be taken from an upstream
-  // task's output parameter (if specifying `producer_task` and
-  // `output_parameter_key`, or it can be a runtime value, which can either be
-  // determined at compile-time, or from a pipeline parameter.
-  message InputParameterSpec {
-    // Represents an upstream task's output parameter.
-    message TaskOutputParameterSpec {
-      // The name of the upstream task which produces the output parameter that
-      // matches with the `output_parameter_key`.
-      string producer_task = 1;
-
-      // The key of [TaskOutputsSpec.parameters][] map of the producer task.
-      string output_parameter_key = 2;
-    }
-
-    // Represents an upstream task's final status. The field can only be set if
-    // the schema version is `2.0.0`. The resolved input parameter will be a
-    // json payload in string type.
-    message TaskFinalStatus {
-      // The name of the upsteram task where the final status is coming from.
-      string producer_task = 1;
-    }
-
-    oneof kind {
-      // Output parameter from an upstream task.
-      TaskOutputParameterSpec task_output_parameter = 1;
-      // A constant value or runtime parameter.
-      ValueOrRuntimeParameter runtime_value = 2;
-      // Pass the input parameter from parent component input parameter.
-      string component_input_parameter = 3;
-      // The final status of an uptream task.
-      TaskFinalStatus task_final_status = 5;
-    }
-
-    // Selector expression of Common Expression Language (CEL)
-    // that applies to the parameter found from above kind.
-    //
-    // The expression is applied to the Value type
-    // [Value][].  For example,
-    // 'size(string_value)' will return the size of the Value.string_value.
-    //
-    // After applying the selection, the parameter will be returned as a
-    // [Value][].  The type of the Value is either deferred from the input
-    // definition in the corresponding
-    // [ComponentSpec.input_definitions.parameters][], or if not found,
-    // automatically deferred as either string value or double value.
-    //
-    // In addition to the builtin functions in CEL, The value.string_value can
-    // be treated as a json string and parsed to the [google.protobuf.Value][]
-    // proto message. Then, the CEL expression provided in this field will be
-    // used to get the requested field. For examples,
-    //  - if Value.string_value is a json array of "[1.1, 2.2, 3.3]",
-    //  'parseJson(string_value)[i]' will pass the ith parameter from the list
-    //  to the current task, or
-    //  - if the Value.string_value is a json map of "{"a": 1.1, "b": 2.2,
-    //  "c": 3.3}, 'parseJson(string_value)[key]' will pass the map value from
-    //  the struct map to the current task.
-    //
-    // If unset, the value will be passed directly to the current task.
-    string parameter_expression_selector = 4;
-  }
 
   // A map of input parameters which are small values, stored by the system and
   // can be queriable.

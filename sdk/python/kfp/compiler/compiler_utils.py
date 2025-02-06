@@ -37,9 +37,7 @@ def additional_input_name_for_pipeline_channel(
     # Adding a prefix to avoid (reduce chance of) name collision between the
     # original component inputs and the injected input.
     return 'pipelinechannel--' + (
-        channel_or_name.full_name if isinstance(
-            channel_or_name, pipeline_channel.PipelineChannel) else
-        channel_or_name)
+        channel_or_name.full_name if isinstance(channel_or_name, pipeline_channel.PipelineChannel) else channel_or_name)
 
 
 def get_all_groups(
