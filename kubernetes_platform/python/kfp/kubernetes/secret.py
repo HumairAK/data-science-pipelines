@@ -47,12 +47,16 @@ def use_secret_as_env(
             env_var=env_var,
         ) for secret_key, env_var in secret_key_to_env.items()
     ]
-    # Find out how we go from pipeline inputs to task inputs for channels
-    # there will be some area where @pipeline inputs, are fed into task spec inputs somehow
-    # this is probably in the to .pb conversion logic I think, replicate that here
 
     secret_name_parameter = pb.InputParameterSpec()
     secret_as_env = pb.SecretAsEnv(key_to_env=key_to_env)
+
+    if isinstance(secret_name, pipeline_channel.PipelineParameterChannel) and secret_name.task_name:
+        raise ValueError("encountered upstream task parameter input, "
+                         "kuberentes_platform input parameter currently "
+                         "only support pipeline inputs and not upstream"
+                         "task inputs.")
+
     if isinstance(secret_name, pipeline_channel.PipelineParameterChannel):
         secret_name_parameter.component_input_parameter = secret_name.full_name
     elif isinstance(secret_name, str):
