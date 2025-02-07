@@ -84,52 +84,17 @@ func resolvePodSpecInputRuntimeParameter(parameterValue string, executorInput *p
 	return parameterValue, nil
 }
 
-//type k8sExecutorConfigParameters struct {
-//	secretAsEnvs []SecretAsEnvParameters
-//}
-//
-//type SecretAsEnvParameters struct {
-//	secretName string
-//}
-//
-//// Extract all InputParameters from this tasks' kubernetes' executor config
-//func extractK8sParameters(k8sExecutorConfig *kubernetesplatform.KubernetesExecutorConfig,
-//) map[string]*pipelinespec.TaskInputsSpec_InputParameterSpec {
-//	var params map[string]*pipelinespec.TaskInputsSpec_InputParameterSpec
-//	if k8sExecutorConfig.SecretAsEnv != nil {
-//		//for _, secretEnv := range k8sExecutorConfig.SecretAsEnv {
-//		//
-//		//}
-//	}
-//	return params
-//}
-
-//// mergeMaps merges maps m1 and m2 of map[comparable]any type and returns the result.
-//func mergeMaps[K comparable, V any](m1, m2 map[K]V) map[K]V {
-//	merged := make(map[K]V, len(m1)+len(m2))
-//	for k, v := range m1 {
-//		merged[k] = v
-//	}
-//	for k, v := range m2 {
-//		merged[k] = v
-//	}
-//	return merged
-//}
-
-func resolveK8sParameter(
+func resolveParameter(
 	ctx context.Context,
 	dag *metadata.DAG,
 	pipeline *metadata.Pipeline,
 	mlmd *metadata.Client,
 	paramSpec *pipelinespec.TaskInputsSpec_InputParameterSpec,
-	name string,
 	inputParams map[string]*structpb.Value,
 ) (*structpb.Value, error) {
-	glog.V(4).Infof("name: %v", name)
 	glog.V(4).Infof("paramSpec: %v", paramSpec)
-
 	paramError := func(err error) error {
-		return fmt.Errorf("resolving input parameter %s with spec %s: %w", name, paramSpec, err)
+		return fmt.Errorf("resolving input parameter with spec %s: %w", paramSpec, err)
 	}
 	switch t := paramSpec.Kind.(type) {
 	case *pipelinespec.TaskInputsSpec_InputParameterSpec_ComponentInputParameter:
@@ -143,31 +108,21 @@ func resolveK8sParameter(
 		}
 		return v, nil
 
+	// This is the case where the input comes from the output of an upstream task.
 	case *pipelinespec.TaskInputsSpec_InputParameterSpec_TaskOutputParameter:
-		// TODO(HumairAK): have resolveUpstreamParameters just return a single input
-		inputs := &pipelinespec.ExecutorInput_Inputs{
-			ParameterValues: make(map[string]*structpb.Value),
-		}
 		cfg := resolveUpstreamOutputsConfig{
 			ctx:       ctx,
 			paramSpec: paramSpec,
 			dag:       dag,
 			pipeline:  pipeline,
 			mlmd:      mlmd,
-			inputs:    inputs,
-			name:      name,
 			err:       paramError,
 		}
-		if err := resolveUpstreamParameters(cfg); err != nil {
+		v, err := resolveUpstreamParameters(cfg)
+		if err != nil {
 			return nil, err
 		}
-		value, exists := inputs.ParameterValues[name]
-		if exists {
-			return value, nil
-		} else {
-			return nil, fmt.Errorf("failed to resolve input parameter %s", name)
-		}
-
+		return v, nil
 	case *pipelinespec.TaskInputsSpec_InputParameterSpec_RuntimeValue:
 		runtimeValue := paramSpec.GetRuntimeValue()
 		switch t := runtimeValue.Value.(type) {
@@ -176,6 +131,8 @@ func resolveK8sParameter(
 		default:
 			return nil, paramError(fmt.Errorf("param runtime value spec of type %T not implemented", t))
 		}
+	// TODO(Bobgy): implement the following cases
+	// case *pipelinespec.TaskInputsSpec_InputParameterSpec_TaskFinalStatus_:
 	default:
 		return nil, paramError(fmt.Errorf("parameter spec of type %T not implemented yet", t))
 	}
