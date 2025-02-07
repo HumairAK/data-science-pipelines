@@ -51,20 +51,19 @@ def use_secret_as_env(
     # there will be some area where @pipeline inputs, are fed into task spec inputs somehow
     # this is probably in the to .pb conversion logic I think, replicate that here
 
-    inputParameter = pb.InputParameterSpec()
+    secret_name_parameter = pb.InputParameterSpec()
+    secret_as_env = pb.SecretAsEnv(key_to_env=key_to_env)
     if isinstance(secret_name, pipeline_channel.PipelineParameterChannel):
-        inputParameter.component_input_parameter = str(secret_name)
+        secret_name_parameter.component_input_parameter = secret_name.full_name
     elif isinstance(secret_name, str):
-        inputParameter.runtime_value.constant.CopyFrom(to_protobuf_value(secret_name))
+        secret_as_env.secret_name = secret_name
+        secret_name_parameter.runtime_value.constant.CopyFrom(to_protobuf_value(secret_name))
     else:
         raise ValueError(
             'Secret name supports only the following types: '
             'str or parameter channel'
             f'Got {secret_name} of type {type(secret_name)}.')
-    secret_as_env = pb.SecretAsEnv(
-        secret_name=inputParameter,
-        key_to_env=key_to_env,
-    )
+    secret_as_env.secret_name_parameter.CopyFrom(secret_name_parameter)
 
     msg.secret_as_env.append(secret_as_env)
 

@@ -2,6 +2,8 @@ module github.com/kubeflow/pipelines
 
 go 1.22.0
 
+toolchain go1.23.3
+
 require (
 	github.com/Masterminds/squirrel v0.0.0-20190107164353-fa735ea14f09
 	github.com/VividCortex/mysqlerr v0.0.0-20170204212430-6c6b55f8796f
@@ -209,6 +211,8 @@ require (
 replace (
 	github.com/kubeflow/kfp-tekton/tekton-catalog/cache => github.com/kubeflow/kfp-tekton/tekton-catalog/cache v0.0.0-20240417221339-0b894195443c
 	github.com/kubeflow/kfp-tekton/tekton-catalog/objectstore => github.com/kubeflow/kfp-tekton/tekton-catalog/objectstore v0.0.0-20240417221339-0b894195443c
+	github.com/kubeflow/pipelines/kubernetes_platform => ./kubernetes_platform
+	nhooyr.io/websocket => github.com/coder/websocket v1.8.7
 )
 
 exclude github.com/mitchellh/osext v0.0.0-20151018003038-5e2d6d41470f

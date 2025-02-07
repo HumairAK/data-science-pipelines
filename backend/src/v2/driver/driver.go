@@ -260,7 +260,7 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 	if err != nil {
 		return nil, err
 	}
-	inputs, err := resolveInputs(ctx, dag, iterationIndex, pipeline, opts.Task, opts.Component.GetInputDefinitions(), mlmd, expr)
+	inputs, err := resolveInputs(ctx, dag, iterationIndex, pipeline, opts, mlmd, expr)
 	if err != nil {
 		return nil, err
 	}
@@ -310,6 +310,8 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 
 	// TODO(Bobgy): change execution state to pending, because this is driver, execution hasn't started.
 	createdExecution, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
+	//createdExecution, err := mlmd.GetExecution(ctx, 2)
+
 	if err != nil {
 		return execution, err
 	}
@@ -349,7 +351,15 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 		if err != nil {
 			return execution, err
 		}
-		err = extendPodSpecPatch(podSpec, opts.KubernetesExecutorConfig, dag, dagTasks)
+		err = extendPodSpecPatch(
+			ctx,
+			podSpec,
+			opts.KubernetesExecutorConfig,
+			dag,
+			pipeline,
+			mlmd,
+			dagTasks,
+		)
 		if err != nil {
 			return execution, err
 		}
@@ -549,15 +559,25 @@ func initPodSpecPatch(
 
 // Extends the PodSpec to include Kubernetes-specific executor config.
 func extendPodSpecPatch(
+	ctx context.Context,
 	podSpec *k8score.PodSpec,
 	kubernetesExecutorConfig *kubernetesplatform.KubernetesExecutorConfig,
 	dag *metadata.DAG,
+	pipeline *metadata.Pipeline,
+	mlmd *metadata.Client,
 	dagTasks map[string]*metadata.Execution,
 ) error {
 	// Return an error if the podSpec has no user container.
 	if len(podSpec.Containers) == 0 {
 		return fmt.Errorf("failed to patch the pod with kubernetes-specific config due to missing user container: %v", podSpec)
 	}
+
+	// TODO(HumairAK): consider doing this only once for this and resolveInputs
+	inputParams, _, err := dag.Execution.GetParameters()
+	if err != nil {
+		return err
+	}
+
 	// Get volume mount information
 	if kubernetesExecutorConfig.GetPvcMount() != nil {
 		volumeMounts, volumes, err := makeVolumeMountPatch(kubernetesExecutorConfig.GetPvcMount(), dag, dagTasks)
@@ -642,7 +662,26 @@ func extendPodSpecPatch(
 					},
 				},
 			}
-			secretEnvVar.ValueFrom.SecretKeyRef.LocalObjectReference.Name = secretAsEnv.GetSecretName()
+			// TODO(HumairAK): platformspec inputparameterspec should use the one
+			// from pipelinespec
+			secretParameter := &pipelinespec.TaskInputsSpec_InputParameterSpec{}
+			err := ConvertToProtoMessages(secretAsEnv.SecretNameParameter, secretParameter)
+			if err != nil {
+				return err
+			}
+			resolvedSecretName, err := resolveK8sParameter(
+				ctx,
+				dag,
+				pipeline,
+				mlmd,
+				secretParameter,
+				"k8s_secret",
+				inputParams,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to resolve secret name: %w", err)
+			}
+			secretEnvVar.ValueFrom.SecretKeyRef.LocalObjectReference.Name = resolvedSecretName.GetStringValue()
 			podSpec.Containers[0].Env = append(podSpec.Containers[0].Env, secretEnvVar)
 		}
 	}
@@ -809,7 +848,7 @@ func DAG(ctx context.Context, opts Options, mlmd *metadata.Client) (execution *E
 	if err != nil {
 		return nil, err
 	}
-	inputs, err := resolveInputs(ctx, dag, iterationIndex, pipeline, opts.Task, opts.Component.GetInputDefinitions(), mlmd, expr)
+	inputs, err := resolveInputs(ctx, dag, iterationIndex, pipeline, opts, mlmd, expr)
 	if err != nil {
 		return nil, err
 	}
@@ -1034,7 +1073,19 @@ func validateNonRoot(opts Options) error {
 	return nil
 }
 
-func resolveInputs(ctx context.Context, dag *metadata.DAG, iterationIndex *int, pipeline *metadata.Pipeline, task *pipelinespec.PipelineTaskSpec, inputsSpec *pipelinespec.ComponentInputsSpec, mlmd *metadata.Client, expr *expression.Expr) (inputs *pipelinespec.ExecutorInput_Inputs, err error) {
+func resolveInputs(
+	ctx context.Context,
+	dag *metadata.DAG,
+	iterationIndex *int,
+	pipeline *metadata.Pipeline,
+	opts Options,
+	mlmd *metadata.Client,
+	expr *expression.Expr,
+) (inputs *pipelinespec.ExecutorInput_Inputs, err error) {
+
+	task := opts.Task
+	inputsSpec := opts.Component.GetInputDefinitions()
+
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("failed to resolve inputs: %w", err)
@@ -1206,8 +1257,15 @@ func resolveInputs(ctx context.Context, dag *metadata.DAG, iterationIndex *int, 
 		return inputs, nil
 	}
 
+	parameters := task.GetInputs().GetParameters()
+	//parameters = append(parameters, fetchPlatformParameters())
+
+	//if opts.KubernetesExecutorConfig != nil {
+	//	k8sParameters := extractK8sParameters(opts.KubernetesExecutorConfig)
+	//	parameters = mergeMaps(parameters, k8sParameters)
+	//}
 	// Handle parameters.
-	for name, paramSpec := range task.GetInputs().GetParameters() {
+	for name, paramSpec := range parameters {
 		glog.V(4).Infof("name: %v", name)
 		glog.V(4).Infof("paramSpec: %v", paramSpec)
 		paramError := func(err error) error {
@@ -1378,7 +1436,8 @@ func resolveUpstreamParameters(cfg resolveUpstreamOutputsConfig) error {
 	}
 
 	// Get a list of tasks for the current DAG first.
-	// The reason we use gatDAGTasks instead of mlmd.GetExecutionsInDAG is because the latter does not handle task name collisions in the map which results in a bunch of unhandled edge cases and test failures.
+	// The reason we use gatDAGTasks instead of mlmd.GetExecutionsInDAG is because the latter does not handle
+	// task name collisions in the map which results in a bunch of unhandled edge cases and test failures.
 	tasks, err := getDAGTasks(cfg.ctx, cfg.dag, cfg.pipeline, cfg.mlmd, nil)
 	if err != nil {
 		return cfg.err(err)
@@ -1477,6 +1536,7 @@ func resolveUpstreamParameters(cfg resolveUpstreamOutputsConfig) error {
 			}
 			cfg.inputs.ParameterValues[cfg.name] = outputParametersCustomProperty[outputParameterKey]
 			// Exit the loop.
+			// TODO(HumairAK) just return the value :/
 			currentSubTaskMaybeDAG = false
 		}
 	}
