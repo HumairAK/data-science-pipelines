@@ -84,6 +84,26 @@ func resolvePodSpecInputRuntimeParameter(parameterValue string, executorInput *p
 	return parameterValue, nil
 }
 
+func resolveK8sParameter(
+	ctx context.Context,
+	dag *metadata.DAG,
+	pipeline *metadata.Pipeline,
+	mlmd *metadata.Client,
+	k8sParamSpec *kubernetesplatform.InputParameterSpec,
+	inputParams map[string]*structpb.Value,
+) (*structpb.Value, error) {
+	pipelineParamSpec := &pipelinespec.TaskInputsSpec_InputParameterSpec{}
+	err := convertToProtoMessages(k8sParamSpec, pipelineParamSpec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert input parameter spec to pipeline spec: %v", err)
+	}
+	resolvedSecretName, err := resolveParameter(ctx, dag, pipeline, mlmd, pipelineParamSpec, inputParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve input parameter name: %w", err)
+	}
+	return resolvedSecretName, nil
+}
+
 func resolveParameter(
 	ctx context.Context,
 	dag *metadata.DAG,
@@ -138,10 +158,10 @@ func resolveParameter(
 	}
 }
 
-func ConvertToProtoMessages(src *kubernetesplatform.InputParameterSpec, dst *pipelinespec.TaskInputsSpec_InputParameterSpec) error {
-	data, err := protojson.Marshal(proto.MessageV2(src)) // Convert src to JSON
+func convertToProtoMessages(src *kubernetesplatform.InputParameterSpec, dst *pipelinespec.TaskInputsSpec_InputParameterSpec) error {
+	data, err := protojson.Marshal(proto.MessageV2(src))
 	if err != nil {
 		return err
 	}
-	return protojson.Unmarshal(data, proto.MessageV2(dst)) // Convert JSON into dst
+	return protojson.Unmarshal(data, proto.MessageV2(dst))
 }

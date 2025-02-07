@@ -636,15 +636,21 @@ func extendPodSpecPatch(
 
 	// Get secret mount information
 	for _, secretAsVolume := range kubernetesExecutorConfig.GetSecretAsVolume() {
+		resolvedSecretName, err := resolveK8sParameter(ctx, dag, pipeline, mlmd,
+			secretAsVolume.SecretNameParameter, inputParams)
+		if err != nil {
+			return fmt.Errorf("failed to resolve secret name: %w", err)
+		}
+		secretName := resolvedSecretName.GetStringValue()
 		optional := secretAsVolume.Optional != nil && *secretAsVolume.Optional
 		secretVolume := k8score.Volume{
-			Name: secretAsVolume.GetSecretName(),
+			Name: secretName,
 			VolumeSource: k8score.VolumeSource{
-				Secret: &k8score.SecretVolumeSource{SecretName: secretAsVolume.GetSecretName(), Optional: &optional},
+				Secret: &k8score.SecretVolumeSource{SecretName: secretName, Optional: &optional},
 			},
 		}
 		secretVolumeMount := k8score.VolumeMount{
-			Name:      secretAsVolume.GetSecretName(),
+			Name:      secretName,
 			MountPath: secretAsVolume.GetMountPath(),
 		}
 		podSpec.Volumes = append(podSpec.Volumes, secretVolume)
@@ -662,14 +668,8 @@ func extendPodSpecPatch(
 					},
 				},
 			}
-			// TODO(HumairAK): platformspec inputparameterspec should use the one
-			// from pipelinespec
-			secretParameter := &pipelinespec.TaskInputsSpec_InputParameterSpec{}
-			err := ConvertToProtoMessages(secretAsEnv.SecretNameParameter, secretParameter)
-			if err != nil {
-				return err
-			}
-			resolvedSecretName, err := resolveParameter(ctx, dag, pipeline, mlmd, secretParameter, inputParams)
+			resolvedSecretName, err := resolveK8sParameter(ctx, dag, pipeline, mlmd,
+				secretAsEnv.SecretNameParameter, inputParams)
 			if err != nil {
 				return fmt.Errorf("failed to resolve secret name: %w", err)
 			}
