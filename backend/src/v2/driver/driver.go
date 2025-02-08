@@ -310,7 +310,7 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 
 	// TODO(Bobgy): change execution state to pending, because this is driver, execution hasn't started.
 	createdExecution, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
-	//createdExecution, err := mlmd.GetExecution(ctx, 15)
+	//createdExecution, err := mlmd.GetExecution(ctx, 42)
 
 	if err != nil {
 		return execution, err
@@ -627,7 +627,11 @@ func extendPodSpecPatch(
 					if err != nil {
 						return fmt.Errorf("failed to resolve toleration: %w", err)
 					}
-					err = json.Unmarshal([]byte(resolvedToleration.GetStringValue()), &k8sToleration)
+					tolerationJSON, err := resolvedToleration.GetStructValue().MarshalJSON()
+					if err != nil {
+						return err
+					}
+					err = json.Unmarshal(tolerationJSON, &k8sToleration)
 					if err != nil {
 						return fmt.Errorf("failed to marshal toleration JSOn to kubernetes toleration, "+
 							"ensure that toleration json correctly adheres to the kubernetes toleration "+

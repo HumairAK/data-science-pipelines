@@ -206,10 +206,11 @@ message Toleration {
     optional int64 toleration_seconds = 5;
 
     // Provide a json struct of the toleration
-    // takes precedence. The JSON must follow
-    // Kubernetes Toleration structure:
-    // https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#toleration-v1-core
+    // takes precedence.
     // Example: {"key": "key1", "operator": "Equal", "value": "value1", "effect": "NoSchedule"}
+    // The JSON must follow Kubernetes
+    // Toleration structure:
+    // https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#toleration-v1-core
     InputParameterSpec toleration_json = 6;
 }
 

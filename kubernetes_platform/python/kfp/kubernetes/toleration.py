@@ -64,7 +64,7 @@ def add_toleration(
             the taint forever (do not evict). Zero and negative values will be
             treated as 0 (evict immediately) by the system.
         toleration_json:
-            a toleration provided as json string or input parameter. Takes
+            a toleration provided as dict or input parameter. Takes
             precedence over other key, operator, value, effect,
             and toleration_seconds.
 
@@ -78,11 +78,13 @@ def add_toleration(
     if toleration_json:
         toleration.toleration_json.CopyFrom(parse_k8s_parameter_input(toleration_json, task))
     else:
-        toleration.key = key
-        toleration.operator = operator
-        toleration.value = value
-        toleration.effect = effect
-        toleration.toleration_seconds = toleration_seconds
+        toleration = pb.Toleration(
+                key=key,
+                operator=operator,
+                value=value,
+                effect=effect,
+                toleration_seconds=toleration_seconds,
+            )
 
     msg.tolerations.append(toleration)
     task.platform_config["kubernetes"] = json_format.MessageToDict(msg)

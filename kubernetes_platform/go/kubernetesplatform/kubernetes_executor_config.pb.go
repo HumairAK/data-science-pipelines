@@ -1228,8 +1228,10 @@ type Toleration struct {
 	Effect            string `protobuf:"bytes,4,opt,name=effect,proto3" json:"effect,omitempty"`
 	TolerationSeconds *int64 `protobuf:"varint,5,opt,name=toleration_seconds,json=tolerationSeconds,proto3,oneof" json:"toleration_seconds,omitempty"`
 	// Provide a json struct of the toleration
-	// takes precedence. The JSON must follow
-	// Kubernetes Toleration structure:
+	// takes precedence.
+	// Example: {"key": "key1", "operator": "Equal", "value": "value1", "effect": "NoSchedule"}
+	// The JSON must follow Kubernetes
+	// Toleration structure:
 	// https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#toleration-v1-core
 	TolerationJson *InputParameterSpec `protobuf:"bytes,6,opt,name=toleration_json,json=tolerationJson,proto3" json:"toleration_json,omitempty"`
 }
