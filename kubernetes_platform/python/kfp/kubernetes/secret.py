@@ -50,7 +50,7 @@ def use_secret_as_env(
     ]
     secret_as_env = pb.SecretAsEnv(key_to_env=key_to_env)
 
-    secret_name_parameter = parse_k8s_parameter_input(secret_name)
+    secret_name_parameter = parse_k8s_parameter_input(secret_name, task)
     secret_as_env.secret_name_parameter.CopyFrom(secret_name_parameter)
 
     # deprecated: for backwards compatibility
@@ -89,7 +89,7 @@ def use_secret_as_volume(
         optional=optional,
     )
 
-    secret_name_parameter = parse_k8s_parameter_input(secret_name)
+    secret_name_parameter = parse_k8s_parameter_input(secret_name, task)
     secret_as_vol.secret_name_parameter.CopyFrom(secret_name_parameter)
 
     # deprecated: for backwards compatibility

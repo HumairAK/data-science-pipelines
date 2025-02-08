@@ -3,9 +3,13 @@ from typing import Union
 from kfp.kubernetes import kubernetes_executor_config_pb2 as pb
 from kfp.dsl import pipeline_channel
 from kfp.compiler.pipeline_spec_builder import to_protobuf_value
+from kfp.dsl import PipelineTask
 
 
-def parse_k8s_parameter_input(input_param: Union[pipeline_channel.PipelineParameterChannel, str]) -> pb.InputParameterSpec:
+def parse_k8s_parameter_input(
+        input_param: Union[pipeline_channel.PipelineParameterChannel, str],
+        task: PipelineTask,
+) -> pb.InputParameterSpec:
     param_spec = pb.InputParameterSpec()
 
     if isinstance(input_param, str):
@@ -13,9 +17,12 @@ def parse_k8s_parameter_input(input_param: Union[pipeline_channel.PipelineParame
     elif isinstance(input_param, pipeline_channel.PipelineParameterChannel):
         if input_param.task_name is None:
             param_spec.component_input_parameter = input_param.full_name
+
         else:
             param_spec.task_output_parameter.producer_task = input_param.task_name
             param_spec.task_output_parameter.output_parameter_key = input_param.name
+            if input_param.task:
+                task.after(input_param.task)
     else:
         if input_param.task_name:
             raise ValueError(
