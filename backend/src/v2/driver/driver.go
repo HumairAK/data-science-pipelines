@@ -620,14 +620,26 @@ func extendPodSpecPatch(
 
 		for _, toleration := range tolerations {
 			if toleration != nil {
-				k8sToleration := k8score.Toleration{
-					Key:               toleration.Key,
-					Operator:          k8score.TolerationOperator(toleration.Operator),
-					Value:             toleration.Value,
-					Effect:            k8score.TaintEffect(toleration.Effect),
-					TolerationSeconds: toleration.TolerationSeconds,
+				k8sToleration := k8score.Toleration{}
+				if toleration.TolerationJson != nil {
+					resolvedToleration, err := resolveK8sParameter(ctx, dag, pipeline, mlmd,
+						toleration.TolerationJson, inputParams)
+					if err != nil {
+						return fmt.Errorf("failed to resolve toleration: %w", err)
+					}
+					err = json.Unmarshal([]byte(resolvedToleration.GetStringValue()), &k8sToleration)
+					if err != nil {
+						return fmt.Errorf("failed to marshal toleration JSOn to kubernetes toleration, "+
+							"ensure that toleration json correctly adheres to the kubernetes toleration "+
+							"struct: %w", err)
+					}
+				} else {
+					k8sToleration.Key = toleration.Key
+					k8sToleration.Operator = k8score.TolerationOperator(toleration.Operator)
+					k8sToleration.Value = toleration.Value
+					k8sToleration.Effect = k8score.TaintEffect(toleration.Effect)
+					k8sToleration.TolerationSeconds = toleration.TolerationSeconds
 				}
-
 				k8sTolerations = append(k8sTolerations, k8sToleration)
 			}
 		}
