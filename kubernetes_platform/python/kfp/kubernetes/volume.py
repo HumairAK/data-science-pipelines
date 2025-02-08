@@ -20,6 +20,7 @@ from kfp import dsl
 from kfp.dsl import PipelineTask
 from kfp.kubernetes import common
 from kfp.kubernetes import kubernetes_executor_config_pb2 as pb
+from kfp.kubernetes.util import parse_k8s_parameter_input
 
 
 @dsl.container_component
@@ -81,7 +82,12 @@ def mount_pvc(
     msg = common.get_existing_kubernetes_config_as_message(task)
 
     pvc_mount = pb.PvcMount(mount_path=mount_path)
+    pvc_name_parameter = parse_k8s_parameter_input(pvc_name, task)
+    pvc_mount.pvc_name_parameter.CopyFrom(pvc_name_parameter)
+
+    # deprecated: for backwards compatibility
     pvc_name_from_task = _assign_pvc_name_to_msg(pvc_mount, pvc_name)
+
     if pvc_name_from_task:
         task.after(pvc_name.task)
 

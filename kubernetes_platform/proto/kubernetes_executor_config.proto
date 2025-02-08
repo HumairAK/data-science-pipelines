@@ -81,14 +81,16 @@ message PvcMount {
     // Used like TaskInputsSpec.InputParameterSpec.kind.
     oneof pvc_reference {
         // Output parameter from an upstream task.
-        TaskOutputParameterSpec task_output_parameter = 1;
+        TaskOutputParameterSpec task_output_parameter = 1  [deprecated = true];
         // A constant value.
-        string constant = 2;
+        string constant = 2 [deprecated = true];
         // Pass the input parameter from parent component input parameter.
-        string component_input_parameter = 3;
+        string component_input_parameter = 3 [deprecated = true];
     }
     // Container path to which the PVC should be mounted.
     string mount_path = 4;
+
+    InputParameterSpec pvc_name_parameter = 5;
 }
 
 message CreatePvc {

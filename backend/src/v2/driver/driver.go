@@ -580,7 +580,8 @@ func extendPodSpecPatch(
 
 	// Get volume mount information
 	if kubernetesExecutorConfig.GetPvcMount() != nil {
-		volumeMounts, volumes, err := makeVolumeMountPatch(kubernetesExecutorConfig.GetPvcMount(), dag, dagTasks)
+		volumeMounts, volumes, err := makeVolumeMountPatch(ctx, kubernetesExecutorConfig.GetPvcMount(),
+			dag, pipeline, mlmd, inputParams)
 		if err != nil {
 			return fmt.Errorf("failed to extract volume mount info: %w", err)
 		}
@@ -2004,67 +2005,39 @@ func createK8sClient() (*kubernetes.Clientset, error) {
 	return k8sClient, nil
 }
 
-func makeVolumeMountPatch(pvcMount []*kubernetesplatform.PvcMount, dag *metadata.DAG, dagTasks map[string]*metadata.Execution) ([]k8score.VolumeMount, []k8score.Volume, error) {
-	if pvcMount == nil {
+func makeVolumeMountPatch(
+	ctx context.Context,
+	pvcMounts []*kubernetesplatform.PvcMount,
+	dag *metadata.DAG,
+	pipeline *metadata.Pipeline,
+	mlmd *metadata.Client,
+	inputParams map[string]*structpb.Value,
+) ([]k8score.VolumeMount, []k8score.Volume, error) {
+	if pvcMounts == nil {
 		return nil, nil, nil
 	}
 	var volumeMounts []k8score.VolumeMount
 	var volumes []k8score.Volume
-	for _, vmc := range pvcMount {
-		// Find mount path
-		if vmc.GetMountPath() == "" {
-			return nil, nil, fmt.Errorf("failed to make podSpecPatch: volume mount: volume mount path not provided")
+	for _, pvcMount := range pvcMounts {
+		resolvedPvcName, err := resolveK8sParameter(ctx, dag, pipeline, mlmd,
+			pvcMount.PvcNameParameter, inputParams)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to resolve pvc name: %w", err)
+		}
+		pvcName := resolvedPvcName.GetStringValue()
+		pvcMountPath := pvcMount.GetMountPath()
+		if pvcName == "" || pvcMountPath == "" {
+			return nil, nil, fmt.Errorf("failed to mount volume, missing mountpath or pvc name")
 		}
 		volumeMount := k8score.VolumeMount{
-			MountPath: vmc.GetMountPath(),
+			Name:      pvcName,
+			MountPath: pvcMountPath,
 		}
-		volume := k8score.Volume{}
-
-		// Volume name may come from three different sources:
-		// 1) A constant
-		// 2) As a task output parameter
-		// 3) As a component input parameter
-		if vmc.GetConstant() != "" {
-			volumeMount.Name = vmc.GetConstant()
-			volume.Name = vmc.GetConstant()
-			volume.PersistentVolumeClaim = &k8score.PersistentVolumeClaimVolumeSource{ClaimName: vmc.GetConstant()}
-		} else if vmc.GetTaskOutputParameter() != nil {
-			if vmc.GetTaskOutputParameter().GetProducerTask() == "" {
-				return nil, nil, fmt.Errorf("failed to make podSpecPatch: volume mount: producer task empty")
-			}
-			if vmc.GetTaskOutputParameter().GetOutputParameterKey() == "" {
-				return nil, nil, fmt.Errorf("failed to make podSpecPatch: volume mount: OutputParameterKey")
-			}
-			producer, ok := dagTasks[vmc.GetTaskOutputParameter().GetProducerTask()]
-			if !ok {
-				return nil, nil, fmt.Errorf("failed to make podSpecPatch: volume mount: cannot find producer task %s", vmc.GetTaskOutputParameter().GetProducerTask())
-			}
-			_, outputs, err := producer.GetParameters()
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to make podSpecPatch: volume mount: cannot get producer output: %w", err)
-			}
-			pvcName, ok := outputs[vmc.GetTaskOutputParameter().GetOutputParameterKey()]
-			if !ok {
-				return nil, nil, fmt.Errorf("failed to make podSpecPatch: volume mount: cannot find output parameter %s from producer task %s", vmc.GetTaskOutputParameter().GetOutputParameterKey(), vmc.GetTaskOutputParameter().GetProducerTask())
-			}
-			volumeMount.Name = pvcName.GetStringValue()
-			volume.Name = pvcName.GetStringValue()
-			volume.PersistentVolumeClaim = &k8score.PersistentVolumeClaimVolumeSource{ClaimName: pvcName.GetStringValue()}
-		} else if vmc.GetComponentInputParameter() != "" {
-			inputParams, _, err := dag.Execution.GetParameters()
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to make podSpecPatch: volume mount: error getting input parameters")
-			}
-			glog.Infof("parent DAG input parameters %+v", inputParams)
-			pvcName, ok := inputParams[vmc.GetComponentInputParameter()]
-			if !ok {
-				return nil, nil, fmt.Errorf("failed to make podSpecPatch: volume mount:component input parameters %s doesn't exist", vmc.GetComponentInputParameter())
-			}
-			volumeMount.Name = pvcName.GetStringValue()
-			volume.Name = pvcName.GetStringValue()
-			volume.PersistentVolumeClaim = &k8score.PersistentVolumeClaimVolumeSource{ClaimName: pvcName.GetStringValue()}
-		} else {
-			return nil, nil, fmt.Errorf("failed to make podSpecPatch: volume mount: volume name not provided")
+		volume := k8score.Volume{
+			Name: pvcName,
+			VolumeSource: k8score.VolumeSource{
+				PersistentVolumeClaim: &k8score.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
+			},
 		}
 		volumeMounts = append(volumeMounts, volumeMount)
 		volumes = append(volumes, volume)
