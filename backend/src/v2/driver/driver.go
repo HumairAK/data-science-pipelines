@@ -600,7 +600,27 @@ func extendPodSpecPatch(
 
 	// Get node selector information
 	if kubernetesExecutorConfig.GetNodeSelector() != nil {
-		podSpec.NodeSelector = kubernetesExecutorConfig.GetNodeSelector().GetLabels()
+		if kubernetesExecutorConfig.GetNodeSelector().GetNodeSelectorJson() != nil {
+			resolvedNodeSelector, err := resolveK8sParameter(ctx, dag, pipeline, mlmd,
+				kubernetesExecutorConfig.GetNodeSelector().GetNodeSelectorJson(), inputParams)
+			if err != nil {
+				return fmt.Errorf("failed to resolve node selector: %w", err)
+			}
+			nodeSelectorJSON, err := resolvedNodeSelector.GetStructValue().MarshalJSON()
+			if err != nil {
+				return err
+			}
+			var nodeSelector map[string]string
+			err = json.Unmarshal(nodeSelectorJSON, &nodeSelector)
+			if err != nil {
+				return fmt.Errorf("failed to marshal node selector JSON to kubernetes node selector, "+
+					"ensure that node selector json correctly adheres to the kubernetes node selector "+
+					"struct: %w", err)
+			}
+			podSpec.NodeSelector = nodeSelector
+		} else {
+			podSpec.NodeSelector = kubernetesExecutorConfig.GetNodeSelector().GetLabels()
+		}
 	}
 
 	if tolerations := kubernetesExecutorConfig.GetTolerations(); tolerations != nil {

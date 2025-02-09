@@ -133,6 +133,11 @@ message NodeSelector {
     // map of label key to label value
     // corresponds to Pod.spec.nodeSelector field https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#scheduling
     map<string, string> labels = 1;
+
+    // Provide a json struct of node selector
+    // Takes precedence over labels.
+    // Example: {"disk-type": "ssd", "region": "us-west"}
+    InputParameterSpec node_selector_json = 2;
 }
 
 message PodMetadata {
