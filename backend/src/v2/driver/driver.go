@@ -673,7 +673,10 @@ func extendPodSpecPatch(
 		secretVolume := k8score.Volume{
 			Name: secretName,
 			VolumeSource: k8score.VolumeSource{
-				Secret: &k8score.SecretVolumeSource{SecretName: secretName, Optional: &optional},
+				Secret: &k8score.SecretVolumeSource{
+					SecretName: secretName,
+					Optional:   &optional,
+				},
 			},
 		}
 		secretVolumeMount := k8score.VolumeMount{
@@ -707,16 +710,26 @@ func extendPodSpecPatch(
 
 	// Get config map mount information
 	for _, configMapAsVolume := range kubernetesExecutorConfig.GetConfigMapAsVolume() {
+		resolvedConfigMapName, err := resolveK8sParameter(ctx, dag, pipeline, mlmd,
+			configMapAsVolume.ConfigNameParameter, inputParams)
+		if err != nil {
+			return fmt.Errorf("failed to resolve configmap name: %w", err)
+		}
+		configMapName := resolvedConfigMapName.GetStringValue()
 		optional := configMapAsVolume.Optional != nil && *configMapAsVolume.Optional
 		configMapVolume := k8score.Volume{
-			Name: configMapAsVolume.GetConfigMapName(),
+			Name: configMapName,
 			VolumeSource: k8score.VolumeSource{
 				ConfigMap: &k8score.ConfigMapVolumeSource{
-					LocalObjectReference: k8score.LocalObjectReference{Name: configMapAsVolume.GetConfigMapName()}, Optional: &optional},
+					LocalObjectReference: k8score.LocalObjectReference{
+						Name: configMapName,
+					},
+					Optional: &optional,
+				},
 			},
 		}
 		configMapVolumeMount := k8score.VolumeMount{
-			Name:      configMapAsVolume.GetConfigMapName(),
+			Name:      configMapName,
 			MountPath: configMapAsVolume.GetMountPath(),
 		}
 		podSpec.Volumes = append(podSpec.Volumes, configMapVolume)
@@ -734,14 +747,29 @@ func extendPodSpecPatch(
 					},
 				},
 			}
-			configMapEnvVar.ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name = configMapAsEnv.GetConfigMapName()
+			resolvedConfigMapName, err := resolveK8sParameter(ctx, dag, pipeline, mlmd,
+				configMapAsEnv.ConfigNameParameter, inputParams)
+			if err != nil {
+				return fmt.Errorf("failed to resolve configmap name: %w", err)
+			}
+			configMapEnvVar.ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name = resolvedConfigMapName.GetStringValue()
 			podSpec.Containers[0].Env = append(podSpec.Containers[0].Env, configMapEnvVar)
 		}
 	}
 
 	// Get image pull secret information
 	for _, imagePullSecret := range kubernetesExecutorConfig.GetImagePullSecret() {
-		podSpec.ImagePullSecrets = append(podSpec.ImagePullSecrets, k8score.LocalObjectReference{Name: imagePullSecret.GetSecretName()})
+		resolvedSecretName, err := resolveK8sParameter(ctx, dag, pipeline, mlmd,
+			imagePullSecret.SecretNameParameter, inputParams)
+		if err != nil {
+			return fmt.Errorf("failed to resolve image pull secret name: %w", err)
+		}
+		podSpec.ImagePullSecrets = append(
+			podSpec.ImagePullSecrets,
+			k8score.LocalObjectReference{
+				Name: resolvedSecretName.GetStringValue(),
+			},
+		)
 	}
 
 	// Get Kubernetes FieldPath Env information
