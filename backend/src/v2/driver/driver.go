@@ -347,19 +347,10 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 		return execution, err
 	}
 	if opts.KubernetesExecutorConfig != nil {
-		dagTasks, err := mlmd.GetExecutionsInDAG(ctx, dag, pipeline, true)
 		if err != nil {
 			return execution, err
 		}
-		err = extendPodSpecPatch(
-			ctx,
-			podSpec,
-			opts.KubernetesExecutorConfig,
-			dag,
-			pipeline,
-			mlmd,
-			dagTasks,
-		)
+		err = extendPodSpecPatch(ctx, podSpec, opts.KubernetesExecutorConfig, dag, pipeline, mlmd)
 		if err != nil {
 			return execution, err
 		}
@@ -565,7 +556,6 @@ func extendPodSpecPatch(
 	dag *metadata.DAG,
 	pipeline *metadata.Pipeline,
 	mlmd *metadata.Client,
-	dagTasks map[string]*metadata.Execution,
 ) error {
 	// Return an error if the podSpec has no user container.
 	if len(podSpec.Containers) == 0 {
