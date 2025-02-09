@@ -17,7 +17,6 @@ package driver
 import (
 	"context"
 	"fmt"
-	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
@@ -98,65 +97,11 @@ func resolveK8sParameter(
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert input parameter spec to pipeline spec: %v", err)
 	}
-	resolvedSecretName, err := resolveParameter(ctx, dag, pipeline, mlmd, pipelineParamSpec, inputParams)
+	resolvedSecretName, err := resolveInputParameter(ctx, dag, pipeline, mlmd, pipelineParamSpec, inputParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve input parameter name: %w", err)
 	}
 	return resolvedSecretName, nil
-}
-
-func resolveParameter(
-	ctx context.Context,
-	dag *metadata.DAG,
-	pipeline *metadata.Pipeline,
-	mlmd *metadata.Client,
-	paramSpec *pipelinespec.TaskInputsSpec_InputParameterSpec,
-	inputParams map[string]*structpb.Value,
-) (*structpb.Value, error) {
-	glog.V(4).Infof("paramSpec: %v", paramSpec)
-	paramError := func(err error) error {
-		return fmt.Errorf("resolving input parameter with spec %s: %w", paramSpec, err)
-	}
-	switch t := paramSpec.Kind.(type) {
-	case *pipelinespec.TaskInputsSpec_InputParameterSpec_ComponentInputParameter:
-		componentInput := paramSpec.GetComponentInputParameter()
-		if componentInput == "" {
-			return nil, paramError(fmt.Errorf("empty component input"))
-		}
-		v, ok := inputParams[componentInput]
-		if !ok {
-			return nil, paramError(fmt.Errorf("parent DAG does not have input parameter %s", componentInput))
-		}
-		return v, nil
-
-	// This is the case where the input comes from the output of an upstream task.
-	case *pipelinespec.TaskInputsSpec_InputParameterSpec_TaskOutputParameter:
-		cfg := resolveUpstreamOutputsConfig{
-			ctx:       ctx,
-			paramSpec: paramSpec,
-			dag:       dag,
-			pipeline:  pipeline,
-			mlmd:      mlmd,
-			err:       paramError,
-		}
-		v, err := resolveUpstreamParameters(cfg)
-		if err != nil {
-			return nil, err
-		}
-		return v, nil
-	case *pipelinespec.TaskInputsSpec_InputParameterSpec_RuntimeValue:
-		runtimeValue := paramSpec.GetRuntimeValue()
-		switch t := runtimeValue.Value.(type) {
-		case *pipelinespec.ValueOrRuntimeParameter_Constant:
-			return runtimeValue.GetConstant(), nil
-		default:
-			return nil, paramError(fmt.Errorf("param runtime value spec of type %T not implemented", t))
-		}
-	// TODO(Bobgy): implement the following cases
-	// case *pipelinespec.TaskInputsSpec_InputParameterSpec_TaskFinalStatus_:
-	default:
-		return nil, paramError(fmt.Errorf("parameter spec of type %T not implemented yet", t))
-	}
 }
 
 func convertToProtoMessages(src *kubernetesplatform.InputParameterSpec, dst *pipelinespec.TaskInputsSpec_InputParameterSpec) error {

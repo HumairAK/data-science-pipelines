@@ -1256,16 +1256,9 @@ func resolveInputs(
 		return inputs, nil
 	}
 
-	parameters := task.GetInputs().GetParameters()
-	//parameters = append(parameters, fetchPlatformParameters())
-
-	//if opts.KubernetesExecutorConfig != nil {
-	//	k8sParameters := extractK8sParameters(opts.KubernetesExecutorConfig)
-	//	parameters = mergeMaps(parameters, k8sParameters)
-	//}
 	// Handle parameters.
-	for name, paramSpec := range parameters {
-		v, err := resolveParameter(ctx, dag, pipeline, mlmd, paramSpec, inputParams)
+	for name, paramSpec := range task.GetInputs().GetParameters() {
+		v, err := resolveInputParameter(ctx, dag, pipeline, mlmd, paramSpec, inputParams)
 		if err != nil {
 			return nil, err
 		}
@@ -1274,43 +1267,113 @@ func resolveInputs(
 
 	// Handle artifacts.
 	for name, artifactSpec := range task.GetInputs().GetArtifacts() {
-		glog.V(4).Infof("inputs: %#v", task.GetInputs())
-		glog.V(4).Infof("artifacts: %#v", task.GetInputs().GetArtifacts())
-		artifactError := func(err error) error {
-			return fmt.Errorf("failed to resolve input artifact %s with spec %s: %w", name, artifactSpec, err)
+		v, err := resolveInputArtifact(ctx, dag, pipeline, mlmd, name, artifactSpec, inputArtifacts, task)
+		if err != nil {
+			return nil, err
 		}
-		switch t := artifactSpec.Kind.(type) {
-		case *pipelinespec.TaskInputsSpec_InputArtifactSpec_ComponentInputArtifact:
-			inputArtifactName := artifactSpec.GetComponentInputArtifact()
-			if inputArtifactName == "" {
-				return nil, artifactError(fmt.Errorf("component input artifact key is empty"))
-			}
-			v, ok := inputArtifacts[inputArtifactName]
-			if !ok {
-				return nil, artifactError(fmt.Errorf("parent DAG does not have input artifact %s", inputArtifactName))
-			}
-			inputs.Artifacts[name] = v
-
-		case *pipelinespec.TaskInputsSpec_InputArtifactSpec_TaskOutputArtifact:
-			cfg := resolveUpstreamOutputsConfig{
-				ctx:          ctx,
-				artifactSpec: artifactSpec,
-				dag:          dag,
-				pipeline:     pipeline,
-				mlmd:         mlmd,
-				err:          artifactError,
-			}
-			artifacts, err := resolveUpstreamArtifacts(cfg)
-			if err != nil {
-				return nil, err
-			}
-			inputs.Artifacts[name] = artifacts
-		default:
-			return nil, artifactError(fmt.Errorf("artifact spec of type %T not implemented yet", t))
-		}
+		inputs.Artifacts[name] = v
 	}
 	// TODO(Bobgy): validate executor inputs match component inputs definition
 	return inputs, nil
+}
+
+func resolveInputParameter(
+	ctx context.Context,
+	dag *metadata.DAG,
+	pipeline *metadata.Pipeline,
+	mlmd *metadata.Client,
+	paramSpec *pipelinespec.TaskInputsSpec_InputParameterSpec,
+	inputParams map[string]*structpb.Value,
+) (*structpb.Value, error) {
+	glog.V(4).Infof("paramSpec: %v", paramSpec)
+	paramError := func(err error) error {
+		return fmt.Errorf("resolving input parameter with spec %s: %w", paramSpec, err)
+	}
+	switch t := paramSpec.Kind.(type) {
+	case *pipelinespec.TaskInputsSpec_InputParameterSpec_ComponentInputParameter:
+		componentInput := paramSpec.GetComponentInputParameter()
+		if componentInput == "" {
+			return nil, paramError(fmt.Errorf("empty component input"))
+		}
+		v, ok := inputParams[componentInput]
+		if !ok {
+			return nil, paramError(fmt.Errorf("parent DAG does not have input parameter %s", componentInput))
+		}
+		return v, nil
+
+	// This is the case where the input comes from the output of an upstream task.
+	case *pipelinespec.TaskInputsSpec_InputParameterSpec_TaskOutputParameter:
+		cfg := resolveUpstreamOutputsConfig{
+			ctx:       ctx,
+			paramSpec: paramSpec,
+			dag:       dag,
+			pipeline:  pipeline,
+			mlmd:      mlmd,
+			err:       paramError,
+		}
+		v, err := resolveUpstreamParameters(cfg)
+		if err != nil {
+			return nil, err
+		}
+		return v, nil
+	case *pipelinespec.TaskInputsSpec_InputParameterSpec_RuntimeValue:
+		runtimeValue := paramSpec.GetRuntimeValue()
+		switch t := runtimeValue.Value.(type) {
+		case *pipelinespec.ValueOrRuntimeParameter_Constant:
+			return runtimeValue.GetConstant(), nil
+		default:
+			return nil, paramError(fmt.Errorf("param runtime value spec of type %T not implemented", t))
+		}
+	// TODO(Bobgy): implement the following cases
+	// case *pipelinespec.TaskInputsSpec_InputParameterSpec_TaskFinalStatus_:
+	default:
+		return nil, paramError(fmt.Errorf("parameter spec of type %T not implemented yet", t))
+	}
+}
+
+func resolveInputArtifact(
+	ctx context.Context,
+	dag *metadata.DAG,
+	pipeline *metadata.Pipeline,
+	mlmd *metadata.Client,
+	name string,
+	artifactSpec *pipelinespec.TaskInputsSpec_InputArtifactSpec,
+	inputArtifacts map[string]*pipelinespec.ArtifactList,
+	task *pipelinespec.PipelineTaskSpec,
+) (*pipelinespec.ArtifactList, error) {
+	glog.V(4).Infof("inputs: %#v", task.GetInputs())
+	glog.V(4).Infof("artifacts: %#v", task.GetInputs().GetArtifacts())
+	artifactError := func(err error) error {
+		return fmt.Errorf("failed to resolve input artifact %s with spec %s: %w", name, artifactSpec, err)
+	}
+	switch t := artifactSpec.Kind.(type) {
+	case *pipelinespec.TaskInputsSpec_InputArtifactSpec_ComponentInputArtifact:
+		inputArtifactName := artifactSpec.GetComponentInputArtifact()
+		if inputArtifactName == "" {
+			return nil, artifactError(fmt.Errorf("component input artifact key is empty"))
+		}
+		v, ok := inputArtifacts[inputArtifactName]
+		if !ok {
+			return nil, artifactError(fmt.Errorf("parent DAG does not have input artifact %s", inputArtifactName))
+		}
+		return v, nil
+	case *pipelinespec.TaskInputsSpec_InputArtifactSpec_TaskOutputArtifact:
+		cfg := resolveUpstreamOutputsConfig{
+			ctx:          ctx,
+			artifactSpec: artifactSpec,
+			dag:          dag,
+			pipeline:     pipeline,
+			mlmd:         mlmd,
+			err:          artifactError,
+		}
+		artifacts, err := resolveUpstreamArtifacts(cfg)
+		if err != nil {
+			return nil, err
+		}
+		return artifacts, nil
+	default:
+		return nil, artifactError(fmt.Errorf("artifact spec of type %T not implemented yet", t))
+	}
 }
 
 // getDAGTasks is a recursive function that returns a map of all tasks across all DAGs in the context of nested DAGs.
