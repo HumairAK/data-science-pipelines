@@ -83,7 +83,6 @@ func resolvePodSpecInputRuntimeParameter(parameterValue string, executorInput *p
 	return parameterValue, nil
 }
 
-// todo(HumairAK) reduce args to resolverOpts (add both InputParameterSpecs as fields)
 func resolveK8sParameter(
 	ctx context.Context,
 	dag *metadata.DAG,
