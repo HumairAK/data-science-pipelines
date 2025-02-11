@@ -113,6 +113,7 @@ class TestNodeSelector:
                                 },
                                 'secretAsVolume': [{
                                     'secretName': 'my-secret',
+                                    'secretNameParameter': {'runtimeValue': {'constant': 'my-secret'}},
                                     'mountPath': '/mnt/my_vol',
                                     'optional': False
                                 }]

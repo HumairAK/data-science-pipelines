@@ -141,7 +141,7 @@ class TestTolerations:
         def my_pipeline():
             task = comp()
             kubernetes.use_secret_as_volume(
-                task, secret_name='my-secret', mount_path='/mnt/my_vol')
+                task, secret_name='my-secret', mount_path='/mnt/my_vol',)
             kubernetes.add_toleration(
                 task,
                 key='key1',
@@ -162,6 +162,7 @@ class TestTolerations:
                                 },],
                                 'secretAsVolume': [{
                                     'secretName': 'my-secret',
+                                    'secretNameParameter': {'runtimeValue': {'constant': 'my-secret'}},
                                     'mountPath': '/mnt/my_vol',
                                     'optional': False
                                 },],

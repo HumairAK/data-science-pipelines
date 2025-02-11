@@ -38,6 +38,7 @@ class TestUseSecretAsVolume:
                             'exec-comp': {
                                 'secretAsVolume': [{
                                     'secretName': 'secret-name',
+                                    'secretNameParameter': {'runtimeValue': {'constant': 'secret-name'}},
                                     'mountPath': 'secretpath',
                                     'optional': False
                                 }]
@@ -67,6 +68,7 @@ class TestUseSecretAsVolume:
                             'exec-comp': {
                                 'secretAsVolume': [{
                                     'secretName': 'secret-name',
+                                    'secretNameParameter': {'runtimeValue': {'constant': 'secret-name'}},
                                     'mountPath': 'secretpath',
                                     'optional': True
                                 }]
@@ -96,6 +98,7 @@ class TestUseSecretAsVolume:
                             'exec-comp': {
                                 'secretAsVolume': [{
                                     'secretName': 'secret-name',
+                                    'secretNameParameter': {'runtimeValue': {'constant': 'secret-name'}},
                                     'mountPath': 'secretpath',
                                     'optional': False
                                 }]
@@ -131,11 +134,13 @@ class TestUseSecretAsVolume:
                                 'secretAsVolume': [
                                     {
                                         'secretName': 'secret-name1',
+                                        'secretNameParameter': {'runtimeValue': {'constant': 'secret-name1'}},
                                         'mountPath': 'secretpath1',
                                         'optional': False
                                     },
                                     {
                                         'secretName': 'secret-name2',
+                                        'secretNameParameter': {'runtimeValue': {'constant': 'secret-name2'}},
                                         'mountPath': 'secretpath2',
                                         'optional': False
                                     },
@@ -171,8 +176,8 @@ class TestUseSecretAsVolume:
                         'executors': {
                             'exec-comp': {
                                 'secretAsEnv': [{
-                                    'secretName':
-                                        'secret-name1',
+                                    'secretName': 'secret-name1',
+                                    'secretNameParameter': {'runtimeValue': {'constant': 'secret-name1'}},
                                     'keyToEnv': [{
                                         'secretKey': 'password',
                                         'envVar': 'SECRET_VAR'
@@ -180,6 +185,7 @@ class TestUseSecretAsVolume:
                                 }],
                                 'secretAsVolume': [{
                                     'secretName': 'secret-name2',
+                                    'secretNameParameter': {'runtimeValue': {'constant': 'secret-name2'}},
                                     'mountPath': 'secretpath2',
                                     'optional': False
                                 },]
@@ -214,10 +220,12 @@ class TestUseSecretAsVolume:
                             'exec-comp': {
                                 'pvcMount': [{
                                     'constant': 'pvc-name',
+                                    'pvcNameParameter': {'runtimeValue': {'constant': 'pvc-name'}},
                                     'mountPath': 'path'
                                 }],
                                 'secretAsVolume': [{
                                     'secretName': 'secret-name',
+                                    'secretNameParameter': {'runtimeValue': {'constant': 'secret-name'}},
                                     'mountPath': 'secretpath',
                                     'optional': False
                                 }]
@@ -252,8 +260,8 @@ class TestUseSecretAsEnv:
                         'executors': {
                             'exec-comp': {
                                 'secretAsEnv': [{
-                                    'secretName':
-                                        'secret-name',
+                                    'secretName': 'secret-name',
+                                    'secretNameParameter': {'runtimeValue': {'constant': 'secret-name'}},
                                     'keyToEnv': [
                                         {
                                             'secretKey': 'username',
@@ -296,16 +304,16 @@ class TestUseSecretAsEnv:
                             'exec-comp': {
                                 'secretAsEnv': [
                                     {
-                                        'secretName':
-                                            'secret-name1',
+                                        'secretName': 'secret-name1',
+                                        'secretNameParameter': {'runtimeValue': {'constant': 'secret-name1'}},
                                         'keyToEnv': [{
                                             'secretKey': 'password1',
                                             'envVar': 'SECRET_VAR1'
                                         }]
                                     },
                                     {
-                                        'secretName':
-                                            'secret-name2',
+                                        'secretName': 'secret-name2',
+                                        'secretNameParameter': {'runtimeValue': {'constant': 'secret-name2'}},
                                         'keyToEnv': [{
                                             'secretKey': 'password2',
                                             'envVar': 'SECRET_VAR2'
@@ -343,8 +351,8 @@ class TestUseSecretAsEnv:
                         'executors': {
                             'exec-comp': {
                                 'secretAsEnv': [{
-                                    'secretName':
-                                        'secret-name1',
+                                    'secretName': 'secret-name1',
+                                    'secretNameParameter': {'runtimeValue': {'constant': 'secret-name1'}},
                                     'keyToEnv': [{
                                         'secretKey': 'password',
                                         'envVar': 'SECRET_VAR'
@@ -352,6 +360,7 @@ class TestUseSecretAsEnv:
                                 }],
                                 'secretAsVolume': [{
                                     'secretName': 'secret-name2',
+                                    'secretNameParameter': {'runtimeValue': {'constant': 'secret-name2'}},
                                     'mountPath': 'secretpath2',
                                     'optional': False
                                 },]
@@ -386,11 +395,12 @@ class TestUseSecretAsEnv:
                             'exec-comp': {
                                 'pvcMount': [{
                                     'constant': 'pvc-name',
+                                    'pvcNameParameter': {'runtimeValue': {'constant': 'pvc-name'}},
                                     'mountPath': 'path'
                                 }],
                                 'secretAsEnv': [{
-                                    'secretName':
-                                        'secret-name',
+                                    'secretName': 'secret-name',
+                                    'secretNameParameter': {'runtimeValue': {'constant': 'secret-name'}},
                                     'keyToEnv': [{
                                         'secretKey': 'password',
                                         'envVar': 'SECRET_VAR'

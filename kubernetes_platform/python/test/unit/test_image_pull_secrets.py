@@ -25,7 +25,7 @@ class TestImagePullSecret:
         def my_pipeline():
             task = comp()
             kubernetes.set_image_pull_secrets(task, ['secret-name'])
-
+        x = json_format.MessageToDict(my_pipeline.platform_spec)
         assert json_format.MessageToDict(my_pipeline.platform_spec) == {
             'platforms': {
                 'kubernetes': {
@@ -33,7 +33,8 @@ class TestImagePullSecret:
                         'executors': {
                             'exec-comp': {
                                 'imagePullSecret': [{
-                                    'secretName': 'secret-name'
+                                    'secretName': 'secret-name',
+                                    'secretNameParameter': {'runtimeValue': {'constant': 'secret-name'}}
                                 }]
                             }
                         }
@@ -49,7 +50,7 @@ class TestImagePullSecret:
             task = comp()
             kubernetes.set_image_pull_secrets(task,
                                               ['secret-name1', 'secret-name2'])
-
+        x = json_format.MessageToDict(my_pipeline.platform_spec)
         assert json_format.MessageToDict(my_pipeline.platform_spec) == {
             'platforms': {
                 'kubernetes': {
@@ -58,10 +59,12 @@ class TestImagePullSecret:
                             'exec-comp': {
                                 'imagePullSecret': [
                                     {
-                                        'secretName': 'secret-name1'
+                                        'secretName': 'secret-name1',
+                                        'secretNameParameter': {'runtimeValue': {'constant': 'secret-name1'}},
                                     },
                                     {
-                                        'secretName': 'secret-name2'
+                                        'secretName': 'secret-name2',
+                                        'secretNameParameter': {'runtimeValue': {'constant': 'secret-name2'}}
                                     },
                                 ]
                             }
@@ -93,10 +96,12 @@ class TestImagePullSecret:
                                 'secretAsVolume': [{
                                     'secretName': 'secret-name',
                                     'mountPath': '/mnt/my_vol',
+                                    'secretNameParameter': {'runtimeValue': {'constant': 'secret-name'}},
                                     'optional': False
                                 }],
                                 'imagePullSecret': [{
-                                    'secretName': 'secret-name'
+                                    'secretName': 'secret-name',
+                                    'secretNameParameter': {'runtimeValue': {'constant': 'secret-name'}}
                                 }]
                             }
                         }

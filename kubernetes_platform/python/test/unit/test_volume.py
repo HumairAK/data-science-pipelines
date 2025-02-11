@@ -39,6 +39,7 @@ class TestMountPVC:
                             'exec-comp': {
                                 'pvcMount': [{
                                     'constant': 'pvc-name',
+                                    'pvcNameParameter': {'runtimeValue': {'constant': 'pvc-name'}},
                                     'mountPath': 'path'
                                 }]
                             }
@@ -73,10 +74,12 @@ class TestMountPVC:
                                 'pvcMount': [
                                     {
                                         'constant': 'pvc-name',
+                                        'pvcNameParameter': {'runtimeValue': {'constant': 'pvc-name'}},
                                         'mountPath': 'path1'
                                     },
                                     {
                                         'constant': 'other-pvc-name',
+                                        'pvcNameParameter': {'runtimeValue': {'constant': 'other-pvc-name'}},
                                         'mountPath': 'path2'
                                     },
                                 ]
@@ -111,11 +114,12 @@ class TestMountPVC:
                             'exec-comp': {
                                 'pvcMount': [{
                                     'constant': 'pvc-name',
+                                    'pvcNameParameter': {'runtimeValue': {'constant': 'pvc-name'}},
                                     'mountPath': 'path'
                                 }],
                                 'secretAsEnv': [{
-                                    'secretName':
-                                        'secret-name',
+                                    'secretName': 'secret-name',
+                                    'secretNameParameter': {'runtimeValue': {'constant': 'secret-name'}},
                                     'keyToEnv': [{
                                         'secretKey': 'password',
                                         'envVar': 'SECRET_VAR'
@@ -152,10 +156,12 @@ class TestMountPVC:
                             'exec-comp': {
                                 'pvcMount': [{
                                     'constant': 'pvc-name',
+                                    'pvcNameParameter': {'runtimeValue': {'constant': 'pvc-name'}},
                                     'mountPath': 'path'
                                 }],
                                 'secretAsVolume': [{
                                     'secretName': 'secret-name',
+                                    'secretNameParameter': {'runtimeValue': {'constant': 'secret-name'}},
                                     'mountPath': 'secretpath',
                                     'optional': False
                                 }]
@@ -174,7 +180,8 @@ class TestMountPVC:
 
         with pytest.raises(
                 ValueError,
-                match=r'Argument for \'pvc_name\' must be an instance of str or PipelineChannel\. Got unknown input type: <class \'int\'>\.',
+                match=r"Argument for 'input_param' must be an instance of str, dict, or PipelineChannel. "
+                      r"Got unknown input type: <class 'int'>.",
         ):
 
             @dsl.pipeline

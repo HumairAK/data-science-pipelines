@@ -29,7 +29,6 @@ class TestUseConfigMapAsVolume:
                 config_map_name='cm-name',
                 mount_path='cmpath',
             )
-
         assert json_format.MessageToDict(my_pipeline.platform_spec) == {
             'platforms': {
                 'kubernetes': {
@@ -39,7 +38,12 @@ class TestUseConfigMapAsVolume:
                                 'configMapAsVolume': [{
                                     'configMapName': 'cm-name',
                                     'mountPath': 'cmpath',
-                                    'optional': False
+                                    'optional': False,
+                                    'configNameParameter': {
+                                        'runtimeValue': {
+                                            'constant': 'cm-name'
+                                        }
+                                    }
                                 }]
                             }
                         }
@@ -68,7 +72,12 @@ class TestUseConfigMapAsVolume:
                                 'configMapAsVolume': [{
                                     'configMapName': 'cm-name',
                                     'mountPath': 'cmpath',
-                                    'optional': True
+                                    'optional': True,
+                                    'configNameParameter': {
+                                        'runtimeValue': {
+                                            'constant': 'cm-name'
+                                        }
+                                    }
                                 }]
                             }
                         }
@@ -97,7 +106,12 @@ class TestUseConfigMapAsVolume:
                                 'configMapAsVolume': [{
                                     'configMapName': 'cm-name',
                                     'mountPath': 'cmpath',
-                                    'optional': False
+                                    'optional': False,
+                                    'configNameParameter': {
+                                        'runtimeValue': {
+                                            'constant': 'cm-name'
+                                        }
+                                    }
                                 }]
                             }
                         }
@@ -132,12 +146,22 @@ class TestUseConfigMapAsVolume:
                                     {
                                         'configMapName': 'cm-name1',
                                         'mountPath': 'cmpath1',
-                                        'optional': False
+                                        'optional': False,
+                                        'configNameParameter': {
+                                            'runtimeValue': {
+                                                'constant': 'cm-name1'
+                                            }
+                                        }
                                     },
                                     {
                                         'configMapName': 'cm-name2',
                                         'mountPath': 'cmpath2',
-                                        'optional': False
+                                        'optional': False,
+                                        'configNameParameter': {
+                                            'runtimeValue': {
+                                                'constant': 'cm-name2'
+                                            }
+                                        }
                                     },
                                 ]
                             }
@@ -173,6 +197,11 @@ class TestUseConfigMapAsVolume:
                                 'configMapAsEnv': [{
                                     'configMapName':
                                         'cm-name1',
+                                    'configNameParameter': {
+                                        'runtimeValue': {
+                                            'constant': 'cm-name1'
+                                        }
+                                    },
                                     'keyToEnv': [{
                                         'configMapKey': 'foo',
                                         'envVar': 'CM_VAR'
@@ -181,7 +210,12 @@ class TestUseConfigMapAsVolume:
                                 'configMapAsVolume': [{
                                     'configMapName': 'cm-name2',
                                     'mountPath': 'cmpath2',
-                                    'optional': False
+                                    'optional': False,
+                                    'configNameParameter': {
+                                        'runtimeValue': {
+                                            'constant': 'cm-name2'
+                                        }
+                                    }
                                 },]
                             }
                         }
@@ -214,12 +248,22 @@ class TestUseConfigMapAsVolume:
                             'exec-comp': {
                                 'pvcMount': [{
                                     'constant': 'pvc-name',
+                                    'pvcNameParameter': {
+                                        'runtimeValue': {
+                                            'constant': 'pvc-name'
+                                        }
+                                    },
                                     'mountPath': 'path'
                                 }],
                                 'configMapAsVolume': [{
                                     'configMapName': 'cm-name',
+                                    'configNameParameter': {
+                                        'runtimeValue': {
+                                            'constant': 'cm-name'
+                                        }
+                                    },
                                     'mountPath': 'cmpath',
-                                    'optional': False
+                                    'optional': False,
                                 }]
                             }
                         }
@@ -254,6 +298,11 @@ class TestUseConfigMapAsEnv:
                                 'configMapAsEnv': [{
                                     'configMapName':
                                         'cm-name',
+                                    'configNameParameter': {
+                                        'runtimeValue': {
+                                            'constant': 'cm-name'
+                                        }
+                                    },
                                     'keyToEnv': [
                                         {
                                             'configMapKey': 'foo',
@@ -298,14 +347,23 @@ class TestUseConfigMapAsEnv:
                                     {
                                         'configMapName':
                                             'cm-name1',
+                                        'configNameParameter': {
+                                            'runtimeValue': {
+                                                'constant': 'cm-name1'
+                                            }
+                                        },
                                         'keyToEnv': [{
                                             'configMapKey': 'foo1',
                                             'envVar': 'CM_VAR1'
                                         }]
                                     },
                                     {
-                                        'configMapName':
-                                            'cm-name2',
+                                        'configMapName': 'cm-name2',
+                                        'configNameParameter': {
+                                            'runtimeValue': {
+                                                'constant': 'cm-name2'
+                                            }
+                                        },
                                         'keyToEnv': [{
                                             'configMapKey': 'foo2',
                                             'envVar': 'CM_VAR2'
@@ -345,6 +403,11 @@ class TestUseConfigMapAsEnv:
                                 'configMapAsEnv': [{
                                     'configMapName':
                                         'cm-name1',
+                                    'configNameParameter': {
+                                        'runtimeValue': {
+                                            'constant': 'cm-name1'
+                                        }
+                                    },
                                     'keyToEnv': [{
                                         'configMapKey': 'foo',
                                         'envVar': 'CM_VAR'
@@ -352,6 +415,11 @@ class TestUseConfigMapAsEnv:
                                 }],
                                 'configMapAsVolume': [{
                                     'configMapName': 'cm-name2',
+                                    'configNameParameter': {
+                                        'runtimeValue': {
+                                            'constant': 'cm-name2'
+                                        }
+                                    },
                                     'mountPath': 'cmpath2',
                                     'optional': False
                                 },]
@@ -384,17 +452,30 @@ class TestUseConfigMapAsEnv:
                     'deploymentSpec': {
                         'executors': {
                             'exec-comp': {
-                                'pvcMount': [{
-                                    'constant': 'pvc-name',
-                                    'mountPath': 'path'
-                                }],
+                                'pvcMount': [
+                                    {
+                                        'constant': 'pvc-name',
+                                        'pvcNameParameter': {
+                                            'runtimeValue': {
+                                                'constant': 'pvc-name'
+                                            }
+                                        },
+                                        'mountPath': 'path'
+                                    },
+                                ],
                                 'configMapAsEnv': [{
-                                    'configMapName':
-                                        'cm-name',
-                                    'keyToEnv': [{
-                                        'configMapKey': 'foo',
-                                        'envVar': 'CM_VAR'
-                                    }]
+                                    'configMapName': 'cm-name',
+                                    'configNameParameter': {
+                                        'runtimeValue': {
+                                            'constant': 'cm-name'
+                                        }
+                                    },
+                                    'keyToEnv': [
+                                        {
+                                            'configMapKey': 'foo',
+                                            'envVar': 'CM_VAR'
+                                        },
+                                    ]
                                 }]
                             }
                         }
