@@ -21,8 +21,8 @@ from kfp.kubernetes import kubernetes_executor_config_pb2 as pb
 
 
 def set_image_pull_secrets(
-    task: PipelineTask,
-    secret_names: Union[List[str], List[pipeline_channel.PipelineParameterChannel]],
+        task: PipelineTask,
+        secret_names: Union[List[str], List[pipeline_channel.PipelineParameterChannel]],
 ) -> PipelineTask:
     """Set image pull secrets for a Kubernetes task.
 
