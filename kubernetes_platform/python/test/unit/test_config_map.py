@@ -15,7 +15,7 @@
 from google.protobuf import json_format
 from kfp import dsl
 from kfp import kubernetes
-
+from kfp.dsl import OutputPath
 
 class TestUseConfigMapAsVolume:
 
@@ -272,6 +272,212 @@ class TestUseConfigMapAsVolume:
             }
         }
 
+    def test_component_pipeline_input_one(self):
+        # checks that a pipeline input for
+        # tasks is supported
+        @dsl.pipeline
+        def my_pipeline(cm_name_input_1: str):
+            task = comp()
+            kubernetes.use_config_map_as_volume(
+                task,
+                config_map_name=cm_name_input_1,
+                mount_path="cmpath"
+            )
+
+        assert json_format.MessageToDict(my_pipeline.platform_spec) == {
+            'platforms': {
+                'kubernetes': {
+                    'deploymentSpec': {
+                        'executors': {
+                            'exec-comp': {
+                                'configMapAsVolume': [{
+                                    'configNameParameter': {
+                                        'componentInputParameter': 'cm_name_input_1'
+                                    },
+                                    'mountPath': 'cmpath',
+                                    'optional': False,
+                                }]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    def test_component_pipeline_input_two(self):
+        # checks that multiple pipeline inputs for
+        # different tasks are supported
+        @dsl.pipeline
+        def my_pipeline(cm_name_input_1: str, cm_name_input_2: str):
+            t1 = comp()
+            kubernetes.use_config_map_as_volume(
+                t1,
+                config_map_name=cm_name_input_1,
+                mount_path="cmpath"
+            )
+            kubernetes.use_config_map_as_volume(
+                t1,
+                config_map_name=cm_name_input_2,
+                mount_path="cmpath"
+            )
+
+            t2 = comp()
+            kubernetes.use_config_map_as_volume(
+                t2,
+                config_map_name=cm_name_input_2,
+                mount_path="cmpath"
+            )
+
+        assert json_format.MessageToDict(my_pipeline.platform_spec) == {
+            'platforms': {
+                'kubernetes': {
+                    'deploymentSpec': {
+                        'executors': {
+                            'exec-comp': {
+                                'configMapAsVolume': [
+                                    {
+                                        'configNameParameter': {
+                                            'componentInputParameter': 'cm_name_input_1'
+                                        },
+                                        'mountPath': 'cmpath',
+                                        'optional': False,
+                                    },
+                                    {
+                                        'configNameParameter': {
+                                            'componentInputParameter': 'cm_name_input_2'
+                                        },
+                                        'mountPath': 'cmpath',
+                                        'optional': False,
+                                    }
+
+                                ]
+                            },
+                            'exec-comp-2': {
+                                'configMapAsVolume': [
+                                    {
+                                        'configNameParameter': {
+                                            'componentInputParameter': 'cm_name_input_2'
+                                        },
+                                        'mountPath': 'cmpath',
+                                        'optional': False,
+                                    },
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    def test_component_upstream_input_one(self):
+        # checks that upstream task input parameters
+        # are supported
+        @dsl.pipeline
+        def my_pipeline():
+            t1 = comp()
+            t2 = comp_with_output()
+            kubernetes.use_config_map_as_volume(
+                t1,
+                config_map_name=t2.output,
+                mount_path="cmpath"
+            )
+
+        assert json_format.MessageToDict(my_pipeline.platform_spec) == {
+            'platforms': {
+                'kubernetes': {
+                    'deploymentSpec': {
+                        'executors': {
+                            'exec-comp': {
+                                'configMapAsVolume': [{
+                                    'configNameParameter': {
+                                        'taskOutputParameter': {
+                                            'outputParameterKey': 'Output',
+                                            'producerTask': 'comp-with-output'
+                                        }
+                                    },
+                                    'mountPath': 'cmpath',
+                                    'optional': False,
+                                }]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    def test_component_upstream_input_two(self):
+        # checks that multiple upstream task input
+        # parameters are supported
+        @dsl.pipeline
+        def my_pipeline():
+            t1 = comp()
+            t2 = comp_with_output()
+            t3 = comp_with_output()
+
+            kubernetes.use_config_map_as_volume(
+                t1,
+                config_map_name=t2.output,
+                mount_path="cmpath"
+            )
+            kubernetes.use_config_map_as_volume(
+                t1,
+                config_map_name=t3.output,
+                mount_path="cmpath"
+            )
+            t4 = comp()
+            kubernetes.use_config_map_as_volume(
+                t4,
+                config_map_name=t2.output,
+                mount_path="cmpath"
+            )
+        assert json_format.MessageToDict(my_pipeline.platform_spec) == {
+            'platforms': {
+                'kubernetes': {
+                    'deploymentSpec': {
+                        'executors': {
+                            'exec-comp': {
+                                'configMapAsVolume': [
+                                    {
+                                        'configNameParameter': {
+                                            'taskOutputParameter': {
+                                                'outputParameterKey': 'Output',
+                                                'producerTask': 'comp-with-output'
+                                            }
+                                        },
+                                        'mountPath': 'cmpath',
+                                        'optional': False,
+                                    },
+                                    {
+                                        'configNameParameter': {
+                                            'taskOutputParameter': {
+                                                'outputParameterKey': 'Output',
+                                                'producerTask': 'comp-with-output-2'
+                                            }
+                                        },
+                                        'mountPath': 'cmpath',
+                                        'optional': False,
+                                    }
+                                ]
+                            },
+                            'exec-comp-2': {
+                                'configMapAsVolume': [
+                                    {
+                                        'configNameParameter': {
+                                            'taskOutputParameter': {
+                                                'outputParameterKey': 'Output',
+                                                'producerTask': 'comp-with-output'
+                                            }
+                                        },
+                                        'mountPath': 'cmpath',
+                                        'optional': False,
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
 class TestUseConfigMapAsEnv:
 
@@ -484,7 +690,262 @@ class TestUseConfigMapAsEnv:
             }
         }
 
+    def test_component_pipeline_input_one(self):
+        # checks that a pipeline input for
+        # tasks is supported
+        @dsl.pipeline
+        def my_pipeline(cm_name_input_1: str):
+            task = comp()
+            kubernetes.use_config_map_as_env(
+                task,
+                config_map_name=cm_name_input_1,
+                config_map_key_to_env={
+                    'foo': 'CM_VAR',
+                },
+            )
+
+        assert json_format.MessageToDict(my_pipeline.platform_spec) == {
+            'platforms': {
+                'kubernetes': {
+                    'deploymentSpec': {
+                        'executors': {
+                            'exec-comp': {
+                                'configMapAsEnv': [{
+                                    'configNameParameter': {
+                                        'componentInputParameter': 'cm_name_input_1'
+                                    },
+                                    'keyToEnv': [
+                                        {
+                                            'configMapKey': 'foo',
+                                            'envVar': 'CM_VAR'
+                                        },
+                                    ]
+                                }]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    def test_component_pipeline_input_two(self):
+        # checks that multiple pipeline inputs for
+        # different tasks are supported
+        @dsl.pipeline
+        def my_pipeline(cm_name_input_1: str, cm_name_input_2: str):
+            t1 = comp()
+            kubernetes.use_config_map_as_env(
+                t1,
+                config_map_name=cm_name_input_1,
+                config_map_key_to_env={
+                    'foo': 'CM_VAR',
+                },
+            )
+            kubernetes.use_config_map_as_env(
+                t1,
+                config_map_name=cm_name_input_2,
+                config_map_key_to_env={
+                    'foo': 'CM_VAR',
+                },
+            )
+            t2 = comp()
+            kubernetes.use_config_map_as_env(
+                t2,
+                config_map_name=cm_name_input_2,
+                config_map_key_to_env={
+                    'foo': 'CM_VAR',
+                },
+            )
+        assert json_format.MessageToDict(my_pipeline.platform_spec) == {
+            'platforms': {
+                'kubernetes': {
+                    'deploymentSpec': {
+                        'executors': {
+                            'exec-comp': {
+                                'configMapAsEnv': [
+                                    {
+                                        'configNameParameter': {
+                                            'componentInputParameter': 'cm_name_input_1'
+                                        },
+                                        'keyToEnv': [
+                                            {
+                                                'configMapKey': 'foo',
+                                                'envVar': 'CM_VAR'
+                                            },
+                                        ]
+                                    },
+                                    {
+                                        'configNameParameter': {
+                                            'componentInputParameter': 'cm_name_input_2'
+                                        },
+                                        'keyToEnv': [
+                                            {
+                                                'configMapKey': 'foo',
+                                                'envVar': 'CM_VAR'
+                                            },
+                                        ]
+                                    },
+                                ]
+                            },
+                            'exec-comp-2': {
+                                'configMapAsEnv': [
+                                    {
+                                        'configNameParameter': {
+                                            'componentInputParameter': 'cm_name_input_2'
+                                        },
+                                        'keyToEnv': [
+                                            {
+                                                'configMapKey': 'foo',
+                                                'envVar': 'CM_VAR'
+                                            },
+                                        ]
+                                    },
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    def test_component_upstream_input_one(self):
+        # checks that upstream task input parameters
+        # are supported
+        @dsl.pipeline
+        def my_pipeline():
+            t1 = comp()
+            t2 = comp_with_output()
+            kubernetes.use_config_map_as_env(
+                t1,
+                config_map_name=t2.output,
+                config_map_key_to_env={
+                    'foo': 'CM_VAR',
+                },
+            )
+        assert json_format.MessageToDict(my_pipeline.platform_spec) == {
+            'platforms': {
+                'kubernetes': {
+                    'deploymentSpec': {
+                        'executors': {
+                            'exec-comp': {
+                                'configMapAsEnv': [{
+                                    'configNameParameter': {
+                                        'taskOutputParameter': {
+                                            'outputParameterKey': 'Output',
+                                            'producerTask': 'comp-with-output'
+                                        }
+                                    },
+                                    'keyToEnv': [
+                                        {
+                                            'configMapKey': 'foo',
+                                            'envVar': 'CM_VAR'
+                                        },
+                                    ]
+                                }]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    def test_component_upstream_input_two(self):
+        # checks that multiple upstream task input
+        # parameters are supported
+        @dsl.pipeline
+        def my_pipeline():
+            t1 = comp()
+            t2 = comp_with_output()
+            t3 = comp_with_output()
+            kubernetes.use_config_map_as_env(
+                t1,
+                config_map_name=t2.output,
+                config_map_key_to_env={
+                    'foo': 'CM_VAR',
+                },
+            )
+            kubernetes.use_config_map_as_env(
+                t1,
+                config_map_name=t3.output,
+                config_map_key_to_env={
+                    'foo': 'CM_VAR',
+                },
+            )
+
+            t4 = comp()
+            kubernetes.use_config_map_as_env(
+                t4,
+                config_map_name=t2.output,
+                config_map_key_to_env={
+                    'foo': 'CM_VAR',
+                },
+            )
+
+        assert json_format.MessageToDict(my_pipeline.platform_spec) == {
+            'platforms': {
+                'kubernetes': {
+                    'deploymentSpec': {
+                        'executors': {
+                            'exec-comp': {
+                                'configMapAsEnv': [
+                                    {
+                                        'configNameParameter': {
+                                            'taskOutputParameter': {
+                                                'outputParameterKey': 'Output',
+                                                'producerTask': 'comp-with-output'
+                                            }
+                                        },
+                                        'keyToEnv': [
+                                            {
+                                                'configMapKey': 'foo',
+                                                'envVar': 'CM_VAR'
+                                            },
+                                        ]
+                                    },
+                                    {
+                                        'configNameParameter': {
+                                            'taskOutputParameter': {
+                                                'outputParameterKey': 'Output',
+                                                'producerTask': 'comp-with-output-2'
+                                            }
+                                        },
+                                        'keyToEnv': [
+                                            {
+                                                'configMapKey': 'foo',
+                                                'envVar': 'CM_VAR'
+                                            },
+                                        ]
+                                    }
+                                ]
+                            },
+                            'exec-comp-2': {
+                                'configMapAsEnv': [
+                                    {
+                                        'configNameParameter': {
+                                            'taskOutputParameter': {
+                                                'outputParameterKey': 'Output',
+                                                'producerTask': 'comp-with-output'
+                                            }
+                                        },
+                                        'keyToEnv': [
+                                            {
+                                                'configMapKey': 'foo',
+                                                'envVar': 'CM_VAR'
+                                            },
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
 @dsl.component
 def comp():
+    pass
+
+@dsl.component()
+def comp_with_output() -> str:
     pass

@@ -236,6 +236,212 @@ class TestUseSecretAsVolume:
             }
         }
 
+    def test_component_pipeline_input_one(self):
+        # checks that a pipeline input for
+        # tasks is supported
+        @dsl.pipeline
+        def my_pipeline(secret_name_input_1: str):
+            task = comp()
+            kubernetes.use_secret_as_volume(
+                task,
+                secret_name=secret_name_input_1,
+                mount_path="secretpath"
+            )
+
+        assert json_format.MessageToDict(my_pipeline.platform_spec) == {
+            'platforms': {
+                'kubernetes': {
+                    'deploymentSpec': {
+                        'executors': {
+                            'exec-comp': {
+                                'secretAsVolume': [{
+                                    'secretNameParameter': {
+                                        'componentInputParameter': 'secret_name_input_1'
+                                    },
+                                    'mountPath': 'secretpath',
+                                    'optional': False,
+                                }]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    def test_component_pipeline_input_two(self):
+        # checks that multiple pipeline inputs for
+        # different tasks are supported
+        @dsl.pipeline
+        def my_pipeline(secret_name_input_1: str, secret_name_input_2: str):
+            t1 = comp()
+            kubernetes.use_secret_as_volume(
+                t1,
+                secret_name=secret_name_input_1,
+                mount_path="secretpath"
+            )
+            kubernetes.use_secret_as_volume(
+                t1,
+                secret_name=secret_name_input_2,
+                mount_path="secretpath"
+            )
+
+            t2 = comp()
+            kubernetes.use_secret_as_volume(
+                t2,
+                secret_name=secret_name_input_2,
+                mount_path="secretpath"
+            )
+
+        assert json_format.MessageToDict(my_pipeline.platform_spec) == {
+            'platforms': {
+                'kubernetes': {
+                    'deploymentSpec': {
+                        'executors': {
+                            'exec-comp': {
+                                'secretAsVolume': [
+                                    {
+                                        'secretNameParameter': {
+                                            'componentInputParameter': 'secret_name_input_1'
+                                        },
+                                        'mountPath': 'secretpath',
+                                        'optional': False,
+                                    },
+                                    {
+                                        'secretNameParameter': {
+                                            'componentInputParameter': 'secret_name_input_2'
+                                        },
+                                        'mountPath': 'secretpath',
+                                        'optional': False,
+                                    }
+
+                                ]
+                            },
+                            'exec-comp-2': {
+                                'secretAsVolume': [
+                                    {
+                                        'secretNameParameter': {
+                                            'componentInputParameter': 'secret_name_input_2'
+                                        },
+                                        'mountPath': 'secretpath',
+                                        'optional': False,
+                                    },
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    def test_component_upstream_input_one(self):
+        # checks that upstream task input parameters
+        # are supported
+        @dsl.pipeline
+        def my_pipeline():
+            t1 = comp()
+            t2 = comp_with_output()
+            kubernetes.use_secret_as_volume(
+                t1,
+                secret_name=t2.output,
+                mount_path="secretpath"
+            )
+
+        assert json_format.MessageToDict(my_pipeline.platform_spec) == {
+            'platforms': {
+                'kubernetes': {
+                    'deploymentSpec': {
+                        'executors': {
+                            'exec-comp': {
+                                'secretAsVolume': [{
+                                    'secretNameParameter': {
+                                        'taskOutputParameter': {
+                                            'outputParameterKey': 'Output',
+                                            'producerTask': 'comp-with-output'
+                                        }
+                                    },
+                                    'mountPath': 'secretpath',
+                                    'optional': False,
+                                }]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    def test_component_upstream_input_two(self):
+        # checks that multiple upstream task input
+        # parameters are supported
+        @dsl.pipeline
+        def my_pipeline():
+            t1 = comp()
+            t2 = comp_with_output()
+            t3 = comp_with_output()
+
+            kubernetes.use_secret_as_volume(
+                t1,
+                secret_name=t2.output,
+                mount_path="secretpath"
+            )
+            kubernetes.use_secret_as_volume(
+                t1,
+                secret_name=t3.output,
+                mount_path="secretpath"
+            )
+            t4 = comp()
+            kubernetes.use_secret_as_volume(
+                t4,
+                secret_name=t2.output,
+                mount_path="secretpath"
+            )
+        assert json_format.MessageToDict(my_pipeline.platform_spec) == {
+            'platforms': {
+                'kubernetes': {
+                    'deploymentSpec': {
+                        'executors': {
+                            'exec-comp': {
+                                'secretAsVolume': [
+                                    {
+                                        'secretNameParameter': {
+                                            'taskOutputParameter': {
+                                                'outputParameterKey': 'Output',
+                                                'producerTask': 'comp-with-output'
+                                            }
+                                        },
+                                        'mountPath': 'secretpath',
+                                        'optional': False,
+                                    },
+                                    {
+                                        'secretNameParameter': {
+                                            'taskOutputParameter': {
+                                                'outputParameterKey': 'Output',
+                                                'producerTask': 'comp-with-output-2'
+                                            }
+                                        },
+                                        'mountPath': 'secretpath',
+                                        'optional': False,
+                                    }
+                                ]
+                            },
+                            'exec-comp-2': {
+                                'secretAsVolume': [
+                                    {
+                                        'secretNameParameter': {
+                                            'taskOutputParameter': {
+                                                'outputParameterKey': 'Output',
+                                                'producerTask': 'comp-with-output'
+                                            }
+                                        },
+                                        'mountPath': 'secretpath',
+                                        'optional': False,
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
 class TestUseSecretAsEnv:
 
@@ -413,7 +619,262 @@ class TestUseSecretAsEnv:
             }
         }
 
+    def test_component_pipeline_input_one(self):
+        # checks that a pipeline input for
+        # tasks is supported
+        @dsl.pipeline
+        def my_pipeline(secret_name_input1: str):
+            task = comp()
+            kubernetes.use_secret_as_env(
+                task,
+                secret_name=secret_name_input1,
+                secret_key_to_env={
+                    'foo': 'CM_VAR',
+                },
+            )
+
+        assert json_format.MessageToDict(my_pipeline.platform_spec) == {
+            'platforms': {
+                'kubernetes': {
+                    'deploymentSpec': {
+                        'executors': {
+                            'exec-comp': {
+                                'secretAsEnv': [{
+                                    'secretNameParameter': {
+                                        'componentInputParameter': 'secret_name_input1'
+                                    },
+                                    'keyToEnv': [
+                                        {
+                                            'secretKey': 'foo',
+                                            'envVar': 'CM_VAR'
+                                        },
+                                    ]
+                                }]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    def test_component_pipeline_input_two(self):
+        # checks that multiple pipeline inputs for
+        # different tasks are supported
+        @dsl.pipeline
+        def my_pipeline(secret_name_input1: str, secret_name_input2: str):
+            t1 = comp()
+            kubernetes.use_secret_as_env(
+                t1,
+                secret_name=secret_name_input1,
+                secret_key_to_env={
+                    'foo': 'CM_VAR',
+                },
+            )
+            kubernetes.use_secret_as_env(
+                t1,
+                secret_name=secret_name_input2,
+                secret_key_to_env={
+                    'foo': 'CM_VAR',
+                },
+            )
+            t2 = comp()
+            kubernetes.use_secret_as_env(
+                t2,
+                secret_name=secret_name_input2,
+                secret_key_to_env={
+                    'foo': 'CM_VAR',
+                },
+            )
+        assert json_format.MessageToDict(my_pipeline.platform_spec) == {
+            'platforms': {
+                'kubernetes': {
+                    'deploymentSpec': {
+                        'executors': {
+                            'exec-comp': {
+                                'secretAsEnv': [
+                                    {
+                                        'secretNameParameter': {
+                                            'componentInputParameter': 'secret_name_input1'
+                                        },
+                                        'keyToEnv': [
+                                            {
+                                                'secretKey': 'foo',
+                                                'envVar': 'CM_VAR'
+                                            },
+                                        ]
+                                    },
+                                    {
+                                        'secretNameParameter': {
+                                            'componentInputParameter': 'secret_name_input2'
+                                        },
+                                        'keyToEnv': [
+                                            {
+                                                'secretKey': 'foo',
+                                                'envVar': 'CM_VAR'
+                                            },
+                                        ]
+                                    },
+                                ]
+                            },
+                            'exec-comp-2': {
+                                'secretAsEnv': [
+                                    {
+                                        'secretNameParameter': {
+                                            'componentInputParameter': 'secret_name_input2'
+                                        },
+                                        'keyToEnv': [
+                                            {
+                                                'secretKey': 'foo',
+                                                'envVar': 'CM_VAR'
+                                            },
+                                        ]
+                                    },
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    def test_component_upstream_input_one(self):
+        # checks that upstream task input parameters
+        # are supported
+        @dsl.pipeline
+        def my_pipeline():
+            t1 = comp()
+            t2 = comp_with_output()
+            kubernetes.use_secret_as_env(
+                t1,
+                secret_name=t2.output,
+                secret_key_to_env={
+                    'foo': 'CM_VAR',
+                },
+            )
+        assert json_format.MessageToDict(my_pipeline.platform_spec) == {
+            'platforms': {
+                'kubernetes': {
+                    'deploymentSpec': {
+                        'executors': {
+                            'exec-comp': {
+                                'secretAsEnv': [{
+                                    'secretNameParameter': {
+                                        'taskOutputParameter': {
+                                            'outputParameterKey': 'Output',
+                                            'producerTask': 'comp-with-output'
+                                        }
+                                    },
+                                    'keyToEnv': [
+                                        {
+                                            'secretKey': 'foo',
+                                            'envVar': 'CM_VAR'
+                                        },
+                                    ]
+                                }]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    def test_component_upstream_input_two(self):
+        # checks that multiple upstream task input
+        # parameters are supported
+        @dsl.pipeline
+        def my_pipeline():
+            t1 = comp()
+            t2 = comp_with_output()
+            t3 = comp_with_output()
+            kubernetes.use_secret_as_env(
+                t1,
+                secret_name=t2.output,
+                secret_key_to_env={
+                    'foo': 'CM_VAR',
+                },
+            )
+            kubernetes.use_secret_as_env(
+                t1,
+                secret_name=t3.output,
+                secret_key_to_env={
+                    'foo': 'CM_VAR',
+                },
+            )
+
+            t4 = comp()
+            kubernetes.use_secret_as_env(
+                t4,
+                secret_name=t2.output,
+                secret_key_to_env={
+                    'foo': 'CM_VAR',
+                },
+            )
+
+        assert json_format.MessageToDict(my_pipeline.platform_spec) == {
+            'platforms': {
+                'kubernetes': {
+                    'deploymentSpec': {
+                        'executors': {
+                            'exec-comp': {
+                                'secretAsEnv': [
+                                    {
+                                        'secretNameParameter': {
+                                            'taskOutputParameter': {
+                                                'outputParameterKey': 'Output',
+                                                'producerTask': 'comp-with-output'
+                                            }
+                                        },
+                                        'keyToEnv': [
+                                            {
+                                                'secretKey': 'foo',
+                                                'envVar': 'CM_VAR'
+                                            },
+                                        ]
+                                    },
+                                    {
+                                        'secretNameParameter': {
+                                            'taskOutputParameter': {
+                                                'outputParameterKey': 'Output',
+                                                'producerTask': 'comp-with-output-2'
+                                            }
+                                        },
+                                        'keyToEnv': [
+                                            {
+                                                'secretKey': 'foo',
+                                                'envVar': 'CM_VAR'
+                                            },
+                                        ]
+                                    }
+                                ]
+                            },
+                            'exec-comp-2': {
+                                'secretAsEnv': [
+                                    {
+                                        'secretNameParameter': {
+                                            'taskOutputParameter': {
+                                                'outputParameterKey': 'Output',
+                                                'producerTask': 'comp-with-output'
+                                            }
+                                        },
+                                        'keyToEnv': [
+                                            {
+                                                'secretKey': 'foo',
+                                                'envVar': 'CM_VAR'
+                                            },
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
 @dsl.component
 def comp():
+    pass
+
+@dsl.component()
+def comp_with_output() -> str:
     pass

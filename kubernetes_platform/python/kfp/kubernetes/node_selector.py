@@ -37,7 +37,9 @@ def add_node_selector(
         label_value: Value of the nodeSelector label. Requires label_key.
         node_selector_json:
             node selector provided as dict or input parameter. Takes
-            precedence over label_key and label_value.
+            precedence over label_key and label_value. Only one
+            node_selector_json is applicable to a task and can contain
+            multiple key/value pairs.
     Returns:
         Task object with an added nodeSelector constraint.
     """
