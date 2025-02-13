@@ -14,6 +14,8 @@
 
 FROM golang:1.22.10-alpine3.21 as builder
 
+ARG LOCAL_MODE=false
+
 WORKDIR /go/src/github.com/kubeflow/pipelines
 
 COPY ./go.mod ./
@@ -22,6 +24,12 @@ COPY ./go.sum ./
 RUN GO111MODULE=on go mod download
 
 COPY . .
+
+RUN if [ "$LOCAL_MODE" = "true" ]; then \
+      echo "DEV MODE ENABVLED" && \
+      go mod edit -replace github.com/kubeflow/pipelines/kubernetes_platform=./kubernetes_platform &&  \
+      go mod edit -replace github.com/kubeflow/pipelines/api=./api && \
+      go mod tidy; fi
 
 RUN GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags netgo -ldflags '-extldflags "-static"' -o /bin/launcher-v2 ./backend/src/v2/cmd/launcher-v2/*.go
 
