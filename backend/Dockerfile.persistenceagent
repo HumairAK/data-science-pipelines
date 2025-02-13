@@ -14,10 +14,18 @@
 
 FROM golang:1.22.10-alpine3.21 as builder
 
+ARG LOCAL_MODE=false
+
 WORKDIR /go/src/github.com/kubeflow/pipelines
 
 COPY ./go.mod ./
 COPY ./go.sum ./
+
+RUN if [ "$LOCAL_MODE" = "true" ]; then \
+      echo "DEV MODE ENABVLED" && \
+      go mod edit -replace github.com/kubeflow/pipelines/kubernetes_platform=./kubernetes_platform &&  \
+      go mod edit -replace github.com/kubeflow/pipelines/api=./api && \
+      go mod tidy; fi
 
 RUN GO111MODULE=on go mod download
 

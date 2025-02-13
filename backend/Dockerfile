@@ -14,11 +14,21 @@
 
 # 1. Build api server application
 FROM golang:1.22.10-bookworm as builder
+
+ARG LOCAL_MODE=false
+
 RUN apt-get update && apt-get install -y cmake clang musl-dev openssl
 WORKDIR /go/src/github.com/kubeflow/pipelines
 
 COPY ./go.mod ./
 COPY ./go.sum ./
+COPY ./kubernetes_platform/go.mod ./kubernetes_platform/go.mod
+
+RUN if [ "$LOCAL_MODE" = "true" ]; then \
+      echo "DEV MODE ENABVLED" && \
+      go mod edit -replace github.com/kubeflow/pipelines/kubernetes_platform=./kubernetes_platform &&  \
+      go mod edit -replace github.com/kubeflow/pipelines/api=./api && \
+      go mod tidy; fi
 
 RUN GO111MODULE=on go mod download
 
