@@ -40,7 +40,9 @@ jobs:
       - name: Generate kfp-kubernetes proto files from source
         working-directory: ./kubernetes_platform
         run: make clean all
-      
+
+      - name: Run go mod tidy
+        run: go mod tidy
+
       - name: Check for Changes
         run: make check-diff
-          

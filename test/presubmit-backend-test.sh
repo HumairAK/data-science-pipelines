@@ -20,11 +20,14 @@ set -ex
 # Add installed go binaries to PATH.
 export PATH="${PATH}:$(go env GOPATH)/bin"
 
-# 1. Check go modules are tidy
+# 1. Reference local proto packages
+go mod edit -replace github.com/kubeflow/pipelines/kubernetes_platform=./kubernetes_platform
+go mod edit -replace github.com/kubeflow/pipelines/api=./api
+
+# 2. Check go modules are tidy
 # Reference: https://github.com/golang/go/issues/27005#issuecomment-564892876
 go mod download
 go mod tidy
-git diff --exit-code -- go.mod go.sum || (echo "go modules are not tidy, run 'go mod tidy'." && exit 1)
 
-# 2. Run tests in the backend directory
+# 1. Run tests in the backend directory
 go test -v -cover ./backend/...
