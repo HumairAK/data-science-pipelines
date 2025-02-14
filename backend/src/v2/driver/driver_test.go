@@ -401,12 +401,13 @@ func Test_makeVolumeMountPatch(t *testing.T) {
 	// TODO(lingqinggan): add more test cases for task output parameter and component input.
 	// Omitted now due to type Execution defined in metadata has unexported fields.
 	tests := []struct {
-		name     string
-		args     args
-		wantPath string
-		wantName string
-		wantErr  bool
-		errMsg   string
+		name        string
+		args        args
+		wantPath    string
+		wantName    string
+		wantErr     bool
+		inputParams map[string]*structpb.Value
+		errMsg      string
 	}{
 		{
 			"pvc name: constant",
@@ -424,9 +425,32 @@ func Test_makeVolumeMountPatch(t *testing.T) {
 			"/mnt/path",
 			"pvc-name",
 			false,
+			nil,
+			"",
+		},
+		{
+			"pvc name: component input",
+			args{
+				[]*kubernetesplatform.PvcMount{
+					{
+						MountPath:        "/mnt/path",
+						PvcReference:     &kubernetesplatform.PvcMount_Constant{Constant: "pvc-name"},
+						PvcNameParameter: strInputParamComponent("param_1"),
+					},
+				},
+				nil,
+				nil,
+			},
+			"/mnt/path",
+			"pvc-name",
+			false,
+			map[string]*structpb.Value{
+				"param_1": structpb.NewStringValue("pvc-name"),
+			},
 			"",
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			volumeMounts, volumes, err := makeVolumeMountPatch(
@@ -436,7 +460,7 @@ func Test_makeVolumeMountPatch(t *testing.T) {
 				tt.args.dag,
 				nil,
 				nil,
-				nil,
+				tt.inputParams,
 			)
 			if tt.wantErr {
 				assert.NotNil(t, err)
@@ -1860,6 +1884,25 @@ func strInputParamConstant(value string) *kubernetesplatform.InputParameterSpec 
 				Value: &kubernetesplatform.ValueOrRuntimeParameter_Constant{
 					Constant: &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: value}},
 				},
+			},
+		},
+	}
+}
+
+func strInputParamComponent(value string) *kubernetesplatform.InputParameterSpec {
+	return &kubernetesplatform.InputParameterSpec{
+		Kind: &kubernetesplatform.InputParameterSpec_ComponentInputParameter{
+			ComponentInputParameter: value,
+		},
+	}
+}
+
+func strInputParamUpstreamTask(producer, outputParamKey string) *kubernetesplatform.InputParameterSpec {
+	return &kubernetesplatform.InputParameterSpec{
+		Kind: &kubernetesplatform.InputParameterSpec_TaskOutputParameter{
+			TaskOutputParameter: &kubernetesplatform.InputParameterSpec_TaskOutputParameterSpec{
+				ProducerTask:       producer,
+				OutputParameterKey: outputParamKey,
 			},
 		},
 	}
