@@ -28,7 +28,7 @@ python3 -m pip install $(grep 'pytest==' sdk/python/requirements-dev.txt)
 python3 -m pip install $(grep 'pytest-xdist==' sdk/python/requirements-dev.txt)
 python3 -m pip install $(grep 'pytest-cov==' sdk/python/requirements-dev.txt)
 python3 -m pip install --upgrade protobuf
-
+python3 -m pip install api/v2alpha1/python
 python3 -m pip install sdk/python
 
 pytest sdk/python/kfp --cov=kfp
