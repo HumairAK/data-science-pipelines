@@ -1761,6 +1761,30 @@ func Test_extendPodSpecPatch_ImagePullSecrets(t *testing.T) {
 			},
 			nil,
 		},
+		{
+			"Valid - multiple input parameter secret names",
+			&kubernetesplatform.KubernetesExecutorConfig{
+				ImagePullSecret: []*kubernetesplatform.ImagePullSecret{
+					{SecretName: "not-used1", SecretNameParameter: strInputParamComponent("param_1")},
+					{SecretName: "not-used2", SecretNameParameter: strInputParamComponent("param_2")},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+					},
+				},
+				ImagePullSecrets: []k8score.LocalObjectReference{
+					{Name: "secret-name-1"},
+					{Name: "secret-name-2"},
+				},
+			},
+			map[string]*structpb.Value{
+				"param_1": structpb.NewStringValue("secret-name-1"),
+				"param_2": structpb.NewStringValue("secret-name-2"),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1856,6 +1880,142 @@ func Test_extendPodSpecPatch_Tolerations(t *testing.T) {
 				},
 			},
 			nil,
+		},
+		{
+			"Valid - toleration json - constant",
+			&kubernetesplatform.KubernetesExecutorConfig{
+				Tolerations: []*kubernetesplatform.Toleration{
+					{
+						TolerationJson: structInputParamConstant(map[string]interface{}{
+							"key":               "key1",
+							"operator":          "Equal",
+							"value":             "value1",
+							"effect":            "NoSchedule",
+							"tolerationSeconds": nil,
+						}),
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+					},
+				},
+				Tolerations: []k8score.Toleration{
+					{
+						Key:               "key1",
+						Operator:          "Equal",
+						Value:             "value1",
+						Effect:            "NoSchedule",
+						TolerationSeconds: nil,
+					},
+				},
+			},
+			nil,
+		},
+		{
+			"Valid - toleration json - component input",
+			&kubernetesplatform.KubernetesExecutorConfig{
+				Tolerations: []*kubernetesplatform.Toleration{
+					{
+						TolerationJson: strInputParamComponent("param_1"),
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+					},
+				},
+				Tolerations: []k8score.Toleration{
+					{
+						Key:               "key1",
+						Operator:          "Equal",
+						Value:             "value1",
+						Effect:            "NoSchedule",
+						TolerationSeconds: int64_ptr(3600),
+					},
+				},
+			},
+			map[string]*structpb.Value{
+				"param_1": validValueStructOrPanic(map[string]interface{}{
+					"key":               "key1",
+					"operator":          "Equal",
+					"value":             "value1",
+					"effect":            "NoSchedule",
+					"tolerationSeconds": 3600,
+				}),
+			},
+		},
+		{
+			"Valid - toleration json - multiple input types",
+			&kubernetesplatform.KubernetesExecutorConfig{
+				Tolerations: []*kubernetesplatform.Toleration{
+					{
+						TolerationJson: strInputParamComponent("param_1"),
+					},
+					{
+						TolerationJson: structInputParamConstant(map[string]interface{}{
+							"key":               "key2",
+							"operator":          "Equal",
+							"value":             "value2",
+							"effect":            "NoSchedule",
+							"tolerationSeconds": 3602,
+						}),
+						// Json takes precedence, these should not get used
+						Key:   "key3",
+						Value: "value3",
+					},
+					{
+						Key:               "key4",
+						Operator:          "Equal",
+						Value:             "value4",
+						Effect:            "NoSchedule",
+						TolerationSeconds: int64_ptr(3604),
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+					},
+				},
+				Tolerations: []k8score.Toleration{
+					{
+						Key:               "key1",
+						Operator:          "Equal",
+						Value:             "value1",
+						Effect:            "NoSchedule",
+						TolerationSeconds: int64_ptr(3601),
+					},
+					{
+						Key:               "key2",
+						Operator:          "Equal",
+						Value:             "value2",
+						Effect:            "NoSchedule",
+						TolerationSeconds: int64_ptr(3602),
+					},
+					{
+						Key:               "key4",
+						Operator:          "Equal",
+						Value:             "value4",
+						Effect:            "NoSchedule",
+						TolerationSeconds: int64_ptr(3604),
+					},
+				},
+			},
+			map[string]*structpb.Value{
+				"param_1": validValueStructOrPanic(map[string]interface{}{
+					"key":               "key1",
+					"operator":          "Equal",
+					"value":             "value1",
+					"effect":            "NoSchedule",
+					"tolerationSeconds": 3601,
+				}),
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -2342,4 +2502,21 @@ func validValueStructOrPanic(data map[string]interface{}) *structpb.Value {
 		panic(err)
 	}
 	return structpb.NewStructValue(s)
+}
+
+// TODO: combine with strInputParamConstant in util, maybe use template
+func structInputParamConstant(value map[string]interface{}) *kubernetesplatform.InputParameterSpec {
+	return &kubernetesplatform.InputParameterSpec{
+		Kind: &kubernetesplatform.InputParameterSpec_RuntimeValue{
+			RuntimeValue: &kubernetesplatform.ValueOrRuntimeParameter{
+				Value: &kubernetesplatform.ValueOrRuntimeParameter_Constant{
+					Constant: validValueStructOrPanic(value),
+				},
+			},
+		},
+	}
+}
+
+func int64_ptr(val int64) *int64 {
+	return &val
 }
