@@ -140,3 +140,34 @@ func convertToProtoMessages(src *kubernetesplatform.InputParameterSpec, dst *pip
 	}
 	return protojson.Unmarshal(data, proto.MessageV2(dst))
 }
+
+func strInputParamConstant(value string) *kubernetesplatform.InputParameterSpec {
+	return &kubernetesplatform.InputParameterSpec{
+		Kind: &kubernetesplatform.InputParameterSpec_RuntimeValue{
+			RuntimeValue: &kubernetesplatform.ValueOrRuntimeParameter{
+				Value: &kubernetesplatform.ValueOrRuntimeParameter_Constant{
+					Constant: structpb.NewStringValue(value),
+				},
+			},
+		},
+	}
+}
+
+func strInputParamComponent(value string) *kubernetesplatform.InputParameterSpec {
+	return &kubernetesplatform.InputParameterSpec{
+		Kind: &kubernetesplatform.InputParameterSpec_ComponentInputParameter{
+			ComponentInputParameter: value,
+		},
+	}
+}
+
+func strInputParamTaskOutput(producerTask, outputParamKey string) *kubernetesplatform.InputParameterSpec {
+	return &kubernetesplatform.InputParameterSpec{
+		Kind: &kubernetesplatform.InputParameterSpec_TaskOutputParameter{
+			TaskOutputParameter: &kubernetesplatform.InputParameterSpec_TaskOutputParameterSpec{
+				ProducerTask:       producerTask,
+				OutputParameterKey: outputParamKey,
+			},
+		},
+	}
+}

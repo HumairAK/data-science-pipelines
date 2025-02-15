@@ -647,12 +647,19 @@ func extendPodSpecPatch(
 
 	// Get secret mount information
 	for _, secretAsVolume := range kubernetesExecutorConfig.GetSecretAsVolume() {
-		resolvedSecretName, err := resolveK8sParameter(ctx, opts, dag, pipeline, mlmd,
-			secretAsVolume.SecretNameParameter, inputParams)
-		if err != nil {
-			return fmt.Errorf("failed to resolve secret name: %w", err)
+		var secretName string
+
+		if secretAsVolume.SecretNameParameter != nil {
+			resolvedSecretName, err := resolveK8sParameter(ctx, opts, dag, pipeline, mlmd,
+				secretAsVolume.SecretNameParameter, inputParams)
+			if err != nil {
+				return fmt.Errorf("failed to resolve secret name: %w", err)
+			}
+			secretName = resolvedSecretName.GetStringValue()
+		} else {
+			secretName = secretAsVolume.SecretName
 		}
-		secretName := resolvedSecretName.GetStringValue()
+
 		optional := secretAsVolume.Optional != nil && *secretAsVolume.Optional
 		secretVolume := k8score.Volume{
 			Name: secretName,
@@ -2140,12 +2147,31 @@ func makeVolumeMountPatch(
 	var volumeMounts []k8score.VolumeMount
 	var volumes []k8score.Volume
 	for _, pvcMount := range pvcMounts {
+		var pvcNameParameter *kubernetesplatform.InputParameterSpec
+		if pvcMount.PvcNameParameter != nil {
+			pvcNameParameter = pvcMount.PvcNameParameter
+		} else { // Support deprecated fields
+			if pvcMount.GetConstant() != "" {
+				pvcNameParameter = strInputParamConstant(pvcMount.GetConstant())
+			} else if pvcMount.GetTaskOutputParameter() != nil {
+				pvcNameParameter = strInputParamTaskOutput(
+					pvcMount.GetTaskOutputParameter().GetProducerTask(),
+					pvcMount.GetTaskOutputParameter().GetOutputParameterKey(),
+				)
+			} else if pvcMount.GetComponentInputParameter() != "" {
+				pvcNameParameter = strInputParamComponent(pvcMount.GetComponentInputParameter())
+			} else {
+				return nil, nil, fmt.Errorf("failed to make podSpecPatch: volume mount: volume name not provided")
+			}
+		}
+
 		resolvedPvcName, err := resolveK8sParameter(ctx, opts, dag, pipeline, mlmd,
-			pvcMount.PvcNameParameter, inputParams)
+			pvcNameParameter, inputParams)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to resolve pvc name: %w", err)
 		}
 		pvcName := resolvedPvcName.GetStringValue()
+
 		pvcMountPath := pvcMount.GetMountPath()
 		if pvcName == "" || pvcMountPath == "" {
 			return nil, nil, fmt.Errorf("failed to mount volume, missing mountpath or pvc name")

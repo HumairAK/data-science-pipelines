@@ -409,11 +409,30 @@ func Test_makeVolumeMountPatch(t *testing.T) {
 		errMsg      string
 	}{
 		{
-			"pvc name: constant",
+			"pvc name: constant (deprecated)",
 			args{
 				[]*kubernetesplatform.PvcMount{
 					{
-						MountPath:        "/mnt/path",
+						MountPath:    "/mnt/path",
+						PvcReference: &kubernetesplatform.PvcMount_Constant{Constant: "pvc-name"},
+					},
+				},
+				nil,
+				nil,
+			},
+			"/mnt/path",
+			"pvc-name",
+			false,
+			nil,
+			"",
+		},
+		{
+			"pvc name: constant parameter",
+			args{
+				[]*kubernetesplatform.PvcMount{
+					{
+						MountPath: "/mnt/path",
+						// Deprecated field allowed but not used
 						PvcReference:     &kubernetesplatform.PvcMount_Constant{Constant: "pvc-name"},
 						PvcNameParameter: strInputParamConstant("pvc-name"),
 					},
@@ -428,12 +447,11 @@ func Test_makeVolumeMountPatch(t *testing.T) {
 			"",
 		},
 		{
-			"pvc name: component input",
+			"pvc name: component input parameter",
 			args{
 				[]*kubernetesplatform.PvcMount{
 					{
 						MountPath:        "/mnt/path",
-						PvcReference:     &kubernetesplatform.PvcMount_Constant{Constant: "pvc-name"},
 						PvcNameParameter: strInputParamComponent("param_1"),
 					},
 				},
@@ -727,7 +745,46 @@ func Test_extendPodSpecPatch_Secret(t *testing.T) {
 		expected   *k8score.PodSpec
 	}{
 		{
-			"Valid - secret as volume",
+			"Valid - secret as volume - deprecated",
+			&kubernetesplatform.KubernetesExecutorConfig{
+				SecretAsVolume: []*kubernetesplatform.SecretAsVolume{
+					{
+						SecretName: "secret1",
+						MountPath:  "/data/path",
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+						VolumeMounts: []k8score.VolumeMount{
+							{
+								Name:      "secret1",
+								MountPath: "/data/path",
+							},
+						},
+					},
+				},
+				Volumes: []k8score.Volume{
+					{
+						Name: "secret1",
+						VolumeSource: k8score.VolumeSource{
+							Secret: &k8score.SecretVolumeSource{SecretName: "secret1", Optional: &[]bool{false}[0]},
+						},
+					},
+				},
+			},
+		},
+		{
+			"Valid - secret as volume with input parameter",
 			&kubernetesplatform.KubernetesExecutorConfig{
 				SecretAsVolume: []*kubernetesplatform.SecretAsVolume{
 					{
@@ -1926,26 +1983,6 @@ func Test_extendPodSpecPatch_GenericEphemeralVolume(t *testing.T) {
 			assert.Nil(t, err)
 			assert.Equal(t, tt.expected, tt.podSpec)
 		})
-	}
-}
-
-func strInputParamConstant(value string) *kubernetesplatform.InputParameterSpec {
-	return &kubernetesplatform.InputParameterSpec{
-		Kind: &kubernetesplatform.InputParameterSpec_RuntimeValue{
-			RuntimeValue: &kubernetesplatform.ValueOrRuntimeParameter{
-				Value: &kubernetesplatform.ValueOrRuntimeParameter_Constant{
-					Constant: structpb.NewStringValue(value),
-				},
-			},
-		},
-	}
-}
-
-func strInputParamComponent(value string) *kubernetesplatform.InputParameterSpec {
-	return &kubernetesplatform.InputParameterSpec{
-		Kind: &kubernetesplatform.InputParameterSpec_ComponentInputParameter{
-			ComponentInputParameter: value,
-		},
 	}
 }
 
