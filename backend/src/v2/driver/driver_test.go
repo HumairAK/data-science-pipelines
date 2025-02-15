@@ -431,9 +431,8 @@ func Test_makeVolumeMountPatch(t *testing.T) {
 			args{
 				[]*kubernetesplatform.PvcMount{
 					{
-						MountPath: "/mnt/path",
-						// Deprecated field allowed but not used
-						PvcReference:     &kubernetesplatform.PvcMount_Constant{Constant: "pvc-name"},
+						MountPath:        "/mnt/path",
+						PvcReference:     &kubernetesplatform.PvcMount_Constant{Constant: "not-used"},
 						PvcNameParameter: strInputParamConstant("pvc-name"),
 					},
 				},
@@ -739,10 +738,11 @@ func Test_makePodSpecPatch_nodeSelector(t *testing.T) {
 
 func Test_extendPodSpecPatch_Secret(t *testing.T) {
 	tests := []struct {
-		name       string
-		k8sExecCfg *kubernetesplatform.KubernetesExecutorConfig
-		podSpec    *k8score.PodSpec
-		expected   *k8score.PodSpec
+		name        string
+		k8sExecCfg  *kubernetesplatform.KubernetesExecutorConfig
+		podSpec     *k8score.PodSpec
+		expected    *k8score.PodSpec
+		inputParams map[string]*structpb.Value
 	}{
 		{
 			"Valid - secret as volume (deprecated)",
@@ -782,14 +782,14 @@ func Test_extendPodSpecPatch_Secret(t *testing.T) {
 					},
 				},
 			},
+			nil,
 		},
 		{
 			"Valid - secret as volume",
 			&kubernetesplatform.KubernetesExecutorConfig{
 				SecretAsVolume: []*kubernetesplatform.SecretAsVolume{
 					{
-						// Deprecated field allowed but not used
-						SecretName:          "secret1",
+						SecretName:          "not-used",
 						SecretNameParameter: strInputParamConstant("secret1"),
 						MountPath:           "/data/path",
 					},
@@ -823,13 +823,14 @@ func Test_extendPodSpecPatch_Secret(t *testing.T) {
 					},
 				},
 			},
+			nil,
 		},
 		{
 			"Valid - secret as volume with optional false",
 			&kubernetesplatform.KubernetesExecutorConfig{
 				SecretAsVolume: []*kubernetesplatform.SecretAsVolume{
 					{
-						SecretName:          "secret1",
+						SecretName:          "not-used",
 						SecretNameParameter: strInputParamConstant("secret1"),
 						MountPath:           "/data/path",
 						Optional:            &[]bool{false}[0],
@@ -864,13 +865,14 @@ func Test_extendPodSpecPatch_Secret(t *testing.T) {
 					},
 				},
 			},
+			nil,
 		},
 		{
 			"Valid - secret as volume with optional true",
 			&kubernetesplatform.KubernetesExecutorConfig{
 				SecretAsVolume: []*kubernetesplatform.SecretAsVolume{
 					{
-						SecretName:          "secret1",
+						SecretName:          "not-used",
 						SecretNameParameter: strInputParamConstant("secret1"),
 						MountPath:           "/data/path",
 						Optional:            &[]bool{true}[0],
@@ -905,6 +907,7 @@ func Test_extendPodSpecPatch_Secret(t *testing.T) {
 					},
 				},
 			},
+			nil,
 		},
 		{
 			"Valid - secret not specified",
@@ -922,6 +925,51 @@ func Test_extendPodSpecPatch_Secret(t *testing.T) {
 						Name: "main",
 					},
 				},
+			},
+			nil,
+		},
+		{
+			"Valid - secret as volume: component input parameter",
+			&kubernetesplatform.KubernetesExecutorConfig{
+				SecretAsVolume: []*kubernetesplatform.SecretAsVolume{
+					{
+						SecretName:          "not-used",
+						SecretNameParameter: strInputParamComponent("param_1"),
+						MountPath:           "/data/path",
+						Optional:            &[]bool{true}[0],
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+						VolumeMounts: []k8score.VolumeMount{
+							{
+								Name:      "secret-name",
+								MountPath: "/data/path",
+							},
+						},
+					},
+				},
+				Volumes: []k8score.Volume{
+					{
+						Name: "secret-name",
+						VolumeSource: k8score.VolumeSource{
+							Secret: &k8score.SecretVolumeSource{SecretName: "secret-name", Optional: &[]bool{true}[0]},
+						},
+					},
+				},
+			},
+			map[string]*structpb.Value{
+				"param_1": structpb.NewStringValue("secret-name"),
 			},
 		},
 		{
@@ -965,13 +1013,14 @@ func Test_extendPodSpecPatch_Secret(t *testing.T) {
 					},
 				},
 			},
+			nil,
 		},
 		{
 			"Valid - secret as env",
 			&kubernetesplatform.KubernetesExecutorConfig{
 				SecretAsEnv: []*kubernetesplatform.SecretAsEnv{
 					{
-						SecretName:          "my-secret",
+						SecretName:          "not-used",
 						SecretNameParameter: strInputParamConstant("my-secret"),
 						KeyToEnv: []*kubernetesplatform.SecretAsEnv_SecretKeyToEnvMap{
 							{
@@ -1008,6 +1057,52 @@ func Test_extendPodSpecPatch_Secret(t *testing.T) {
 					},
 				},
 			},
+			nil,
+		},
+		{
+			"Valid - secret as env: component input parameter",
+			&kubernetesplatform.KubernetesExecutorConfig{
+				SecretAsEnv: []*kubernetesplatform.SecretAsEnv{
+					{
+						SecretNameParameter: strInputParamComponent("param_1"),
+						KeyToEnv: []*kubernetesplatform.SecretAsEnv_SecretKeyToEnvMap{
+							{
+								SecretKey: "password",
+								EnvVar:    "SECRET_VAR",
+							},
+						},
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+						Env: []k8score.EnvVar{
+							{
+								Name: "SECRET_VAR",
+								ValueFrom: &k8score.EnvVarSource{
+									SecretKeyRef: &k8score.SecretKeySelector{
+										k8score.LocalObjectReference{Name: "secret-name"},
+										"password",
+										nil,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			map[string]*structpb.Value{
+				"param_1": structpb.NewStringValue("secret-name"),
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -1019,7 +1114,7 @@ func Test_extendPodSpecPatch_Secret(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				map[string]*structpb.Value{},
+				tt.inputParams,
 			)
 			assert.Nil(t, err)
 			assert.Equal(t, tt.expected, tt.podSpec)
@@ -1029,10 +1124,11 @@ func Test_extendPodSpecPatch_Secret(t *testing.T) {
 
 func Test_extendPodSpecPatch_ConfigMap(t *testing.T) {
 	tests := []struct {
-		name       string
-		k8sExecCfg *kubernetesplatform.KubernetesExecutorConfig
-		podSpec    *k8score.PodSpec
-		expected   *k8score.PodSpec
+		name        string
+		k8sExecCfg  *kubernetesplatform.KubernetesExecutorConfig
+		podSpec     *k8score.PodSpec
+		expected    *k8score.PodSpec
+		inputParams map[string]*structpb.Value
 	}{
 		{
 			"Valid - config map as volume (deprecated)",
@@ -1074,13 +1170,14 @@ func Test_extendPodSpecPatch_ConfigMap(t *testing.T) {
 					},
 				},
 			},
+			nil,
 		},
 		{
 			"Valid - config map as volume",
 			&kubernetesplatform.KubernetesExecutorConfig{
 				ConfigMapAsVolume: []*kubernetesplatform.ConfigMapAsVolume{
 					{
-						ConfigMapName:       "cm1",
+						ConfigMapName:       "not-used",
 						ConfigNameParameter: strInputParamConstant("cm1"),
 						MountPath:           "/data/path",
 					},
@@ -1116,13 +1213,14 @@ func Test_extendPodSpecPatch_ConfigMap(t *testing.T) {
 					},
 				},
 			},
+			nil,
 		},
 		{
 			"Valid - config map as volume with optional false",
 			&kubernetesplatform.KubernetesExecutorConfig{
 				ConfigMapAsVolume: []*kubernetesplatform.ConfigMapAsVolume{
 					{
-						ConfigMapName:       "cm1",
+						ConfigMapName:       "not-used",
 						ConfigNameParameter: strInputParamConstant("cm1"),
 						MountPath:           "/data/path",
 						Optional:            &[]bool{false}[0],
@@ -1159,13 +1257,14 @@ func Test_extendPodSpecPatch_ConfigMap(t *testing.T) {
 					},
 				},
 			},
+			nil,
 		},
 		{
 			"Valid - config map as volume with optional true",
 			&kubernetesplatform.KubernetesExecutorConfig{
 				ConfigMapAsVolume: []*kubernetesplatform.ConfigMapAsVolume{
 					{
-						ConfigMapName:       "cm1",
+						ConfigMapName:       "not-used",
 						ConfigNameParameter: strInputParamConstant("cm1"),
 						MountPath:           "/data/path",
 						Optional:            &[]bool{true}[0],
@@ -1202,6 +1301,7 @@ func Test_extendPodSpecPatch_ConfigMap(t *testing.T) {
 					},
 				},
 			},
+			nil,
 		},
 		{
 			"Valid - config map not specified",
@@ -1219,6 +1319,53 @@ func Test_extendPodSpecPatch_ConfigMap(t *testing.T) {
 						Name: "main",
 					},
 				},
+			},
+			nil,
+		},
+		{
+			"Valid - config map volume: component input parameter",
+			&kubernetesplatform.KubernetesExecutorConfig{
+				ConfigMapAsVolume: []*kubernetesplatform.ConfigMapAsVolume{
+					{
+						ConfigMapName:       "not-used",
+						ConfigNameParameter: strInputParamComponent("param_1"),
+						MountPath:           "/data/path",
+						Optional:            &[]bool{true}[0],
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+						VolumeMounts: []k8score.VolumeMount{
+							{
+								Name:      "cm-name",
+								MountPath: "/data/path",
+							},
+						},
+					},
+				},
+				Volumes: []k8score.Volume{
+					{
+						Name: "cm-name",
+						VolumeSource: k8score.VolumeSource{
+							ConfigMap: &k8score.ConfigMapVolumeSource{
+								LocalObjectReference: k8score.LocalObjectReference{Name: "cm-name"},
+								Optional:             &[]bool{true}[0]},
+						},
+					},
+				},
+			},
+			map[string]*structpb.Value{
+				"param_1": structpb.NewStringValue("cm-name"),
 			},
 		},
 		{
@@ -1262,13 +1409,14 @@ func Test_extendPodSpecPatch_ConfigMap(t *testing.T) {
 					},
 				},
 			},
+			nil,
 		},
 		{
 			"Valid - config map as env",
 			&kubernetesplatform.KubernetesExecutorConfig{
 				ConfigMapAsEnv: []*kubernetesplatform.ConfigMapAsEnv{
 					{
-						ConfigMapName:       "my-cm",
+						ConfigMapName:       "not-used",
 						ConfigNameParameter: strInputParamConstant("my-cm"),
 						KeyToEnv: []*kubernetesplatform.ConfigMapAsEnv_ConfigMapKeyToEnvMap{
 							{
@@ -1305,6 +1453,53 @@ func Test_extendPodSpecPatch_ConfigMap(t *testing.T) {
 					},
 				},
 			},
+			nil,
+		},
+		{
+			"Valid - config map as env: component input parameter",
+			&kubernetesplatform.KubernetesExecutorConfig{
+				ConfigMapAsEnv: []*kubernetesplatform.ConfigMapAsEnv{
+					{
+						ConfigMapName:       "not-used",
+						ConfigNameParameter: strInputParamComponent("param_1"),
+						KeyToEnv: []*kubernetesplatform.ConfigMapAsEnv_ConfigMapKeyToEnvMap{
+							{
+								ConfigMapKey: "foo",
+								EnvVar:       "CONFIG_MAP_VAR",
+							},
+						},
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+						Env: []k8score.EnvVar{
+							{
+								Name: "CONFIG_MAP_VAR",
+								ValueFrom: &k8score.EnvVarSource{
+									ConfigMapKeyRef: &k8score.ConfigMapKeySelector{
+										k8score.LocalObjectReference{Name: "cm-name"},
+										"foo",
+										nil,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			map[string]*structpb.Value{
+				"param_1": structpb.NewStringValue("cm-name"),
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -1316,7 +1511,7 @@ func Test_extendPodSpecPatch_ConfigMap(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				map[string]*structpb.Value{},
+				tt.inputParams,
 			)
 			assert.Nil(t, err)
 			assert.Equal(t, tt.expected, tt.podSpec)
@@ -1493,9 +1688,10 @@ func Test_extendPodSpecPatch_EmptyVolumeMount(t *testing.T) {
 
 func Test_extendPodSpecPatch_ImagePullSecrets(t *testing.T) {
 	tests := []struct {
-		name       string
-		k8sExecCfg *kubernetesplatform.KubernetesExecutorConfig
-		expected   *k8score.PodSpec
+		name        string
+		k8sExecCfg  *kubernetesplatform.KubernetesExecutorConfig
+		expected    *k8score.PodSpec
+		inputParams map[string]*structpb.Value
 	}{
 		{
 			"Valid - SecretA and SecretB (deprecated)",
@@ -1516,6 +1712,7 @@ func Test_extendPodSpecPatch_ImagePullSecrets(t *testing.T) {
 					{Name: "SecretB"},
 				},
 			},
+			nil,
 		},
 		{
 			"Valid - SecretA and SecretB",
@@ -1536,6 +1733,7 @@ func Test_extendPodSpecPatch_ImagePullSecrets(t *testing.T) {
 					{Name: "SecretB"},
 				},
 			},
+			nil,
 		},
 		{
 			"Valid - No ImagePullSecrets",
@@ -1549,6 +1747,7 @@ func Test_extendPodSpecPatch_ImagePullSecrets(t *testing.T) {
 					},
 				},
 			},
+			nil,
 		},
 		{
 			"Valid - empty",
@@ -1560,6 +1759,7 @@ func Test_extendPodSpecPatch_ImagePullSecrets(t *testing.T) {
 					},
 				},
 			},
+			nil,
 		},
 	}
 	for _, tt := range tests {
@@ -1576,7 +1776,7 @@ func Test_extendPodSpecPatch_ImagePullSecrets(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				map[string]*structpb.Value{},
+				tt.inputParams,
 			)
 			assert.Nil(t, err)
 			assert.NotNil(t, got)
@@ -1587,9 +1787,10 @@ func Test_extendPodSpecPatch_ImagePullSecrets(t *testing.T) {
 
 func Test_extendPodSpecPatch_Tolerations(t *testing.T) {
 	tests := []struct {
-		name       string
-		k8sExecCfg *kubernetesplatform.KubernetesExecutorConfig
-		expected   *k8score.PodSpec
+		name        string
+		k8sExecCfg  *kubernetesplatform.KubernetesExecutorConfig
+		expected    *k8score.PodSpec
+		inputParams map[string]*structpb.Value
 	}{
 		{
 			"Valid - toleration",
@@ -1619,6 +1820,7 @@ func Test_extendPodSpecPatch_Tolerations(t *testing.T) {
 					},
 				},
 			},
+			nil,
 		},
 		{
 			"Valid - no tolerations",
@@ -1630,6 +1832,7 @@ func Test_extendPodSpecPatch_Tolerations(t *testing.T) {
 					},
 				},
 			},
+			nil,
 		},
 		{
 			"Valid - only pass operator",
@@ -1652,6 +1855,7 @@ func Test_extendPodSpecPatch_Tolerations(t *testing.T) {
 					},
 				},
 			},
+			nil,
 		},
 	}
 	for _, tt := range tests {
@@ -1668,7 +1872,7 @@ func Test_extendPodSpecPatch_Tolerations(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				map[string]*structpb.Value{},
+				tt.inputParams,
 			)
 			assert.Nil(t, err)
 			assert.NotNil(t, got)

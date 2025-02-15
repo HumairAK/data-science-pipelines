@@ -116,16 +116,16 @@ func resolveK8sJsonParameter[k8sResource any](
 	inputParams map[string]*structpb.Value,
 	res *k8sResource,
 ) error {
-	resolvedToleration, err := resolveK8sParameter(ctx, opts, dag, pipeline, mlmd,
+	resolvedParam, err := resolveK8sParameter(ctx, opts, dag, pipeline, mlmd,
 		k8sParamSpec, inputParams)
 	if err != nil {
 		return fmt.Errorf("failed to resolve k8s parameter: %w", err)
 	}
-	tolerationJSON, err := resolvedToleration.GetStructValue().MarshalJSON()
+	paramJSON, err := resolvedParam.GetStructValue().MarshalJSON()
 	if err != nil {
 		return err
 	}
-	err = json.Unmarshal(tolerationJSON, &res)
+	err = json.Unmarshal(paramJSON, &res)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal k8s Resource json "+
 			"ensure that k8s Resource json correctly adheres to its respective k8s spec: %w", err)
