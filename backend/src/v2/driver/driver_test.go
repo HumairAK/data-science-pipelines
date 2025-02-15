@@ -745,7 +745,7 @@ func Test_extendPodSpecPatch_Secret(t *testing.T) {
 		expected   *k8score.PodSpec
 	}{
 		{
-			"Valid - secret as volume - deprecated",
+			"Valid - secret as volume (deprecated)",
 			&kubernetesplatform.KubernetesExecutorConfig{
 				SecretAsVolume: []*kubernetesplatform.SecretAsVolume{
 					{
@@ -784,10 +784,11 @@ func Test_extendPodSpecPatch_Secret(t *testing.T) {
 			},
 		},
 		{
-			"Valid - secret as volume with input parameter",
+			"Valid - secret as volume",
 			&kubernetesplatform.KubernetesExecutorConfig{
 				SecretAsVolume: []*kubernetesplatform.SecretAsVolume{
 					{
+						// Deprecated field allowed but not used
 						SecretName:          "secret1",
 						SecretNameParameter: strInputParamConstant("secret1"),
 						MountPath:           "/data/path",
@@ -924,6 +925,48 @@ func Test_extendPodSpecPatch_Secret(t *testing.T) {
 			},
 		},
 		{
+			"Valid - secret as env (deprecated)",
+			&kubernetesplatform.KubernetesExecutorConfig{
+				SecretAsEnv: []*kubernetesplatform.SecretAsEnv{
+					{
+						SecretName: "my-secret",
+						KeyToEnv: []*kubernetesplatform.SecretAsEnv_SecretKeyToEnvMap{
+							{
+								SecretKey: "password",
+								EnvVar:    "SECRET_VAR",
+							},
+						},
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+						Env: []k8score.EnvVar{
+							{
+								Name: "SECRET_VAR",
+								ValueFrom: &k8score.EnvVarSource{
+									SecretKeyRef: &k8score.SecretKeySelector{
+										k8score.LocalObjectReference{Name: "my-secret"},
+										"password",
+										nil,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			"Valid - secret as env",
 			&kubernetesplatform.KubernetesExecutorConfig{
 				SecretAsEnv: []*kubernetesplatform.SecretAsEnv{
@@ -991,6 +1034,47 @@ func Test_extendPodSpecPatch_ConfigMap(t *testing.T) {
 		podSpec    *k8score.PodSpec
 		expected   *k8score.PodSpec
 	}{
+		{
+			"Valid - config map as volume (deprecated)",
+			&kubernetesplatform.KubernetesExecutorConfig{
+				ConfigMapAsVolume: []*kubernetesplatform.ConfigMapAsVolume{
+					{
+						ConfigMapName: "cm1",
+						MountPath:     "/data/path",
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+						VolumeMounts: []k8score.VolumeMount{
+							{
+								Name:      "cm1",
+								MountPath: "/data/path",
+							},
+						},
+					},
+				},
+				Volumes: []k8score.Volume{
+					{
+						Name: "cm1",
+						VolumeSource: k8score.VolumeSource{
+							ConfigMap: &k8score.ConfigMapVolumeSource{
+								LocalObjectReference: k8score.LocalObjectReference{Name: "cm1"},
+								Optional:             &[]bool{false}[0]},
+						},
+					},
+				},
+			},
+		},
 		{
 			"Valid - config map as volume",
 			&kubernetesplatform.KubernetesExecutorConfig{
@@ -1133,6 +1217,48 @@ func Test_extendPodSpecPatch_ConfigMap(t *testing.T) {
 				Containers: []k8score.Container{
 					{
 						Name: "main",
+					},
+				},
+			},
+		},
+		{
+			"Valid - config map as env (deprecated)",
+			&kubernetesplatform.KubernetesExecutorConfig{
+				ConfigMapAsEnv: []*kubernetesplatform.ConfigMapAsEnv{
+					{
+						ConfigMapName: "my-cm",
+						KeyToEnv: []*kubernetesplatform.ConfigMapAsEnv_ConfigMapKeyToEnvMap{
+							{
+								ConfigMapKey: "foo",
+								EnvVar:       "CONFIG_MAP_VAR",
+							},
+						},
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+					},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+						Env: []k8score.EnvVar{
+							{
+								Name: "CONFIG_MAP_VAR",
+								ValueFrom: &k8score.EnvVarSource{
+									ConfigMapKeyRef: &k8score.ConfigMapKeySelector{
+										k8score.LocalObjectReference{Name: "my-cm"},
+										"foo",
+										nil,
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -1371,6 +1497,26 @@ func Test_extendPodSpecPatch_ImagePullSecrets(t *testing.T) {
 		k8sExecCfg *kubernetesplatform.KubernetesExecutorConfig
 		expected   *k8score.PodSpec
 	}{
+		{
+			"Valid - SecretA and SecretB (deprecated)",
+			&kubernetesplatform.KubernetesExecutorConfig{
+				ImagePullSecret: []*kubernetesplatform.ImagePullSecret{
+					{SecretName: "SecretA"},
+					{SecretName: "SecretB"},
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+					},
+				},
+				ImagePullSecrets: []k8score.LocalObjectReference{
+					{Name: "SecretA"},
+					{Name: "SecretB"},
+				},
+			},
+		},
 		{
 			"Valid - SecretA and SecretB",
 			&kubernetesplatform.KubernetesExecutorConfig{

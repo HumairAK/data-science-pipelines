@@ -648,7 +648,6 @@ func extendPodSpecPatch(
 	// Get secret mount information
 	for _, secretAsVolume := range kubernetesExecutorConfig.GetSecretAsVolume() {
 		var secretName string
-
 		if secretAsVolume.SecretNameParameter != nil {
 			resolvedSecretName, err := resolveK8sParameter(ctx, opts, dag, pipeline, mlmd,
 				secretAsVolume.SecretNameParameter, inputParams)
@@ -689,24 +688,38 @@ func extendPodSpecPatch(
 					},
 				},
 			}
-			resolvedSecretName, err := resolveK8sParameter(ctx, opts, dag, pipeline, mlmd,
-				secretAsEnv.SecretNameParameter, inputParams)
-			if err != nil {
-				return fmt.Errorf("failed to resolve secret name: %w", err)
+
+			var secretName string
+			if secretAsEnv.SecretNameParameter != nil {
+				resolvedSecretName, err := resolveK8sParameter(ctx, opts, dag, pipeline, mlmd,
+					secretAsEnv.SecretNameParameter, inputParams)
+				if err != nil {
+					return fmt.Errorf("failed to resolve secret name: %w", err)
+				}
+				secretName = resolvedSecretName.GetStringValue()
+			} else {
+				secretName = secretAsEnv.SecretName
 			}
-			secretEnvVar.ValueFrom.SecretKeyRef.LocalObjectReference.Name = resolvedSecretName.GetStringValue()
+
+			secretEnvVar.ValueFrom.SecretKeyRef.LocalObjectReference.Name = secretName
 			podSpec.Containers[0].Env = append(podSpec.Containers[0].Env, secretEnvVar)
 		}
 	}
 
 	// Get config map mount information
 	for _, configMapAsVolume := range kubernetesExecutorConfig.GetConfigMapAsVolume() {
-		resolvedConfigMapName, err := resolveK8sParameter(ctx, opts, dag, pipeline, mlmd,
-			configMapAsVolume.ConfigNameParameter, inputParams)
-		if err != nil {
-			return fmt.Errorf("failed to resolve configmap name: %w", err)
+		var configMapName string
+		if configMapAsVolume.ConfigNameParameter != nil {
+			resolvedSecretName, err := resolveK8sParameter(ctx, opts, dag, pipeline, mlmd,
+				configMapAsVolume.ConfigNameParameter, inputParams)
+			if err != nil {
+				return fmt.Errorf("failed to resolve configmap name: %w", err)
+			}
+			configMapName = resolvedSecretName.GetStringValue()
+		} else {
+			configMapName = configMapAsVolume.ConfigMapName
 		}
-		configMapName := resolvedConfigMapName.GetStringValue()
+
 		optional := configMapAsVolume.Optional != nil && *configMapAsVolume.Optional
 		configMapVolume := k8score.Volume{
 			Name: configMapName,
@@ -738,27 +751,42 @@ func extendPodSpecPatch(
 					},
 				},
 			}
-			resolvedConfigMapName, err := resolveK8sParameter(ctx, opts, dag, pipeline, mlmd,
-				configMapAsEnv.ConfigNameParameter, inputParams)
-			if err != nil {
-				return fmt.Errorf("failed to resolve configmap name: %w", err)
+
+			var configMapName string
+			if configMapAsEnv.ConfigNameParameter != nil {
+				resolvedSecretName, err := resolveK8sParameter(ctx, opts, dag, pipeline, mlmd,
+					configMapAsEnv.ConfigNameParameter, inputParams)
+				if err != nil {
+					return fmt.Errorf("failed to resolve configmap name: %w", err)
+				}
+				configMapName = resolvedSecretName.GetStringValue()
+			} else {
+				configMapName = configMapAsEnv.ConfigMapName
 			}
-			configMapEnvVar.ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name = resolvedConfigMapName.GetStringValue()
+
+			configMapEnvVar.ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name = configMapName
 			podSpec.Containers[0].Env = append(podSpec.Containers[0].Env, configMapEnvVar)
 		}
 	}
 
 	// Get image pull secret information
 	for _, imagePullSecret := range kubernetesExecutorConfig.GetImagePullSecret() {
-		resolvedSecretName, err := resolveK8sParameter(ctx, opts, dag, pipeline, mlmd,
-			imagePullSecret.SecretNameParameter, inputParams)
-		if err != nil {
-			return fmt.Errorf("failed to resolve image pull secret name: %w", err)
+		var secretName string
+		if imagePullSecret.SecretNameParameter != nil {
+			resolvedSecretName, err := resolveK8sParameter(ctx, opts, dag, pipeline, mlmd,
+				imagePullSecret.SecretNameParameter, inputParams)
+			if err != nil {
+				return fmt.Errorf("failed to resolve image pull secret name: %w", err)
+			}
+			secretName = resolvedSecretName.GetStringValue()
+		} else {
+			secretName = imagePullSecret.SecretName
 		}
+
 		podSpec.ImagePullSecrets = append(
 			podSpec.ImagePullSecrets,
 			k8score.LocalObjectReference{
-				Name: resolvedSecretName.GetStringValue(),
+				Name: secretName,
 			},
 		)
 	}
