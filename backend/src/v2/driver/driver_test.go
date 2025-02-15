@@ -398,8 +398,7 @@ func Test_makeVolumeMountPatch(t *testing.T) {
 		dag      *metadata.DAG
 		dagTasks map[string]*metadata.Execution
 	}
-	// TODO(lingqinggan): add more test cases for task output parameter and component input.
-	// Omitted now due to type Execution defined in metadata has unexported fields.
+
 	tests := []struct {
 		name        string
 		args        args
@@ -572,7 +571,14 @@ func Test_initPodSpecPatch_resourceRequests(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			podSpec, err := initPodSpecPatch(tt.args.container, tt.args.componentSpec, tt.args.executorInput, tt.args.executionID, tt.args.pipelineName, tt.args.runID)
+			podSpec, err := initPodSpecPatch(
+				tt.args.container,
+				tt.args.componentSpec,
+				tt.args.executorInput,
+				tt.args.executionID,
+				tt.args.pipelineName,
+				tt.args.runID,
+			)
 			assert.Nil(t, err)
 			assert.NotEmpty(t, podSpec)
 			podSpecString, err := json.Marshal(podSpec)
@@ -591,9 +597,10 @@ func Test_makePodSpecPatch_nodeSelector(t *testing.T) {
 	viper.Set("KFP_POD_NAME", "MyWorkflowPod")
 	viper.Set("KFP_POD_UID", "a1b2c3d4-a1b2-a1b2-a1b2-a1b2c3d4e5f6")
 	tests := []struct {
-		name       string
-		k8sExecCfg *kubernetesplatform.KubernetesExecutorConfig
-		expected   *k8score.PodSpec
+		name        string
+		k8sExecCfg  *kubernetesplatform.KubernetesExecutorConfig
+		expected    *k8score.PodSpec
+		inputParams map[string]*structpb.Value
 	}{
 		{
 			"Valid - NVIDIA GPU on GKE",
@@ -612,6 +619,7 @@ func Test_makePodSpecPatch_nodeSelector(t *testing.T) {
 				},
 				NodeSelector: map[string]string{"cloud.google.com/gke-accelerator": "nvidia-tesla-k80"},
 			},
+			nil,
 		},
 		{
 			"Valid - operating system and arch",
@@ -631,6 +639,29 @@ func Test_makePodSpecPatch_nodeSelector(t *testing.T) {
 				},
 				NodeSelector: map[string]string{"beta.kubernetes.io/arch": "amd64", "beta.kubernetes.io/os": "linux"},
 			},
+			nil,
+		},
+		{
+			"Valid - Json Parameter",
+			&kubernetesplatform.KubernetesExecutorConfig{
+				NodeSelector: &kubernetesplatform.NodeSelector{
+					NodeSelectorJson: strInputParamComponent("param_1"),
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+					},
+				},
+				NodeSelector: map[string]string{"beta.kubernetes.io/arch": "amd64", "beta.kubernetes.io/os": "linux"},
+			},
+			map[string]*structpb.Value{
+				"param_1": validValueStructOrPanic(map[string]interface{}{
+					"beta.kubernetes.io/arch": "amd64",
+					"beta.kubernetes.io/os":   "linux",
+				}),
+			},
 		},
 		{
 			"Valid - empty",
@@ -641,6 +672,27 @@ func Test_makePodSpecPatch_nodeSelector(t *testing.T) {
 						Name: "main",
 					},
 				},
+			},
+			nil,
+		},
+		{
+			"Valid - empty json",
+			&kubernetesplatform.KubernetesExecutorConfig{
+				NodeSelector: &kubernetesplatform.NodeSelector{
+					NodeSelectorJson: strInputParamComponent("param_1"),
+				},
+			},
+			&k8score.PodSpec{
+				Containers: []k8score.Container{
+					{
+						Name: "main",
+					},
+				},
+				// valid node selector, pod can be scheduled on any node
+				NodeSelector: map[string]string{},
+			},
+			map[string]*structpb.Value{
+				"param_1": validValueStructOrPanic(map[string]interface{}{}),
 			},
 		},
 	}
@@ -658,7 +710,7 @@ func Test_makePodSpecPatch_nodeSelector(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				map[string]*structpb.Value{},
+				tt.inputParams,
 			)
 			assert.Nil(t, err)
 			assert.NotNil(t, got)
@@ -1882,7 +1934,7 @@ func strInputParamConstant(value string) *kubernetesplatform.InputParameterSpec 
 		Kind: &kubernetesplatform.InputParameterSpec_RuntimeValue{
 			RuntimeValue: &kubernetesplatform.ValueOrRuntimeParameter{
 				Value: &kubernetesplatform.ValueOrRuntimeParameter_Constant{
-					Constant: &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: value}},
+					Constant: structpb.NewStringValue(value),
 				},
 			},
 		},
@@ -1897,13 +1949,10 @@ func strInputParamComponent(value string) *kubernetesplatform.InputParameterSpec
 	}
 }
 
-func strInputParamUpstreamTask(producer, outputParamKey string) *kubernetesplatform.InputParameterSpec {
-	return &kubernetesplatform.InputParameterSpec{
-		Kind: &kubernetesplatform.InputParameterSpec_TaskOutputParameter{
-			TaskOutputParameter: &kubernetesplatform.InputParameterSpec_TaskOutputParameterSpec{
-				ProducerTask:       producer,
-				OutputParameterKey: outputParamKey,
-			},
-		},
+func validValueStructOrPanic(data map[string]interface{}) *structpb.Value {
+	s, err := structpb.NewStruct(data)
+	if err != nil {
+		panic(err)
 	}
+	return structpb.NewStructValue(s)
 }

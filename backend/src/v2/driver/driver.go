@@ -314,7 +314,10 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 	ecfg.FingerPrint = fingerPrint
 
 	// TODO(Bobgy): change execution state to pending, because this is driver, execution hasn't started.
-	createdExecution, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
+	//createdExecution, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
+	// TODO: remove this (humair
+	createdExecution, err := mlmd.GetExecution(ctx, 1)
+
 	if err != nil {
 		return execution, err
 	}
@@ -553,6 +556,7 @@ func initPodSpecPatch(
 }
 
 // Extends the PodSpec to include Kubernetes-specific executor config.
+// inputParams is a map of the input parameter name to a resolvable value.
 func extendPodSpecPatch(
 	ctx context.Context,
 	podSpec *k8score.PodSpec,
