@@ -314,9 +314,7 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 	ecfg.FingerPrint = fingerPrint
 
 	// TODO(Bobgy): change execution state to pending, because this is driver, execution hasn't started.
-	//createdExecution, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
-	// TODO: remove this (humair
-	createdExecution, err := mlmd.GetExecution(ctx, 1)
+	createdExecution, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
 
 	if err != nil {
 		return execution, err
