@@ -22,11 +22,10 @@ except ImportError:
     from shutil import which as find_executable
 
 PLATFORM_DIR = os.path.realpath(os.path.dirname(os.path.dirname(__file__)))
-
-PROTO_DIR = os.path.join(PLATFORM_DIR, 'proto')
+PROTO_DIR = os.path.join(PLATFORM_DIR, 'common')
 
 PKG_DIR = os.path.realpath(
-    os.path.join(PLATFORM_DIR, 'python', 'kfp', 'kubernetes'))
+    os.path.join(PLATFORM_DIR, 'common'))
 
 # Find the Protocol Compiler. (Taken from protobuf/python/setup.py)
 if 'PROTOC' in os.environ and os.path.exists(os.environ['PROTOC']):
@@ -64,17 +63,15 @@ def generate_proto(source: str) -> None:
 
         protoc_command = [
             PROTOC,
-            f'-I=/home/hukhan/projects/github/rhods/data-science-pipelines/common/kfp/common',
             f'-I={PROTO_DIR}',
             f'--experimental_allow_proto3_optional',
             f'--python_out={PKG_DIR}',
-            '/home/hukhan/projects/github/rhods/data-science-pipelines/common/kfp/common/common.proto',
             source,
         ]
-        print(protoc_command)
+
         if subprocess.call(protoc_command) != 0:
             sys.exit(-1)
 
 
 if __name__ == '__main__':
-    generate_proto(os.path.join(PROTO_DIR, 'kubernetes_executor_config.proto'))
+    generate_proto(os.path.join(PROTO_DIR, 'common.proto'))
