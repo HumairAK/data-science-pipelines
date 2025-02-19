@@ -19,10 +19,9 @@ from kfp.kubernetes import common
 
 
 def add_node_selector(
-    task: PipelineTask,
-    label_key: Optional[str] = None,
-    label_value: Optional[str] = None,
-    node_selector_json: Optional[Union[pipeline_channel.PipelineParameterChannel, dict]] = None,
+        task: PipelineTask,
+        label_key: str,
+        label_value: str,
 ) -> PipelineTask:
     """Add a constraint to the task Pod's `nodeSelector
     <https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector>`_.
@@ -33,8 +32,28 @@ def add_node_selector(
 
     Args:
         task: Pipeline task.
-        label_key: Key of the nodeSelector label. Requires label_value.
-        label_value: Value of the nodeSelector label. Requires label_key.
+        label_key: Key of the nodeSelector label.
+        label_value: Value of the nodeSelector label.
+
+    Returns:
+        Task object with an added nodeSelector constraint.
+    """
+
+    msg = common.get_existing_kubernetes_config_as_message(task)
+    msg.node_selector.labels.update({label_key: label_value})
+    task.platform_config['kubernetes'] = json_format.MessageToDict(msg)
+
+    return task
+
+
+def add_node_selector_json(
+        task: PipelineTask,
+        node_selector_json: Union[pipeline_channel.PipelineParameterChannel, dict],
+) -> PipelineTask:
+    """Add a pod nodeSelector constraint to the task Pod's `nodeSelector'
+
+    Args:
+        task: Pipeline task.
         node_selector_json:
             node selector provided as dict or input parameter. Takes
             precedence over label_key and label_value. Only one
@@ -46,14 +65,8 @@ def add_node_selector(
 
     msg = common.get_existing_kubernetes_config_as_message(task)
 
-    if node_selector_json:
-        input_param_spec = common.parse_k8s_parameter_input(node_selector_json, task)
-        msg.node_selector.node_selector_json.CopyFrom(input_param_spec)
-    else:
-        if label_key and label_value:
-            msg.node_selector.labels.update({label_key: label_value})
-        else:
-            raise ValueError("when using label_value or label_key for node selector, then both must be provided.")
+    input_param_spec = common.parse_k8s_parameter_input(node_selector_json, task)
+    msg.node_selector.node_selector_json.CopyFrom(input_param_spec)
 
     task.platform_config['kubernetes'] = json_format.MessageToDict(msg)
 

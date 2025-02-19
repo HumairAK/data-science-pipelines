@@ -124,13 +124,15 @@ class TestNodeSelector:
             }
         }
 
+class TestNodeSelectorJSON:
+
     def test_component_pipeline_input_one(self):
         # checks that a pipeline input for
         # tasks is supported
         @dsl.pipeline
         def my_pipeline(selector_input: str):
             task = comp()
-            kubernetes.add_node_selector(
+            kubernetes.add_node_selector_json(
                 task,
                 node_selector_json=selector_input,
             )
@@ -161,18 +163,18 @@ class TestNodeSelector:
         @dsl.pipeline
         def my_pipeline(selector_input_1: str, selector_input_2: str):
             t1 = comp()
-            kubernetes.add_node_selector(
+            kubernetes.add_node_selector_json(
                 t1,
                 node_selector_json=selector_input_1,
             )
 
             t2 = comp()
-            kubernetes.add_node_selector(
+            kubernetes.add_node_selector_json(
                 t2,
                 node_selector_json=selector_input_1,
             )
             # This should overwrite the previous selector json
-            kubernetes.add_node_selector(
+            kubernetes.add_node_selector_json(
                 t2,
                 node_selector_json=selector_input_2,
             )
@@ -209,7 +211,7 @@ class TestNodeSelector:
         def my_pipeline():
             t1 = comp()
             t2 = comp_with_output()
-            kubernetes.add_node_selector(
+            kubernetes.add_node_selector_json(
                 t1,
                 node_selector_json=t2.output,
             )
@@ -242,19 +244,19 @@ class TestNodeSelector:
         def my_pipeline(selector_input: str):
             t1 = comp()
             t2 = comp_with_output()
-            kubernetes.add_node_selector(
+            kubernetes.add_node_selector_json(
                 t1,
                 node_selector_json=t2.output,
             )
             t3 = comp()
             t4 = comp_with_output()
-            kubernetes.add_node_selector(
+            kubernetes.add_node_selector_json(
                 t3,
                 node_selector_json=t4.output,
             )
             # overwrites the previous
             t5 = comp_with_output()
-            kubernetes.add_node_selector(
+            kubernetes.add_node_selector_json(
                 t3,
                 node_selector_json=t5.output,
             )
@@ -288,7 +290,6 @@ class TestNodeSelector:
                 }
             }
         }
-
 
 @dsl.component
 def comp():

@@ -32,7 +32,6 @@ def add_toleration(
     value: Optional[str] = None,
     effect: Optional[Literal["NoExecute", "NoSchedule", "PreferNoSchedule"]] = None,
     toleration_seconds: Optional[int] = None,
-    toleration_json: Optional[Union[pipeline_channel.PipelineParameterChannel, dict]] = None,
 ):
     """Add a `toleration<https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/>`_. to a task.
 
@@ -41,7 +40,7 @@ def add_toleration(
             Pipeline task.
         key:
             key is the taint key that the toleration applies to. Empty means
-            match all taint keys. If the key is empty, operator must be Exists;
+            match all taint keys. If the key is empty, operator must Exist;
             this combination means to match all values and all keys.
         operator:
             operator represents a key's relationship to the value. Valid
@@ -50,7 +49,7 @@ def add_toleration(
             taints of a particular category.
         value:
             value is the taint value the toleration matches to. If the operator
-            is Exists, the value should be empty, otherwise just a regular
+            Exists, the value should be empty, otherwise just a regular
             string.
         effect:
             effect indicates the taint effect to match. Empty means match all
@@ -62,6 +61,34 @@ def add_toleration(
             tolerates the taint. By default, it is not set, which means tolerate
             the taint forever (do not evict). Zero and negative values will be
             treated as 0 (evict immediately) by the system.
+
+    Returns:
+        Task object with added toleration.
+    """
+
+    msg = common.get_existing_kubernetes_config_as_message(task)
+    msg.tolerations.append(
+        pb.Toleration(
+            key=key,
+            operator=operator,
+            value=value,
+            effect=effect,
+            toleration_seconds=toleration_seconds,
+        )
+    )
+    task.platform_config["kubernetes"] = json_format.MessageToDict(msg)
+
+    return task
+
+
+def add_toleration_json(task: PipelineTask,
+                        toleration_json: Union[pipeline_channel.PipelineParameterChannel, dict]
+                        ):
+    """Add a Pod Toleration in the form of a JSON to a task.
+
+    Args:
+        task:
+            Pipeline task.
         toleration_json:
             a toleration provided as dict or input parameter. Takes
             precedence over other key, operator, value, effect,
@@ -72,21 +99,10 @@ def add_toleration(
     """
 
     msg = common.get_existing_kubernetes_config_as_message(task)
-
     toleration = pb.Toleration()
-    if toleration_json:
-        toleration.toleration_json.CopyFrom(
-            common.parse_k8s_parameter_input(toleration_json, task)
-        )
-    else:
-        toleration = pb.Toleration(
-                key=key,
-                operator=operator,
-                value=value,
-                effect=effect,
-                toleration_seconds=toleration_seconds,
-            )
-
+    toleration.toleration_json.CopyFrom(
+        common.parse_k8s_parameter_input(toleration_json, task)
+    )
     msg.tolerations.append(toleration)
     task.platform_config["kubernetes"] = json_format.MessageToDict(msg)
 

@@ -166,13 +166,16 @@ class TestTolerations:
             }
         }
 
+
+class TestTolerationsJSON:
+
     def test_component_pipeline_input_one(self):
         # checks that a pipeline input for
         # tasks is supported
         @dsl.pipeline
         def my_pipeline(toleration_input: str):
             task = comp()
-            kubernetes.add_toleration(
+            kubernetes.add_toleration_json(
                 task,
                 toleration_json=toleration_input,
             )
@@ -203,16 +206,16 @@ class TestTolerations:
         @dsl.pipeline
         def my_pipeline(toleration_input_1: str, toleration_input_2: str):
             t1 = comp()
-            kubernetes.add_toleration(
+            kubernetes.add_toleration_json(
                 t1,
                 toleration_json=toleration_input_1,
             )
             t2 = comp()
-            kubernetes.add_toleration(
+            kubernetes.add_toleration_json(
                 t2,
                 toleration_json=toleration_input_1,
             )
-            kubernetes.add_toleration(
+            kubernetes.add_toleration_json(
                 t2,
                 toleration_json=toleration_input_2,
             )
@@ -258,7 +261,7 @@ class TestTolerations:
         def my_pipeline():
             t1 = comp()
             t2 = comp_with_output()
-            kubernetes.add_toleration(
+            kubernetes.add_toleration_json(
                 t1,
                 toleration_json=t2.output,
             )
@@ -295,17 +298,17 @@ class TestTolerations:
             t2 = comp_with_output()
             t3 = comp_with_output()
             t4 = comp_with_output()
-            kubernetes.add_toleration(
+            kubernetes.add_toleration_json(
                 t1,
                 toleration_json=t2.output,
             )
 
             t5 = comp()
-            kubernetes.add_toleration(
+            kubernetes.add_toleration_json(
                 t5,
                 toleration_json=t3.output,
             )
-            kubernetes.add_toleration(
+            kubernetes.add_toleration_json(
                 t5,
                 toleration_json=t4.output,
             )
