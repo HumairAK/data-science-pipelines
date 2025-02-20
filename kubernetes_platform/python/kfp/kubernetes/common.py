@@ -31,8 +31,8 @@ def get_existing_kubernetes_config_as_message(
 def parse_k8s_parameter_input(
         input_param: Union[pipeline_channel.PipelineParameterChannel, str, dict],
         task: PipelineTask,
-) -> pb.InputParameterSpec:
-    param_spec = pb.InputParameterSpec()
+) -> pb.common__pb2.InputParameterSpec:
+    param_spec = pb.common__pb2.InputParameterSpec()
 
     if isinstance(input_param, (str, dict)):
         param_spec.runtime_value.constant.CopyFrom(to_protobuf_value(input_param))
