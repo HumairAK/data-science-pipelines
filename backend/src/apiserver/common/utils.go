@@ -16,9 +16,11 @@ package common
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/jsonpb"
 	"regexp"
 	"strings"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 )
 
@@ -116,4 +118,11 @@ func ValidatePipelineName(pipelineName string) error {
 		return util.NewInvalidInputError("pipeline's name must contain only lowercase alphanumeric characters or '-' and must start with alphanumeric characters")
 	}
 	return nil
+}
+
+// UnmarshalString unmarshals a JSON object from s into m.
+// Allows unknown fields
+func UnmarshalString(s string, m proto.Message) error {
+	unmarshaler := jsonpb.Unmarshaler{AllowUnknownFields: true}
+	return unmarshaler.Unmarshal(strings.NewReader(s), m)
 }

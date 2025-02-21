@@ -24,6 +24,7 @@ package compiler
 import (
 	"bytes"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"sort"
 
 	"github.com/golang/protobuf/jsonpb"
@@ -187,7 +188,7 @@ func GetPipelineSpec(job *pipelinespec.PipelineJob) (*pipelinespec.PipelineSpec,
 		return nil, fmt.Errorf("failed marshal pipeline spec to json: %w", err)
 	}
 	spec := &pipelinespec.PipelineSpec{}
-	if err := jsonpb.UnmarshalString(json, spec); err != nil {
+	if err := common.UnmarshalString(json, spec); err != nil {
 		return nil, fmt.Errorf("failed to parse pipeline spec: %v", err)
 	}
 	return spec, nil
