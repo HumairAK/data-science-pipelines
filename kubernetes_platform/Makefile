@@ -60,7 +60,8 @@ clean-python:
 .PHONY: generate-go-in-container
 generate-go-in-container:
 	mkdir -p go/kubernetesplatform
-	cd proto && protoc -I=. \
+	cd proto && protoc -I=. -I=../../common/ \
 		--go_out=../go/kubernetesplatform \
 		--go_opt=paths=source_relative \
+		../../common/common.proto \
 		kubernetes_executor_config.proto
