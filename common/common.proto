@@ -18,6 +18,9 @@ package kfp_common;
 
 import "google/protobuf/struct.proto";
 
+option go_package = "github.com/kubeflow/pipelines/common/go/commonspec";
+
+
 // Represents an input parameter. The value can be taken from an upstream
 // task's output parameter (if specifying `producer_task` and
 // `output_parameter_key`, or it can be a runtime value, which can either be

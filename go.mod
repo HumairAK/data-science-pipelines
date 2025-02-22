@@ -156,6 +156,7 @@ require (
 	github.com/klauspost/compress v1.16.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect
+	github.com/kubeflow/pipelines/common v0.0.0 // indirect
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
 	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
@@ -235,6 +236,7 @@ replace (
 // These dependencies are managed relative to project root
 replace (
 	github.com/kubeflow/pipelines/api => ./api
+	github.com/kubeflow/pipelines/common => ./common
 	github.com/kubeflow/pipelines/kubernetes_platform => ./kubernetes_platform
 )
 

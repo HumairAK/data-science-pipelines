@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kubeflow/pipelines/common/go/commonspec"
 	"slices"
 	"strconv"
 	"strings"
@@ -1363,8 +1364,9 @@ func resolveInputs(ctx context.Context, dag *metadata.DAG, iterationIndex *int, 
 		paramError := func(err error) error {
 			return fmt.Errorf("resolving input parameter %s with spec %s: %w", name, paramSpec, err)
 		}
+
 		switch t := paramSpec.Kind.(type) {
-		case *pipelinespec.TaskInputsSpec_InputParameterSpec_ComponentInputParameter:
+		case *commonspec.InputParameterSpec_ComponentInputParameter:
 			componentInput := paramSpec.GetComponentInputParameter()
 			if componentInput == "" {
 				return nil, paramError(fmt.Errorf("empty component input"))
@@ -1376,7 +1378,7 @@ func resolveInputs(ctx context.Context, dag *metadata.DAG, iterationIndex *int, 
 			inputs.ParameterValues[name] = v
 
 		// This is the case where the input comes from the output of an upstream task.
-		case *pipelinespec.TaskInputsSpec_InputParameterSpec_TaskOutputParameter:
+		case *commonspec.InputParameterSpec_TaskOutputParameter:
 			cfg := resolveUpstreamOutputsConfig{
 				ctx:       ctx,
 				paramSpec: paramSpec,
@@ -1391,10 +1393,10 @@ func resolveInputs(ctx context.Context, dag *metadata.DAG, iterationIndex *int, 
 				return nil, err
 			}
 
-		case *pipelinespec.TaskInputsSpec_InputParameterSpec_RuntimeValue:
+		case *commonspec.InputParameterSpec_RuntimeValue:
 			runtimeValue := paramSpec.GetRuntimeValue()
 			switch t := runtimeValue.Value.(type) {
-			case *pipelinespec.ValueOrRuntimeParameter_Constant:
+			case *commonspec.ValueOrRuntimeParameter_Constant:
 				val := runtimeValue.GetConstant()
 
 				switch val.GetStringValue() {
@@ -1516,7 +1518,7 @@ func getDAGTasks(
 // functions.
 type resolveUpstreamOutputsConfig struct {
 	ctx          context.Context
-	paramSpec    *pipelinespec.TaskInputsSpec_InputParameterSpec
+	paramSpec    *commonspec.InputParameterSpec
 	artifactSpec *pipelinespec.TaskInputsSpec_InputArtifactSpec
 	dag          *metadata.DAG
 	pipeline     *metadata.Pipeline

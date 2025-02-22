@@ -67,14 +67,15 @@ generate: go_pipelinespec go_cachekey
 
 go_pipelinespec: v2alpha1/pipeline_spec.proto v2alpha1/google/rpc/status.proto
 	mkdir -p v2alpha1/go/pipelinespec
-	cd v2alpha1 && protoc -I=. \
+	cd v2alpha1 && protoc -I=. -I=../../common/ \
 		--go_out=go/pipelinespec \
 		--go_opt=paths=source_relative \
 		pipeline_spec.proto
 
+
 go_cachekey: v2alpha1/pipeline_spec.proto v2alpha1/cache_key.proto
 	mkdir -p v2alpha1/go/cachekey
-	cd v2alpha1 && protoc -I=. \
+	cd v2alpha1 && protoc -I=. -I=../../common/ \
 		--go_out=go/cachekey \
 		--go_opt=paths=source_relative \
 		cache_key.proto
