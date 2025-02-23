@@ -63,5 +63,4 @@ generate-go-in-container:
 	cd proto && protoc -I=. -I=../../common/ \
 		--go_out=../go/kubernetesplatform \
 		--go_opt=paths=source_relative \
-		../../common/common.proto \
 		kubernetes_executor_config.proto

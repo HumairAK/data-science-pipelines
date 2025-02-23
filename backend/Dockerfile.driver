@@ -22,6 +22,7 @@ COPY ./go.mod ./
 COPY ./go.sum ./
 COPY ./kubernetes_platform/go.mod ./kubernetes_platform/go.mod
 COPY ./api/go.mod ./api/go.mod
+COPY ./common/go.mod ./common/go.mod
 
 RUN GO111MODULE=on go mod download
 

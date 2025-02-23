@@ -15,6 +15,7 @@ package argocompiler
 
 import (
 	"fmt"
+	"github.com/kubeflow/pipelines/common/go/commonspec"
 	"os"
 	"sort"
 	"strings"
@@ -614,11 +615,11 @@ func addImplicitDependencies(dagSpec *pipelinespec.DagSpec) error {
 		}
 		for _, input := range task.GetInputs().GetParameters() {
 			switch input.GetKind().(type) {
-			case *pipelinespec.TaskInputsSpec_InputParameterSpec_TaskOutputParameter:
+			case *commonspec.InputParameterSpec_TaskOutputParameter:
 				if err := addDep(input.GetTaskOutputParameter().GetProducerTask()); err != nil {
 					return wrap(err)
 				}
-			case *pipelinespec.TaskInputsSpec_InputParameterSpec_TaskFinalStatus_:
+			case *commonspec.InputParameterSpec_TaskFinalStatus_:
 				return wrap(fmt.Errorf("task final status not supported yet"))
 			default:
 				// other parameter input types do not introduce implicit dependencies

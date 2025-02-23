@@ -70,7 +70,6 @@ go_pipelinespec: v2alpha1/pipeline_spec.proto v2alpha1/google/rpc/status.proto
 	cd v2alpha1 && protoc -I=. -I=../../common/ \
 		--go_out=go/pipelinespec \
 		--go_opt=paths=source_relative \
-		../../common/common.proto \
 		pipeline_spec.proto
 
 
@@ -79,7 +78,6 @@ go_cachekey: v2alpha1/pipeline_spec.proto v2alpha1/cache_key.proto
 	cd v2alpha1 && protoc -I=. -I=../../common/ \
 		--go_out=go/cachekey \
 		--go_opt=paths=source_relative \
-		../../common/common.proto \
 		cache_key.proto
 
 # Fetch dependency proto
