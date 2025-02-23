@@ -64,7 +64,7 @@ def use_secret_as_env(
 
 def use_secret_as_volume(
     task: PipelineTask,
-    secret_name: Union[pipeline_channel.PipelineParameterChannel],
+    secret_name: Union[pipeline_channel.PipelineParameterChannel, str],
     mount_path: str,
     optional: bool = False,
 ) -> PipelineTask:
