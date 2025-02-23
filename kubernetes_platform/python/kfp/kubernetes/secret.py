@@ -22,12 +22,6 @@ from kfp.kubernetes import common
 from kfp.kubernetes import kubernetes_executor_config_pb2 as pb
 
 
-def use_secret_as_env_parameter(
-    task: PipelineTask,
-    secret_name: Union[pipeline_channel.PipelineParameterChannel, str],
-    secret_key_to_env: Dict[str, str],
-):
-    pass
 def use_secret_as_env(
     task: PipelineTask,
     secret_name: Union[pipeline_channel.PipelineParameterChannel, str],
