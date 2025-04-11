@@ -10,15 +10,18 @@ on:
       - '.github/resources/**'
       - 'sdk/python/**'
       - 'api/v2alpha1/**'
-      - 'backend/src/v2/compiler/**'
+      - 'backend/**'
+      - '!**/*.md'
+      - '!**/OWNERS'
 
 jobs:
   sdk-execution-tests:
     runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
-        k8s_version: [ "v1.29.2", "v1.30.2", "v1.31.0" ]
-    name: KFP SDK Execution Tests - K8s ${{ matrix.k8s_version }}
+        iteration: [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20"]
+    name: KFP SDK Execution Tests - K8s ${{ matrix.iteration }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,10 +31,15 @@ jobs:
         with:
           python-version: 3.9
 
+      - name: Free up space in /dev/root
+        run: |
+            sudo rm -rf /usr/share/dotnet
+            sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
       - name: Create KFP cluster
         uses: ./.github/actions/kfp-cluster
         with:
-          k8s_version: ${{ matrix.k8s_version }}
+          k8s_version: "v1.31.0"
 
       - name: Forward API port
         run: ./.github/resources/scripts/forward-port.sh "kubeflow" "ml-pipeline" 8888 8888
@@ -72,7 +80,7 @@ jobs:
         run: |
           export KFP_ENDPOINT="http://localhost:8888"
           export TIMEOUT_SECONDS=2700
-          pytest -v -n 5 ./test/sdk-execution-tests/sdk_execution_tests.py
+          pytest -v -n 5 -rP ./test/sdk-execution-tests/sdk_execution_tests.py
         continue-on-error: true
 
       - name: Collect failed logs
@@ -85,5 +93,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: periodic-functional-artifacts-k8s-${{ matrix.k8s_version }}
+          name: periodic-functional-artifacts-k8s-${{ matrix.iteration }}
           path: /tmp/tmp*/*

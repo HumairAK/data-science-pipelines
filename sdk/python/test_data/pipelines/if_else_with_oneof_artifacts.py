@@ -17,19 +17,19 @@ from kfp.dsl import Input
 from kfp.dsl import Output
 
 
-@dsl.component
+@dsl.component(base_image="quay.io/opendatahub/ds-pipelines-sample-base:v1.0")
 def flip_coin() -> str:
     import random
     return 'heads' if random.randint(0, 1) == 0 else 'tails'
 
 
-@dsl.component
+@dsl.component(base_image="quay.io/opendatahub/ds-pipelines-sample-base:v1.0")
 def param_to_artifact(val: str, a: Output[Artifact]):
     with open(a.path, 'w') as f:
         f.write(val)
 
 
-@dsl.component
+@dsl.component(base_image="quay.io/opendatahub/ds-pipelines-sample-base:v1.0")
 def print_artifact(a: Input[Artifact]):
     with open(a.path) as f:
         print(f.read())

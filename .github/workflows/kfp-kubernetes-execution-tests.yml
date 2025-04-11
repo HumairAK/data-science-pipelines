@@ -1,6 +1,7 @@
 name: k8s execution tests
 
 on:
+  workflow_dispatch:
   push:
     branches: [master]
 
@@ -11,14 +12,17 @@ on:
       - 'sdk/python/**'
       - 'api/v2alpha1/**'
       - 'kubernetes_platform/**'
+      - 'backend/**'
+      - '!**/*.md'
+      - '!**/OWNERS'
 
 jobs:
   kfp-kubernetes-execution-tests:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        k8s_version: [ "v1.29.2", "v1.30.2", "v1.31.0" ]
-    name: kfp-kubernetes execution tests - K8s ${{ matrix.k8s_version }}
+        iteration: [ "1", "2", "3", "4", "5", "6", "7"]
+    name: kfp-kubernetes execution tests - K8s ${{ matrix.iteration }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,7 +35,7 @@ jobs:
       - name: Create KFP cluster
         uses: ./.github/actions/kfp-cluster
         with:
-          k8s_version: ${{ matrix.k8s_version }}
+          k8s_version: "v1.31.0"
 
       - name: Forward API port
         run: ./.github/resources/scripts/forward-port.sh "kubeflow" "ml-pipeline" 8888 8888
@@ -93,5 +97,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: kfp-execution-tests-artifacts-k8s-${{ matrix.k8s_version }}
+          name: kfp-execution-tests-artifacts-k8s-${{ matrix.iteration }}
           path: /tmp/tmp*/*
