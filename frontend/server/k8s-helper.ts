@@ -13,12 +13,10 @@
 // limitations under the License.
 
 import {
-  CoreV1Api,
-  CustomObjectsApi,
   KubeConfig,
   V1Pod,
   V1EventList,
-  V1ConfigMap,
+  V1ConfigMap, Core_v1Api, Custom_objectsApi, V1DeleteOptions, V1Preconditions,
 } from '@kubernetes/client-node';
 import * as crypto from 'crypto-js';
 import * as fs from 'fs';
@@ -54,8 +52,8 @@ if (fs.existsSync(namespaceFilePath)) {
 const kc = new KubeConfig();
 // This loads kubectl config when not in cluster.
 kc.loadFromDefault();
-const k8sV1Client = kc.makeApiClient(CoreV1Api);
-const k8sV1CustomObjectClient = kc.makeApiClient(CustomObjectsApi);
+const k8sV1Client = kc.makeApiClient(Core_v1Api);
+const k8sV1CustomObjectClient = kc.makeApiClient(Custom_objectsApi);
 
 function getNameOfViewerResource(logdir: string): string {
   // TODO: find some hash function with shorter resulting message.
@@ -203,12 +201,17 @@ export async function deleteTensorboardInstance(logdir: string, namespace: strin
 
   const viewerName = getNameOfViewerResource(logdir);
 
+  const deleteOptions = new V1DeleteOptions();
+  deleteOptions.apiVersion = 'v1';
+  deleteOptions.kind = 'DeleteOptions';
+  deleteOptions.propagationPolicy = 'Foreground';
   await k8sV1CustomObjectClient.deleteNamespacedCustomObject(
     viewerGroup,
     viewerVersion,
     namespace,
     viewerPlural,
     viewerName,
+    deleteOptions,
   );
 }
 

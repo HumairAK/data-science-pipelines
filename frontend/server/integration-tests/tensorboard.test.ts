@@ -813,14 +813,19 @@ describe('/apps/tensorboard', () => {
         .delete(`/apps/tensorboard?logdir=${encodeURIComponent('log-dir-1')}&namespace=test-ns`)
         .expect(200, 'Tensorboard deleted.', err => {
           expect(k8sDeleteCustomObjectSpy.mock.calls[0]).toMatchInlineSnapshot(`
-              Array [
-                "kubeflow.org",
-                "v1beta1",
-                "test-ns",
-                "viewers",
-                "viewer-5e1404e679e27b0f0b8ecee8fe515830eaa736c5",
-              ]
-            `);
+            Array [
+              "kubeflow.org",
+              "v1beta1",
+              "test-ns",
+              "viewers",
+              "viewer-5e1404e679e27b0f0b8ecee8fe515830eaa736c5",
+              V1DeleteOptions {
+                "apiVersion": "v1",
+                "kind": "DeleteOptions",
+                "propagationPolicy": "Foreground",
+              },
+            ]
+          `);
           done(err);
         });
     });
