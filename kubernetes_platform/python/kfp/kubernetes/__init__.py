@@ -41,8 +41,14 @@ import os
 import sys
 
 # Ensure Python can find the protobuf-generated modules
-# This is needed in order to resolve common proto python module
-# that is generated via generate_proto.py
+# shim "pipeline_spec_pb2.py". Because the import
+# statements in kubernetes_executor_config_pb2 is auto
+# generated, and we can't import it as kfp.pipeline_spec_pb2
+# we need to make pipeline_spec_pb2 available in the
+# directories listed in sys.path. Doing so allows us to
+# resolve pipeline_spec_pb2 python module in
+# kubernetes_executor_config_pb2.py with the auto generated
+# the python protobuf code imports.
 package_dir = os.path.dirname(os.path.abspath(__file__))
 if package_dir not in sys.path:
     sys.path.append(package_dir)
@@ -66,3 +72,5 @@ from kfp.kubernetes.volume import add_ephemeral_volume
 from kfp.kubernetes.volume import CreatePVC
 from kfp.kubernetes.volume import DeletePVC
 from kfp.kubernetes.volume import mount_pvc
+
+

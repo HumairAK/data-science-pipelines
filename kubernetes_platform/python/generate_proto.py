@@ -69,7 +69,6 @@ def generate_proto(source: str) -> None:
             f'-I={PROTO_DIR}',
             f'--experimental_allow_proto3_optional',
             f'--python_out={PKG_DIR}',
-            pipeline_api_source,
             source,
         ]
 
