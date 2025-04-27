@@ -17,6 +17,7 @@ package driver
 import (
 	"fmt"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_v2"
 	"github.com/kubeflow/pipelines/kubernetes_platform/go/kubernetesplatform"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -58,7 +59,8 @@ type Options struct {
 
 	PipelineLogLevel string
 
-	PublishLogs string
+	PublishLogs    string
+	MetadataClient metadata_v2.MetadataInterfaceClient
 }
 
 // Identifying information used for error messages

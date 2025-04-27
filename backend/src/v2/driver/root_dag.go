@@ -61,7 +61,6 @@ func RootDAG(ctx context.Context, opts Options, mlmd *metadata.Client) (executio
 	if err != nil {
 		return nil, err
 	}
-	// TODO(v2): in pipeline spec, rename GCS output directory to pipeline root.
 	pipelineRoot := opts.RuntimeConfig.GetGcsOutputDirectory()
 
 	restConfig, err := util.GetKubernetesConfig()
@@ -93,8 +92,13 @@ func RootDAG(ctx context.Context, opts Options, mlmd *metadata.Client) (executio
 		return nil, err
 	}
 	storeSessionInfoStr := string(storeSessionInfoJSON)
-	// TODO(Bobgy): fill in run resource.
+
 	pipeline, err := mlmd.GetPipeline(ctx, opts.PipelineName, opts.RunID, opts.Namespace, "run-resource", pipelineRoot, storeSessionInfoStr)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = opts.MetadataClient.CreatePipelineRun(ctx, opts.PipelineName, opts.RunID, opts.Namespace, "run-resource", pipelineRoot, storeSessionInfoStr)
 	if err != nil {
 		return nil, err
 	}

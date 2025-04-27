@@ -19,9 +19,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	"github.com/kubeflow/pipelines/backend/src/v2/aimstack"
 
 	"os"
 	"path/filepath"
@@ -84,6 +84,9 @@ var (
 	noProxy     = flag.String(noProxyArg, unsetProxyArgValue, "Addresses that should ignore the proxy.")
 	publishLogs = flag.String("publish_logs", "true", "Whether to publish component logs to the object store")
 )
+
+const aimstackRepo = "aim://aim-stack-server-kubeflow.apps.hukhan-10.dev.datahub.redhat.com"
+const pipelineRunExperiment = "testexperiment"
 
 // func RootDAG(pipelineName string, runID string, component *pipelinespec.ComponentSpec, task *pipelinespec.PipelineTaskSpec, mlmd *metadata.Client) (*Execution, error) {
 
@@ -181,6 +184,11 @@ func drive() (err error) {
 	if err != nil {
 		return err
 	}
+
+	metadataClient, err := aimstack.NewMetadataAimstack(aimstackRepo, pipelineRunExperiment)
+	if err != nil {
+		return err
+	}
 	options := driver.Options{
 		PipelineName:     *pipelineName,
 		RunID:            *runID,
@@ -193,6 +201,7 @@ func drive() (err error) {
 		IterationIndex:   *iterationIndex,
 		PipelineLogLevel: *logLevel,
 		PublishLogs:      *publishLogs,
+		MetadataClient:   metadataClient,
 	}
 	var execution *driver.Execution
 	var driverErr error
