@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
-	"github.com/kubeflow/pipelines/backend/src/v2/aimstack"
+	"github.com/kubeflow/pipelines/backend/src/v2/mlflow"
 
 	"os"
 	"path/filepath"
@@ -84,9 +84,6 @@ var (
 	noProxy     = flag.String(noProxyArg, unsetProxyArgValue, "Addresses that should ignore the proxy.")
 	publishLogs = flag.String("publish_logs", "true", "Whether to publish component logs to the object store")
 )
-
-const aimstackRepo = "aim://aim-stack-server-kubeflow.apps.hukhan-10.dev.datahub.redhat.com"
-const pipelineRunExperiment = "testexperiment"
 
 // func RootDAG(pipelineName string, runID string, component *pipelinespec.ComponentSpec, task *pipelinespec.PipelineTaskSpec, mlmd *metadata.Client) (*Execution, error) {
 
@@ -185,7 +182,26 @@ func drive() (err error) {
 		return err
 	}
 
-	metadataClient, err := aimstack.NewMetadataAimstack(aimstackRepo, pipelineRunExperiment)
+	metadataClient, err := mlflow.NewMetadataMLFlow()
+	if err != nil {
+		return err
+	}
+
+	devMode := os.Getenv("DEV_MODE")
+	if devMode == "" {
+		devMode = "false"
+	}
+
+	devExecutionIdSTR := os.Getenv("DEV_EXECUTION_ID")
+	if devExecutionIdSTR == "" {
+		devExecutionIdSTR = "0"
+	}
+	devExecutionId, err := strconv.ParseInt(devExecutionIdSTR, 10, 64)
+	if err != nil {
+		return err
+	}
+
+	experimentID, err := mlflow.GetExperimentIDFromEnv()
 	if err != nil {
 		return err
 	}
@@ -202,6 +218,9 @@ func drive() (err error) {
 		PipelineLogLevel: *logLevel,
 		PublishLogs:      *publishLogs,
 		MetadataClient:   metadataClient,
+		ExperimentId:     *experimentID,
+		DevMode:          devMode == "true",
+		DevExecutionId:   devExecutionId,
 	}
 	var execution *driver.Execution
 	var driverErr error

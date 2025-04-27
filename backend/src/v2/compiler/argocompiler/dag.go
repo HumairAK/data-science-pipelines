@@ -563,6 +563,8 @@ func (c *workflowCompiler) addDAGDriverTemplate() string {
 		args = append(args, "--publish_logs", value)
 	}
 
+	envvars := proxy.GetConfig().GetEnvVars()
+	envvars = append(envvars, getmlFlowEnvVars(c.ExperimentId)...)
 	t := &wfapi.Template{
 		Name: name,
 		Inputs: wfapi.Inputs{
@@ -587,7 +589,7 @@ func (c *workflowCompiler) addDAGDriverTemplate() string {
 			Command:   c.driverCommand,
 			Args:      args,
 			Resources: driverResources,
-			Env:       proxy.GetConfig().GetEnvVars(),
+			Env:       envvars,
 		},
 	}
 	c.templates[name] = t

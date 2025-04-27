@@ -10,6 +10,8 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -98,11 +100,6 @@ func RootDAG(ctx context.Context, opts Options, mlmd *metadata.Client) (executio
 		return nil, err
 	}
 
-	_, err = opts.MetadataClient.CreatePipelineRun(ctx, opts.PipelineName, opts.RunID, opts.Namespace, "run-resource", pipelineRoot, storeSessionInfoStr)
-	if err != nil {
-		return nil, err
-	}
-
 	executorInput := &pipelinespec.ExecutorInput{
 		Inputs: &pipelinespec.ExecutorInput_Inputs{
 			ParameterValues: opts.RuntimeConfig.GetParameterValues(),
@@ -115,12 +112,61 @@ func RootDAG(ctx context.Context, opts Options, mlmd *metadata.Client) (executio
 	}
 	ecfg.ExecutionType = metadata.DagExecutionTypeName
 	ecfg.Name = fmt.Sprintf("run/%s", opts.RunID)
-	exec, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
+
+	var exec *metadata.Execution
+	if opts.DevMode {
+		exec, err = mlmd.GetExecution(ctx, opts.DevExecutionId)
+	} else {
+		exec, err = mlmd.CreateExecution(ctx, pipeline, ecfg)
+	}
 	if err != nil {
 		return nil, err
 	}
+
+	executionID := exec.GetID()
+	// Use the execution ID from MLMD for now to uniquely identify this parent pipeline run in mlflow
+	// In a world without mlmd, we would use the runID that is returned by mlflow itself and pass
+	// that between drivers/launchers.
+	_, err = opts.MetadataClient.CreatePipelineRun(
+		ctx,
+		opts.RunDisplayName,
+		opts.PipelineName,
+		opts.Namespace,
+		"run-resource",
+		pipelineRoot,
+		storeSessionInfoStr,
+		opts.ExperimentId,
+		nil,
+		&executionID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	for key, value := range executorInput.Inputs.ParameterValues {
+		strValue, err := valueToJSONString(value)
+		if err != nil {
+			return nil, err
+		}
+		err = opts.MetadataClient.LogParameter(ctx, opts.ExperimentId, executionID, key, strValue)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	glog.Infof("Created execution: %s", exec)
 	// No need to return ExecutorInput, because tasks in the DAG will resolve
 	// needed info from MLMD.
 	return &Execution{ID: exec.GetID()}, nil
+}
+
+func valueToJSONString(val *structpb.Value) (string, error) {
+	if val == nil {
+		return "null", nil
+	}
+	bytes, err := protojson.Marshal(val)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
 }

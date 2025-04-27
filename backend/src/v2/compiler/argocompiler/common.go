@@ -17,6 +17,7 @@ package argocompiler
 import (
 	wfapi "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	k8score "k8s.io/api/core/v1"
+	"os"
 )
 
 // env vars in metadata-grpc-configmap is defined in component package
@@ -60,4 +61,24 @@ func addExitTask(task *wfapi.DAGTask, exitTemplate string, parentDagID string) {
 			}},
 		},
 	}
+}
+
+func getmlFlowEnvVars(experimentID string) []k8score.EnvVar {
+	envvars := append(mlFlowEnvVars, k8score.EnvVar{Name: "MLFLOW_EXPERIMENT_ID", Value: experimentID})
+	return envvars
+}
+
+var mlFlowEnvVars = []k8score.EnvVar{
+	{
+		Name:  "MLFLOW_HOST",
+		Value: os.Getenv("MLFLOW_HOST"),
+	},
+	{
+		Name:  "MLFLOW_PORT",
+		Value: os.Getenv("MLFLOW_PORT"),
+	},
+	{
+		Name:  "MLFLOW_HOST",
+		Value: os.Getenv("MLFLOW_HOST"),
+	},
 }

@@ -3,6 +3,7 @@ package driver
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"fmt"
 	"github.com/golang/glog"
@@ -145,11 +146,79 @@ func DAG(ctx context.Context, opts Options, mlmd *metadata.Client) (execution *E
 	glog.V(4).Info("ecfg: ", string(b))
 	glog.V(4).Infof("dag: %v", dag)
 
-	// TODO(Bobgy): change execution state to pending, because this is driver, execution hasn't started.
-	createdExecution, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
-	if err != nil {
-		return execution, err
+	var createdExecution *metadata.Execution
+	if opts.DevMode {
+		createdExecution, err = mlmd.GetExecution(ctx, opts.DevExecutionId)
+	} else {
+		createdExecution, err = mlmd.CreateExecution(ctx, pipeline, ecfg)
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	if !isIterator {
+		// if this is an iteration than the parent will be one parent above the iterator dag
+		parentID := &opts.DAGExecutionID
+		iterationValue, exists := createdExecution.GetExecution().CustomProperties["iteration_index"]
+		isIteration := exists && iterationValue.GetIntValue() >= 0
+		if isIteration {
+			glog.Infof("parent is isIteration, get the parent's parent (iterator) dag")
+			parentDagID := dag.Execution.GetExecution().CustomProperties["parent_dag_id"].GetIntValue()
+			iteratorParent, err1 := mlmd.GetDAG(ctx, parentDagID)
+			if err1 != nil {
+				return nil, err1
+			}
+			t := iteratorParent.Execution.GetID()
+			parentID = &t
+			glog.Infof("got iteration parent dag id %d", *parentID)
+		}
+
+		glog.Infof("this dag is not an iterator, create a mlflow run")
+		executionID := createdExecution.GetID()
+		// Use the execution ID from MLMD for now to uniquely identify this parent pipeline run in mlflow
+		// In a world without mlmd, we would use the runID that is returned by mlflow itself and pass
+		// that between drivers/launchers.
+		_, err = opts.MetadataClient.CreatePipelineRun(
+			ctx,
+			opts.RunDisplayName,
+			opts.PipelineName,
+			opts.Namespace,
+			"run-resource",
+			pipeline.GetPipelineRoot(),
+			pipeline.GetStoreSessionInfo(),
+			opts.ExperimentId,
+			parentID,
+			&executionID,
+		)
+		if err != nil {
+			return nil, err
+		}
+		for key, value := range executorInput.Inputs.ParameterValues {
+			strValue, err1 := valueToJSONString(value)
+			if err1 != nil {
+				return nil, err1
+			}
+			// if it's a pipeline channel for a loop, then extract the parameters to log for this iteration dag
+			if strings.HasPrefix(key, "pipelinechannel--loop-item-") {
+				for k, v := range value.GetStructValue().GetFields() {
+					err1 = opts.MetadataClient.LogParameter(ctx, opts.ExperimentId, createdExecution.GetID(), k, v.GetStringValue())
+					if err1 != nil {
+						return nil, err1
+					}
+				}
+			} else {
+				print(strValue)
+				err1 = opts.MetadataClient.LogParameter(ctx, opts.ExperimentId, createdExecution.GetID(), key, strValue)
+				if err1 != nil {
+					return nil, err1
+				}
+			}
+
+		}
+	} else {
+		glog.Info("this dag is an iterator, do not create a mlflow run")
+	}
+
 	glog.Infof("Created execution: %s", createdExecution)
 	execution.ID = createdExecution.GetID()
 	return execution, nil

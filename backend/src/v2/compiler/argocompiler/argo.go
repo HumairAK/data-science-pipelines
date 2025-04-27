@@ -40,7 +40,8 @@ type Options struct {
 	DriverImage string
 	// optional
 	PipelineRoot string
-	// TODO(Bobgy): add an option -- dev mode, ImagePullPolicy should only be Always in dev mode.
+
+	ExperimentId string
 }
 
 func Compile(jobArg *pipelinespec.PipelineJob, kubernetesSpecArg *pipelinespec.SinglePlatformSpec, opts *Options) (*wfapi.Workflow, error) {
@@ -140,6 +141,7 @@ func Compile(jobArg *pipelinespec.PipelineJob, kubernetesSpecArg *pipelinespec.S
 		job:           job,
 		spec:          spec,
 		executors:     deploy.GetExecutors(),
+		ExperimentId:  opts.ExperimentId,
 	}
 	if opts != nil {
 		if opts.DriverImage != "" {
@@ -175,6 +177,7 @@ type workflowCompiler struct {
 	driverImage   string
 	driverCommand []string
 	launcherImage string
+	ExperimentId  string
 }
 
 func (c *workflowCompiler) Resolver(name string, component *pipelinespec.ComponentSpec, resolver *pipelinespec.PipelineDeploymentConfig_ResolverSpec) error {

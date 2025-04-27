@@ -312,7 +312,9 @@ func (t *V2Spec) RunWorkflow(modelRun *model.Run, options RunWorkflowOptions) (u
 
 	var obj interface{}
 	if util.CurrentExecutionType() == util.ArgoWorkflow {
-		obj, err = argocompiler.Compile(job, kubernetesSpec, nil)
+		obj, err = argocompiler.Compile(job, kubernetesSpec, &argocompiler.Options{
+			ExperimentId: options.ExperimentId,
+		})
 	}
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to compile job")

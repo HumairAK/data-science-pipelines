@@ -198,6 +198,7 @@ func (c *workflowCompiler) addContainerDriverTemplate() string {
 		args = append(args, "--publish_logs", value)
 	}
 
+	envvars := append(proxy.GetConfig().GetEnvVars(), getmlFlowEnvVars(c.ExperimentId)...)
 	t := &wfapi.Template{
 		Name: name,
 		Inputs: wfapi.Inputs{
@@ -222,7 +223,7 @@ func (c *workflowCompiler) addContainerDriverTemplate() string {
 			Command:   c.driverCommand,
 			Args:      args,
 			Resources: driverResources,
-			Env:       proxy.GetConfig().GetEnvVars(),
+			Env:       envvars,
 		},
 	}
 	c.templates[name] = t
@@ -324,6 +325,8 @@ func (c *workflowCompiler) addContainerExecutorTemplate(name string, refName str
 	if value, ok := os.LookupEnv(PublishLogsEnvVar); ok {
 		args = append(args, "--publish_logs", value)
 	}
+
+	envvars := append(commonEnvs, getmlFlowEnvVars(c.ExperimentId)...)
 	executor := &wfapi.Template{
 		Name:          nameContainerImpl,
 		RetryStrategy: c.getTaskRetryStrategy(name),
@@ -435,7 +438,7 @@ func (c *workflowCompiler) addContainerExecutorTemplate(name string, refName str
 				},
 			},
 			EnvFrom: []k8score.EnvFromSource{metadataEnvFrom},
-			Env:     commonEnvs,
+			Env:     envvars,
 		},
 	}
 	// Update pod metadata if it defined in the Kubernetes Spec

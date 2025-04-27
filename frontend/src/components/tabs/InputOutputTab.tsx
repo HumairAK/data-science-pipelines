@@ -219,22 +219,20 @@ export function getArtifactParamList(
   let sessMap: URIToSessionInfo = new Map<string, string | undefined>();
 
   let params = Object.values(inputArtifacts).map((linkedArtifact, index) => {
-    let key = getArtifactName(linkedArtifact);
-    if (
-      key &&
-      (artifactTypeNames[index] === 'system.Metrics' ||
-        artifactTypeNames[index] === 'system.ClassificationMetrics')
-    ) {
-      key += ' (This is an empty file by default)';
-    }
     const artifactId = linkedArtifact.artifact.getId();
-    const artifactElement = RoutePageFactory.artifactDetails(artifactId) ? (
-      <Link className={commonCss.link} to={RoutePageFactory.artifactDetails(artifactId)}>
+    let key = getArtifactName(linkedArtifact);
+
+    let artifactElement: string | JSX.Element | undefined
+    const isMetric = (linkedArtifact.artifact.getType() === 'system.Metrics' || linkedArtifact.artifact.getType() === 'system.ClassificationMetrics')
+    if (isMetric) {
+      artifactElement = key
+    } else if (RoutePageFactory.artifactDetails(artifactId)) {
+      artifactElement = <Link className={commonCss.link} to={RoutePageFactory.artifactDetails(artifactId)}>
         {key}
       </Link>
-    ) : (
-      key
-    );
+    } else {
+      artifactElement = key
+    }
 
     const uri = linkedArtifact.artifact.getUri();
     const sessInfo = getStoreSessionInfoFromArtifact(linkedArtifact);

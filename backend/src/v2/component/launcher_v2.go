@@ -19,10 +19,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_v2"
+	"github.com/kubeflow/pipelines/backend/src/v2/mlflow"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -52,21 +55,25 @@ type LauncherV2Options struct {
 	MLMDServerPort,
 	PipelineName,
 	RunID string
-	PublishLogs string
+	PublishLogs  string
+	ExperimentID string
 }
 
 type LauncherV2 struct {
-	executionID   int64
-	executorInput *pipelinespec.ExecutorInput
-	component     *pipelinespec.ComponentSpec
-	command       string
-	args          []string
-	options       LauncherV2Options
+	executionID       int64
+	parentExecutionID *int64
+	executorInput     *pipelinespec.ExecutorInput
+	component         *pipelinespec.ComponentSpec
+	command           string
+	args              []string
+	options           LauncherV2Options
 
 	// clients
-	metadataClient metadata.ClientInterface
-	k8sClient      kubernetes.Interface
-	cacheClient    *cacheutils.Client
+	metadataClient   metadata.ClientInterface
+	metadataClientV2 metadata_v2.MetadataInterfaceClient
+	k8sClient        kubernetes.Interface
+	cacheClient      *cacheutils.Client
+	experimentID     string
 }
 
 // Client is the struct to hold the Kubernetes Clientset
@@ -75,7 +82,7 @@ type kubernetesClient struct {
 }
 
 // NewLauncherV2 is a factory function that returns an instance of LauncherV2.
-func NewLauncherV2(ctx context.Context, executionID int64, executorInputJSON, componentSpecJSON string, cmdArgs []string, opts *LauncherV2Options) (l *LauncherV2, err error) {
+func NewLauncherV2(ctx context.Context, executionID int64, executorInputJSON, componentSpecJSON string, cmdArgs []string, opts *LauncherV2Options, parentExecutionID *int64) (l *LauncherV2, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("failed to create component launcher v2: %w", err)
@@ -117,16 +124,25 @@ func NewLauncherV2(ctx context.Context, executionID int64, executorInputJSON, co
 	if err != nil {
 		return nil, err
 	}
+
+	mlFlowMD, err := mlflow.NewMetadataMLFlow()
+	if err != nil {
+		return nil, err
+	}
+
 	return &LauncherV2{
-		executionID:    executionID,
-		executorInput:  executorInput,
-		component:      component,
-		command:        cmdArgs[0],
-		args:           cmdArgs[1:],
-		options:        *opts,
-		metadataClient: metadataClient,
-		k8sClient:      k8sClient,
-		cacheClient:    cacheClient,
+		executionID:       executionID,
+		parentExecutionID: parentExecutionID,
+		executorInput:     executorInput,
+		component:         component,
+		command:           cmdArgs[0],
+		args:              cmdArgs[1:],
+		options:           *opts,
+		metadataClient:    metadataClient,
+		k8sClient:         k8sClient,
+		cacheClient:       cacheClient,
+		metadataClientV2:  mlFlowMD,
+		experimentID:      opts.ExperimentID,
 	}, nil
 }
 
@@ -182,6 +198,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	var outputArtifacts []*metadata.OutputArtifact
 	status := pb.Execution_FAILED
 	defer func() {
+		glog.Infof("prepublishing..., status is: %d", status)
 		if perr := l.publish(ctx, execution, executorOutput, outputArtifacts, status); perr != nil {
 			if err != nil {
 				err = fmt.Errorf("failed to publish execution with error %s after execution failed: %s", perr.Error(), err.Error())
@@ -189,18 +206,34 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 				err = perr
 			}
 		}
+		glog.Infof("updating pipeline status, status is: %d", status)
+		// Update status for the MLFlow Execution Run
+		executionID := execution.GetID()
+		err = l.metadataClientV2.UpdatePipelineStatus(ctx, &executionID, status, l.experimentID)
+		if err != nil {
+			return
+		}
+
 		glog.Infof("publish success.")
 		// At the end of the current task, we check the statuses of all tasks in
 		// the current DAG and update the DAG's status accordingly.
-		dag, err := l.metadataClient.GetDAG(ctx, execution.GetExecution().CustomProperties["parent_dag_id"].GetIntValue())
+		parentID := execution.GetExecution().CustomProperties["parent_dag_id"].GetIntValue()
+		dag, err := l.metadataClient.GetDAG(ctx, parentID)
 		if err != nil {
 			glog.Errorf("DAG Status Update: failed to get DAG: %s", err.Error())
 		}
 		pipeline, _ := l.metadataClient.GetPipelineFromExecution(ctx, execution.GetID())
-		err = l.metadataClient.UpdateDAGExecutionsState(ctx, dag, pipeline)
+		state, err := l.metadataClient.UpdateDAGExecutionsState(ctx, dag, pipeline)
 		if err != nil {
 			glog.Errorf("failed to update DAG state: %s", err.Error())
 		}
+
+		// reflect the status change to the mlflow parent run as well
+		err = l.metadataClientV2.UpdatePipelineStatus(ctx, &parentID, *state, l.experimentID)
+		if err != nil {
+			return
+		}
+
 	}()
 	executedStartedTime := time.Now().Unix()
 	execution, err = l.prePublish(ctx)
@@ -233,13 +266,20 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		bucket,
 		bucketConfig,
 		l.metadataClient,
+		l.metadataClientV2,
 		l.options.Namespace,
 		l.k8sClient,
 		l.options.PublishLogs,
+		execution.GetID(),
+		l.experimentID,
+		l.parentExecutionID,
 	)
 	if err != nil {
+		glog.Errorf("failed to execute component: %v\n%s", err, string(debug.Stack()))
+
 		return err
 	}
+	glog.Infof("Execute () call completed, status is: %d", status)
 	status = pb.Execution_COMPLETE
 	// if fingerPrint is not empty, it means this task enables cache but it does not hit cache, we need to create cache entry for this task
 	if fingerPrint != "" {
@@ -259,6 +299,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		}
 		return l.cacheClient.CreateExecutionCache(ctx, task)
 	}
+	glog.Infof("Fingerprinting () section completed, status is: %d", status)
 
 	return nil
 }
@@ -347,10 +388,12 @@ func executeV2(
 	bucket *blob.Bucket,
 	bucketConfig *objectstore.Config,
 	metadataClient metadata.ClientInterface,
-	namespace string,
-	k8sClient kubernetes.Interface,
+	metadataClientV2 metadata_v2.MetadataInterfaceClient,
+	namespace string, k8sClient kubernetes.Interface,
 	publishLogs string,
-) (*pipelinespec.ExecutorOutput, []*metadata.OutputArtifact, error) {
+	executionID int64,
+	experimentID string,
+	parentExecutionID *int64) (*pipelinespec.ExecutorOutput, []*metadata.OutputArtifact, error) {
 
 	// Add parameter default values to executorInput, if there is not already a user input.
 	// This process is done in the launcher because we let the component resolve default values internally.
@@ -399,9 +442,13 @@ func executeV2(
 	}
 	// TODO(Bobgy): should we log metadata per each artifact, or batched after uploading all artifacts.
 	outputArtifacts, err := uploadOutputArtifacts(ctx, executorInput, executorOutput, uploadOutputArtifactsOptions{
-		bucketConfig:   bucketConfig,
-		bucket:         bucket,
-		metadataClient: metadataClient,
+		bucketConfig:      bucketConfig,
+		bucket:            bucket,
+		metadataClient:    metadataClient,
+		metadataClientV2:  metadataClientV2,
+		experimentID:      experimentID,
+		executionID:       executionID,
+		parentExecutionID: parentExecutionID,
 	})
 	if err != nil {
 		return nil, nil, err
@@ -532,12 +579,22 @@ func execute(
 }
 
 type uploadOutputArtifactsOptions struct {
-	bucketConfig   *objectstore.Config
-	bucket         *blob.Bucket
-	metadataClient metadata.ClientInterface
+	bucketConfig      *objectstore.Config
+	bucket            *blob.Bucket
+	metadataClient    metadata.ClientInterface
+	metadataClientV2  metadata_v2.MetadataInterfaceClient
+	experimentID      string
+	executionID       int64
+	parentExecutionID *int64
 }
 
-func uploadOutputArtifacts(ctx context.Context, executorInput *pipelinespec.ExecutorInput, executorOutput *pipelinespec.ExecutorOutput, opts uploadOutputArtifactsOptions) ([]*metadata.OutputArtifact, error) {
+func uploadOutputArtifacts(
+	ctx context.Context,
+	executorInput *pipelinespec.ExecutorInput,
+	executorOutput *pipelinespec.ExecutorOutput,
+	opts uploadOutputArtifactsOptions,
+) ([]*metadata.OutputArtifact, error) {
+
 	// Register artifacts with MLMD.
 	outputArtifacts := make([]*metadata.OutputArtifact, 0, len(executorInput.GetOutputs().GetArtifacts()))
 	for name, artifactList := range executorInput.GetOutputs().GetArtifacts() {
@@ -581,10 +638,39 @@ func uploadOutputArtifacts(ctx context.Context, executorInput *pipelinespec.Exec
 			if err != nil {
 				return nil, fmt.Errorf("failed to determine schema for output %q: %w", name, err)
 			}
+
+			if name == "metrics" {
+				glog.Infof("Metric artifact detected, logging to metadata store...")
+				for key, value := range outputArtifact.Metadata.GetFields() {
+					switch value.Kind.(type) {
+					case *structpb.Value_NumberValue:
+						// TODO: should support timestamp and key fields in the future
+						uri, err1 := opts.metadataClientV2.LogRunMetric(ctx, opts.experimentID, opts.executionID, key, value.GetNumberValue())
+						if err1 != nil {
+							return nil, err1
+						}
+						if opts.parentExecutionID == nil {
+							return nil, fmt.Errorf("parentExecution ID was nil")
+						}
+						if err1 != nil {
+							return nil, err1
+						}
+						// Set the artifact to uri so it's stored in MLMD and in the KFP UI it will link to
+						// MLFlow ui
+						outputArtifact.Uri = *uri
+
+					default:
+						return nil, fmt.Errorf("Encountered metric that is not number type.")
+					}
+				}
+				glog.Info("Metric logged.")
+			}
+
 			mlmdArtifact, err := opts.metadataClient.RecordArtifact(ctx, name, schema, outputArtifact, pb.Artifact_LIVE, opts.bucketConfig)
 			if err != nil {
 				return nil, metadataErr(err)
 			}
+
 			outputArtifacts = append(outputArtifacts, mlmdArtifact)
 		}
 	}

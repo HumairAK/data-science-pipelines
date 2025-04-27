@@ -180,14 +180,60 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 	ecfg.CachedMLMDExecutionID = cachedMLMDExecutionID
 	ecfg.FingerPrint = fingerPrint
 
-	// TODO(Bobgy): change execution state to pending, because this is driver, execution hasn't started.
-	createdExecution, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
-
-	if err != nil {
-		return execution, err
+	var createdExecution *metadata.Execution
+	if opts.DevMode {
+		createdExecution, err = mlmd.GetExecution(ctx, opts.DevExecutionId)
+	} else {
+		createdExecution, err = mlmd.CreateExecution(ctx, pipeline, ecfg)
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	executionID := createdExecution.GetID()
+	parentID := &ecfg.ParentDagID
+	// if this parent is an iteration, get the parent's parent (iterator) dag:
+	// note an iterator dag spawns iteration dags
+	//iterationValue, exists := dag.Execution.GetExecution().CustomProperties["iteration_index"]
+	//isIteration := exists && iterationValue.GetIntValue() >= 0
+	//if !isIteration {
+	//	glog.Infof("parent is isIteration, get the parent's parent (iterator) dag")
+	//	parentDagID := dag.Execution.GetExecution().CustomProperties["parent_dag_id"].GetIntValue()
+	//	iteratorParent, err1 := mlmd.GetDAG(ctx, parentDagID)
+	//	if err1 != nil {
+	//		return nil, err1
+	//	}
+	//	t := iteratorParent.Execution.GetID()
+	//	parentID = &t
+	//	glog.Infof("got iteration parent dag id %d", parentID)
+	//}
+
+	_, err = opts.MetadataClient.CreatePipelineRun(
+		ctx,
+		ecfg.TaskName,
+		opts.PipelineName,
+		opts.Namespace,
+		"run-resource",
+		pipeline.GetPipelineRoot(),
+		pipeline.GetStoreSessionInfo(),
+		opts.ExperimentId,
+		parentID,
+		&executionID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	for key, value := range inputs.ParameterValues {
+		err := opts.MetadataClient.LogParameter(ctx, opts.ExperimentId, executionID, key, value.GetStringValue())
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	glog.Infof("Created execution: %s", createdExecution)
 	execution.ID = createdExecution.GetID()
+
 	if !execution.WillTrigger() {
 		return execution, nil
 	}
@@ -222,6 +268,7 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 		opts.RunID,
 		opts.PipelineLogLevel,
 		opts.PublishLogs,
+		opts.DAGExecutionID,
 	)
 	if err != nil {
 		return execution, err

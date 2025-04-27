@@ -90,7 +90,7 @@ type ClientInterface interface {
 	GetExecution(ctx context.Context, id int64) (*Execution, error)
 	GetPipelineFromExecution(ctx context.Context, id int64) (*Pipeline, error)
 	GetExecutionsInDAG(ctx context.Context, dag *DAG, pipeline *Pipeline, filter bool) (executionsMap map[string]*Execution, err error)
-	UpdateDAGExecutionsState(ctx context.Context, dag *DAG, pipeline *Pipeline) (err error)
+	UpdateDAGExecutionsState(ctx context.Context, dag *DAG, pipeline *Pipeline) (state *pb.Execution_State, err error)
 	PutDAGExecutionState(ctx context.Context, executionID int64, state pb.Execution_State) (err error)
 	GetEventsByArtifactIDs(ctx context.Context, artifactIds []int64) ([]*pb.Event, error)
 	GetArtifactName(ctx context.Context, artifactId int64) (string, error)
@@ -690,10 +690,10 @@ func (c *Client) PrePublishExecution(ctx context.Context, execution *Execution, 
 }
 
 // UpdateDAGExecutionState checks all the statuses of the tasks in the given DAG, based on that it will update the DAG to the corresponding status if necessary.
-func (c *Client) UpdateDAGExecutionsState(ctx context.Context, dag *DAG, pipeline *Pipeline) error {
+func (c *Client) UpdateDAGExecutionsState(ctx context.Context, dag *DAG, pipeline *Pipeline) (*pb.Execution_State, error) {
 	tasks, err := c.GetExecutionsInDAG(ctx, dag, pipeline, true)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	totalDagTasks := dag.Execution.execution.CustomProperties["total_dag_tasks"].GetIntValue()
@@ -722,14 +722,25 @@ func (c *Client) UpdateDAGExecutionsState(ctx context.Context, dag *DAG, pipelin
 	glog.V(4).Infof("totalTasks: %d", totalDagTasks)
 
 	glog.Infof("Attempting to update DAG state")
+
+	state := pb.Execution_RUNNING
 	if completedTasks == int(totalDagTasks) {
-		c.PutDAGExecutionState(ctx, dag.Execution.GetID(), pb.Execution_COMPLETE)
+		state = pb.Execution_COMPLETE
+		err := c.PutDAGExecutionState(ctx, dag.Execution.GetID(), state)
+		if err != nil {
+			return nil, err
+		}
+
 	} else if failedTasks > 0 {
-		c.PutDAGExecutionState(ctx, dag.Execution.GetID(), pb.Execution_FAILED)
+		state = pb.Execution_FAILED
+		err := c.PutDAGExecutionState(ctx, dag.Execution.GetID(), state)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		glog.V(4).Infof("DAG is still running")
 	}
-	return nil
+	return &state, nil
 }
 
 // PutDAGExecutionState updates the given DAG Id to the state provided.

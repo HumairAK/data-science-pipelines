@@ -19,10 +19,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
-
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/backend/src/v2/component"
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
+	"github.com/kubeflow/pipelines/backend/src/v2/mlflow"
 )
 
 // TODO: use https://github.com/spf13/cobra as a framework to create more complex CLI tools with subcommands.
@@ -72,6 +72,11 @@ func run() error {
 	if err != nil {
 		return err
 	}
+
+	experimentID, err := mlflow.GetExperimentIDFromEnv()
+	if err != nil {
+		return err
+	}
 	launcherV2Opts := &component.LauncherV2Options{
 		Namespace:         namespace,
 		PodName:           *podName,
@@ -81,6 +86,7 @@ func run() error {
 		PipelineName:      *pipelineName,
 		RunID:             *runID,
 		PublishLogs:       *publishLogs,
+		ExperimentID:      *experimentID,
 	}
 
 	switch *executorType {
@@ -99,7 +105,7 @@ func run() error {
 		}
 		return nil
 	case "container":
-		launcher, err := component.NewLauncherV2(ctx, *executionID, *executorInputJSON, *componentSpecJSON, flag.Args(), launcherV2Opts)
+		launcher, err := component.NewLauncherV2(ctx, *executionID, *executorInputJSON, *componentSpecJSON, flag.Args(), launcherV2Opts, parentDagID)
 		if err != nil {
 			return err
 		}

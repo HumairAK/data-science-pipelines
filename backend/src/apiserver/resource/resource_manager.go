@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	scheduledworkflow "github.com/kubeflow/pipelines/backend/src/crd/pkg/apis/scheduledworkflow/v1beta1"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_v2"
 	"io"
 	"net"
 	"reflect"
@@ -97,6 +98,7 @@ type ClientManagerInterface interface {
 	Time() util.TimeInterface
 	UUID() util.UUIDGeneratorInterface
 	Authenticators() []kfpauth.Authenticator
+	MetadataClient() metadata_v2.MetadataInterfaceClient
 }
 
 type ResourceManagerOptions struct {
@@ -123,6 +125,7 @@ type ResourceManager struct {
 	uuid                      util.UUIDGeneratorInterface
 	authenticators            []kfpauth.Authenticator
 	options                   *ResourceManagerOptions
+	metadataClient            metadata_v2.MetadataInterfaceClient
 }
 
 func NewResourceManager(clientManager ClientManagerInterface, options *ResourceManagerOptions) *ResourceManager {
@@ -145,6 +148,7 @@ func NewResourceManager(clientManager ClientManagerInterface, options *ResourceM
 		time:                      clientManager.Time(),
 		uuid:                      clientManager.UUID(),
 		authenticators:            clientManager.Authenticators(),
+		metadataClient:            clientManager.MetadataClient(),
 		options:                   options,
 	}
 }
@@ -164,7 +168,16 @@ func (r *ResourceManager) CreateExperiment(experiment *model.Experiment) (*model
 			return nil, util.NewInvalidInputError("Namespace cannot be empty")
 		}
 	}
-	return r.experimentStore.CreateExperiment(experiment)
+
+	modelExperiment, err := r.experimentStore.CreateExperiment(experiment)
+	if err != nil {
+		return nil, err
+	}
+	_, err = r.metadataClient.CreateExperiment(context.Background(), experiment.Name, experiment.Description, modelExperiment.UUID)
+	if err != nil {
+		return nil, err
+	}
+	return modelExperiment, nil
 }
 
 // Fetches an experiment with the given id.
@@ -491,9 +504,15 @@ func (r *ResourceManager) CreateRun(ctx context.Context, run *model.Run) (*model
 		run.UUID = uuid.String()
 	}
 	run.RunDetails.CreatedAtInSec = r.time.Now().Unix()
+
+	experimentId, err := r.metadataClient.GetExperiment(ctx, run.ExperimentId)
+	if err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to get experiment")
+	}
 	runWorkflowOptions := template.RunWorkflowOptions{
-		RunId: run.UUID,
-		RunAt: run.RunDetails.CreatedAtInSec,
+		RunId:        run.UUID,
+		RunAt:        run.RunDetails.CreatedAtInSec,
+		ExperimentId: experimentId.ID,
 	}
 	executionSpec, err := tmpl.RunWorkflow(run, runWorkflowOptions)
 	if err != nil {
