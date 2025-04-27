@@ -98,6 +98,7 @@ func RootDAG(ctx context.Context, opts Options, mlmd *metadata.Client) (executio
 		return nil, err
 	}
 
+	print(pipeline)
 	_, err = opts.MetadataClient.CreatePipelineRun(ctx, opts.PipelineName, opts.RunID, opts.Namespace, "run-resource", pipelineRoot, storeSessionInfoStr)
 	if err != nil {
 		return nil, err
@@ -115,7 +116,8 @@ func RootDAG(ctx context.Context, opts Options, mlmd *metadata.Client) (executio
 	}
 	ecfg.ExecutionType = metadata.DagExecutionTypeName
 	ecfg.Name = fmt.Sprintf("run/%s", opts.RunID)
-	exec, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
+	// exec, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
+	exec, err := mlmd.GetExecution(ctx, 268)
 	if err != nil {
 		return nil, err
 	}
