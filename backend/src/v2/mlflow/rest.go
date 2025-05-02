@@ -1,21 +1,47 @@
-package aimstack
+package mlflow
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
 	"io"
 	"net/http"
+	"time"
 )
 
-func (m *MetadataAimstack) CreateRun() error {
-	jsonPayload := []byte(`{"name":"John","age":30}`)
+type RunPayload struct {
+	ExperimentID string `json:"experiment_id"`
+	RunName      string `json:"run_name"`
+	StartTime    string `json:"start_time"`
+}
 
-	resp, body, err := DoRequest("POST", fmt.Sprintf("%s/runs", m.repo), jsonPayload, map[string]string{
+func (m *MetadataMLFlow) CreateRun(runName string) error {
+	// Parameter values
+	experimentID := m.experimentID
+
+	// Create struct with parameters
+	payload := RunPayload{
+		ExperimentID: experimentID,
+		RunName:      runName,
+		StartTime:    fmt.Sprintf("%d", time.Now().UnixMilli()),
+	}
+
+	// Marshal to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	resp, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/create", m.trackingServerHost), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
 	if err != nil {
-		panic(err)
+		return err
+	}
+	if resp.StatusCode == 404 {
+		return errors.New(string(body))
 	}
 	fmt.Println("Status:", resp.Status)
 	fmt.Println("Body:", string(body))

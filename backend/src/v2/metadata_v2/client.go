@@ -18,6 +18,6 @@ type Execution struct {
 }
 
 type MetadataInterfaceClient interface {
-	CreatePipelineRun(ctx context.Context, pipelineName, runID, namespace, runResource, pipelineRoot, storeSessionInfo string) (*PipelineRun, error)
+	CreatePipelineRun(ctx context.Context, runName, pipelineName, runID, namespace, runResource, pipelineRoot, storeSessionInfo string) (*PipelineRun, error)
 	CreateExecution(ctx context.Context, pipeline *PipelineRun, config *metadata.ExecutionConfig) (*Execution, error)
 }

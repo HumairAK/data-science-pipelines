@@ -99,7 +99,7 @@ func RootDAG(ctx context.Context, opts Options, mlmd *metadata.Client) (executio
 	}
 
 	print(pipeline)
-	_, err = opts.MetadataClient.CreatePipelineRun(ctx, opts.PipelineName, opts.RunID, opts.Namespace, "run-resource", pipelineRoot, storeSessionInfoStr)
+	_, err = opts.MetadataClient.CreatePipelineRun(ctx, opts.RunDisplayName, opts.PipelineName, opts.RunID, opts.Namespace, "run-resource", pipelineRoot, storeSessionInfoStr)
 	if err != nil {
 		return nil, err
 	}

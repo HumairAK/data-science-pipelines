@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
-	"github.com/kubeflow/pipelines/backend/src/v2/aimstack"
+	"github.com/kubeflow/pipelines/backend/src/v2/mlflow"
 
 	"os"
 	"path/filepath"
@@ -85,8 +85,8 @@ var (
 	publishLogs = flag.String("publish_logs", "true", "Whether to publish component logs to the object store")
 )
 
-const aimstackRepo = "aim://aim-stack-server-kubeflow.apps.hukhan-10.dev.datahub.redhat.com"
-const pipelineRunExperiment = "testexperiment"
+const mlflowTrackingServer = "https://6071-73-16-169-10.ngrok-free.app/api/2.0/mlflow"
+const pipelineRunExperimentID = "740955601149365591"
 
 // func RootDAG(pipelineName string, runID string, component *pipelinespec.ComponentSpec, task *pipelinespec.PipelineTaskSpec, mlmd *metadata.Client) (*Execution, error) {
 
@@ -185,7 +185,8 @@ func drive() (err error) {
 		return err
 	}
 
-	metadataClient, err := aimstack.NewMetadataAimstack(aimstackRepo, pipelineRunExperiment)
+	metadataClient, err := mlflow.NewMetadataMLFlow(mlflowTrackingServer, pipelineRunExperimentID)
+
 	if err != nil {
 		return err
 	}
