@@ -3,6 +3,7 @@ package driver
 import (
 	"context"
 	"encoding/json"
+	"github.com/kubeflow/pipelines/backend/src/v2/mlflow"
 
 	"fmt"
 	"github.com/golang/glog"
@@ -32,14 +33,7 @@ var accessModeMap = map[string]k8score.PersistentVolumeAccessMode{
 // kubernetesPlatformOps() carries out the Kubernetes-specific operations, such as create PVC,
 // delete PVC, etc. In these operations we skip the launcher due to there being no user container.
 // It also prepublishes and publishes the execution, which are usually done in the launcher.
-func kubernetesPlatformOps(
-	ctx context.Context,
-	mlmd *metadata.Client,
-	cacheClient *cacheutils.Client,
-	execution *Execution,
-	ecfg *metadata.ExecutionConfig,
-	opts *Options,
-) (err error) {
+func kubernetesPlatformOps(ctx context.Context, mlmd *mlflow.MetadataMLFlow, cacheClient *cacheutils.Client, execution *Execution, ecfg *metadata.ExecutionConfig, opts *Options) (err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("failed to %s and publish execution %s: %w", dummyImages[opts.Container.Image], opts.Task.GetTaskInfo().GetName(), err)
@@ -427,15 +421,7 @@ func createK8sClient() (*kubernetes.Clientset, error) {
 	return k8sClient, nil
 }
 
-func makeVolumeMountPatch(
-	ctx context.Context,
-	opts Options,
-	pvcMounts []*kubernetesplatform.PvcMount,
-	dag *metadata.DAG,
-	pipeline *metadata.Pipeline,
-	mlmd *metadata.Client,
-	inputParams map[string]*structpb.Value,
-) ([]k8score.VolumeMount, []k8score.Volume, error) {
+func makeVolumeMountPatch(ctx context.Context, opts Options, pvcMounts []*kubernetesplatform.PvcMount, dag *metadata.DAG, pipeline *metadata.Pipeline, mlmd *mlflow.MetadataMLFlow, inputParams map[string]*structpb.Value) ([]k8score.VolumeMount, []k8score.Volume, error) {
 	if pvcMounts == nil {
 		return nil, nil, nil
 	}
@@ -489,15 +475,7 @@ func makeVolumeMountPatch(
 
 // Extends the PodSpec to include Kubernetes-specific executor config.
 // inputParams is a map of the input parameter name to a resolvable value.
-func extendPodSpecPatch(
-	ctx context.Context,
-	podSpec *k8score.PodSpec,
-	opts Options,
-	dag *metadata.DAG,
-	pipeline *metadata.Pipeline,
-	mlmd *metadata.Client,
-	inputParams map[string]*structpb.Value,
-) error {
+func extendPodSpecPatch(ctx context.Context, podSpec *k8score.PodSpec, opts Options, dag *metadata.DAG, pipeline *metadata.Pipeline, mlmd *mlflow.MetadataMLFlow, inputParams map[string]*structpb.Value) error {
 	kubernetesExecutorConfig := opts.KubernetesExecutorConfig
 
 	// Return an error if the podSpec has no user container.

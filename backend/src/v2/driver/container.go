@@ -11,6 +11,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/component"
 	"github.com/kubeflow/pipelines/backend/src/v2/expression"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
+	"github.com/kubeflow/pipelines/backend/src/v2/mlflow"
 	pb "github.com/kubeflow/pipelines/third_party/ml-metadata/go/ml_metadata"
 )
 
@@ -80,7 +81,7 @@ func provisionOutputs(
 	return outputs
 }
 
-func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheClient *cacheutils.Client) (execution *Execution, err error) {
+func Container(ctx context.Context, opts Options, mlmd *mlflow.MetadataMLFlow, cacheClient *cacheutils.Client) (execution *Execution, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("driver.Container(%s) failed: %w", opts.info(), err)

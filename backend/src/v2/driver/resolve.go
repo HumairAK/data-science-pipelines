@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/kubeflow/pipelines/backend/src/v2/mlflow"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"fmt"
@@ -23,7 +24,7 @@ type resolveUpstreamOutputsConfig struct {
 	artifactSpec *pipelinespec.TaskInputsSpec_InputArtifactSpec
 	dag          *metadata.DAG
 	pipeline     *metadata.Pipeline
-	mlmd         *metadata.Client
+	mlmd         *mlflow.MetadataMLFlow
 	err          func(error) error
 }
 
@@ -67,7 +68,7 @@ func resolveK8sJsonParameter[k8sResource any](
 	opts Options,
 	dag *metadata.DAG,
 	pipeline *metadata.Pipeline,
-	mlmd *metadata.Client,
+	mlmd *mlflow.MetadataMLFlow,
 	pipelineInputParamSpec *pipelinespec.TaskInputsSpec_InputParameterSpec,
 	inputParams map[string]*structpb.Value,
 	res *k8sResource,
@@ -89,15 +90,7 @@ func resolveK8sJsonParameter[k8sResource any](
 	return nil
 }
 
-func resolveInputs(
-	ctx context.Context,
-	dag *metadata.DAG,
-	iterationIndex *int,
-	pipeline *metadata.Pipeline,
-	opts Options,
-	mlmd *metadata.Client,
-	expr *expression.Expr,
-) (inputs *pipelinespec.ExecutorInput_Inputs, err error) {
+func resolveInputs(ctx context.Context, dag *metadata.DAG, iterationIndex *int, pipeline *metadata.Pipeline, opts Options, mlmd *mlflow.MetadataMLFlow, expr *expression.Expr) (inputs *pipelinespec.ExecutorInput_Inputs, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("failed to resolve inputs: %w", err)
@@ -310,15 +303,7 @@ func resolveInputs(
 // using a given input context via InputParams. ErrResolvedParameterNull is returned if paramSpec
 // is a component input parameter and parameter resolves to a null value (i.e. an optional pipeline input with no
 // default). The caller can decide if this is allowed in that context.
-func resolveInputParameter(
-	ctx context.Context,
-	dag *metadata.DAG,
-	pipeline *metadata.Pipeline,
-	opts Options,
-	mlmd *metadata.Client,
-	paramSpec *pipelinespec.TaskInputsSpec_InputParameterSpec,
-	inputParams map[string]*structpb.Value,
-) (*structpb.Value, error) {
+func resolveInputParameter(ctx context.Context, dag *metadata.DAG, pipeline *metadata.Pipeline, opts Options, mlmd *mlflow.MetadataMLFlow, paramSpec *pipelinespec.TaskInputsSpec_InputParameterSpec, inputParams map[string]*structpb.Value) (*structpb.Value, error) {
 	glog.V(4).Infof("paramSpec: %v", paramSpec)
 	paramError := func(err error) error {
 		return fmt.Errorf("resolving input parameter with spec %s: %w", paramSpec, err)
@@ -391,15 +376,7 @@ func resolveInputParameter(
 
 // resolveInputParameterStr is like resolveInputParameter but returns an error if the resolved value is not a non-empty
 // string.
-func resolveInputParameterStr(
-	ctx context.Context,
-	dag *metadata.DAG,
-	pipeline *metadata.Pipeline,
-	opts Options,
-	mlmd *metadata.Client,
-	paramSpec *pipelinespec.TaskInputsSpec_InputParameterSpec,
-	inputParams map[string]*structpb.Value,
-) (*structpb.Value, error) {
+func resolveInputParameterStr(ctx context.Context, dag *metadata.DAG, pipeline *metadata.Pipeline, opts Options, mlmd *mlflow.MetadataMLFlow, paramSpec *pipelinespec.TaskInputsSpec_InputParameterSpec, inputParams map[string]*structpb.Value) (*structpb.Value, error) {
 	val, err := resolveInputParameter(ctx, dag, pipeline, opts, mlmd, paramSpec, inputParams)
 	if err != nil {
 		return nil, err
@@ -418,16 +395,7 @@ func resolveInputParameterStr(
 
 // resolveInputArtifact resolves an InputArtifactSpec
 // using a given input context via inputArtifacts.
-func resolveInputArtifact(
-	ctx context.Context,
-	dag *metadata.DAG,
-	pipeline *metadata.Pipeline,
-	mlmd *metadata.Client,
-	name string,
-	artifactSpec *pipelinespec.TaskInputsSpec_InputArtifactSpec,
-	inputArtifacts map[string]*pipelinespec.ArtifactList,
-	task *pipelinespec.PipelineTaskSpec,
-) (*pipelinespec.ArtifactList, error) {
+func resolveInputArtifact(ctx context.Context, dag *metadata.DAG, pipeline *metadata.Pipeline, mlmd *mlflow.MetadataMLFlow, name string, artifactSpec *pipelinespec.TaskInputsSpec_InputArtifactSpec, inputArtifacts map[string]*pipelinespec.ArtifactList, task *pipelinespec.PipelineTaskSpec) (*pipelinespec.ArtifactList, error) {
 	glog.V(4).Infof("inputs: %#v", task.GetInputs())
 	glog.V(4).Infof("artifacts: %#v", task.GetInputs().GetArtifacts())
 	artifactError := func(err error) error {
@@ -673,7 +641,7 @@ func getDAGTasks(
 	ctx context.Context,
 	dag *metadata.DAG,
 	pipeline *metadata.Pipeline,
-	mlmd *metadata.Client,
+	mlmd *mlflow.MetadataMLFlow,
 	flattenedTasks map[string]*metadata.Execution,
 ) (map[string]*metadata.Execution, error) {
 	if flattenedTasks == nil {

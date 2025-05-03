@@ -176,20 +176,20 @@ func drive() (err error) {
 	if err != nil {
 		return err
 	}
-	client, err := newMlmdClient()
-	if err != nil {
-		return err
-	}
+	//client, err := newMlmdClient()
+	//if err != nil {
+	//	return err
+	//}
 	cacheClient, err := cacheutils.NewClient()
 	if err != nil {
 		return err
 	}
 
 	metadataClient, err := mlflow.NewMetadataMLFlow(mlflowTrackingServer, pipelineRunExperimentID)
-
 	if err != nil {
 		return err
 	}
+
 	options := driver.Options{
 		PipelineName:     *pipelineName,
 		RunID:            *runID,
@@ -202,20 +202,19 @@ func drive() (err error) {
 		IterationIndex:   *iterationIndex,
 		PipelineLogLevel: *logLevel,
 		PublishLogs:      *publishLogs,
-		MetadataClient:   metadataClient,
 	}
 	var execution *driver.Execution
 	var driverErr error
 	switch *driverType {
 	case ROOT_DAG:
 		options.RuntimeConfig = runtimeConfig
-		execution, driverErr = driver.RootDAG(ctx, options, client)
+		execution, driverErr = driver.RootDAG(ctx, options, metadataClient)
 	case DAG:
-		execution, driverErr = driver.DAG(ctx, options, client)
+		execution, driverErr = driver.DAG(ctx, options, metadataClient)
 	case CONTAINER:
 		options.Container = containerSpec
 		options.KubernetesExecutorConfig = k8sExecCfg
-		execution, driverErr = driver.Container(ctx, options, client, cacheClient)
+		execution, driverErr = driver.Container(ctx, options, metadataClient, cacheClient)
 	default:
 		err = fmt.Errorf("unknown driverType %s", *driverType)
 	}

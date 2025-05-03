@@ -9,6 +9,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
+	"github.com/kubeflow/pipelines/backend/src/v2/mlflow"
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 	"k8s.io/client-go/kubernetes"
 )
@@ -49,7 +50,7 @@ func validateRootDAG(opts Options) (err error) {
 	return nil
 }
 
-func RootDAG(ctx context.Context, opts Options, mlmd *metadata.Client) (execution *Execution, err error) {
+func RootDAG(ctx context.Context, opts Options, mlmd *mlflow.MetadataMLFlow) (execution *Execution, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("driver.RootDAG(%s) failed: %w", opts.info(), err)

@@ -3,6 +3,7 @@ package driver
 import (
 	"context"
 	"encoding/json"
+	"github.com/kubeflow/pipelines/backend/src/v2/mlflow"
 
 	"fmt"
 	"github.com/golang/glog"
@@ -24,7 +25,7 @@ func validateDAG(opts Options) (err error) {
 	return validateNonRoot(opts)
 }
 
-func DAG(ctx context.Context, opts Options, mlmd *metadata.Client) (execution *Execution, err error) {
+func DAG(ctx context.Context, opts Options, mlmd *mlflow.MetadataMLFlow) (execution *Execution, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("driver.DAG(%s) failed: %w", opts.info(), err)
