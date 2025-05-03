@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/mlflow"
 	"strings"
 
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
@@ -51,7 +52,7 @@ type ImportLauncher struct {
 	importerLauncherOptions ImporterLauncherOptions
 
 	// clients
-	metadataClient *metadata.Client
+	metadataClient *mlflow.MetadataMLFlow
 	k8sClient      *kubernetes.Clientset
 }
 
@@ -92,10 +93,12 @@ func NewImporterLauncher(ctx context.Context, componentSpecJSON, importerSpecJSO
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize kubernetes client set: %w", err)
 	}
-	metadataClient, err := metadata.NewClient(launcherV2Opts.MLMDServerAddress, launcherV2Opts.MLMDServerPort)
+
+	metadataClient, err := mlflow.NewMetadataMLFlow(mlflowTrackingServer, pipelineRunExperimentID)
 	if err != nil {
 		return nil, err
 	}
+
 	return &ImportLauncher{
 		component:               component,
 		importer:                importer,

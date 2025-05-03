@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/mlflow"
 	"io"
 	"os"
 	"os/exec"
@@ -43,6 +44,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
+
+const mlflowTrackingServer = "https://6071-73-16-169-10.ngrok-free.app/api/2.0/mlflow"
+const pipelineRunExperimentID = "740955601149365591"
 
 type LauncherV2Options struct {
 	Namespace,
@@ -109,7 +113,11 @@ func NewLauncherV2(ctx context.Context, executionID int64, executorInputJSON, co
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize kubernetes client set: %w", err)
 	}
-	metadataClient, err := metadata.NewClient(opts.MLMDServerAddress, opts.MLMDServerPort)
+	//metadataClient, err := metadata.NewClient(opts.MLMDServerAddress, opts.MLMDServerPort)
+	//if err != nil {
+	//	return nil, err
+	//}
+	metadataClient, err := mlflow.NewMetadataMLFlow(mlflowTrackingServer, pipelineRunExperimentID)
 	if err != nil {
 		return nil, err
 	}

@@ -81,15 +81,7 @@ func kubernetesPlatformOps(ctx context.Context, mlmd *mlflow.MetadataMLFlow, cac
 
 // Usually we publish the execution in launcher, but for Kubernetes-specific operations,
 // we skip the launcher. So this function is only used in these special cases.
-func publishDriverExecution(
-	k8sClient *kubernetes.Clientset,
-	mlmd *metadata.Client,
-	ctx context.Context,
-	execution *metadata.Execution,
-	outputParameters map[string]*structpb.Value,
-	outputArtifacts []*metadata.OutputArtifact,
-	status pb.Execution_State,
-) (err error) {
+func publishDriverExecution(k8sClient *kubernetes.Clientset, mlmd *mlflow.MetadataMLFlow, ctx context.Context, execution *metadata.Execution, outputParameters map[string]*structpb.Value, outputArtifacts []*metadata.OutputArtifact, status pb.Execution_State) (err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("failed to publish driver execution %s: %w", execution.TaskName(), err)
@@ -126,15 +118,7 @@ func publishDriverExecution(
 }
 
 // execution is passed by value because we make changes to it to generate  fingerprint
-func createPVC(
-	ctx context.Context,
-	k8sClient kubernetes.Interface,
-	execution Execution,
-	opts *Options,
-	cacheClient *cacheutils.Client,
-	mlmd *metadata.Client,
-	ecfg *metadata.ExecutionConfig,
-) (pvcName string, createdExecution *metadata.Execution, status pb.Execution_State, err error) {
+func createPVC(ctx context.Context, k8sClient kubernetes.Interface, execution Execution, opts *Options, cacheClient *cacheutils.Client, mlmd *mlflow.MetadataMLFlow, ecfg *metadata.ExecutionConfig) (pvcName string, createdExecution *metadata.Execution, status pb.Execution_State, err error) {
 	// Create execution regardless the operation succeeds or not
 	defer func() {
 		if createdExecution == nil {
@@ -297,15 +281,7 @@ func createPVC(
 	return createdPVC.ObjectMeta.Name, createdExecution, pb.Execution_COMPLETE, nil
 }
 
-func deletePVC(
-	ctx context.Context,
-	k8sClient kubernetes.Interface,
-	execution Execution,
-	opts *Options,
-	cacheClient *cacheutils.Client,
-	mlmd *metadata.Client,
-	ecfg *metadata.ExecutionConfig,
-) (createdExecution *metadata.Execution, status pb.Execution_State, err error) {
+func deletePVC(ctx context.Context, k8sClient kubernetes.Interface, execution Execution, opts *Options, cacheClient *cacheutils.Client, mlmd *mlflow.MetadataMLFlow, ecfg *metadata.ExecutionConfig) (createdExecution *metadata.Execution, status pb.Execution_State, err error) {
 
 	// Create execution regardless the operation succeeds or not
 	defer func() {
