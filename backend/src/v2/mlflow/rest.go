@@ -11,20 +11,30 @@ import (
 )
 
 type RunPayload struct {
-	ExperimentID string `json:"experiment_id"`
-	RunName      string `json:"run_name"`
-	StartTime    string `json:"start_time"`
+	ExperimentID string              `json:"experiment_id"`
+	RunName      string              `json:"run_name"`
+	StartTime    string              `json:"start_time"`
+	Tags         []map[string]string `json:"tags"`
 }
 
-func (m *MetadataMLFlow) CreateRun(runName string) error {
+func (m *MetadataMLFlow) CreateRun(runName string, tags []map[string]string) error {
 	// Parameter values
 	experimentID := m.experimentID
+
+	//// Step 2: Convert map to JSON string
+	//tagsJSON, err := json.Marshal(tags)
+	//if err != nil {
+	//	return err
+	//}
+	//tagsJSONString := string(tagsJSON)
+	//fmt.Println("Tags JSON:", tagsJSONString)
 
 	// Create struct with parameters
 	payload := RunPayload{
 		ExperimentID: experimentID,
 		RunName:      runName,
 		StartTime:    fmt.Sprintf("%d", time.Now().UnixMilli()),
+		Tags:         tags,
 	}
 
 	// Marshal to JSON

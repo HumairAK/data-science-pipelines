@@ -12,7 +12,12 @@ type MetadataMLFlow struct {
 }
 
 func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelineName, runID, namespace, runResource, pipelineRoot, storeSessionInfo string) (*metadata_v2.PipelineRun, error) {
-	err := m.CreateRun(runName)
+
+	tags := []map[string]string{{
+		"key":   "kfpRunID",
+		"value": runID,
+	}}
+	err := m.CreateRun(runName, tags)
 	if err != nil {
 		return nil, err
 	}
