@@ -18,7 +18,7 @@ type RunPayload struct {
 	Tags         []map[string]string `json:"tags"`
 }
 
-func (m *MetadataMLFlow) CreateRun(runName string, tags []map[string]string) (*GetRunResponse, error) {
+func (m *MetadataMLFlow) CreateRun(runName string, tags []map[string]string) (*CreateRunResponse, error) {
 	experimentID := m.experimentID
 
 	// Create struct with parameters
@@ -48,7 +48,7 @@ func (m *MetadataMLFlow) CreateRun(runName string, tags []map[string]string) (*G
 	fmt.Println("Status:", resp.Status)
 	fmt.Println("Body:", string(body))
 
-	var runResponse *GetRunResponse
+	var runResponse *CreateRunResponse
 	err = json.Unmarshal(body, runResponse)
 	if err != nil {
 		glog.Errorf("Failed to unmarshal: %v", err)
@@ -84,6 +84,40 @@ func (m *MetadataMLFlow) GetRun(runID string) (*GetRunResponse, error) {
 		glog.Errorf("Failed to unmarshal: %v", err)
 	}
 	return &runResponse, nil
+}
+
+func (m *MetadataMLFlow) UpdateRun(runID, runUUID, runName string, status RunStatus, endTime int64) (*UpdateRunResponse, error) {
+	// Create struct with parameters
+	payload := UpdateRunRequest{
+		RunId:   runID,
+		RunUUID: runUUID,
+		RunName: runName,
+		Status:  status,
+		EndTime: endTime,
+	}
+
+	// Marshal to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, body, err := DoRequest("GET", fmt.Sprintf("%s/runs/get", m.trackingServerHost), jsonPayload, map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": "Bearer YOUR_TOKEN_HERE",
+	})
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode == 404 {
+		return nil, errors.New(string(body))
+	}
+	var typedResp *UpdateRunResponse
+	err = json.Unmarshal(body, typedResp)
+	if err != nil {
+		glog.Errorf("Failed to unmarshal: %v", err)
+	}
+	return typedResp, nil
 }
 
 func (m *MetadataMLFlow) SearchExperiments(maxResults int64, pageToken string, filter string, orderBy []string, viewType ViewType) (*SearchRunResponse, error) {

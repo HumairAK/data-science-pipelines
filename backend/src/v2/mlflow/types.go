@@ -4,6 +4,10 @@ type GetRunRequest struct {
 	RunID string `json:"run_id"`
 }
 
+type CreateRunResponse struct {
+	Run Run `json:"run"`
+}
+
 type GetRunResponse struct {
 	Run Run `json:"run"`
 }
@@ -23,6 +27,18 @@ type SearchRunRequest struct {
 	MaxResults    int64    `json:"max_results"`
 	OrderBy       []string `json:"order_by"`
 	PageToken     string   `json:"page_token"`
+}
+
+type UpdateRunRequest struct {
+	RunId   string    `json:"run_id"`
+	RunUUID string    `json:"run_uuid"`
+	Status  RunStatus `json:"status"`
+	EndTime int64     `json:"end_time"`
+	RunName string    `json:"run_name"`
+}
+
+type UpdateRunResponse struct {
+	RunInfo RunInfo `json:"run_info"`
 }
 
 type SearchRunResponse struct {

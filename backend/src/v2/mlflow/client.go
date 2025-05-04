@@ -75,10 +75,12 @@ func (m *MetadataMLFlow) CreateExecution(ctx context.Context, pipeline *metadata
 		MlflowParentRunId: run.Info.RunID,
 	})
 
-	err = m.CreateRun(config.Name, tags)
+	createResp, err := m.CreateRun(config.Name, tags)
 	if err != nil {
 		return nil, err
 	}
+
+	createdRun := createResp.Run
 
 	// TODO: log parameters
 	if config.InputParameters != nil {
