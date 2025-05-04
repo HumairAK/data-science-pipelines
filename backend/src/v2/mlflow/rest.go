@@ -12,21 +12,14 @@ import (
 	"time"
 )
 
-type RunPayload struct {
-	ExperimentID string              `json:"experiment_id"`
-	RunName      string              `json:"run_name"`
-	StartTime    string              `json:"start_time"`
-	Tags         []map[string]string `json:"tags"`
-}
-
-func (m *MetadataMLFlow) CreateRun(runName string, tags []map[string]string) (*types.CreateRunResponse, error) {
+func (m *MetadataMLFlow) CreateRun(runName string, tags []types.RunTag) (*types.CreateRunResponse, error) {
 	experimentID := m.experimentID
 
 	// Create struct with parameters
-	payload := RunPayload{
-		ExperimentID: experimentID,
+	payload := types.CreateRunRequest{
+		ExperimentId: experimentID,
 		RunName:      runName,
-		StartTime:    fmt.Sprintf("%d", time.Now().UnixMilli()),
+		StartTime:    time.Now().UnixMilli(),
 		Tags:         tags,
 	}
 
@@ -103,7 +96,7 @@ func (m *MetadataMLFlow) UpdateRun(runID, runUUID, runName string, status types.
 		return nil, err
 	}
 
-	resp, body, err := DoRequest("GET", fmt.Sprintf("%s/runs/get", m.trackingServerHost), jsonPayload, map[string]string{
+	resp, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/update", m.trackingServerHost), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
@@ -119,6 +112,30 @@ func (m *MetadataMLFlow) UpdateRun(runID, runUUID, runName string, status types.
 		glog.Errorf("Failed to unmarshal: %v", err)
 	}
 	return typedResp, nil
+}
+
+func (m *MetadataMLFlow) LogParam(runID, runUUID, key, value string) error {
+	payload := types.LogParamRequest{
+		RunId:   runID,
+		RunUUID: runUUID,
+		Key:     key,
+		Value:   value,
+	}
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	resp, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/log-parameter", m.trackingServerHost), jsonPayload, map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": "Bearer YOUR_TOKEN_HERE",
+	})
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode == 404 {
+		return errors.New(string(body))
+	}
+	return nil
 }
 
 func (m *MetadataMLFlow) SearchExperiments(maxResults int64, pageToken string, filter string, orderBy []string, viewType types.ViewType) (*types.SearchRunResponse, error) {

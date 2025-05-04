@@ -12,35 +12,59 @@ const (
 	MlflowParentRunId = "mlflow.parentRunId" // Parent DAG Execution ID.
 )
 
+// metadata keys
+const (
+	keyDisplayName           = "display_name"
+	keyTaskName              = "task_name"
+	keyImage                 = "image"
+	keyPodName               = "pod_name"
+	keyPodUID                = "pod_uid"
+	keyNamespace             = "namespace"
+	keyResourceName          = "resource_name"
+	keyPipelineRoot          = "pipeline_root"
+	keyStoreSessionInfo      = "store_session_info"
+	keyCacheFingerPrint      = "cache_fingerprint"
+	keyCachedExecutionID     = "cached_execution_id"
+	keyInputs                = "inputs"
+	keyOutputs               = "outputs"
+	keyParameterProducerTask = "parameter_producer_task"
+	keyOutputArtifacts       = "output_artifacts"
+	keyArtifactProducerTask  = "artifact_producer_task"
+	keyParentDagID           = "parent_dag_id" // Parent DAG Execution ID.
+	keyIterationIndex        = "iteration_index"
+	keyIterationCount        = "iteration_count"
+	keyTotalDagTasks         = "total_dag_tasks"
+)
+
 type MetadataMLFlow struct {
 	trackingServerHost string
 	experimentID       string
 }
 
 func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelineName, runID, namespace, runResource, pipelineRoot, storeSessionInfo string) (*metadata.Pipeline, error) {
-	tags := []map[string]string{
+	tags := []types.RunTag{
 		{
-			"key":   "kfpRunID",
-			"value": runID,
+			Key:   "kfpRunID",
+			Value: runID,
 		},
 		{
-			"key":   "keyNamespace",
-			"value": namespace,
+			Key:   "keyNamespace",
+			Value: namespace,
 		},
 		{
-			"key":   "keyResourceName",
-			"value": runResource,
+			Key:   "keyResourceName",
+			Value: runResource,
 		},
 		{
-			"key":   "keyPipelineRoot",
-			"value": metadata.GenerateOutputURI(pipelineRoot, []string{pipelineName, runID}, true),
+			Key:   "keyPipelineRoot",
+			Value: metadata.GenerateOutputURI(pipelineRoot, []string{pipelineName, runID}, true),
 		},
 		{
-			"key":   "keyStoreSessionInfo",
-			"value": storeSessionInfo,
+			Key:   "keyStoreSessionInfo",
+			Value: storeSessionInfo,
 		},
 	}
-	err := m.CreateRun(runName, tags)
+	_, err := m.CreateRun(runName, tags)
 	if err != nil {
 		return nil, err
 	}
@@ -69,30 +93,50 @@ func (m *MetadataMLFlow) CreateExecution(ctx context.Context, pipeline *metadata
 		return nil, fmt.Errorf("Multiple runs found for experiment %s", experimentID)
 	}
 
-	run := runs[0]
+	ParentMLFlowRun := runs[0]
 
-	var tags []map[string]string
-	tags = append(tags, map[string]string{
-		MlflowParentRunId: run.Info.RunID,
-	})
+	// This will connect the two runs in a parent -> child relationship
+	// in MLFlow
+	tags := []types.RunTag{
+		{
+			Key:   MlflowParentRunId,
+			Value: ParentMLFlowRun.Info.RunID,
+		},
+		{
+			Key:   keyPodName,
+			Value: config.PodName,
+		},
+		{
+			Key:   keyNamespace,
+			Value: config.Namespace,
+		},
+		{
+			Key:   keyPipelineRoot,
+			Value: pipeline.GetPipelineRoot(),
+		},
+		{
+			Key:   keyDisplayName,
+			Value: config.TaskName,
+		},
+	}
 
 	createResp, err := m.CreateRun(config.Name, tags)
 	if err != nil {
 		return nil, err
 	}
 
+	// Log params once run is created
+	// would be nice if we could log these at creation time
+	// to avoid multiple calls but I didn't see a way to
+	// do this.
 	createdRun := createResp.Run
-
-	// TODO: log parameters
 	if config.InputParameters != nil {
-		var result []types.LogParamRequest
 		for key, val := range config.InputParameters {
-			// Use val.String() to get a printable representation of the structpb.Value
-			// Alternatively, use val.GetStringValue() if you're sure it's a string type
-			result = append(result, types.LogParamRequest{
-				Key:   key,
-				Value: fmt.Sprintf("%v", val.AsInterface()),
-			})
+			info := createdRun.Info
+			err := m.LogParam(info.RunID, info.RunUUID, key, fmt.Sprintf("%v", val.AsInterface()))
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
