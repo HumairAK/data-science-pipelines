@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
+	"github.com/kubeflow/pipelines/backend/src/v2/mlflow/types"
 	"strconv"
 )
 
@@ -84,11 +85,11 @@ func (m *MetadataMLFlow) CreateExecution(ctx context.Context, pipeline *metadata
 
 	// TODO: log parameters
 	if config.InputParameters != nil {
-		var result []LogParamRequest
+		var result []types.LogParamRequest
 		for key, val := range config.InputParameters {
 			// Use val.String() to get a printable representation of the structpb.Value
 			// Alternatively, use val.GetStringValue() if you're sure it's a string type
-			result = append(result, LogParamRequest{
+			result = append(result, types.LogParamRequest{
 				Key:   key,
 				Value: fmt.Sprintf("%v", val.AsInterface()),
 			})

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golang/glog"
+	"github.com/kubeflow/pipelines/backend/src/v2/mlflow/types"
 	"github.com/pkg/errors"
 	"io"
 	"net/http"
@@ -18,7 +19,7 @@ type RunPayload struct {
 	Tags         []map[string]string `json:"tags"`
 }
 
-func (m *MetadataMLFlow) CreateRun(runName string, tags []map[string]string) (*CreateRunResponse, error) {
+func (m *MetadataMLFlow) CreateRun(runName string, tags []map[string]string) (*types.CreateRunResponse, error) {
 	experimentID := m.experimentID
 
 	// Create struct with parameters
@@ -48,7 +49,7 @@ func (m *MetadataMLFlow) CreateRun(runName string, tags []map[string]string) (*C
 	fmt.Println("Status:", resp.Status)
 	fmt.Println("Body:", string(body))
 
-	var runResponse *CreateRunResponse
+	var runResponse *types.CreateRunResponse
 	err = json.Unmarshal(body, runResponse)
 	if err != nil {
 		glog.Errorf("Failed to unmarshal: %v", err)
@@ -56,9 +57,9 @@ func (m *MetadataMLFlow) CreateRun(runName string, tags []map[string]string) (*C
 	return runResponse, nil
 }
 
-func (m *MetadataMLFlow) GetRun(runID string) (*GetRunResponse, error) {
+func (m *MetadataMLFlow) GetRun(runID string) (*types.GetRunResponse, error) {
 	// Create struct with parameters
-	payload := GetRunRequest{
+	payload := types.GetRunRequest{
 		RunID: runID,
 	}
 
@@ -78,7 +79,7 @@ func (m *MetadataMLFlow) GetRun(runID string) (*GetRunResponse, error) {
 	if resp.StatusCode == 404 {
 		return nil, errors.New(string(body))
 	}
-	var runResponse GetRunResponse
+	var runResponse types.GetRunResponse
 	err = json.Unmarshal(body, &runResponse)
 	if err != nil {
 		glog.Errorf("Failed to unmarshal: %v", err)
@@ -86,9 +87,9 @@ func (m *MetadataMLFlow) GetRun(runID string) (*GetRunResponse, error) {
 	return &runResponse, nil
 }
 
-func (m *MetadataMLFlow) UpdateRun(runID, runUUID, runName string, status RunStatus, endTime int64) (*UpdateRunResponse, error) {
+func (m *MetadataMLFlow) UpdateRun(runID, runUUID, runName string, status types.RunStatus, endTime int64) (*types.UpdateRunResponse, error) {
 	// Create struct with parameters
-	payload := UpdateRunRequest{
+	payload := types.UpdateRunRequest{
 		RunId:   runID,
 		RunUUID: runUUID,
 		RunName: runName,
@@ -112,7 +113,7 @@ func (m *MetadataMLFlow) UpdateRun(runID, runUUID, runName string, status RunSta
 	if resp.StatusCode == 404 {
 		return nil, errors.New(string(body))
 	}
-	var typedResp *UpdateRunResponse
+	var typedResp *types.UpdateRunResponse
 	err = json.Unmarshal(body, typedResp)
 	if err != nil {
 		glog.Errorf("Failed to unmarshal: %v", err)
@@ -120,12 +121,12 @@ func (m *MetadataMLFlow) UpdateRun(runID, runUUID, runName string, status RunSta
 	return typedResp, nil
 }
 
-func (m *MetadataMLFlow) SearchExperiments(maxResults int64, pageToken string, filter string, orderBy []string, viewType ViewType) (*SearchRunResponse, error) {
+func (m *MetadataMLFlow) SearchExperiments(maxResults int64, pageToken string, filter string, orderBy []string, viewType types.ViewType) (*types.SearchRunResponse, error) {
 	return nil, nil
 }
 
-func (m *MetadataMLFlow) SearchRuns(experimentIds []string, maxResults int64, pageToken string, filter string, orderBy []string, viewType ViewType) (*SearchRunResponse, error) {
-	payload := SearchRunRequest{
+func (m *MetadataMLFlow) SearchRuns(experimentIds []string, maxResults int64, pageToken string, filter string, orderBy []string, viewType types.ViewType) (*types.SearchRunResponse, error) {
+	payload := types.SearchRunRequest{
 		ExperimentIds: experimentIds,
 		Filter:        filter,
 		RunViewType:   viewType,
@@ -151,7 +152,7 @@ func (m *MetadataMLFlow) SearchRuns(experimentIds []string, maxResults int64, pa
 		return nil, errors.New(string(body))
 	}
 
-	var runResponse SearchRunResponse
+	var runResponse types.SearchRunResponse
 	err = json.Unmarshal(body, &runResponse)
 	if err != nil {
 		glog.Errorf("Failed to unmarshal: %v", err)
