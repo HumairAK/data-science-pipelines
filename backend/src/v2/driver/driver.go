@@ -61,6 +61,8 @@ type Options struct {
 
 	PublishLogs    string
 	MetadataClient metadata_v2.MetadataInterfaceClient
+
+	ExperimentId string
 }
 
 // Identifying information used for error messages

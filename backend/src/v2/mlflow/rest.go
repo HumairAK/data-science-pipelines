@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"io"
 	"net/http"
@@ -17,17 +18,8 @@ type RunPayload struct {
 	Tags         []map[string]string `json:"tags"`
 }
 
-func (m *MetadataMLFlow) CreateRun(runName string, tags []map[string]string) error {
-	// Parameter values
+func (m *MetadataMLFlow) CreateRun(runName string, tags []map[string]string) (*GetRunResponse, error) {
 	experimentID := m.experimentID
-
-	//// Step 2: Convert map to JSON string
-	//tagsJSON, err := json.Marshal(tags)
-	//if err != nil {
-	//	return err
-	//}
-	//tagsJSONString := string(tagsJSON)
-	//fmt.Println("Tags JSON:", tagsJSONString)
 
 	// Create struct with parameters
 	payload := RunPayload{
@@ -40,7 +32,7 @@ func (m *MetadataMLFlow) CreateRun(runName string, tags []map[string]string) err
 	// Marshal to JSON
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	resp, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/create", m.trackingServerHost), jsonPayload, map[string]string{
@@ -48,14 +40,89 @@ func (m *MetadataMLFlow) CreateRun(runName string, tags []map[string]string) err
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if resp.StatusCode == 404 {
-		return errors.New(string(body))
+		return nil, errors.New(string(body))
 	}
 	fmt.Println("Status:", resp.Status)
 	fmt.Println("Body:", string(body))
-	return nil
+
+	var runResponse *GetRunResponse
+	err = json.Unmarshal(body, runResponse)
+	if err != nil {
+		glog.Errorf("Failed to unmarshal: %v", err)
+	}
+	return runResponse, nil
+}
+
+func (m *MetadataMLFlow) GetRun(runID string) (*GetRunResponse, error) {
+	// Create struct with parameters
+	payload := GetRunRequest{
+		RunID: runID,
+	}
+
+	// Marshal to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, body, err := DoRequest("GET", fmt.Sprintf("%s/runs/get", m.trackingServerHost), jsonPayload, map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": "Bearer YOUR_TOKEN_HERE",
+	})
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode == 404 {
+		return nil, errors.New(string(body))
+	}
+	var runResponse GetRunResponse
+	err = json.Unmarshal(body, &runResponse)
+	if err != nil {
+		glog.Errorf("Failed to unmarshal: %v", err)
+	}
+	return &runResponse, nil
+}
+
+func (m *MetadataMLFlow) SearchExperiments(maxResults int64, pageToken string, filter string, orderBy []string, viewType ViewType) (*SearchRunResponse, error) {
+	return nil, nil
+}
+
+func (m *MetadataMLFlow) SearchRuns(experimentIds []string, maxResults int64, pageToken string, filter string, orderBy []string, viewType ViewType) (*SearchRunResponse, error) {
+	payload := SearchRunRequest{
+		ExperimentIds: experimentIds,
+		Filter:        filter,
+		RunViewType:   viewType,
+		MaxResults:    maxResults,
+		PageToken:     pageToken,
+		OrderBy:       orderBy,
+	}
+
+	// Marshal to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, body, err := DoRequest("GET", fmt.Sprintf("%s/runs/search", m.trackingServerHost), jsonPayload, map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": "Bearer YOUR_TOKEN_HERE",
+	})
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode == 404 {
+		return nil, errors.New(string(body))
+	}
+
+	var runResponse SearchRunResponse
+	err = json.Unmarshal(body, &runResponse)
+	if err != nil {
+		glog.Errorf("Failed to unmarshal: %v", err)
+	}
+	return &runResponse, nil
 }
 
 func DoRequest(method, url string, body []byte, headers map[string]string) (*http.Response, []byte, error) {

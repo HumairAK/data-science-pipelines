@@ -150,6 +150,12 @@ func DAG(ctx context.Context, opts Options, mlmd *metadata.Client) (execution *E
 	if err != nil {
 		return execution, err
 	}
+
+	_, err = opts.MetadataClient.CreateExecution(ctx, pipeline, ecfg)
+	if err != nil {
+		return execution, err
+	}
+
 	glog.Infof("Created execution: %s", createdExecution)
 	execution.ID = createdExecution.GetID()
 	return execution, nil

@@ -85,9 +85,6 @@ var (
 	publishLogs = flag.String("publish_logs", "true", "Whether to publish component logs to the object store")
 )
 
-const mlflowTrackingServer = "https://6071-73-16-169-10.ngrok-free.app/api/2.0/mlflow"
-const pipelineRunExperimentID = "740955601149365591"
-
 // func RootDAG(pipelineName string, runID string, component *pipelinespec.ComponentSpec, task *pipelinespec.PipelineTaskSpec, mlmd *metadata.Client) (*Execution, error) {
 
 func main() {
@@ -185,7 +182,7 @@ func drive() (err error) {
 		return err
 	}
 
-	metadataClient, err := mlflow.NewMetadataMLFlow(mlflowTrackingServer, pipelineRunExperimentID)
+	metadataClient, err := mlflow.NewMetadataMLFlow(mlflow.MlflowTrackingServer, mlflow.PipelineRunExperimentID)
 
 	if err != nil {
 		return err
@@ -203,6 +200,7 @@ func drive() (err error) {
 		PipelineLogLevel: *logLevel,
 		PublishLogs:      *publishLogs,
 		MetadataClient:   metadataClient,
+		ExperimentId:     mlflow.PipelineRunExperimentID, // TODO: should pass from apiserver
 	}
 	var execution *driver.Execution
 	var driverErr error
