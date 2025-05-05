@@ -151,7 +151,7 @@ func DAG(ctx context.Context, opts Options, mlmd *metadata.Client) (execution *E
 		return execution, err
 	}
 
-	_, err = opts.MetadataClient.CreateExecution(ctx, pipeline, ecfg)
+	_, err = opts.MetadataClient.CreateExecution(ctx, pipeline, ecfg, opts.ExperimentId)
 	if err != nil {
 		return execution, err
 	}

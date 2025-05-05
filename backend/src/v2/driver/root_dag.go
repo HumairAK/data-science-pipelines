@@ -98,12 +98,6 @@ func RootDAG(ctx context.Context, opts Options, mlmd *metadata.Client) (executio
 		return nil, err
 	}
 
-	print(pipeline)
-	_, err = opts.MetadataClient.CreatePipelineRun(ctx, opts.RunDisplayName, opts.PipelineName, opts.RunID, opts.Namespace, "run-resource", pipelineRoot, storeSessionInfoStr)
-	if err != nil {
-		return nil, err
-	}
-
 	executorInput := &pipelinespec.ExecutorInput{
 		Inputs: &pipelinespec.ExecutorInput_Inputs{
 			ParameterValues: opts.RuntimeConfig.GetParameterValues(),
@@ -116,11 +110,25 @@ func RootDAG(ctx context.Context, opts Options, mlmd *metadata.Client) (executio
 	}
 	ecfg.ExecutionType = metadata.DagExecutionTypeName
 	ecfg.Name = fmt.Sprintf("run/%s", opts.RunID)
-	// exec, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
-	exec, err := mlmd.GetExecution(ctx, 268)
+
+	var exec *metadata.Execution
+	if opts.DevMode {
+		exec, err = mlmd.GetExecution(ctx, opts.DevExecutionId)
+	} else {
+		exec, err = mlmd.CreateExecution(ctx, pipeline, ecfg)
+	}
 	if err != nil {
 		return nil, err
 	}
+
+	// Use the execution ID from MLMD for now to uniquely identify this parent pipeline run in mlflow
+	// In a world without mlmd, we would use the runID that is returned by mlflow itself and pass
+	// that between drivers/launchers.
+	_, err = opts.MetadataClient.CreatePipelineRun(ctx, opts.RunDisplayName, opts.PipelineName, opts.Namespace, "run-resource", pipelineRoot, storeSessionInfoStr, exec.GetID())
+	if err != nil {
+		return nil, err
+	}
+
 	glog.Infof("Created execution: %s", exec)
 	// No need to return ExecutorInput, because tasks in the DAG will resolve
 	// needed info from MLMD.

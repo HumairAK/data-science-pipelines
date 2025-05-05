@@ -41,11 +41,13 @@ type MetadataMLFlow struct {
 	experimentID       string
 }
 
-func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelineName, runID, namespace, runResource, pipelineRoot, storeSessionInfo string) (*metadata.Pipeline, error) {
+// RUNID is the Run Id of the pipeline runc reated by api server
+// we use this to retrieve the parent run, this won't work for nested pipeline case probably
+func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelineName, namespace, runResource, pipelineRoot, storeSessionInfo string, runID int64) (*metadata.Pipeline, error) {
 	tags := []types.RunTag{
 		{
 			Key:   "kfpRunID",
-			Value: runID,
+			Value: strconv.FormatInt(runID, 10),
 		},
 		{
 			Key:   "keyNamespace",
@@ -57,7 +59,7 @@ func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelin
 		},
 		{
 			Key:   "keyPipelineRoot",
-			Value: metadata.GenerateOutputURI(pipelineRoot, []string{pipelineName, runID}, true),
+			Value: metadata.GenerateOutputURI(pipelineRoot, []string{pipelineName, strconv.FormatInt(runID, 10)}, true),
 		},
 		{
 			Key:   "keyStoreSessionInfo",
