@@ -121,10 +121,21 @@ func RootDAG(ctx context.Context, opts Options, mlmd *metadata.Client) (executio
 		return nil, err
 	}
 
+	executionID := exec.GetID()
 	// Use the execution ID from MLMD for now to uniquely identify this parent pipeline run in mlflow
 	// In a world without mlmd, we would use the runID that is returned by mlflow itself and pass
 	// that between drivers/launchers.
-	_, err = opts.MetadataClient.CreatePipelineRun(ctx, opts.RunDisplayName, opts.PipelineName, opts.Namespace, "run-resource", pipelineRoot, storeSessionInfoStr, exec.GetID())
+	_, err = opts.MetadataClient.CreatePipelineRun(
+		ctx,
+		opts.RunDisplayName,
+		opts.PipelineName,
+		opts.Namespace,
+		"run-resource",
+		pipelineRoot,
+		storeSessionInfoStr,
+		nil,
+		&executionID,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -180,14 +180,32 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 	ecfg.CachedMLMDExecutionID = cachedMLMDExecutionID
 	ecfg.FingerPrint = fingerPrint
 
-	// TODO(Bobgy): change execution state to pending, because this is driver, execution hasn't started.
-	createdExecution, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
-
-	if err != nil {
-		return execution, err
+	var createdExecution *metadata.Execution
+	if opts.DevMode {
+		createdExecution, err = mlmd.GetExecution(ctx, opts.DevExecutionId)
+	} else {
+		createdExecution, err = mlmd.CreateExecution(ctx, pipeline, ecfg)
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	executionID := createdExecution.GetID()
+	_, err = opts.MetadataClient.CreatePipelineRun(
+		ctx,
+		ecfg.TaskName,
+		opts.PipelineName,
+		opts.Namespace,
+		"run-resource",
+		pipeline.GetPipelineRoot(),
+		pipeline.GetStoreSessionInfo(),
+		&ecfg.ParentDagID,
+		&executionID,
+	)
+
 	glog.Infof("Created execution: %s", createdExecution)
 	execution.ID = createdExecution.GetID()
+
 	if !execution.WillTrigger() {
 		return execution, nil
 	}

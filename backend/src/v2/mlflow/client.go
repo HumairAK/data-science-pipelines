@@ -43,11 +43,13 @@ type MetadataMLFlow struct {
 
 // RUNID is the Run Id of the pipeline runc reated by api server
 // we use this to retrieve the parent run, this won't work for nested pipeline case probably
-func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelineName, namespace, runResource, pipelineRoot, storeSessionInfo string, runID int64) (*metadata.Pipeline, error) {
+// ParentRunID is optional, an empty parentRunID means this is not a nested Pipeline.
+func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelineName, namespace, runResource, pipelineRoot, storeSessionInfo string, parentRunID, runID *int64) (*metadata.Pipeline, error) {
+
 	tags := []types.RunTag{
 		{
 			Key:   "kfpRunID",
-			Value: strconv.FormatInt(runID, 10),
+			Value: strconv.FormatInt(*runID, 10),
 		},
 		{
 			Key:   "keyNamespace",
@@ -59,17 +61,46 @@ func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelin
 		},
 		{
 			Key:   "keyPipelineRoot",
-			Value: metadata.GenerateOutputURI(pipelineRoot, []string{pipelineName, strconv.FormatInt(runID, 10)}, true),
+			Value: metadata.GenerateOutputURI(pipelineRoot, []string{pipelineName, strconv.FormatInt(*runID, 10)}, true),
 		},
 		{
 			Key:   "keyStoreSessionInfo",
 			Value: storeSessionInfo,
 		},
 	}
+
+	if parentRunID != nil {
+		// For now parentID is the mlmd execution id which is stored as a TAG on the corresponding mlflow parent ID
+		// so we need to use this tag to fetch the MLFLOW parent RUN ID. The assumption right now is that
+		// there is only ever one mlflow run with a tag `kfpRunID: 61`, but for testing there may be multiple
+		// so we'll sort by cretion time descending and pick the first one (i.e. latest).
+		filterQuery := fmt.Sprintf("tags.kfpRunID = '%d'", *parentRunID)
+		searchResponse, err := m.SearchRuns(
+			[]string{m.experimentID},
+			1,
+			"",
+			filterQuery,
+			[]string{"start_time DESC"},
+			types.ACTIVE_ONLY,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if len(searchResponse.Runs) <= 0 {
+			return nil, fmt.Errorf("no runs found with parentRunID %d", *parentRunID)
+		}
+		parentRun := searchResponse.Runs[0]
+
+		tags = append(tags, types.RunTag{
+			Key:   "mlflow.parentRunId",
+			Value: parentRun.Info.RunID,
+		})
+	}
 	_, err := m.CreateRun(runName, tags)
 	if err != nil {
 		return nil, err
 	}
+
 	return nil, nil
 }
 

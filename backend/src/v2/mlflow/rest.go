@@ -158,7 +158,7 @@ func (m *MetadataMLFlow) SearchRuns(experimentIds []string, maxResults int64, pa
 		return nil, err
 	}
 
-	resp, body, err := DoRequest("GET", fmt.Sprintf("%s/runs/search", m.trackingServerHost), jsonPayload, map[string]string{
+	resp, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/search", m.trackingServerHost), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
