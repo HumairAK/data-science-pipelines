@@ -121,7 +121,7 @@ func NewLauncherV2(ctx context.Context, executionID int64, executorInputJSON, co
 		return nil, err
 	}
 
-	mlFlowMD, err := mlflow.NewMetadataMLFlow(mlflow.MlflowTrackingServer, mlflow.PipelineRunExperimentID)
+	mlFlowMD, err := mlflow.NewMetadataMLFlow(mlflow.PipelineRunExperimentID)
 	if err != nil {
 		return nil, err
 	}

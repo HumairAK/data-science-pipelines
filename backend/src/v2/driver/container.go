@@ -202,6 +202,9 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 		&ecfg.ParentDagID,
 		&executionID,
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	glog.Infof("Created execution: %s", createdExecution)
 	execution.ID = createdExecution.GetID()

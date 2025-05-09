@@ -6,6 +6,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
 	"github.com/kubeflow/pipelines/backend/src/v2/mlflow/types"
 	pb "github.com/kubeflow/pipelines/third_party/ml-metadata/go/ml_metadata"
+	"os"
 	"strconv"
 	"time"
 )
@@ -219,9 +220,26 @@ func (m *MetadataMLFlow) UpdatePipelineStatus(ctx context.Context, runID *int64,
 	return nil
 }
 
-func NewMetadataMLFlow(h string, e string) (*MetadataMLFlow, error) {
+func NewMetadataMLFlow(experiment string) (*MetadataMLFlow, error) {
+	hostEnv := os.Getenv("MLFLOW_HOST")
+	portEnv := os.Getenv("MLFLOW_PORT")
+	tlsEnabled := os.Getenv("MLFLOW_TLS_ENABLED")
+
+	var protocol string
+	if tlsEnabled == "true" {
+		protocol = "https"
+	} else {
+		protocol = "http"
+	}
+	var host string
+	if portEnv != "" {
+		host = fmt.Sprintf("%s://%s:%s/api/2.0/mlflow", protocol, hostEnv, portEnv)
+	} else {
+		host = fmt.Sprintf("%s://%s/api/2.0/mlflow", protocol, hostEnv)
+	}
+
 	return &MetadataMLFlow{
-		trackingServerHost: h,
-		experimentID:       e,
+		trackingServerHost: host,
+		experimentID:       experiment,
 	}, nil
 }
