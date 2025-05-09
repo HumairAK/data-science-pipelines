@@ -153,7 +153,7 @@ func (m *MetadataMLFlow) CreateExecution(ctx context.Context, pipeline *metadata
 		},
 	}
 
-	createResp, err := m.CreateRun(config.Name, tags)
+	createdRun, err := m.CreateRun(config.Name, tags)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +162,6 @@ func (m *MetadataMLFlow) CreateExecution(ctx context.Context, pipeline *metadata
 	// would be nice if we could log these at creation time
 	// to avoid multiple calls but I didn't see a way to
 	// do this.
-	createdRun := createResp.Run
 	if config.InputParameters != nil {
 		for key, val := range config.InputParameters {
 			info := createdRun.Info

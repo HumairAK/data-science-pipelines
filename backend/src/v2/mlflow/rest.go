@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func (m *MetadataMLFlow) CreateRun(runName string, tags []types.RunTag) (*types.CreateRunResponse, error) {
+func (m *MetadataMLFlow) CreateRun(runName string, tags []types.RunTag) (*types.Run, error) {
 	experimentID := m.experimentID
 
 	// Create struct with parameters
@@ -42,12 +42,13 @@ func (m *MetadataMLFlow) CreateRun(runName string, tags []types.RunTag) (*types.
 	fmt.Println("Status:", resp.Status)
 	fmt.Println("Body:", string(body))
 
-	var runResponse *types.CreateRunResponse
+	runResponse := &types.CreateRunResponse{}
 	err = json.Unmarshal(body, runResponse)
 	if err != nil {
 		glog.Errorf("Failed to unmarshal: %v", err)
+		return nil, err
 	}
-	return runResponse, nil
+	return &runResponse.Run, nil
 }
 
 func (m *MetadataMLFlow) GetRun(runID string) (*types.GetRunResponse, error) {
@@ -80,14 +81,22 @@ func (m *MetadataMLFlow) GetRun(runID string) (*types.GetRunResponse, error) {
 	return &runResponse, nil
 }
 
-func (m *MetadataMLFlow) UpdateRun(runID, runUUID, runName string, status types.RunStatus, endTime int64) (*types.UpdateRunResponse, error) {
+func (m *MetadataMLFlow) UpdateRun(runID string, runName *string, status *types.RunStatus, endTime *int64) (*types.UpdateRunResponse, error) {
 	// Create struct with parameters
 	payload := types.UpdateRunRequest{
 		RunId:   runID,
-		RunUUID: runUUID,
-		RunName: runName,
-		Status:  status,
-		EndTime: endTime,
+		RunUUID: runID,
+	}
+
+	// Optional
+	if runName != nil {
+		payload.RunName = *runName
+	}
+	if status != nil {
+		payload.Status = *status
+	}
+	if endTime != nil {
+		payload.EndTime = *endTime
 	}
 
 	// Marshal to JSON
