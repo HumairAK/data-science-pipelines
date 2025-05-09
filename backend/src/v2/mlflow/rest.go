@@ -151,7 +151,7 @@ func (m *MetadataMLFlow) SearchExperiments(maxResults int64, pageToken string, f
 	return nil, nil
 }
 
-func (m *MetadataMLFlow) SearchRuns(experimentIds []string, maxResults int64, pageToken string, filter string, orderBy []string, viewType types.ViewType) (*types.SearchRunResponse, error) {
+func (m *MetadataMLFlow) SearchRuns(experimentIds []string, maxResults int64, pageToken string, filter string, orderBy []string, viewType types.ViewType) ([]types.Run, error) {
 	payload := types.SearchRunRequest{
 		ExperimentIds: experimentIds,
 		Filter:        filter,
@@ -183,7 +183,7 @@ func (m *MetadataMLFlow) SearchRuns(experimentIds []string, maxResults int64, pa
 	if err != nil {
 		glog.Errorf("Failed to unmarshal: %v", err)
 	}
-	return &runResponse, nil
+	return runResponse.Runs, nil
 }
 
 func DoRequest(method, url string, body []byte, headers map[string]string) (*http.Response, []byte, error) {

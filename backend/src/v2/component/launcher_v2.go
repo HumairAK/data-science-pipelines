@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_v2"
+	"github.com/kubeflow/pipelines/backend/src/v2/mlflow"
 	"io"
 	"os"
 	"os/exec"
@@ -67,6 +69,7 @@ type LauncherV2 struct {
 	metadataClient metadata.ClientInterface
 	k8sClient      kubernetes.Interface
 	cacheClient    *cacheutils.Client
+	mlFlowMD       metadata_v2.MetadataInterfaceClient
 }
 
 // Client is the struct to hold the Kubernetes Clientset
@@ -117,6 +120,12 @@ func NewLauncherV2(ctx context.Context, executionID int64, executorInputJSON, co
 	if err != nil {
 		return nil, err
 	}
+
+	mlFlowMD, err := mlflow.NewMetadataMLFlow(mlflow.MlflowTrackingServer, mlflow.PipelineRunExperimentID)
+	if err != nil {
+		return nil, err
+	}
+
 	return &LauncherV2{
 		executionID:    executionID,
 		executorInput:  executorInput,
@@ -127,6 +136,7 @@ func NewLauncherV2(ctx context.Context, executionID int64, executorInputJSON, co
 		metadataClient: metadataClient,
 		k8sClient:      k8sClient,
 		cacheClient:    cacheClient,
+		mlFlowMD:       mlFlowMD,
 	}, nil
 }
 
@@ -189,18 +199,34 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 				err = perr
 			}
 		}
+
+		// Update status for the MLFlow Execution Run
+		executionID := execution.GetID()
+		err = l.mlFlowMD.UpdatePipelineStatus(ctx, &executionID, status)
+		if err != nil {
+			return
+		}
+
 		glog.Infof("publish success.")
 		// At the end of the current task, we check the statuses of all tasks in
 		// the current DAG and update the DAG's status accordingly.
-		dag, err := l.metadataClient.GetDAG(ctx, execution.GetExecution().CustomProperties["parent_dag_id"].GetIntValue())
+		parentID := execution.GetExecution().CustomProperties["parent_dag_id"].GetIntValue()
+		dag, err := l.metadataClient.GetDAG(ctx, parentID)
 		if err != nil {
 			glog.Errorf("DAG Status Update: failed to get DAG: %s", err.Error())
 		}
 		pipeline, _ := l.metadataClient.GetPipelineFromExecution(ctx, execution.GetID())
-		err = l.metadataClient.UpdateDAGExecutionsState(ctx, dag, pipeline)
+		state, err := l.metadataClient.UpdateDAGExecutionsState(ctx, dag, pipeline)
 		if err != nil {
 			glog.Errorf("failed to update DAG state: %s", err.Error())
 		}
+
+		// reflect the status change to the mlflow parent run as well
+		err = l.mlFlowMD.UpdatePipelineStatus(ctx, &parentID, *state)
+		if err != nil {
+			return
+		}
+
 	}()
 	executedStartedTime := time.Now().Unix()
 	execution, err = l.prePublish(ctx)

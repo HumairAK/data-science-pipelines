@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
 	"github.com/kubeflow/pipelines/backend/src/v2/mlflow/types"
+	pb "github.com/kubeflow/pipelines/third_party/ml-metadata/go/ml_metadata"
 	"strconv"
+	"time"
 )
 
 const (
@@ -75,7 +77,7 @@ func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelin
 		// there is only ever one mlflow run with a tag `kfpRunID: 61`, but for testing there may be multiple
 		// so we'll sort by cretion time descending and pick the first one (i.e. latest).
 		filterQuery := fmt.Sprintf("tags.kfpRunID = '%d'", *parentRunID)
-		searchResponse, err := m.SearchRuns(
+		runs, err := m.SearchRuns(
 			[]string{m.experimentID},
 			1,
 			"",
@@ -86,10 +88,10 @@ func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelin
 		if err != nil {
 			return nil, err
 		}
-		if len(searchResponse.Runs) <= 0 {
+		if len(runs) <= 0 {
 			return nil, fmt.Errorf("no runs found with parentRunID %d", *parentRunID)
 		}
-		parentRun := searchResponse.Runs[0]
+		parentRun := runs[0]
 
 		tags = append(tags, types.RunTag{
 			Key:   "mlflow.parentRunId",
@@ -113,13 +115,12 @@ func (m *MetadataMLFlow) CreateExecution(ctx context.Context, pipeline *metadata
 	KFPParentRunID := strconv.FormatInt(config.ParentDagID, 10)
 	filterString := fmt.Sprintf("tags.kfpRunID = '%s'", KFPParentRunID)
 	// Get MLFLow run id by searching parentID
-	runsResp, err := m.SearchRuns([]string{experimentID}, 10, "", filterString, []string{"DESC"}, "")
+	runs, err := m.SearchRuns([]string{experimentID}, 10, "", filterString, []string{"DESC"}, "")
 	if err != nil {
 		return nil, err
 	}
 
 	// should be the first (and only) run:
-	runs := runsResp.Runs
 	if len(runs) == 0 {
 		return nil, fmt.Errorf("No runs found for experiment %s", experimentID)
 	} else if len(runs) > 1 {
@@ -173,6 +174,49 @@ func (m *MetadataMLFlow) CreateExecution(ctx context.Context, pipeline *metadata
 	}
 
 	return nil, nil
+}
+
+func (m *MetadataMLFlow) UpdatePipelineStatus(ctx context.Context, runID *int64, status pb.Execution_State) error {
+
+	filterQuery := fmt.Sprintf("tags.kfpRunID = '%d'", *runID)
+	runs, err := m.SearchRuns(
+		[]string{m.experimentID},
+		1,
+		"",
+		filterQuery,
+		[]string{"start_time DESC"},
+		types.ACTIVE_ONLY,
+	)
+	if err != nil {
+		return err
+	}
+	if len(runs) <= 0 {
+		return fmt.Errorf("No run found with given id %d", *runID)
+	}
+
+	var mlflowRunState types.RunStatus
+	var endTime *int64
+	switch status {
+	case pb.Execution_RUNNING:
+		mlflowRunState = types.Running
+		break
+	case pb.Execution_FAILED:
+		mlflowRunState = types.Failed
+		t := time.Now().UnixMilli()
+		endTime = &t
+	case pb.Execution_COMPLETE:
+		mlflowRunState = types.Finished
+		t := time.Now().UnixMilli()
+		endTime = &t
+	}
+
+	run := runs[0]
+	_, err = m.UpdateRun(run.Info.RunID, nil, &mlflowRunState, endTime)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func NewMetadataMLFlow(h string, e string) (*MetadataMLFlow, error) {
