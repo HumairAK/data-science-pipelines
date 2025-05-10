@@ -29,18 +29,13 @@ func (m *MetadataMLFlow) CreateRun(runName string, tags []types.RunTag) (*types.
 		return nil, err
 	}
 
-	resp, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/create", m.trackingServerHost), jsonPayload, map[string]string{
+	_, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/create", m.trackingServerHost), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode == 404 {
-		return nil, errors.New(string(body))
-	}
-	fmt.Println("Status:", resp.Status)
-	fmt.Println("Body:", string(body))
 
 	runResponse := &types.CreateRunResponse{}
 	err = json.Unmarshal(body, runResponse)
@@ -63,15 +58,12 @@ func (m *MetadataMLFlow) GetRun(runID string) (*types.GetRunResponse, error) {
 		return nil, err
 	}
 
-	resp, body, err := DoRequest("GET", fmt.Sprintf("%s/runs/get", m.trackingServerHost), jsonPayload, map[string]string{
+	_, body, err := DoRequest("GET", fmt.Sprintf("%s/runs/get", m.trackingServerHost), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
 	if err != nil {
 		return nil, err
-	}
-	if resp.StatusCode == 404 {
-		return nil, errors.New(string(body))
 	}
 	var runResponse types.GetRunResponse
 	err = json.Unmarshal(body, &runResponse)
@@ -105,15 +97,12 @@ func (m *MetadataMLFlow) UpdateRun(runID string, runName *string, status *types.
 		return nil, err
 	}
 
-	resp, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/update", m.trackingServerHost), jsonPayload, map[string]string{
+	_, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/update", m.trackingServerHost), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
 	if err != nil {
 		return nil, err
-	}
-	if resp.StatusCode == 404 {
-		return nil, errors.New(string(body))
 	}
 	var typedResp *types.UpdateRunResponse
 	err = json.Unmarshal(body, typedResp)
@@ -134,15 +123,12 @@ func (m *MetadataMLFlow) LogParam(runID, runUUID, key, value string) error {
 	if err != nil {
 		return err
 	}
-	resp, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/log-parameter", m.trackingServerHost), jsonPayload, map[string]string{
+	_, _, err = DoRequest("POST", fmt.Sprintf("%s/runs/log-parameter", m.trackingServerHost), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
 	if err != nil {
 		return err
-	}
-	if resp.StatusCode == 404 {
-		return errors.New(string(body))
 	}
 	return nil
 }
@@ -167,15 +153,12 @@ func (m *MetadataMLFlow) SearchRuns(experimentIds []string, maxResults int64, pa
 		return nil, err
 	}
 
-	resp, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/search", m.trackingServerHost), jsonPayload, map[string]string{
+	_, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/search", m.trackingServerHost), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
 	if err != nil {
 		return nil, err
-	}
-	if resp.StatusCode == 404 {
-		return nil, errors.New(string(body))
 	}
 
 	var runResponse types.SearchRunResponse
@@ -187,6 +170,9 @@ func (m *MetadataMLFlow) SearchRuns(experimentIds []string, maxResults int64, pa
 }
 
 func DoRequest(method, url string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
+	glog.Infof("Sending %s request to %s", method, url)
+	glog.Infof("With Payload: %s", string(body))
+
 	client := &http.Client{}
 
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(body))
@@ -210,5 +196,11 @@ func DoRequest(method, url string, body []byte, headers map[string]string) (*htt
 		return resp, nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
+	if resp.StatusCode == 404 {
+		return nil, []byte{}, errors.New(string(body))
+	}
+
+	glog.Infof("Request successfully sent. With Status received: %s", resp.Status)
+	glog.Infof("Response Body: %s", string(body))
 	return resp, respBody, nil
 }

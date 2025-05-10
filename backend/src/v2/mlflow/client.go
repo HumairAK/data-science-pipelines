@@ -3,6 +3,7 @@ package mlflow
 import (
 	"context"
 	"fmt"
+	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
 	"github.com/kubeflow/pipelines/backend/src/v2/mlflow/types"
 	pb "github.com/kubeflow/pipelines/third_party/ml-metadata/go/ml_metadata"
@@ -44,7 +45,8 @@ type MetadataMLFlow struct {
 	experimentID       string
 }
 
-// RUNID is the Run Id of the pipeline runc reated by api server
+// CreatePipelineRun
+// runID is the Run Id of the pipeline runc reated by api server
 // we use this to retrieve the parent run, this won't work for nested pipeline case probably
 // ParentRunID is optional, an empty parentRunID means this is not a nested Pipeline.
 func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelineName, namespace, runResource, pipelineRoot, storeSessionInfo string, parentRunID, runID *int64) (*metadata.Pipeline, error) {
@@ -108,6 +110,8 @@ func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelin
 }
 
 func (m *MetadataMLFlow) CreateExecution(ctx context.Context, pipeline *metadata.Pipeline, config *metadata.ExecutionConfig, experimentID string) (*metadata.Execution, error) {
+	glog.Infof("Calling CreateExecution with pipeline %d, with experimentID: %s", pipeline.GetRunCtxID(), experimentID)
+
 	// Create nested execution run
 	if config.ParentDagID != 0 {
 		return nil, fmt.Errorf("ParentDag Id required")
@@ -174,10 +178,13 @@ func (m *MetadataMLFlow) CreateExecution(ctx context.Context, pipeline *metadata
 		}
 	}
 
+	glog.Infof("CreateExecution successfully completed, with pipeline %d, with experimentID: %s", pipeline.GetRunCtxID(), experimentID)
+
 	return nil, nil
 }
 
 func (m *MetadataMLFlow) UpdatePipelineStatus(ctx context.Context, runID *int64, status pb.Execution_State) error {
+	glog.Infof("Calling UpdatePipelineStatus with runID %d, with status: %d", runID, status)
 
 	filterQuery := fmt.Sprintf("tags.kfpRunID = '%d'", *runID)
 	runs, err := m.SearchRuns(
