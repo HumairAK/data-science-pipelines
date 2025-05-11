@@ -12,9 +12,7 @@ import (
 	"time"
 )
 
-func (m *MetadataMLFlow) CreateRun(runName string, tags []types.RunTag) (*types.Run, error) {
-	experimentID := m.experimentID
-
+func (m *MetadataMLFlow) createRun(runName string, tags []types.RunTag, experimentID string) (*types.Run, error) {
 	// Create struct with parameters
 	payload := types.CreateRunRequest{
 		ExperimentId: experimentID,
@@ -46,7 +44,7 @@ func (m *MetadataMLFlow) CreateRun(runName string, tags []types.RunTag) (*types.
 	return &runResponse.Run, nil
 }
 
-func (m *MetadataMLFlow) GetRun(runID string) (*types.GetRunResponse, error) {
+func (m *MetadataMLFlow) getRun(runID string) (*types.GetRunResponse, error) {
 	// Create struct with parameters
 	payload := types.GetRunRequest{
 		RunID: runID,
@@ -74,7 +72,7 @@ func (m *MetadataMLFlow) GetRun(runID string) (*types.GetRunResponse, error) {
 	return runResponse, nil
 }
 
-func (m *MetadataMLFlow) UpdateRun(runID string, runName *string, status *types.RunStatus, endTime *int64) (*types.UpdateRunResponse, error) {
+func (m *MetadataMLFlow) updateRun(runID string, runName *string, status *types.RunStatus, endTime *int64) (*types.UpdateRunResponse, error) {
 	// Create struct with parameters
 	payload := types.UpdateRunRequest{
 		RunId:   runID,
@@ -114,7 +112,7 @@ func (m *MetadataMLFlow) UpdateRun(runID string, runName *string, status *types.
 	return typedResp, nil
 }
 
-func (m *MetadataMLFlow) LogParam(runID, runUUID, key, value string) error {
+func (m *MetadataMLFlow) logParam(runID, runUUID, key, value string) error {
 	payload := types.LogParamRequest{
 		RunId:   runID,
 		RunUUID: runUUID,
@@ -135,11 +133,11 @@ func (m *MetadataMLFlow) LogParam(runID, runUUID, key, value string) error {
 	return nil
 }
 
-func (m *MetadataMLFlow) SearchExperiments(maxResults int64, pageToken string, filter string, orderBy []string, viewType types.ViewType) (*types.SearchRunResponse, error) {
+func (m *MetadataMLFlow) searchExperiments(maxResults int64, pageToken string, filter string, orderBy []string, viewType types.ViewType) ([]types.Experiment, error) {
 	return nil, nil
 }
 
-func (m *MetadataMLFlow) SearchRuns(experimentIds []string, maxResults int64, pageToken string, filter string, orderBy []string, viewType types.ViewType) ([]types.Run, error) {
+func (m *MetadataMLFlow) searchRuns(experimentIds []string, maxResults int64, pageToken string, filter string, orderBy []string, viewType types.ViewType) ([]types.Run, error) {
 	payload := types.SearchRunRequest{
 		ExperimentIds: experimentIds,
 		Filter:        filter,
@@ -170,6 +168,36 @@ func (m *MetadataMLFlow) SearchRuns(experimentIds []string, maxResults int64, pa
 		return nil, err
 	}
 	return runResponse.Runs, nil
+}
+
+func (m *MetadataMLFlow) createExperiment(name string, tags []types.ExperimentTag) (*string, error) {
+	// Create struct with parameters
+	payload := types.CreateExperimentRequest{
+		Name: name,
+		Tags: tags,
+	}
+
+	// Marshal to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	_, body, err := DoRequest("POST", fmt.Sprintf("%s/experiments/create", m.trackingServerHost), jsonPayload, map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": "Bearer YOUR_TOKEN_HERE",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	experimentResponse := &types.CreateExperimentResponse{}
+	err = json.Unmarshal(body, experimentResponse)
+	if err != nil {
+		glog.Errorf("Failed to unmarshal: %v", err)
+		return nil, err
+	}
+	return &experimentResponse.ExperimentId, nil
 }
 
 func DoRequest(method, url string, body []byte, headers map[string]string) (*http.Response, []byte, error) {

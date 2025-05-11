@@ -199,6 +199,7 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 		"run-resource",
 		pipeline.GetPipelineRoot(),
 		pipeline.GetStoreSessionInfo(),
+		opts.ExperimentId,
 		&ecfg.ParentDagID,
 		&executionID,
 	)

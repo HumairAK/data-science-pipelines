@@ -54,7 +54,8 @@ type LauncherV2Options struct {
 	MLMDServerPort,
 	PipelineName,
 	RunID string
-	PublishLogs string
+	PublishLogs  string
+	ExperimentID string
 }
 
 type LauncherV2 struct {
@@ -70,6 +71,7 @@ type LauncherV2 struct {
 	k8sClient      kubernetes.Interface
 	cacheClient    *cacheutils.Client
 	mlFlowMD       metadata_v2.MetadataInterfaceClient
+	experimentID   string
 }
 
 // Client is the struct to hold the Kubernetes Clientset
@@ -137,6 +139,7 @@ func NewLauncherV2(ctx context.Context, executionID int64, executorInputJSON, co
 		k8sClient:      k8sClient,
 		cacheClient:    cacheClient,
 		mlFlowMD:       mlFlowMD,
+		experimentID:   opts.ExperimentID,
 	}, nil
 }
 
@@ -202,7 +205,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 
 		// Update status for the MLFlow Execution Run
 		executionID := execution.GetID()
-		err = l.mlFlowMD.UpdatePipelineStatus(ctx, &executionID, status)
+		err = l.mlFlowMD.UpdatePipelineStatus(ctx, &executionID, status, l.experimentID)
 		if err != nil {
 			return
 		}
@@ -222,7 +225,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		}
 
 		// reflect the status change to the mlflow parent run as well
-		err = l.mlFlowMD.UpdatePipelineStatus(ctx, &parentID, *state)
+		err = l.mlFlowMD.UpdatePipelineStatus(ctx, &parentID, *state, l.experimentID)
 		if err != nil {
 			return
 		}

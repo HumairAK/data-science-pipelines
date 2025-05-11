@@ -17,6 +17,8 @@ package clientmanager
 import (
 	"database/sql"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_v2"
+	"github.com/kubeflow/pipelines/backend/src/v2/mlflow"
 	"os"
 	"strings"
 	"time"
@@ -108,6 +110,7 @@ type ClientManager struct {
 	uuid                      util.UUIDGeneratorInterface
 	authenticators            []auth.Authenticator
 	controllerClient          ctrlclient.Client
+	metadataClient            metadata_v2.MetadataInterfaceClient
 }
 
 func (c *ClientManager) TaskStore() storage.TaskStoreInterface {
@@ -186,8 +189,18 @@ func (c *ClientManager) ControllerClient() ctrlclient.Client {
 	return c.controllerClient
 }
 
+func (c *ClientManager) MetadataClient() metadata_v2.MetadataInterfaceClient {
+	return c.metadataClient
+}
 func (c *ClientManager) init() error {
 	glog.Info("Initializing controller client...")
+
+	metadataClient, err := mlflow.NewMetadataMLFlow()
+	if err != nil {
+		return err
+	}
+
+	c.metadataClient = metadataClient
 
 	restConfig, err := util.GetKubernetesConfig()
 	if err != nil {

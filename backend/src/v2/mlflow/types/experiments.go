@@ -1,6 +1,7 @@
 package types
 
 type CreateExperimentRequest struct {
+	Name             string          `json:"name"`
 	ArtifactLocation string          `json:"artifact_location"`
 	Tags             []ExperimentTag `json:"tags"`
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_v2"
 	"github.com/kubeflow/pipelines/backend/src/v2/mlflow/types"
 	pb "github.com/kubeflow/pipelines/third_party/ml-metadata/go/ml_metadata"
 	"os"
@@ -42,14 +43,13 @@ const (
 
 type MetadataMLFlow struct {
 	trackingServerHost string
-	experimentID       string
 }
 
 // CreatePipelineRun
 // runID is the Run Id of the pipeline runc reated by api server
 // we use this to retrieve the parent run, this won't work for nested pipeline case probably
 // ParentRunID is optional, an empty parentRunID means this is not a nested Pipeline.
-func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelineName, namespace, runResource, pipelineRoot, storeSessionInfo string, parentRunID, runID *int64) (*metadata.Pipeline, error) {
+func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelineName, namespace, runResource, pipelineRoot, storeSessionInfo, experimentID string, parentRunID, runID *int64) (*metadata.Pipeline, error) {
 
 	tags := []types.RunTag{
 		{
@@ -80,8 +80,8 @@ func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelin
 		// there is only ever one mlflow run with a tag `kfpRunID: 61`, but for testing there may be multiple
 		// so we'll sort by cretion time descending and pick the first one (i.e. latest).
 		filterQuery := fmt.Sprintf("tags.kfpRunID = '%d'", *parentRunID)
-		runs, err := m.SearchRuns(
-			[]string{m.experimentID},
+		runs, err := m.searchRuns(
+			[]string{experimentID},
 			1,
 			"",
 			filterQuery,
@@ -101,7 +101,7 @@ func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelin
 			Value: parentRun.Info.RunID,
 		})
 	}
-	_, err := m.CreateRun(runName, tags)
+	_, err := m.createRun(runName, tags, experimentID)
 	if err != nil {
 		return nil, err
 	}
@@ -109,86 +109,12 @@ func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelin
 	return nil, nil
 }
 
-func (m *MetadataMLFlow) CreateExecution(ctx context.Context, pipeline *metadata.Pipeline, config *metadata.ExecutionConfig, experimentID string) (*metadata.Execution, error) {
-	glog.Infof("Calling CreateExecution with pipeline %d, with experimentID: %s", pipeline.GetRunCtxID(), experimentID)
-
-	// Create nested execution run
-	if config.ParentDagID != 0 {
-		return nil, fmt.Errorf("ParentDag Id required")
-	}
-
-	KFPParentRunID := strconv.FormatInt(config.ParentDagID, 10)
-	filterString := fmt.Sprintf("tags.kfpRunID = '%s'", KFPParentRunID)
-	// Get MLFLow run id by searching parentID
-	runs, err := m.SearchRuns([]string{experimentID}, 10, "", filterString, []string{"DESC"}, "")
-	if err != nil {
-		return nil, err
-	}
-
-	// should be the first (and only) run:
-	if len(runs) == 0 {
-		return nil, fmt.Errorf("No runs found for experiment %s", experimentID)
-	} else if len(runs) > 1 {
-		return nil, fmt.Errorf("Multiple runs found for experiment %s", experimentID)
-	}
-
-	ParentMLFlowRun := runs[0]
-
-	// This will connect the two runs in a parent -> child relationship
-	// in MLFlow
-	tags := []types.RunTag{
-		{
-			Key:   MlflowParentRunId,
-			Value: ParentMLFlowRun.Info.RunID,
-		},
-		{
-			Key:   keyPodName,
-			Value: config.PodName,
-		},
-		{
-			Key:   keyNamespace,
-			Value: config.Namespace,
-		},
-		{
-			Key:   keyPipelineRoot,
-			Value: pipeline.GetPipelineRoot(),
-		},
-		{
-			Key:   keyDisplayName,
-			Value: config.TaskName,
-		},
-	}
-
-	createdRun, err := m.CreateRun(config.Name, tags)
-	if err != nil {
-		return nil, err
-	}
-
-	// Log params once run is created
-	// would be nice if we could log these at creation time
-	// to avoid multiple calls but I didn't see a way to
-	// do this.
-	if config.InputParameters != nil {
-		for key, val := range config.InputParameters {
-			info := createdRun.Info
-			err := m.LogParam(info.RunID, info.RunUUID, key, fmt.Sprintf("%v", val.AsInterface()))
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	glog.Infof("CreateExecution successfully completed, with pipeline %d, with experimentID: %s", pipeline.GetRunCtxID(), experimentID)
-
-	return nil, nil
-}
-
-func (m *MetadataMLFlow) UpdatePipelineStatus(ctx context.Context, runID *int64, status pb.Execution_State) error {
+func (m *MetadataMLFlow) UpdatePipelineStatus(ctx context.Context, runID *int64, status pb.Execution_State, experimentID string) error {
 	glog.Infof("Calling UpdatePipelineStatus with runID %d, with status: %d", runID, status)
 
 	filterQuery := fmt.Sprintf("tags.kfpRunID = '%d'", *runID)
-	runs, err := m.SearchRuns(
-		[]string{m.experimentID},
+	runs, err := m.searchRuns(
+		[]string{experimentID},
 		1,
 		"",
 		filterQuery,
@@ -219,7 +145,7 @@ func (m *MetadataMLFlow) UpdatePipelineStatus(ctx context.Context, runID *int64,
 	}
 
 	run := runs[0]
-	_, err = m.UpdateRun(run.Info.RunID, nil, &mlflowRunState, endTime)
+	_, err = m.updateRun(run.Info.RunID, nil, &mlflowRunState, endTime)
 	if err != nil {
 		return err
 	}
@@ -227,15 +153,59 @@ func (m *MetadataMLFlow) UpdatePipelineStatus(ctx context.Context, runID *int64,
 	return nil
 }
 
+func (m *MetadataMLFlow) CreateExperiment(ctx context.Context, experimentName, experimentDescription, kfpExperimentID string) (*string, error) {
+	experimentTags := []types.ExperimentTag{
+		{
+			Key:   "kfpExperimentID",
+			Value: kfpExperimentID,
+		},
+		{
+			Key:   "mlflow.note.content",
+			Value: experimentDescription,
+		},
+	}
+	mlflowExperimentID, err := m.createExperiment(experimentName, experimentTags)
+	if err != nil {
+		return nil, err
+	}
+
+	return mlflowExperimentID, nil
+}
+
+func (m *MetadataMLFlow) GetExperiment(ctx context.Context, kfpExperimentID string) (*metadata_v2.Experiment, error) {
+	experiment := &metadata_v2.Experiment{}
+
+	glog.Infof("Calling GetExperiment with kfpExperimentID %s", kfpExperimentID)
+
+	filterQuery := fmt.Sprintf("tags.kfpExperimentID = '%s'", kfpExperimentID)
+	experiments, err := m.searchExperiments(
+		1,
+		"",
+		filterQuery,
+		[]string{"start_time DESC"},
+		types.ACTIVE_ONLY,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if len(experiments) <= 0 {
+		return nil, fmt.Errorf("No experiments found with given id %s", kfpExperimentID)
+	}
+	mlFlowExperiment := experiments[0]
+	experiment.Name = mlFlowExperiment.Name
+	experiment.Description = ""
+	for _, tag := range mlFlowExperiment.Tags {
+		if tag.Key == "mlflow.note.content" {
+			experiment.Description = tag.Value
+		}
+	}
+	return experiment, nil
+}
+
 func NewMetadataMLFlow() (*MetadataMLFlow, error) {
 	hostEnv := os.Getenv("MLFLOW_HOST")
 	portEnv := os.Getenv("MLFLOW_PORT")
 	tlsEnabled := os.Getenv("MLFLOW_TLS_ENABLED")
-
-	experimentID := os.Getenv("MLFLOW_EXPERIMENT_ID")
-	if experimentID == "" {
-		return nil, fmt.Errorf("Missing experiment ID")
-	}
 
 	var protocol string
 	if tlsEnabled == "true" {
@@ -252,6 +222,5 @@ func NewMetadataMLFlow() (*MetadataMLFlow, error) {
 
 	return &MetadataMLFlow{
 		trackingServerHost: host,
-		experimentID:       experimentID,
 	}, nil
 }

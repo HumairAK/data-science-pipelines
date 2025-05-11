@@ -133,6 +133,7 @@ func RootDAG(ctx context.Context, opts Options, mlmd *metadata.Client) (executio
 		"run-resource",
 		pipelineRoot,
 		storeSessionInfoStr,
+		opts.ExperimentId,
 		nil,
 		&executionID,
 	)
