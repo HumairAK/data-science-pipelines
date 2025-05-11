@@ -182,7 +182,7 @@ func (m *MetadataMLFlow) GetExperiment(ctx context.Context, kfpExperimentID stri
 		1,
 		"",
 		filterQuery,
-		[]string{"start_time DESC"},
+		[]string{"creation_time DESC"},
 		types.ACTIVE_ONLY,
 	)
 	if err != nil {
@@ -193,6 +193,7 @@ func (m *MetadataMLFlow) GetExperiment(ctx context.Context, kfpExperimentID stri
 	}
 	mlFlowExperiment := experiments[0]
 	experiment.Name = mlFlowExperiment.Name
+	experiment.ID = mlFlowExperiment.ExperimentID
 	experiment.Description = ""
 	for _, tag := range mlFlowExperiment.Tags {
 		if tag.Key == "mlflow.note.content" {
@@ -202,10 +203,22 @@ func (m *MetadataMLFlow) GetExperiment(ctx context.Context, kfpExperimentID stri
 	return experiment, nil
 }
 
+func GetExperimentIDFromEnv() (*string, error) {
+	experimentID := os.Getenv("MLFLOW_EXPERIMENT_ID")
+	if experimentID == "" {
+		return nil, fmt.Errorf("environment variable MLFLOW_EXPERIMENT_ID is not set")
+	}
+
+	return &experimentID, nil
+}
+
 func NewMetadataMLFlow() (*MetadataMLFlow, error) {
 	hostEnv := os.Getenv("MLFLOW_HOST")
 	portEnv := os.Getenv("MLFLOW_PORT")
 	tlsEnabled := os.Getenv("MLFLOW_TLS_ENABLED")
+	if hostEnv == "" {
+		return nil, fmt.Errorf("Missing environment variable MLFLOW_HOST")
+	}
 
 	var protocol string
 	if tlsEnabled == "true" {

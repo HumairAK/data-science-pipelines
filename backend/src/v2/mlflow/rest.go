@@ -133,8 +133,42 @@ func (m *MetadataMLFlow) logParam(runID, runUUID, key, value string) error {
 	return nil
 }
 
-func (m *MetadataMLFlow) searchExperiments(maxResults int64, pageToken string, filter string, orderBy []string, viewType types.ViewType) ([]types.Experiment, error) {
-	return nil, nil
+func (m *MetadataMLFlow) searchExperiments(
+	maxResults int64,
+	pageToken string,
+	filter string,
+	orderBy []string,
+	viewType types.ViewType) ([]types.Experiment, error) {
+
+	payload := types.SearchExperimentRequest{
+		Filter:     filter,
+		ViewType:   viewType,
+		MaxResults: maxResults,
+		PageToken:  pageToken,
+		OrderBy:    orderBy,
+	}
+
+	// Marshal to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	_, body, err := DoRequest("POST", fmt.Sprintf("%s/experiments/search", m.trackingServerHost), jsonPayload, map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": "Bearer YOUR_TOKEN_HERE",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	experimentResponse := &types.SearchExperimentResponse{}
+	err = json.Unmarshal(body, experimentResponse)
+	if err != nil {
+		glog.Errorf("Failed to unmarshal: %v", err)
+		return nil, err
+	}
+	return experimentResponse.Experiments, nil
 }
 
 func (m *MetadataMLFlow) searchRuns(experimentIds []string, maxResults int64, pageToken string, filter string, orderBy []string, viewType types.ViewType) ([]types.Run, error) {
@@ -228,8 +262,8 @@ func DoRequest(method, url string, body []byte, headers map[string]string) (*htt
 		return resp, nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	if resp.StatusCode == 404 {
-		return nil, []byte{}, errors.New(string(body))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, []byte{}, errors.New(string(respBody))
 	}
 
 	glog.Infof("Request successfully sent. With Status received: %s", resp.Status)

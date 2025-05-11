@@ -173,7 +173,7 @@ func (r *ResourceManager) CreateExperiment(experiment *model.Experiment) (*model
 	if err != nil {
 		return nil, err
 	}
-	_, err = r.metadataClient.CreateExperiment(context.Background(), experiment.Name, experiment.Description, experiment.UUID)
+	_, err = r.metadataClient.CreateExperiment(context.Background(), experiment.Name, experiment.Description, modelExperiment.UUID)
 	if err != nil {
 		return nil, err
 	}
@@ -504,10 +504,15 @@ func (r *ResourceManager) CreateRun(ctx context.Context, run *model.Run) (*model
 		run.UUID = uuid.String()
 	}
 	run.RunDetails.CreatedAtInSec = r.time.Now().Unix()
+
+	experimentId, err := r.metadataClient.GetExperiment(ctx, run.ExperimentId)
+	if err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to get experiment")
+	}
 	runWorkflowOptions := template.RunWorkflowOptions{
 		RunId:        run.UUID,
 		RunAt:        run.RunDetails.CreatedAtInSec,
-		ExperimentId: run.ExperimentId,
+		ExperimentId: experimentId.ID,
 	}
 	executionSpec, err := tmpl.RunWorkflow(run, runWorkflowOptions)
 	if err != nil {

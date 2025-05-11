@@ -19,7 +19,7 @@ type SearchExperimentRequest struct {
 }
 
 type SearchExperimentResponse struct {
-	Experiment    []Experiment `json:"experiments"`
+	Experiments   []Experiment `json:"experiments"`
 	NextPageToken string       `json:"next_page_token"`
 }
 

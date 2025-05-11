@@ -201,6 +201,10 @@ func drive() (err error) {
 		return err
 	}
 
+	experimentID, err := mlflow.GetExperimentIDFromEnv()
+	if err != nil {
+		return err
+	}
 	options := driver.Options{
 		PipelineName:     *pipelineName,
 		RunID:            *runID,
@@ -214,7 +218,7 @@ func drive() (err error) {
 		PipelineLogLevel: *logLevel,
 		PublishLogs:      *publishLogs,
 		MetadataClient:   metadataClient,
-		ExperimentId:     mlflow.PipelineRunExperimentID, // TODO: should pass from apiserver
+		ExperimentId:     *experimentID,
 		DevMode:          devMode == "true",
 		DevExecutionId:   devExecutionId,
 	}

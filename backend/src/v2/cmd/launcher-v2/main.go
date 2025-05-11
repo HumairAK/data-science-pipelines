@@ -19,6 +19,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/mlflow"
 	"os"
 
 	"github.com/golang/glog"
@@ -74,9 +75,9 @@ func run() error {
 		return err
 	}
 
-	experimentID := os.Getenv("MLFLOW_EXPERIMENT_ID")
-	if experimentID == "" {
-		return fmt.Errorf("MLFLOW_EXPERIMENT_ID environment variable not set")
+	experimentID, err := mlflow.GetExperimentIDFromEnv()
+	if err != nil {
+		return err
 	}
 	launcherV2Opts := &component.LauncherV2Options{
 		Namespace:         namespace,

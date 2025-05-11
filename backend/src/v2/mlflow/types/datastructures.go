@@ -19,8 +19,8 @@ type Experiment struct {
 	Name             string          `json:"name"`
 	ArtifactLocation string          `json:"artifact_location"`
 	LifecycleStage   string          `json:"lifecycle_stage"`
-	LastUpdateTime   string          `json:"last_update_time"`
-	CreationTime     string          `json:"creation_time"`
+	LastUpdateTime   int64           `json:"last_update_time"`
+	CreationTime     int64           `json:"creation_time"`
 	Tags             []ExperimentTag `json:"tags"`
 }
 
