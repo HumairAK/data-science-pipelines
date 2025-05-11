@@ -492,8 +492,9 @@ func (r *ResourceManager) CreateRun(ctx context.Context, run *model.Run) (*model
 	}
 	run.RunDetails.CreatedAtInSec = r.time.Now().Unix()
 	runWorkflowOptions := template.RunWorkflowOptions{
-		RunId: run.UUID,
-		RunAt: run.RunDetails.CreatedAtInSec,
+		RunId:        run.UUID,
+		RunAt:        run.RunDetails.CreatedAtInSec,
+		ExperimentId: run.ExperimentId,
 	}
 	executionSpec, err := tmpl.RunWorkflow(run, runWorkflowOptions)
 	if err != nil {

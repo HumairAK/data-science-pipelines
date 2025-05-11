@@ -227,10 +227,15 @@ func (m *MetadataMLFlow) UpdatePipelineStatus(ctx context.Context, runID *int64,
 	return nil
 }
 
-func NewMetadataMLFlow(experiment string) (*MetadataMLFlow, error) {
+func NewMetadataMLFlow() (*MetadataMLFlow, error) {
 	hostEnv := os.Getenv("MLFLOW_HOST")
 	portEnv := os.Getenv("MLFLOW_PORT")
 	tlsEnabled := os.Getenv("MLFLOW_TLS_ENABLED")
+
+	experimentID := os.Getenv("MLFLOW_EXPERIMENT_ID")
+	if experimentID == "" {
+		return nil, fmt.Errorf("Missing experiment ID")
+	}
 
 	var protocol string
 	if tlsEnabled == "true" {
@@ -247,6 +252,6 @@ func NewMetadataMLFlow(experiment string) (*MetadataMLFlow, error) {
 
 	return &MetadataMLFlow{
 		trackingServerHost: host,
-		experimentID:       experiment,
+		experimentID:       experimentID,
 	}, nil
 }

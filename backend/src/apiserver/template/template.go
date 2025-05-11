@@ -132,8 +132,9 @@ type Template interface {
 }
 
 type RunWorkflowOptions struct {
-	RunId string
-	RunAt int64
+	RunId        string
+	RunAt        int64
+	ExperimentId string
 }
 
 func New(bytes []byte) (Template, error) {

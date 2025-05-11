@@ -63,6 +63,11 @@ func addExitTask(task *wfapi.DAGTask, exitTemplate string, parentDagID string) {
 	}
 }
 
+func getmlFlowEnvVars(experimentID string) []k8score.EnvVar {
+	envvars := append(mlFlowEnvVars, k8score.EnvVar{Name: "MLFLOW_EXPERIMENT_ID", Value: experimentID})
+	return envvars
+}
+
 var mlFlowEnvVars = []k8score.EnvVar{
 	{
 		Name:  "MLFLOW_HOST",

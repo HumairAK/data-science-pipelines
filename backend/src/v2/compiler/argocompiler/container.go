@@ -198,7 +198,7 @@ func (c *workflowCompiler) addContainerDriverTemplate() string {
 		args = append(args, "--publish_logs", value)
 	}
 
-	envvars := append(proxy.GetConfig().GetEnvVars(), mlFlowEnvVars...)
+	envvars := append(proxy.GetConfig().GetEnvVars(), getmlFlowEnvVars(c.ExperimentId)...)
 	t := &wfapi.Template{
 		Name: name,
 		Inputs: wfapi.Inputs{
@@ -326,7 +326,7 @@ func (c *workflowCompiler) addContainerExecutorTemplate(name string, refName str
 		args = append(args, "--publish_logs", value)
 	}
 
-	envvars := append(commonEnvs, mlFlowEnvVars...)
+	envvars := append(commonEnvs, getmlFlowEnvVars(c.ExperimentId)...)
 	executor := &wfapi.Template{
 		Name:          nameContainerImpl,
 		RetryStrategy: c.getTaskRetryStrategy(name),

@@ -182,7 +182,7 @@ func drive() (err error) {
 		return err
 	}
 
-	metadataClient, err := mlflow.NewMetadataMLFlow(mlflow.PipelineRunExperimentID)
+	metadataClient, err := mlflow.NewMetadataMLFlow()
 	if err != nil {
 		return err
 	}
