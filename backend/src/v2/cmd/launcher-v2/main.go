@@ -19,12 +19,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/kubeflow/pipelines/backend/src/v2/mlflow"
-	"os"
-
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/backend/src/v2/component"
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
+	"github.com/kubeflow/pipelines/backend/src/v2/mlflow"
 )
 
 // TODO: use https://github.com/spf13/cobra as a framework to create more complex CLI tools with subcommands.
@@ -88,7 +86,7 @@ func run() error {
 		PipelineName:      *pipelineName,
 		RunID:             *runID,
 		PublishLogs:       *publishLogs,
-		ExperimentID:      experimentID,
+		ExperimentID:      *experimentID,
 	}
 
 	switch *executorType {
