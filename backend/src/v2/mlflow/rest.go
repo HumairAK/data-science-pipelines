@@ -65,12 +65,13 @@ func (m *MetadataMLFlow) GetRun(runID string) (*types.GetRunResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	var runResponse types.GetRunResponse
-	err = json.Unmarshal(body, &runResponse)
+	runResponse := &types.GetRunResponse{}
+	err = json.Unmarshal(body, runResponse)
 	if err != nil {
 		glog.Errorf("Failed to unmarshal: %v", err)
+		return nil, err
 	}
-	return &runResponse, nil
+	return runResponse, nil
 }
 
 func (m *MetadataMLFlow) UpdateRun(runID string, runName *string, status *types.RunStatus, endTime *int64) (*types.UpdateRunResponse, error) {
@@ -104,10 +105,11 @@ func (m *MetadataMLFlow) UpdateRun(runID string, runName *string, status *types.
 	if err != nil {
 		return nil, err
 	}
-	var typedResp *types.UpdateRunResponse
+	typedResp := &types.UpdateRunResponse{}
 	err = json.Unmarshal(body, typedResp)
 	if err != nil {
 		glog.Errorf("Failed to unmarshal: %v", err)
+		return nil, err
 	}
 	return typedResp, nil
 }
@@ -161,15 +163,17 @@ func (m *MetadataMLFlow) SearchRuns(experimentIds []string, maxResults int64, pa
 		return nil, err
 	}
 
-	var runResponse types.SearchRunResponse
-	err = json.Unmarshal(body, &runResponse)
+	runResponse := &types.SearchRunResponse{}
+	err = json.Unmarshal(body, runResponse)
 	if err != nil {
 		glog.Errorf("Failed to unmarshal: %v", err)
+		return nil, err
 	}
 	return runResponse.Runs, nil
 }
 
 func DoRequest(method, url string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
+	glog.Infof("------------------------------------")
 	glog.Infof("Sending %s request to %s", method, url)
 	glog.Infof("With Payload: %s", string(body))
 
@@ -202,5 +206,7 @@ func DoRequest(method, url string, body []byte, headers map[string]string) (*htt
 
 	glog.Infof("Request successfully sent. With Status received: %s", resp.Status)
 	glog.Infof("Response Body: %s", string(body))
+	glog.Infof("------------------------------------")
+
 	return resp, respBody, nil
 }
