@@ -235,25 +235,6 @@ func (m *MetadataMLFlow) metricURI(runId, experimentID, metricKey string) (*stri
 	uri := fmt.Sprintf("%s?runs=%%5B%%22%s%%22%%5D&experiments=%%5B%%22%s%%22%%5D&metric=%%22%s%%22&plot_metric_keys=%%5B%%22%s%%22%%5D",
 		m.metricsPath, runId, experimentID, metricKey, metricKey)
 	glog.Infof("built uri: %s", uri)
-	//u, err := url.Parse(baseURL)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//// Set query parameters
-	//q := u.Query()
-	//q.Set("runs", fmt.Sprintf(`["%s"]`, runId))
-	//q.Set("metric", fmt.Sprintf(`"%s"`, metricKey))
-	//q.Set("experiments", fmt.Sprintf(`["%s"]`, experimentID))
-	//q.Set("plot_metric_keys", fmt.Sprintf(`["%s"]`, metricKey))
-	//
-	//// Encode query string
-	//u.RawQuery = q.Encode()
-	//
-	//// Final URL
-	//fmt.Println()
-	//
-	//metricURI := u.String()
 	return &uri, nil
 }
 
