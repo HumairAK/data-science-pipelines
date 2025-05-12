@@ -42,19 +42,21 @@ const (
 )
 
 type MetadataMLFlow struct {
-	trackingServerHost string
+	apiPath     string
+	baseHost    string
+	metricsPath string
 }
 
 // CreatePipelineRun
 // runID is the Run Id of the pipeline runc reated by api server
 // we use this to retrieve the parent run, this won't work for nested pipeline case probably
 // ParentRunID is optional, an empty parentRunID means this is not a nested Pipeline.
-func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelineName, namespace, runResource, pipelineRoot, storeSessionInfo, experimentID string, parentRunID, runID *int64) (*metadata.Pipeline, error) {
+func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelineName, namespace, runResource, pipelineRoot, storeSessionInfo, experimentID string, mlmdParentRunID, mlmdExecutionID *int64) (*metadata.Pipeline, error) {
 
 	tags := []types.RunTag{
 		{
 			Key:   "kfpRunID",
-			Value: strconv.FormatInt(*runID, 10),
+			Value: strconv.FormatInt(*mlmdExecutionID, 10),
 		},
 		{
 			Key:   "keyNamespace",
@@ -66,7 +68,7 @@ func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelin
 		},
 		{
 			Key:   "keyPipelineRoot",
-			Value: metadata.GenerateOutputURI(pipelineRoot, []string{pipelineName, strconv.FormatInt(*runID, 10)}, true),
+			Value: metadata.GenerateOutputURI(pipelineRoot, []string{pipelineName, strconv.FormatInt(*mlmdExecutionID, 10)}, true),
 		},
 		{
 			Key:   "keyStoreSessionInfo",
@@ -74,12 +76,12 @@ func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelin
 		},
 	}
 
-	if parentRunID != nil {
+	if mlmdParentRunID != nil {
 		// For now parentID is the mlmd execution id which is stored as a TAG on the corresponding mlflow parent ID
 		// so we need to use this tag to fetch the MLFLOW parent RUN ID. The assumption right now is that
 		// there is only ever one mlflow run with a tag `kfpRunID: 61`, but for testing there may be multiple
 		// so we'll sort by cretion time descending and pick the first one (i.e. latest).
-		filterQuery := fmt.Sprintf("tags.kfpRunID = '%d'", *parentRunID)
+		filterQuery := fmt.Sprintf("tags.kfpRunID = '%d'", *mlmdParentRunID)
 		runs, err := m.searchRuns(
 			[]string{experimentID},
 			1,
@@ -92,7 +94,7 @@ func (m *MetadataMLFlow) CreatePipelineRun(ctx context.Context, runName, pipelin
 			return nil, err
 		}
 		if len(runs) <= 0 {
-			return nil, fmt.Errorf("no runs found with parentRunID %d", *parentRunID)
+			return nil, fmt.Errorf("no runs found with mlmdParentRunID %d", *mlmdParentRunID)
 		}
 		parentRun := runs[0]
 
@@ -203,6 +205,58 @@ func (m *MetadataMLFlow) GetExperiment(ctx context.Context, kfpExperimentID stri
 	return experiment, nil
 }
 
+func (m *MetadataMLFlow) LogRunMetric(ctx context.Context, experimentID string, mlmdExecutionID int64, metricName string, metricValue float64) (*string, error) {
+	glog.Infof("LogRunMetric called with experimentID %s, mlmdExecutionID: %d, metricName: %s, metricValue: %f", experimentID, mlmdExecutionID, metricName, metricValue)
+
+	glog.Infof("Getting mlflow from kfpRunID")
+	mlFlowRunId, err := m.getMLFlowRunFromKFPRunID(experimentID, strconv.FormatInt(mlmdExecutionID, 10))
+	if err != nil {
+		return nil, err
+	}
+	glog.Infof("Got kfpRunID: %s", mlFlowRunId)
+	glog.Infof("logging metric....")
+	err = m.logMetric(*mlFlowRunId, experimentID, metricName, metricValue)
+	if err != nil {
+		return nil, err
+	}
+	glog.Infof("metric logged")
+	glog.Infof("fetching URI...")
+
+	uri, err := m.metricURI(*mlFlowRunId, experimentID, metricName)
+	if err != nil {
+		return nil, err
+	}
+	glog.Infof("URI fetched: %s", *uri)
+
+	return uri, nil
+}
+
+func (m *MetadataMLFlow) metricURI(runId, experimentID, metricKey string) (*string, error) {
+	uri := fmt.Sprintf("%s?runs=%%5B%%22%s%%22%%5D&experiments=%%5B%%22%s%%22%%5D&metric=%%22%s%%22&plot_metric_keys=%%5B%%22%s%%22%%5D",
+		m.metricsPath, runId, experimentID, metricKey, metricKey)
+	glog.Infof("built uri: %s", uri)
+	//u, err := url.Parse(baseURL)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//// Set query parameters
+	//q := u.Query()
+	//q.Set("runs", fmt.Sprintf(`["%s"]`, runId))
+	//q.Set("metric", fmt.Sprintf(`"%s"`, metricKey))
+	//q.Set("experiments", fmt.Sprintf(`["%s"]`, experimentID))
+	//q.Set("plot_metric_keys", fmt.Sprintf(`["%s"]`, metricKey))
+	//
+	//// Encode query string
+	//u.RawQuery = q.Encode()
+	//
+	//// Final URL
+	//fmt.Println()
+	//
+	//metricURI := u.String()
+	return &uri, nil
+}
+
 func GetExperimentIDFromEnv() (*string, error) {
 	experimentID := os.Getenv("MLFLOW_EXPERIMENT_ID")
 	if experimentID == "" {
@@ -210,6 +264,25 @@ func GetExperimentIDFromEnv() (*string, error) {
 	}
 
 	return &experimentID, nil
+}
+
+func (m *MetadataMLFlow) getMLFlowRunFromKFPRunID(experimentID, kfpExecutionID string) (*string, error) {
+	filterQuery := fmt.Sprintf("tags.kfpRunID = '%s'", kfpExecutionID)
+	runs, err := m.searchRuns(
+		[]string{experimentID},
+		1,
+		"",
+		filterQuery,
+		[]string{"start_time DESC"},
+		types.ACTIVE_ONLY,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if len(runs) <= 0 {
+		return nil, fmt.Errorf("No run found with given id %s", kfpExecutionID)
+	}
+	return &runs[0].Info.RunID, nil
 }
 
 func NewMetadataMLFlow() (*MetadataMLFlow, error) {
@@ -226,14 +299,18 @@ func NewMetadataMLFlow() (*MetadataMLFlow, error) {
 	} else {
 		protocol = "http"
 	}
-	var host string
+	var basePath string
 	if portEnv != "" {
-		host = fmt.Sprintf("%s://%s:%s/api/2.0/mlflow", protocol, hostEnv, portEnv)
+		basePath = fmt.Sprintf("%s://%s:%s", protocol, hostEnv, portEnv)
 	} else {
-		host = fmt.Sprintf("%s://%s/api/2.0/mlflow", protocol, hostEnv)
+		basePath = fmt.Sprintf("%s://%s", protocol, hostEnv)
 	}
+	apiPath := fmt.Sprintf("%s/api/2.0/mlflow", basePath)
+	metricsPath := fmt.Sprintf("%s/#/metric", basePath)
 
 	return &MetadataMLFlow{
-		trackingServerHost: host,
+		apiPath:     apiPath,
+		baseHost:    basePath,
+		metricsPath: metricsPath,
 	}, nil
 }

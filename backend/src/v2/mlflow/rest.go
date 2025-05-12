@@ -27,7 +27,7 @@ func (m *MetadataMLFlow) createRun(runName string, tags []types.RunTag, experime
 		return nil, err
 	}
 
-	_, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/create", m.trackingServerHost), jsonPayload, map[string]string{
+	_, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/create", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
@@ -56,7 +56,7 @@ func (m *MetadataMLFlow) getRun(runID string) (*types.GetRunResponse, error) {
 		return nil, err
 	}
 
-	_, body, err := DoRequest("GET", fmt.Sprintf("%s/runs/get", m.trackingServerHost), jsonPayload, map[string]string{
+	_, body, err := DoRequest("GET", fmt.Sprintf("%s/runs/get", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
@@ -96,7 +96,7 @@ func (m *MetadataMLFlow) updateRun(runID string, runName *string, status *types.
 		return nil, err
 	}
 
-	_, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/update", m.trackingServerHost), jsonPayload, map[string]string{
+	_, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/update", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
@@ -123,7 +123,29 @@ func (m *MetadataMLFlow) logParam(runID, runUUID, key, value string) error {
 	if err != nil {
 		return err
 	}
-	_, _, err = DoRequest("POST", fmt.Sprintf("%s/runs/log-parameter", m.trackingServerHost), jsonPayload, map[string]string{
+	_, _, err = DoRequest("POST", fmt.Sprintf("%s/runs/log-parameter", m.apiPath), jsonPayload, map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": "Bearer YOUR_TOKEN_HERE",
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *MetadataMLFlow) logMetric(runID, runUUID, key string, value float64) error {
+	payload := types.LogMetricRequest{
+		RunId:     runID,
+		RunUUID:   runUUID,
+		Key:       key,
+		Value:     value,
+		Timestamp: time.Now().UnixMilli(),
+	}
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	_, _, err = DoRequest("POST", fmt.Sprintf("%s/runs/log-metric", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
@@ -154,7 +176,7 @@ func (m *MetadataMLFlow) searchExperiments(
 		return nil, err
 	}
 
-	_, body, err := DoRequest("POST", fmt.Sprintf("%s/experiments/search", m.trackingServerHost), jsonPayload, map[string]string{
+	_, body, err := DoRequest("POST", fmt.Sprintf("%s/experiments/search", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
@@ -187,7 +209,7 @@ func (m *MetadataMLFlow) searchRuns(experimentIds []string, maxResults int64, pa
 		return nil, err
 	}
 
-	_, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/search", m.trackingServerHost), jsonPayload, map[string]string{
+	_, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/search", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
@@ -217,7 +239,7 @@ func (m *MetadataMLFlow) createExperiment(name string, tags []types.ExperimentTa
 		return nil, err
 	}
 
-	_, body, err := DoRequest("POST", fmt.Sprintf("%s/experiments/create", m.trackingServerHost), jsonPayload, map[string]string{
+	_, body, err := DoRequest("POST", fmt.Sprintf("%s/experiments/create", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})

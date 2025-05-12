@@ -447,6 +447,7 @@ function ArtifactInfo({
           valueComponentProps={{
             namespace: namespace,
             sessionMap: artifactParamsWithSessionInfo.sessionMap,
+            artifact: linkedArtifact.artifact,
           }}
         />
       </div>
