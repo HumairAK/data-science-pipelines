@@ -112,12 +112,11 @@ func (m *MetadataMLFlow) updateRun(runID string, runName *string, status *types.
 	return typedResp, nil
 }
 
-func (m *MetadataMLFlow) logParam(runID, runUUID, key, value string) error {
+func (m *MetadataMLFlow) logParam(runID *string, key, value string) error {
 	payload := types.LogParamRequest{
-		RunId:   runID,
-		RunUUID: runUUID,
-		Key:     key,
-		Value:   value,
+		RunId: *runID,
+		Key:   key,
+		Value: value,
 	}
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
@@ -285,6 +284,7 @@ func DoRequest(method, url string, body []byte, headers map[string]string) (*htt
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		glog.Errorf("Request failed with status code %d: %s", resp.StatusCode, string(respBody))
 		return nil, []byte{}, errors.New(string(respBody))
 	}
 

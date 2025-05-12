@@ -13,10 +13,6 @@ import (
 	"time"
 )
 
-const (
-	MlflowParentRunId = "mlflow.parentRunId" // Parent DAG Execution ID.
-)
-
 // metadata keys
 const (
 	keyDisplayName           = "display_name"
@@ -208,12 +204,12 @@ func (m *MetadataMLFlow) GetExperiment(ctx context.Context, kfpExperimentID stri
 func (m *MetadataMLFlow) LogRunMetric(ctx context.Context, experimentID string, mlmdExecutionID int64, metricName string, metricValue float64) (*string, error) {
 	glog.Infof("LogRunMetric called with experimentID %s, mlmdExecutionID: %d, metricName: %s, metricValue: %f", experimentID, mlmdExecutionID, metricName, metricValue)
 
-	glog.Infof("Getting mlflow from kfpRunID")
+	glog.Infof("Getting mlflow Run from kfpRunID")
 	mlFlowRunId, err := m.getMLFlowRunFromKFPRunID(experimentID, strconv.FormatInt(mlmdExecutionID, 10))
 	if err != nil {
 		return nil, err
 	}
-	glog.Infof("Got kfpRunID: %s", mlFlowRunId)
+	glog.Infof("Got kfpRunID: %s", *mlFlowRunId)
 	glog.Infof("logging metric....")
 	err = m.logMetric(*mlFlowRunId, experimentID, metricName, metricValue)
 	if err != nil {
@@ -231,11 +227,19 @@ func (m *MetadataMLFlow) LogRunMetric(ctx context.Context, experimentID string, 
 	return uri, nil
 }
 
-func (m *MetadataMLFlow) metricURI(runId, experimentID, metricKey string) (*string, error) {
-	uri := fmt.Sprintf("%s?runs=%%5B%%22%s%%22%%5D&experiments=%%5B%%22%s%%22%%5D&metric=%%22%s%%22&plot_metric_keys=%%5B%%22%s%%22%%5D",
-		m.metricsPath, runId, experimentID, metricKey, metricKey)
-	glog.Infof("built uri: %s", uri)
-	return &uri, nil
+func (m *MetadataMLFlow) LogParameter(ctx context.Context, experimentID string, mlmdExecutionID int64, parameterName string, parameterValue string) error {
+	glog.Infof("LogParameter called with experimentID: %s, mlmdExecutionID: %d, parameterName: %s, parameterValue: %s",
+		experimentID, mlmdExecutionID, parameterName, parameterValue)
+	runID, err := m.getMLFlowRunFromKFPRunID(experimentID, strconv.FormatInt(mlmdExecutionID, 10))
+	if err != nil {
+		return err
+	}
+	err = m.logParam(runID, parameterName, parameterValue)
+	if err != nil {
+		return err
+	}
+	glog.Infof("Parameter %s logged", parameterName)
+	return nil
 }
 
 func GetExperimentIDFromEnv() (*string, error) {
@@ -245,6 +249,13 @@ func GetExperimentIDFromEnv() (*string, error) {
 	}
 
 	return &experimentID, nil
+}
+
+func (m *MetadataMLFlow) metricURI(runId, experimentID, metricKey string) (*string, error) {
+	uri := fmt.Sprintf("%s?runs=%%5B%%22%s%%22%%5D&experiments=%%5B%%22%s%%22%%5D&metric=%%22%s%%22&plot_metric_keys=%%5B%%22%s%%22%%5D",
+		m.metricsPath, runId, experimentID, metricKey, metricKey)
+	glog.Infof("built uri: %s", uri)
+	return &uri, nil
 }
 
 func (m *MetadataMLFlow) getMLFlowRunFromKFPRunID(experimentID, kfpExecutionID string) (*string, error) {

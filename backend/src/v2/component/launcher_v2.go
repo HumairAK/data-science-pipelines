@@ -59,12 +59,13 @@ type LauncherV2Options struct {
 }
 
 type LauncherV2 struct {
-	executionID   int64
-	executorInput *pipelinespec.ExecutorInput
-	component     *pipelinespec.ComponentSpec
-	command       string
-	args          []string
-	options       LauncherV2Options
+	executionID       int64
+	parentExecutionID *int64
+	executorInput     *pipelinespec.ExecutorInput
+	component         *pipelinespec.ComponentSpec
+	command           string
+	args              []string
+	options           LauncherV2Options
 
 	// clients
 	metadataClient   metadata.ClientInterface
@@ -80,7 +81,7 @@ type kubernetesClient struct {
 }
 
 // NewLauncherV2 is a factory function that returns an instance of LauncherV2.
-func NewLauncherV2(ctx context.Context, executionID int64, executorInputJSON, componentSpecJSON string, cmdArgs []string, opts *LauncherV2Options) (l *LauncherV2, err error) {
+func NewLauncherV2(ctx context.Context, executionID int64, executorInputJSON, componentSpecJSON string, cmdArgs []string, opts *LauncherV2Options, parentExecutionID *int64) (l *LauncherV2, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("failed to create component launcher v2: %w", err)
@@ -129,17 +130,18 @@ func NewLauncherV2(ctx context.Context, executionID int64, executorInputJSON, co
 	}
 
 	return &LauncherV2{
-		executionID:      executionID,
-		executorInput:    executorInput,
-		component:        component,
-		command:          cmdArgs[0],
-		args:             cmdArgs[1:],
-		options:          *opts,
-		metadataClient:   metadataClient,
-		k8sClient:        k8sClient,
-		cacheClient:      cacheClient,
-		metadataClientV2: mlFlowMD,
-		experimentID:     opts.ExperimentID,
+		executionID:       executionID,
+		parentExecutionID: parentExecutionID,
+		executorInput:     executorInput,
+		component:         component,
+		command:           cmdArgs[0],
+		args:              cmdArgs[1:],
+		options:           *opts,
+		metadataClient:    metadataClient,
+		k8sClient:         k8sClient,
+		cacheClient:       cacheClient,
+		metadataClientV2:  mlFlowMD,
+		experimentID:      opts.ExperimentID,
 	}, nil
 }
 
@@ -268,6 +270,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		l.options.PublishLogs,
 		execution.GetID(),
 		l.experimentID,
+		l.parentExecutionID,
 	)
 	if err != nil {
 		return err
@@ -383,7 +386,8 @@ func executeV2(
 	namespace string, k8sClient kubernetes.Interface,
 	publishLogs string,
 	executionID int64,
-	experimentID string) (*pipelinespec.ExecutorOutput, []*metadata.OutputArtifact, error) {
+	experimentID string,
+	parentExecutionID *int64) (*pipelinespec.ExecutorOutput, []*metadata.OutputArtifact, error) {
 
 	// Add parameter default values to executorInput, if there is not already a user input.
 	// This process is done in the launcher because we let the component resolve default values internally.
@@ -432,12 +436,13 @@ func executeV2(
 	}
 	// TODO(Bobgy): should we log metadata per each artifact, or batched after uploading all artifacts.
 	outputArtifacts, err := uploadOutputArtifacts(ctx, executorInput, executorOutput, uploadOutputArtifactsOptions{
-		bucketConfig:     bucketConfig,
-		bucket:           bucket,
-		metadataClient:   metadataClient,
-		metadataClientV2: metadataClientV2,
-		experimentID:     experimentID,
-		executionID:      executionID,
+		bucketConfig:      bucketConfig,
+		bucket:            bucket,
+		metadataClient:    metadataClient,
+		metadataClientV2:  metadataClientV2,
+		experimentID:      experimentID,
+		executionID:       executionID,
+		parentExecutionID: parentExecutionID,
 	})
 	if err != nil {
 		return nil, nil, err
@@ -568,12 +573,13 @@ func execute(
 }
 
 type uploadOutputArtifactsOptions struct {
-	bucketConfig     *objectstore.Config
-	bucket           *blob.Bucket
-	metadataClient   metadata.ClientInterface
-	metadataClientV2 metadata_v2.MetadataInterfaceClient
-	experimentID     string
-	executionID      int64
+	bucketConfig      *objectstore.Config
+	bucket            *blob.Bucket
+	metadataClient    metadata.ClientInterface
+	metadataClientV2  metadata_v2.MetadataInterfaceClient
+	experimentID      string
+	executionID       int64
+	parentExecutionID *int64
 }
 
 func uploadOutputArtifacts(
@@ -633,13 +639,22 @@ func uploadOutputArtifacts(
 					switch value.Kind.(type) {
 					case *structpb.Value_NumberValue:
 						// TODO: should support timestamp and key fields in the future
-						uri, err := opts.metadataClientV2.LogRunMetric(ctx, opts.experimentID, opts.executionID, key, value.GetNumberValue())
+						_, err1 := opts.metadataClientV2.LogRunMetric(ctx, opts.experimentID, opts.executionID, key, value.GetNumberValue())
+						if err1 != nil {
+							return nil, err1
+						}
+						// We'll store the metrics in the parent pipeline, and also link to it instead
+						if opts.parentExecutionID == nil {
+							return nil, fmt.Errorf("parentExecution ID was nil")
+						}
+						uri, err2 := opts.metadataClientV2.LogRunMetric(ctx, opts.experimentID, *opts.parentExecutionID, key, value.GetNumberValue())
+						if err2 != nil {
+							return nil, err2
+						}
 						// Set the artifact to uri so it's stored in MLMD and in the KFP UI it will link to
 						// MLFlow ui
 						outputArtifact.Uri = *uri
-						if err != nil {
-							return nil, err
-						}
+
 					default:
 						return nil, fmt.Errorf("Encountered metric that is not number type.")
 					}

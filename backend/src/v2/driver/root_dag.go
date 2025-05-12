@@ -10,6 +10,8 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -141,8 +143,30 @@ func RootDAG(ctx context.Context, opts Options, mlmd *metadata.Client) (executio
 		return nil, err
 	}
 
+	for key, value := range executorInput.Inputs.ParameterValues {
+		strValue, err := valueToJSONString(value)
+		if err != nil {
+			return nil, err
+		}
+		err = opts.MetadataClient.LogParameter(ctx, opts.ExperimentId, executionID, key, strValue)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	glog.Infof("Created execution: %s", exec)
 	// No need to return ExecutorInput, because tasks in the DAG will resolve
 	// needed info from MLMD.
 	return &Execution{ID: exec.GetID()}, nil
+}
+
+func valueToJSONString(val *structpb.Value) (string, error) {
+	if val == nil {
+		return "null", nil
+	}
+	bytes, err := protojson.Marshal(val)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
 }

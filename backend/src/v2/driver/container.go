@@ -207,6 +207,13 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 		return nil, err
 	}
 
+	for key, value := range inputs.ParameterValues {
+		err := opts.MetadataClient.LogParameter(ctx, opts.ExperimentId, executionID, key, value.GetStringValue())
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	glog.Infof("Created execution: %s", createdExecution)
 	execution.ID = createdExecution.GetID()
 
@@ -244,6 +251,7 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 		opts.RunID,
 		opts.PipelineLogLevel,
 		opts.PublishLogs,
+		opts.DAGExecutionID,
 	)
 	if err != nil {
 		return execution, err

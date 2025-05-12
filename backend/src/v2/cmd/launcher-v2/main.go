@@ -105,7 +105,7 @@ func run() error {
 		}
 		return nil
 	case "container":
-		launcher, err := component.NewLauncherV2(ctx, *executionID, *executorInputJSON, *componentSpecJSON, flag.Args(), launcherV2Opts)
+		launcher, err := component.NewLauncherV2(ctx, *executionID, *executorInputJSON, *componentSpecJSON, flag.Args(), launcherV2Opts, parentDagID)
 		if err != nil {
 			return err
 		}

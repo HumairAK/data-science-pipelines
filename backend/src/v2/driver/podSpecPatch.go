@@ -9,6 +9,7 @@ import (
 	k8score "k8s.io/api/core/v1"
 	k8sres "k8s.io/apimachinery/pkg/api/resource"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -179,6 +180,7 @@ func initPodSpecPatch(
 	runID string,
 	pipelineLogLevel string,
 	publishLogs string,
+	parentExecutionID int64,
 ) (*k8score.PodSpec, error) {
 	executorInputJSON, err := protojson.Marshal(executorInput)
 	if err != nil {
@@ -204,6 +206,7 @@ func initPodSpecPatch(
 		component.KFPLauncherPath,
 		// TODO(Bobgy): no need to pass pipeline_name and run_id, these info can be fetched via pipeline context and pipeline run context which have been created by root DAG driver.
 		"--pipeline_name", pipelineName,
+		"--parent_dag_id", strconv.FormatInt(parentExecutionID, 10),
 		"--run_id", runID,
 		"--execution_id", fmt.Sprintf("%v", executionID),
 		"--executor_input", string(executorInputJSON),
