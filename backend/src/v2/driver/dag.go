@@ -155,6 +155,26 @@ func DAG(ctx context.Context, opts Options, mlmd *metadata.Client) (execution *E
 		return nil, err
 	}
 
+	executionID := createdExecution.GetID()
+	// Use the execution ID from MLMD for now to uniquely identify this parent pipeline run in mlflow
+	// In a world without mlmd, we would use the runID that is returned by mlflow itself and pass
+	// that between drivers/launchers.
+	_, err = opts.MetadataClient.CreatePipelineRun(
+		ctx,
+		opts.RunDisplayName,
+		opts.PipelineName,
+		opts.Namespace,
+		"run-resource",
+		pipeline.GetPipelineRoot(),
+		pipeline.GetStoreSessionInfo(),
+		opts.ExperimentId,
+		&opts.DAGExecutionID,
+		&executionID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	glog.Infof("Created execution: %s", createdExecution)
 	execution.ID = createdExecution.GetID()
 	return execution, nil
