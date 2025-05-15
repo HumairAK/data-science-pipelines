@@ -645,11 +645,10 @@ func uploadOutputArtifacts(
 					switch value.Kind.(type) {
 					case *structpb.Value_NumberValue:
 						// TODO: should support timestamp and key fields in the future
-						_, err1 := opts.metadataClientV2.LogRunMetric(ctx, opts.experimentID, opts.executionID, key, value.GetNumberValue())
+						uri, err1 := opts.metadataClientV2.LogRunMetric(ctx, opts.experimentID, opts.executionID, key, value.GetNumberValue())
 						if err1 != nil {
 							return nil, err1
 						}
-						// We'll store the metrics in the parent pipeline, and also link to it instead
 						if opts.parentExecutionID == nil {
 							return nil, fmt.Errorf("parentExecution ID was nil")
 						}
