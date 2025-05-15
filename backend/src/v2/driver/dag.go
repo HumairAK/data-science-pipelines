@@ -192,6 +192,16 @@ func DAG(ctx context.Context, opts Options, mlmd *metadata.Client) (execution *E
 		if err != nil {
 			return nil, err
 		}
+		for key, value := range executorInput.Inputs.ParameterValues {
+			strValue, err := valueToJSONString(value)
+			if err != nil {
+				return nil, err
+			}
+			err = opts.MetadataClient.LogParameter(ctx, opts.ExperimentId, createdExecution.GetID(), key, strValue)
+			if err != nil {
+				return nil, err
+			}
+		}
 	} else {
 		glog.Info("this dag is an iterator, do not create a mlflow run")
 	}
