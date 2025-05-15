@@ -44,7 +44,7 @@ func (m *MetadataMLFlow) createRun(runName string, tags []types.RunTag, experime
 	return &runResponse.Run, nil
 }
 
-func (m *MetadataMLFlow) getRun(runID string) (*types.GetRunResponse, error) {
+func (m *MetadataMLFlow) getRun(runID string) (*types.Run, error) {
 	// Create struct with parameters
 	payload := types.GetRunRequest{
 		RunID: runID,
@@ -69,7 +69,7 @@ func (m *MetadataMLFlow) getRun(runID string) (*types.GetRunResponse, error) {
 		glog.Errorf("Failed to unmarshal: %v", err)
 		return nil, err
 	}
-	return runResponse, nil
+	return &runResponse.Run, nil
 }
 
 func (m *MetadataMLFlow) updateRun(runID string, runName *string, status *types.RunStatus, endTime *int64) (*types.UpdateRunResponse, error) {

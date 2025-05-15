@@ -224,7 +224,34 @@ func (m *MetadataMLFlow) LogRunMetric(ctx context.Context, experimentID string, 
 	}
 	glog.Infof("URI fetched: %s", *uri)
 
+	// Also log the metric to all parent ids:
+
+	// base case
+	parentID, err := m.getParentID(*mlFlowRunId)
+	if err != nil {
+		return nil, err
+	}
+
+	err = m.logMetric(*parentID, experimentID, metricName, metricValue)
+	if err != nil {
+		return nil, err
+	}
+
 	return uri, nil
+}
+
+func (m *MetadataMLFlow) getParentID(mlFlowRunId string) (*string, error) {
+	run, err := m.getRun(mlFlowRunId)
+	if err != nil {
+		return nil, err
+	}
+	var parentID string
+	for _, tag := range run.Data.Tags {
+		if tag.Key == "mlflow.parentRunId" {
+			parentID = tag.Value
+		}
+	}
+	return &parentID, nil
 }
 
 func (m *MetadataMLFlow) LogParameter(ctx context.Context, experimentID string, mlmdExecutionID int64, parameterName string, parameterValue string) error {

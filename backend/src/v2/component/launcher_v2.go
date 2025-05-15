@@ -653,31 +653,6 @@ func uploadOutputArtifacts(
 						if opts.parentExecutionID == nil {
 							return nil, fmt.Errorf("parentExecution ID was nil")
 						}
-
-						// If this launcher's parent dag is an iteration dag, then we do not
-						// create a mlflow run for it to reduce clutter. So we need to instead
-						// log the metric onto it's parent dag (which we're calling the
-						// iterator dag)
-						parantRunID := *opts.parentExecutionID
-						dag, err1 := opts.metadataClient.GetDAG(ctx, *opts.parentExecutionID)
-						if err1 != nil {
-							return nil, err1
-						}
-						iterationValue, exists := dag.Execution.GetExecution().CustomProperties["iteration_index"]
-						isIteration := exists && iterationValue.GetIntValue() >= 0
-						if isIteration {
-							// get the iterator id instead (the parent of the iteration dag)
-							glog.Infof("parent is isIteration, get the parent's parent (iterator) dag")
-							parentDagID := dag.Execution.GetExecution().CustomProperties["parent_dag_id"].GetIntValue()
-							iteratorParent, err1 := opts.metadataClient.GetDAG(ctx, parentDagID)
-							if err1 != nil {
-								return nil, err1
-							}
-							t := iteratorParent.Execution.GetID()
-							parantRunID = t
-							glog.Infof("got iteration parent dag id %d", parantRunID)
-						}
-						uri, err1 := opts.metadataClientV2.LogRunMetric(ctx, opts.experimentID, parantRunID, key, value.GetNumberValue())
 						if err1 != nil {
 							return nil, err1
 						}
