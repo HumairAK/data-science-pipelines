@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -197,6 +198,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	var outputArtifacts []*metadata.OutputArtifact
 	status := pb.Execution_FAILED
 	defer func() {
+		glog.Infof("prepublishing..., status is: %d", status)
 		if perr := l.publish(ctx, execution, executorOutput, outputArtifacts, status); perr != nil {
 			if err != nil {
 				err = fmt.Errorf("failed to publish execution with error %s after execution failed: %s", perr.Error(), err.Error())
@@ -204,7 +206,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 				err = perr
 			}
 		}
-
+		glog.Infof("updating pipeline status, status is: %d", status)
 		// Update status for the MLFlow Execution Run
 		executionID := execution.GetID()
 		err = l.metadataClientV2.UpdatePipelineStatus(ctx, &executionID, status, l.experimentID)
@@ -273,8 +275,11 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		l.parentExecutionID,
 	)
 	if err != nil {
+		glog.Errorf("failed to execute component: %v\n%s", err, string(debug.Stack()))
+
 		return err
 	}
+	glog.Infof("Execute () call completed, status is: %d", status)
 	status = pb.Execution_COMPLETE
 	// if fingerPrint is not empty, it means this task enables cache but it does not hit cache, we need to create cache entry for this task
 	if fingerPrint != "" {
@@ -294,6 +299,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		}
 		return l.cacheClient.CreateExecutionCache(ctx, task)
 	}
+	glog.Infof("Fingerprinting () section completed, status is: %d", status)
 
 	return nil
 }
@@ -647,9 +653,33 @@ func uploadOutputArtifacts(
 						if opts.parentExecutionID == nil {
 							return nil, fmt.Errorf("parentExecution ID was nil")
 						}
-						uri, err2 := opts.metadataClientV2.LogRunMetric(ctx, opts.experimentID, *opts.parentExecutionID, key, value.GetNumberValue())
-						if err2 != nil {
-							return nil, err2
+
+						// If this launcher's parent dag is an iteration dag, then we do not
+						// create a mlflow run for it to reduce clutter. So we need to instead
+						// log the metric onto it's parent dag (which we're calling the
+						// iterator dag)
+						parantRunID := *opts.parentExecutionID
+						dag, err1 := opts.metadataClient.GetDAG(ctx, *opts.parentExecutionID)
+						if err1 != nil {
+							return nil, err1
+						}
+						iterationValue, exists := dag.Execution.GetExecution().CustomProperties["iteration_index"]
+						isIteration := exists && iterationValue.GetIntValue() >= 0
+						if isIteration {
+							// get the iterator id instead (the parent of the iteration dag)
+							glog.Infof("parent is isIteration, get the parent's parent (iterator) dag")
+							parentDagID := dag.Execution.GetExecution().CustomProperties["parent_dag_id"].GetIntValue()
+							iteratorParent, err1 := opts.metadataClient.GetDAG(ctx, parentDagID)
+							if err1 != nil {
+								return nil, err1
+							}
+							t := iteratorParent.Execution.GetID()
+							parantRunID = t
+							glog.Infof("got iteration parent dag id %d", parantRunID)
+						}
+						uri, err1 := opts.metadataClientV2.LogRunMetric(ctx, opts.experimentID, parantRunID, key, value.GetNumberValue())
+						if err1 != nil {
+							return nil, err1
 						}
 						// Set the artifact to uri so it's stored in MLMD and in the KFP UI it will link to
 						// MLFlow ui
