@@ -194,19 +194,19 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 	parentID := &ecfg.ParentDagID
 	// if this parent is an iteration, get the parent's parent (iterator) dag:
 	// note an iterator dag spawns iteration dags
-	iterationValue, exists := dag.Execution.GetExecution().CustomProperties["iteration_index"]
-	isIteration := exists && iterationValue.GetIntValue() >= 0
-	if isIteration {
-		glog.Infof("parent is isIteration, get the parent's parent (iterator) dag")
-		parentDagID := dag.Execution.GetExecution().CustomProperties["parent_dag_id"].GetIntValue()
-		iteratorParent, err1 := mlmd.GetDAG(ctx, parentDagID)
-		if err1 != nil {
-			return nil, err1
-		}
-		t := iteratorParent.Execution.GetID()
-		parentID = &t
-		glog.Infof("got iteration parent dag id %d", parentID)
-	}
+	//iterationValue, exists := dag.Execution.GetExecution().CustomProperties["iteration_index"]
+	//isIteration := exists && iterationValue.GetIntValue() >= 0
+	//if !isIteration {
+	//	glog.Infof("parent is isIteration, get the parent's parent (iterator) dag")
+	//	parentDagID := dag.Execution.GetExecution().CustomProperties["parent_dag_id"].GetIntValue()
+	//	iteratorParent, err1 := mlmd.GetDAG(ctx, parentDagID)
+	//	if err1 != nil {
+	//		return nil, err1
+	//	}
+	//	t := iteratorParent.Execution.GetID()
+	//	parentID = &t
+	//	glog.Infof("got iteration parent dag id %d", parentID)
+	//}
 
 	_, err = opts.MetadataClient.CreatePipelineRun(
 		ctx,

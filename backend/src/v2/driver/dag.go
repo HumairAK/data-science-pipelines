@@ -155,8 +155,24 @@ func DAG(ctx context.Context, opts Options, mlmd *metadata.Client) (execution *E
 		return nil, err
 	}
 
-	if opts.IterationIndex < 0 {
-		glog.Infof("this dag is not an iteration, create a mlflow run")
+	if !isIterator {
+		// if this is an iteration than the parent will be one parent above the iterator dag
+		parentID := &opts.DAGExecutionID
+		iterationValue, exists := createdExecution.GetExecution().CustomProperties["iteration_index"]
+		isIteration := exists && iterationValue.GetIntValue() >= 0
+		if isIteration {
+			glog.Infof("parent is isIteration, get the parent's parent (iterator) dag")
+			parentDagID := dag.Execution.GetExecution().CustomProperties["parent_dag_id"].GetIntValue()
+			iteratorParent, err1 := mlmd.GetDAG(ctx, parentDagID)
+			if err1 != nil {
+				return nil, err1
+			}
+			t := iteratorParent.Execution.GetID()
+			parentID = &t
+			glog.Infof("got iteration parent dag id %d", *parentID)
+		}
+
+		glog.Infof("this dag is not an iterator, create a mlflow run")
 		executionID := createdExecution.GetID()
 		// Use the execution ID from MLMD for now to uniquely identify this parent pipeline run in mlflow
 		// In a world without mlmd, we would use the runID that is returned by mlflow itself and pass
@@ -170,14 +186,14 @@ func DAG(ctx context.Context, opts Options, mlmd *metadata.Client) (execution *E
 			pipeline.GetPipelineRoot(),
 			pipeline.GetStoreSessionInfo(),
 			opts.ExperimentId,
-			&opts.DAGExecutionID,
+			parentID,
 			&executionID,
 		)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		glog.Info("this dag is an iteration, do not create a mlflow run")
+		glog.Info("this dag is an iterator, do not create a mlflow run")
 	}
 
 	glog.Infof("Created execution: %s", createdExecution)
