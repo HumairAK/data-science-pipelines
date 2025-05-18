@@ -46,6 +46,9 @@ const (
 	ROOT_DAG           = "ROOT_DAG"
 	DAG                = "DAG"
 	CONTAINER          = "CONTAINER"
+
+	// Server mode constants
+	defaultServerPort  = 4355
 )
 
 var (
@@ -59,6 +62,10 @@ var (
 	taskSpecJson      = flag.String("task", "", "task spec")
 	runtimeConfigJson = flag.String("runtime_config", "", "jobruntime config")
 	iterationIndex    = flag.Int("iteration_index", -1, "iteration index, -1 means not an interation")
+
+	// server mode
+	serverMode        = flag.Bool("server", false, "run as a REST server")
+	serverPort        = flag.Int("port", defaultServerPort, "port for the REST server to listen on")
 
 	// container inputs
 	dagExecutionID    = flag.Int64("dag_execution_id", 0, "DAG execution ID")
@@ -97,10 +104,49 @@ func main() {
 		glog.Warningf("Failed to set log level: %s", err.Error())
 	}
 
-	err = drive()
+	if *serverMode {
+		err = runServer()
+	} else {
+		err = drive()
+	}
+
 	if err != nil {
 		glog.Exitf("%v", err)
 	}
+}
+
+func runServer() error {
+	glog.Infof("Starting driver in server mode on port %d", *serverPort)
+
+	// Validate proxy arguments
+	if *httpProxy == unsetProxyArgValue {
+		return fmt.Errorf("argument --%s is required but can be an empty value", httpProxyArg)
+	}
+	if *httpsProxy == unsetProxyArgValue {
+		return fmt.Errorf("argument --%s is required but can be an empty value", httpsProxyArg)
+	}
+	if *noProxy == unsetProxyArgValue {
+		return fmt.Errorf("argument --%s is required but can be an empty value", noProxyArg)
+	}
+
+	// Initialize proxy configuration
+	proxy.InitializeConfig(*httpProxy, *httpsProxy, *noProxy)
+
+	// Initialize MLMD client
+	mlmdClient, err := newMlmdClient()
+	if err != nil {
+		return fmt.Errorf("failed to initialize MLMD client: %w", err)
+	}
+
+	// Initialize cache client
+	cacheClient, err := cacheutils.NewClient(*cacheDisabledFlag)
+	if err != nil {
+		return fmt.Errorf("failed to initialize cache client: %w", err)
+	}
+
+	// Create and start the server
+	server := driver.NewServer(mlmdClient, cacheClient, *serverPort)
+	return server.Start()
 }
 
 // Use WARNING default logging level to facilitate troubleshooting.
@@ -111,6 +157,11 @@ func init() {
 }
 
 func validate() error {
+	// Skip validation in server mode
+	if *serverMode {
+		return nil
+	}
+
 	if *driverType == "" {
 		return fmt.Errorf("argument --%s must be specified", driverTypeArg)
 	}
