@@ -14,9 +14,7 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 
@@ -34,7 +32,6 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
-	"github.com/kubeflow/pipelines/kubernetes_platform/go/kubernetesplatform"
 )
 
 const (
@@ -46,6 +43,9 @@ const (
 	ROOT_DAG           = "ROOT_DAG"
 	DAG                = "DAG"
 	CONTAINER          = "CONTAINER"
+
+	// Server mode constants
+	defaultServerPort = 4355
 )
 
 var (
@@ -59,6 +59,10 @@ var (
 	taskSpecJson      = flag.String("task", "", "task spec")
 	runtimeConfigJson = flag.String("runtime_config", "", "jobruntime config")
 	iterationIndex    = flag.Int("iteration_index", -1, "iteration index, -1 means not an interation")
+
+	// server mode
+	serverMode = flag.Bool("server", false, "run as a REST server")
+	serverPort = flag.Int("port", defaultServerPort, "port for the REST server to listen on")
 
 	// container inputs
 	dagExecutionID    = flag.Int64("dag_execution_id", 0, "DAG execution ID")
@@ -97,10 +101,49 @@ func main() {
 		glog.Warningf("Failed to set log level: %s", err.Error())
 	}
 
-	err = drive()
+	if *serverMode {
+		err = runServer()
+	} else {
+		err = drive()
+	}
+
 	if err != nil {
 		glog.Exitf("%v", err)
 	}
+}
+
+func runServer() error {
+	glog.Infof("Starting driver in server mode on port %d", *serverPort)
+
+	// Validate proxy arguments
+	if *httpProxy == unsetProxyArgValue {
+		return fmt.Errorf("argument --%s is required but can be an empty value", httpProxyArg)
+	}
+	if *httpsProxy == unsetProxyArgValue {
+		return fmt.Errorf("argument --%s is required but can be an empty value", httpsProxyArg)
+	}
+	if *noProxy == unsetProxyArgValue {
+		return fmt.Errorf("argument --%s is required but can be an empty value", noProxyArg)
+	}
+
+	// Initialize proxy configuration
+	proxy.InitializeConfig(*httpProxy, *httpsProxy, *noProxy)
+
+	// Initialize MLMD client
+	mlmdClient, err := newMlmdClient()
+	if err != nil {
+		return fmt.Errorf("failed to initialize MLMD client: %w", err)
+	}
+
+	// Initialize cache client
+	cacheClient, err := cacheutils.NewClient(*cacheDisabledFlag)
+	if err != nil {
+		return fmt.Errorf("failed to initialize cache client: %w", err)
+	}
+
+	// Create and start the server
+	server := driver.NewServer(mlmdClient, cacheClient, *serverPort)
+	return server.Start()
 }
 
 // Use WARNING default logging level to facilitate troubleshooting.
@@ -111,6 +154,11 @@ func init() {
 }
 
 func validate() error {
+	// Skip validation in server mode
+	if *serverMode {
+		return nil
+	}
+
 	if *driverType == "" {
 		return fmt.Errorf("argument --%s must be specified", driverTypeArg)
 	}
@@ -140,33 +188,33 @@ func drive() (err error) {
 
 	proxy.InitializeConfig(*httpProxy, *httpsProxy, *noProxy)
 
-	glog.Infof("input ComponentSpec:%s\n", prettyPrint(*componentSpecJson))
+	glog.Infof("input ComponentSpec:%s\n", util.PrettyPrint(*componentSpecJson))
 	componentSpec := &pipelinespec.ComponentSpec{}
 	if err := util.UnmarshalString(*componentSpecJson, componentSpec); err != nil {
-		return fmt.Errorf("failed to unmarshal component spec, error: %w\ncomponentSpec: %v", err, prettyPrint(*componentSpecJson))
+		return fmt.Errorf("failed to unmarshal component spec, error: %w\ncomponentSpec: %v", err, util.PrettyPrint(*componentSpecJson))
 	}
 	var taskSpec *pipelinespec.PipelineTaskSpec
 	if *taskSpecJson != "" {
-		glog.Infof("input TaskSpec:%s\n", prettyPrint(*taskSpecJson))
+		glog.Infof("input TaskSpec:%s\n", util.PrettyPrint(*taskSpecJson))
 		taskSpec = &pipelinespec.PipelineTaskSpec{}
 		if err := util.UnmarshalString(*taskSpecJson, taskSpec); err != nil {
 			return fmt.Errorf("failed to unmarshal task spec, error: %w\ntask: %v", err, taskSpecJson)
 		}
 	}
-	glog.Infof("input ContainerSpec:%s\n", prettyPrint(*containerSpecJson))
+	glog.Infof("input ContainerSpec:%s\n", util.PrettyPrint(*containerSpecJson))
 	containerSpec := &pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec{}
 	if err := util.UnmarshalString(*containerSpecJson, containerSpec); err != nil {
 		return fmt.Errorf("failed to unmarshal container spec, error: %w\ncontainerSpec: %v", err, containerSpecJson)
 	}
 	var runtimeConfig *pipelinespec.PipelineJob_RuntimeConfig
 	if *runtimeConfigJson != "" {
-		glog.Infof("input RuntimeConfig:%s\n", prettyPrint(*runtimeConfigJson))
+		glog.Infof("input RuntimeConfig:%s\n", util.PrettyPrint(*runtimeConfigJson))
 		runtimeConfig = &pipelinespec.PipelineJob_RuntimeConfig{}
 		if err := util.UnmarshalString(*runtimeConfigJson, runtimeConfig); err != nil {
 			return fmt.Errorf("failed to unmarshal runtime config, error: %w\nruntimeConfig: %v", err, runtimeConfigJson)
 		}
 	}
-	k8sExecCfg, err := parseExecConfigJson(k8sExecConfigJson)
+	k8sExecCfg, err := util.ParseExecConfigJson(k8sExecConfigJson)
 	if err != nil {
 		return err
 	}
@@ -234,18 +282,6 @@ func drive() (err error) {
 	return handleExecution(execution, *driverType, executionPaths)
 }
 
-func parseExecConfigJson(k8sExecConfigJson *string) (*kubernetesplatform.KubernetesExecutorConfig, error) {
-	var k8sExecCfg *kubernetesplatform.KubernetesExecutorConfig
-	if *k8sExecConfigJson != "" {
-		glog.Infof("input kubernetesConfig:%s\n", prettyPrint(*k8sExecConfigJson))
-		k8sExecCfg = &kubernetesplatform.KubernetesExecutorConfig{}
-		if err := util.UnmarshalString(*k8sExecConfigJson, k8sExecCfg); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal Kubernetes config, error: %w\nKubernetesConfig: %v", err, k8sExecConfigJson)
-		}
-	}
-	return k8sExecCfg, nil
-}
-
 func handleExecution(execution *driver.Execution, driverType string, executionPaths *ExecutionPaths) error {
 	if execution.ID != 0 {
 		glog.Infof("output execution.ID=%v", execution.ID)
@@ -298,18 +334,9 @@ func handleExecution(execution *driver.Execution, driverType string, executionPa
 		if err != nil {
 			return fmt.Errorf("failed to marshal ExecutorInput to JSON: %w", err)
 		}
-		glog.Infof("output ExecutorInput:%s\n", prettyPrint(executorInputJSON))
+		glog.Infof("output ExecutorInput:%s\n", util.PrettyPrint(executorInputJSON))
 	}
 	return nil
-}
-
-func prettyPrint(jsonStr string) string {
-	var prettyJSON bytes.Buffer
-	err := json.Indent(&prettyJSON, []byte(jsonStr), "", "  ")
-	if err != nil {
-		return jsonStr
-	}
-	return prettyJSON.String()
 }
 
 func writeFile(path string, data []byte) (err error) {

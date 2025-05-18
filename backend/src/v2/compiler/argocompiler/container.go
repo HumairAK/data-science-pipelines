@@ -15,6 +15,7 @@
 package argocompiler
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -182,46 +183,49 @@ func (c *workflowCompiler) addContainerDriverTemplate() string {
 		return name
 	}
 
-	args := []string{
-		"--type", "CONTAINER",
-		"--pipeline_name", c.spec.GetPipelineInfo().GetName(),
-		"--run_id", runID(),
-		"--run_name", runResourceName(),
-		"--run_display_name", c.job.DisplayName,
-		"--dag_execution_id", inputValue(paramParentDagID),
-		"--component", inputValue(paramComponent),
-		"--task", inputValue(paramTask),
-		"--container", inputValue(paramContainer),
-		"--iteration_index", inputValue(paramIterationIndex),
-		"--cached_decision_path", outputPath(paramCachedDecision),
-		"--pod_spec_patch_path", outputPath(paramPodSpecPatch),
-		"--condition_path", outputPath(paramCondition),
-		"--kubernetes_config", inputValue(paramKubernetesConfig),
-		"--http_proxy", proxy.GetConfig().GetHttpProxy(),
-		"--https_proxy", proxy.GetConfig().GetHttpsProxy(),
-		"--no_proxy", proxy.GetConfig().GetNoProxy(),
+	parameters := []wfapi.Parameter{
+		{Name: paramDriverType, Default: wfapi.AnyStringPtr("CONTAINER")},
+		{Name: paramComponent},
+		{Name: paramTask},
+		{Name: paramContainer},
+		{Name: paramParentDagID},
+		{Name: paramIterationIndex, Default: wfapi.AnyStringPtr("-1")},
+		{Name: paramKubernetesConfig, Default: wfapi.AnyStringPtr("")},
+		{Name: "pipeline_name", Value: wfapi.AnyStringPtr(c.spec.GetPipelineInfo().GetName())},
+		{Name: "run_id", Value: wfapi.AnyStringPtr(runID())},
+		{Name: "run_name", Value: wfapi.AnyStringPtr(runResourceName())},
+		{Name: "run_display_name", Value: wfapi.AnyStringPtr(c.job.DisplayName)},
+		{Name: "http_proxy", Value: wfapi.AnyStringPtr(proxy.GetConfig().GetHttpProxy())},
+		{Name: "https_proxy", Value: wfapi.AnyStringPtr(proxy.GetConfig().GetHttpsProxy())},
+		{Name: "no_proxy", Value: wfapi.AnyStringPtr(proxy.GetConfig().GetNoProxy())},
 	}
+
 	if c.cacheDisabled {
-		args = append(args, "--cache_disabled", "true")
+		parameters = append(parameters,
+			wfapi.Parameter{
+				Name:  "cache_disabled",
+				Value: wfapi.AnyStringPtr("true"),
+			})
 	}
 	if value, ok := os.LookupEnv(PipelineLogLevelEnvVar); ok {
-		args = append(args, "--log_level", value)
+		parameters = append(parameters,
+			wfapi.Parameter{
+				Name:  "log_level",
+				Value: wfapi.AnyStringPtr(value),
+			})
 	}
 	if value, ok := os.LookupEnv(PublishLogsEnvVar); ok {
-		args = append(args, "--publish_logs", value)
+		parameters = append(parameters,
+			wfapi.Parameter{
+				Name:  "publish_logs",
+				Value: wfapi.AnyStringPtr(value),
+			})
 	}
 
 	t := &wfapi.Template{
 		Name: name,
 		Inputs: wfapi.Inputs{
-			Parameters: []wfapi.Parameter{
-				{Name: paramComponent},
-				{Name: paramTask},
-				{Name: paramContainer},
-				{Name: paramParentDagID},
-				{Name: paramIterationIndex, Default: wfapi.AnyStringPtr("-1")},
-				{Name: paramKubernetesConfig, Default: wfapi.AnyStringPtr("")},
-			},
+			Parameters: parameters,
 		},
 		Outputs: wfapi.Outputs{
 			Parameters: []wfapi.Parameter{
@@ -230,13 +234,7 @@ func (c *workflowCompiler) addContainerDriverTemplate() string {
 				{Name: paramCondition, ValueFrom: &wfapi.ValueFrom{Path: "/tmp/outputs/condition", Default: wfapi.AnyStringPtr("true")}},
 			},
 		},
-		Container: &k8score.Container{
-			Image:     c.driverImage,
-			Command:   c.driverCommand,
-			Args:      args,
-			Resources: driverResources,
-			Env:       proxy.GetConfig().GetEnvVars(),
-		},
+		Plugin: &wfapi.Plugin{Object: wfapi.Object{Value: json.RawMessage(`{"driver-argo-executor": "{}"}`)}},
 	}
 	c.templates[name] = t
 	c.wf.Spec.Templates = append(c.wf.Spec.Templates, *t)

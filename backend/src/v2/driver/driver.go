@@ -31,6 +31,7 @@ import (
 
 // Driver options
 type Options struct {
+	DriverType string
 	// required, pipeline context name
 	PipelineName string
 	// required, KFP run ID

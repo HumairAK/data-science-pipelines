@@ -14,6 +14,7 @@
 package argocompiler
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 	"os"
@@ -23,7 +24,6 @@ import (
 	wfapi "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	"github.com/kubeflow/pipelines/backend/src/v2/compiler"
-	k8score "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -538,45 +538,47 @@ func (c *workflowCompiler) addDAGDriverTemplate() string {
 		return name
 	}
 
-	args := []string{
-		"--type", inputValue(paramDriverType),
-		"--pipeline_name", c.spec.GetPipelineInfo().GetName(),
-		"--run_id", runID(),
-		"--run_name", runResourceName(),
-		"--run_display_name", c.job.DisplayName,
-		"--dag_execution_id", inputValue(paramParentDagID),
-		"--component", inputValue(paramComponent),
-		"--task", inputValue(paramTask),
-		"--runtime_config", inputValue(paramRuntimeConfig),
-		"--iteration_index", inputValue(paramIterationIndex),
-		"--execution_id_path", outputPath(paramExecutionID),
-		"--iteration_count_path", outputPath(paramIterationCount),
-		"--condition_path", outputPath(paramCondition),
-		"--http_proxy", proxy.GetConfig().GetHttpProxy(),
-		"--https_proxy", proxy.GetConfig().GetHttpsProxy(),
-		"--no_proxy", proxy.GetConfig().GetNoProxy(),
+	parameters := []wfapi.Parameter{
+		{Name: paramComponent}, // Required.
+		{Name: paramRuntimeConfig, Default: wfapi.AnyStringPtr("")},
+		{Name: paramTask, Default: wfapi.AnyStringPtr("")},
+		{Name: paramParentDagID, Default: wfapi.AnyStringPtr("0")},
+		{Name: paramIterationIndex, Default: wfapi.AnyStringPtr("-1")},
+		{Name: paramDriverType, Default: wfapi.AnyStringPtr("DAG")},
+		{Name: "pipeline_name", Value: wfapi.AnyStringPtr(c.spec.GetPipelineInfo().GetName())},
+		{Name: "run_id", Value: wfapi.AnyStringPtr(runID())},
+		{Name: "run_name", Value: wfapi.AnyStringPtr(runResourceName())},
+		{Name: "run_display_name", Value: wfapi.AnyStringPtr(c.job.DisplayName)},
+		{Name: "http_proxy", Value: wfapi.AnyStringPtr(proxy.GetConfig().GetHttpProxy())},
+		{Name: "https_proxy", Value: wfapi.AnyStringPtr(proxy.GetConfig().GetHttpsProxy())},
+		{Name: "no_proxy", Value: wfapi.AnyStringPtr(proxy.GetConfig().GetNoProxy())},
 	}
 	if c.cacheDisabled {
-		args = append(args, "--cache_disabled", "true")
+		parameters = append(parameters,
+			wfapi.Parameter{
+				Name:  "cache_disabled",
+				Value: wfapi.AnyStringPtr("true"),
+			})
 	}
 	if value, ok := os.LookupEnv(PipelineLogLevelEnvVar); ok {
-		args = append(args, "--log_level", value)
+		parameters = append(parameters,
+			wfapi.Parameter{
+				Name:  "log_level",
+				Value: wfapi.AnyStringPtr(value),
+			})
 	}
 	if value, ok := os.LookupEnv(PublishLogsEnvVar); ok {
-		args = append(args, "--publish_logs", value)
+		parameters = append(parameters,
+			wfapi.Parameter{
+				Name:  "publish_logs",
+				Value: wfapi.AnyStringPtr(value),
+			})
 	}
 
 	t := &wfapi.Template{
 		Name: name,
 		Inputs: wfapi.Inputs{
-			Parameters: []wfapi.Parameter{
-				{Name: paramComponent}, // Required.
-				{Name: paramRuntimeConfig, Default: wfapi.AnyStringPtr("")},
-				{Name: paramTask, Default: wfapi.AnyStringPtr("")},
-				{Name: paramParentDagID, Default: wfapi.AnyStringPtr("0")},
-				{Name: paramIterationIndex, Default: wfapi.AnyStringPtr("-1")},
-				{Name: paramDriverType, Default: wfapi.AnyStringPtr("DAG")},
-			},
+			Parameters: parameters,
 		},
 		Outputs: wfapi.Outputs{
 			Parameters: []wfapi.Parameter{
@@ -585,13 +587,7 @@ func (c *workflowCompiler) addDAGDriverTemplate() string {
 				{Name: paramCondition, ValueFrom: &wfapi.ValueFrom{Path: "/tmp/outputs/condition", Default: wfapi.AnyStringPtr("true")}},
 			},
 		},
-		Container: &k8score.Container{
-			Image:     c.driverImage,
-			Command:   c.driverCommand,
-			Args:      args,
-			Resources: driverResources,
-			Env:       proxy.GetConfig().GetEnvVars(),
-		},
+		Plugin: &wfapi.Plugin{Object: wfapi.Object{Value: json.RawMessage(`{"driver-argo-executor": "{}"}`)}},
 	}
 	c.templates[name] = t
 	c.wf.Spec.Templates = append(c.wf.Spec.Templates, *t)

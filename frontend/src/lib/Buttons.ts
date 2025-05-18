@@ -268,7 +268,7 @@ export default class Buttons {
       outlined: true,
       primary: true,
       style: { minWidth: 185 },
-      title: 'Create experiment',
+      title: 'Creat FDSAFDSAe experiment',
       tooltip: 'Create a new experiment',
     };
     return this;
