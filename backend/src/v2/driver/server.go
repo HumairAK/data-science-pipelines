@@ -15,51 +15,25 @@
 package driver
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
+	"github.com/argoproj/argo-workflows/v3/pkg/plugins/executor"
+	pluginspec "github.com/argoproj/argo-workflows/v3/pkg/plugins/spec"
 	"net/http"
 
 	"github.com/golang/glog"
-	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
 )
 
-// TemplateExecuteRequest represents the request body for the template.execute endpoint
-type TemplateExecuteRequest struct {
-	PipelineName     string                                 `json:"pipeline_name"`
-	RunID            string                                 `json:"run_id"`
-	RunName          string                                 `json:"run_name"`
-	RunDisplayName   string                                 `json:"run_display_name"`
-	Namespace        string                                 `json:"namespace"`
-	Component        *pipelinespec.ComponentSpec            `json:"component"`
-	Task             *pipelinespec.PipelineTaskSpec         `json:"task,omitempty"`
-	DAGExecutionID   int64                                  `json:"dag_execution_id,omitempty"`
-	IterationIndex   int                                    `json:"iteration_index,omitempty"`
-	Container        *pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec `json:"container,omitempty"`
-	RuntimeConfig    *pipelinespec.PipelineJob_RuntimeConfig `json:"runtime_config,omitempty"`
-	DriverType       string                                 `json:"driver_type"`
-	PipelineLogLevel string                                 `json:"pipeline_log_level,omitempty"`
-	PublishLogs      string                                 `json:"publish_logs,omitempty"`
-	CacheDisabled    bool                                   `json:"cache_disabled,omitempty"`
-}
-
-// TemplateExecuteResponse represents the response body for the template.execute endpoint
-type TemplateExecuteResponse struct {
-	ExecutionID    int64                      `json:"execution_id,omitempty"`
-	IterationCount *int                       `json:"iteration_count,omitempty"`
-	Cached         *bool                      `json:"cached,omitempty"`
-	Condition      *bool                      `json:"condition,omitempty"`
-	PodSpecPatch   string                     `json:"pod_spec_patch,omitempty"`
-	ExecutorInput  *pipelinespec.ExecutorInput `json:"executor_input,omitempty"`
-}
+const driverPluginName = "driver-argo-executor"
 
 // Server represents the REST server for the driver component
 type Server struct {
-	mlmdClient   *metadata.Client
-	cacheClient  cacheutils.Client
-	port         int
+	mlmdClient  *metadata.Client
+	cacheClient cacheutils.Client
+	port        int
 }
 
 // NewServer creates a new Server instance
@@ -85,59 +59,92 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
-	var req TemplateExecuteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	var argoTemplateArgs executor.ExecuteTemplateArgs
+	if err := json.NewDecoder(r.Body).Decode(&argoTemplateArgs); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to decode request body: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	ctx := context.Background()
+	//ctx := context.Background()
 
-	options := Options{
-		PipelineName:     req.PipelineName,
-		RunID:            req.RunID,
-		RunName:          req.RunName,
-		RunDisplayName:   req.RunDisplayName,
-		Namespace:        req.Namespace,
-		Component:        req.Component,
-		Task:             req.Task,
-		DAGExecutionID:   req.DAGExecutionID,
-		IterationIndex:   req.IterationIndex,
-		Container:        req.Container,
-		RuntimeConfig:    req.RuntimeConfig,
-		PipelineLogLevel: req.PipelineLogLevel,
-		PublishLogs:      req.PublishLogs,
-		CacheDisabled:    req.CacheDisabled,
-	}
-
-	var execution *Execution
-	var err error
-
-	switch req.DriverType {
-	case "ROOT_DAG":
-		execution, err = RootDAG(ctx, options, s.mlmdClient)
-	case "DAG":
-		execution, err = DAG(ctx, options, s.mlmdClient)
-	case "CONTAINER":
-		execution, err = Container(ctx, options, s.mlmdClient, s.cacheClient)
-	default:
-		http.Error(w, fmt.Sprintf("Unknown driver type: %s", req.DriverType), http.StatusBadRequest)
+	pluginObject := argoTemplateArgs.Template.Plugin
+	// First, make sure plugin is not nil
+	if pluginObject == nil {
+		http.Error(w, fmt.Sprintf("plugin was empty"), http.StatusBadRequest)
 		return
 	}
-
+	m := map[string]interface{}{}
+	if err := json.Unmarshal(pluginObject.Object.Value, &m); err != nil {
+		http.Error(w, fmt.Sprintf("failed to unmarshal plugin object value to map[string]interface{}"), http.StatusBadRequest)
+		return
+	}
+	// Check if "driver" key exists in the map
+	driverValue, exists := m[driverPluginName]
+	if !exists {
+		http.Error(w, "plugin object value is missing required 'driver' field", http.StatusBadRequest)
+		return
+	}
+	var plugin pluginspec.Plugin
+	driverBytes, err := json.Marshal(driverValue)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Driver execution failed: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("failed to marshal driver value to JSON: %v", err), http.StatusBadRequest)
+		return
+	}
+	if err = json.Unmarshal(driverBytes, &plugin); err != nil {
+		http.Error(w, fmt.Sprintf("failed to unmarshal plugin object: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	response := TemplateExecuteResponse{
-		ExecutionID:    execution.ID,
-		IterationCount: execution.IterationCount,
-		Cached:         execution.Cached,
-		Condition:      execution.Condition,
-		PodSpecPatch:   execution.PodSpecPatch,
-		ExecutorInput:  execution.ExecutorInput,
+	//options := Options{
+	//	PipelineName:     req.PipelineName,
+	//	RunID:            req.RunID,
+	//	RunName:          req.RunName,
+	//	RunDisplayName:   req.RunDisplayName,
+	//	Namespace:        req.Namespace,
+	//	Component:        req.Component,
+	//	Task:             req.Task,
+	//	DAGExecutionID:   req.DAGExecutionID,
+	//	IterationIndex:   req.IterationIndex,
+	//	Container:        req.Container,
+	//	RuntimeConfig:    req.RuntimeConfig,
+	//	PipelineLogLevel: req.PipelineLogLevel,
+	//	PublishLogs:      req.PublishLogs,
+	//	CacheDisabled:    req.CacheDisabled,
+	//}
+
+	//var execution *Execution
+	//switch req.DriverType {
+	//case "ROOT_DAG":
+	//	execution, err = RootDAG(ctx, options, s.mlmdClient)
+	//case "DAG":
+	//	execution, err = DAG(ctx, options, s.mlmdClient)
+	//case "CONTAINER":
+	//	execution, err = Container(ctx, options, s.mlmdClient, s.cacheClient)
+	//default:
+	//	http.Error(w, fmt.Sprintf("Unknown driver type: %s", req.DriverType), http.StatusBadRequest)
+	//	return
+	//}
+	//
+	//if err != nil {
+	//	http.Error(w, fmt.Sprintf("Driver execution failed: %v", err), http.StatusInternalServerError)
+	//	return
+	//}
+
+	response := executor.ExecuteTemplateResponse{
+		Body: executor.ExecuteTemplateReply{
+			Node: &v1alpha1.NodeResult{
+				Phase:   "succeeded",
+				Message: "hello tempalte!",
+				Outputs: &v1alpha1.Outputs{
+					Parameters: []v1alpha1.Parameter{
+						{
+							Name:  "pod-spec-patch",
+							Value: v1alpha1.AnyStringPtr("some json"),
+						},
+					},
+				},
+			},
+		},
 	}
 
 	w.Header().Set("Content-Type", "application/json")
