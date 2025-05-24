@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	"github.com/argoproj/argo-workflows/v3/pkg/plugins/executor"
-	pluginspec "github.com/argoproj/argo-workflows/v3/pkg/plugins/spec"
 	"net/http"
 
 	"github.com/golang/glog"
@@ -65,8 +64,6 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//ctx := context.Background()
-
 	pluginObject := argoTemplateArgs.Template.Plugin
 	// First, make sure plugin is not nil
 	if pluginObject == nil {
@@ -79,39 +76,34 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Check if "driver" key exists in the map
-	driverValue, exists := m[driverPluginName]
+	_, exists := m[driverPluginName]
 	if !exists {
 		http.Error(w, "plugin object value is missing required 'driver' field", http.StatusBadRequest)
 		return
 	}
-	var plugin pluginspec.Plugin
-	driverBytes, err := json.Marshal(driverValue)
+
+	glog.Infof("Received plugin request for plugin %s", driverPluginName)
+	// Print the decoded JSON request
+	prettyJSON, err := json.MarshalIndent(argoTemplateArgs, "", "    ")
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to marshal driver value to JSON: %v", err), http.StatusBadRequest)
-		return
-	}
-	if err = json.Unmarshal(driverBytes, &plugin); err != nil {
-		http.Error(w, fmt.Sprintf("failed to unmarshal plugin object: %v", err), http.StatusBadRequest)
-		return
+		glog.Errorf("Failed to marshal request to JSON: %v", err)
+	} else {
+		glog.Infof("Received request: %s", string(prettyJSON))
 	}
 
-	//options := Options{
-	//	PipelineName:     req.PipelineName,
-	//	RunID:            req.RunID,
-	//	RunName:          req.RunName,
-	//	RunDisplayName:   req.RunDisplayName,
-	//	Namespace:        req.Namespace,
-	//	Component:        req.Component,
-	//	Task:             req.Task,
-	//	DAGExecutionID:   req.DAGExecutionID,
-	//	IterationIndex:   req.IterationIndex,
-	//	Container:        req.Container,
-	//	RuntimeConfig:    req.RuntimeConfig,
-	//	PipelineLogLevel: req.PipelineLogLevel,
-	//	PublishLogs:      req.PublishLogs,
-	//	CacheDisabled:    req.CacheDisabled,
-	//}
+	// TODO: It would be nice if instead of "parameters"
+	// we could have a "driver" field in the plugin object.
+	// and then we can just unmarshal the driver field into
+	// the Options struct.
+	options := Options{}
+	parameters := argoTemplateArgs.Template.Inputs.Parameters
+	for _, parameter := range parameters {
+		if parameter.Name == "pipeline_name" {
+			options.PipelineName = parameter.Value.String()
+		}
+	}
 
+	//ctx := context.Background()
 	//var execution *Execution
 	//switch req.DriverType {
 	//case "ROOT_DAG":
@@ -124,11 +116,11 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 	//	http.Error(w, fmt.Sprintf("Unknown driver type: %s", req.DriverType), http.StatusBadRequest)
 	//	return
 	//}
-	//
-	//if err != nil {
-	//	http.Error(w, fmt.Sprintf("Driver execution failed: %v", err), http.StatusInternalServerError)
-	//	return
-	//}
+
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Driver execution failed: %v", err), http.StatusInternalServerError)
+		return
+	}
 
 	response := executor.ExecuteTemplateResponse{
 		Body: executor.ExecuteTemplateReply{
