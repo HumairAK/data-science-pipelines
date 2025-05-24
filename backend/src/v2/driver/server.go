@@ -20,7 +20,10 @@ import (
 	"fmt"
 	"github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	"github.com/argoproj/argo-workflows/v3/pkg/plugins/executor"
+	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
+	"github.com/kubeflow/pipelines/kubernetes_platform/go/kubernetesplatform"
 	"net/http"
+	"strconv"
 
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
@@ -98,22 +101,48 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 	// the Options struct.
 	// however parameters like component come from the workflow and
 	// are not est at the compiler time
+	// we will need to split those up
 	options := Options{}
 	parameters := argoTemplateArgs.Template.Inputs.Parameters
 	for _, parameter := range parameters {
 		switch parameter.Name {
 		case "component":
-			options.RunName = parameter.Value.String()
+			componentJson := parameter.Value.String()
+			err1 := json.Unmarshal([]byte(componentJson), &options.Component)
+			if err1 != nil {
+				http.Error(w, fmt.Sprintf("failed to unmarshal component json: %v", err1), http.StatusBadRequest)
+				return
+			}
 		case "runtime-config":
-			options.RunName = parameter.Value.String()
+			runtimeConfigJson := parameter.Value.String()
+			err1 := json.Unmarshal([]byte(runtimeConfigJson), &options.RuntimeConfig)
+			if err1 != nil {
+				http.Error(w, fmt.Sprintf("failed to unmarshal component json: %v", err1), http.StatusBadRequest)
+				return
+			}
 		case "task":
-			options.RunName = parameter.Value.String()
+			taskJson := parameter.Value.String()
+			err1 := json.Unmarshal([]byte(taskJson), &options.Task)
+			if err1 != nil {
+				http.Error(w, fmt.Sprintf("failed to unmarshal component json: %v", err1), http.StatusBadRequest)
+				return
+			}
 		case "parent-dag-id":
-			options.RunName = parameter.Value.String()
+			dagID, err1 := strconv.ParseInt(parameter.Value.String(), 10, 64)
+			if err1 != nil {
+				http.Error(w, fmt.Sprintf("failed to parse parent-dag-id: %v", err1), http.StatusBadRequest)
+				return
+			}
+			options.DAGExecutionID = dagID
 		case "iteration-index":
-			options.RunName = parameter.Value.String()
+			iterIndex, err1 := strconv.ParseInt(parameter.Value.String(), 10, 64)
+			if err1 != nil {
+				http.Error(w, fmt.Sprintf("failed to parse iteration-index: %v", err1), http.StatusBadRequest)
+				return
+			}
+			options.IterationIndex = int(iterIndex)
 		case "driver-type":
-			options.RunName = parameter.Value.String()
+			options.DriverType = parameter.Value.String()
 		case "pipeline_name":
 			options.PipelineName = parameter.Value.String()
 		case "run_id":
@@ -121,13 +150,7 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 		case "run_name":
 			options.RunName = parameter.Value.String()
 		case "run_display_name":
-			options.RunName = parameter.Value.String()
-		//case "execution_id_path":
-		//	options.RunName = parameter.Value.String()
-		//case "iteration_count_path":
-		//	options.RunName = parameter.Value.String()
-		//case "condition_path":
-		//	options.RunName = parameter.Value.String()
+			options.RunDisplayName = parameter.Value.String()
 		case "http_proxy":
 			options.RunName = parameter.Value.String()
 		case "https_proxy":
@@ -135,23 +158,39 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 		case "no_proxy":
 			options.RunName = parameter.Value.String()
 		case "cache_disabled":
-			options.RunName = parameter.Value.String()
+			cacheDisabled, err1 := strconv.ParseBool(parameter.Value.String())
+			if err1 != nil {
+				http.Error(w, fmt.Sprintf("failed to parse cache_disabled: %v", err1), http.StatusBadRequest)
+				return
+			}
+			options.CacheDisabled = cacheDisabled
 		case "log_level":
-			options.RunName = parameter.Value.String()
+			options.PipelineLogLevel = parameter.Value.String()
 		case "publish_logs":
-			options.RunName = parameter.Value.String()
+			options.PublishLogs = parameter.Value.String()
 		// Container dag:
 		case "container":
-			options.RunName = parameter.Value.String()
+			containerJson := parameter.Value.String()
+			var containerSpec pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec
+			if err1 := json.Unmarshal([]byte(containerJson), &containerSpec); err1 != nil {
+				http.Error(w, fmt.Sprintf("failed to unmarshal container spec: %v", err1), http.StatusBadRequest)
+				return
+			}
+			options.Container = &containerSpec
 		case "kubernetes-config":
-			options.RunName = parameter.Value.String()
+			configJson := parameter.Value.String()
+			var k8sConfig kubernetesplatform.KubernetesExecutorConfig
+			if err1 := json.Unmarshal([]byte(configJson), &k8sConfig); err1 != nil {
+				http.Error(w, fmt.Sprintf("failed to unmarshal kubernetes config: %v", err1), http.StatusBadRequest)
+				return
+			}
+			options.KubernetesExecutorConfig = &k8sConfig
 		}
-
 	}
 
 	ctx := context.Background()
 	var execution *Execution
-	switch req.DriverType {
+	switch options.DriverType {
 	case "ROOT_DAG":
 		execution, err = RootDAG(ctx, options, s.mlmdClient)
 	case "DAG":
@@ -159,7 +198,7 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 	case "CONTAINER":
 		execution, err = Container(ctx, options, s.mlmdClient, s.cacheClient)
 	default:
-		http.Error(w, fmt.Sprintf("Unknown driver type: %s", req.DriverType), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Unknown driver type: %s", options.DriverType), http.StatusBadRequest)
 		return
 	}
 
