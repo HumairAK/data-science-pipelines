@@ -15,6 +15,7 @@
 package driver
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
@@ -95,33 +96,78 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 	// we could have a "driver" field in the plugin object.
 	// and then we can just unmarshal the driver field into
 	// the Options struct.
+	// however parameters like component come from the workflow and
+	// are not est at the compiler time
 	options := Options{}
 	parameters := argoTemplateArgs.Template.Inputs.Parameters
 	for _, parameter := range parameters {
-		if parameter.Name == "pipeline_name" {
+		switch parameter.Name {
+		case "component":
+			options.RunName = parameter.Value.String()
+		case "runtime-config":
+			options.RunName = parameter.Value.String()
+		case "task":
+			options.RunName = parameter.Value.String()
+		case "parent-dag-id":
+			options.RunName = parameter.Value.String()
+		case "iteration-index":
+			options.RunName = parameter.Value.String()
+		case "driver-type":
+			options.RunName = parameter.Value.String()
+		case "pipeline_name":
 			options.PipelineName = parameter.Value.String()
+		case "run_id":
+			options.RunID = parameter.Value.String()
+		case "run_name":
+			options.RunName = parameter.Value.String()
+		case "run_display_name":
+			options.RunName = parameter.Value.String()
+		//case "execution_id_path":
+		//	options.RunName = parameter.Value.String()
+		//case "iteration_count_path":
+		//	options.RunName = parameter.Value.String()
+		//case "condition_path":
+		//	options.RunName = parameter.Value.String()
+		case "http_proxy":
+			options.RunName = parameter.Value.String()
+		case "https_proxy":
+			options.RunName = parameter.Value.String()
+		case "no_proxy":
+			options.RunName = parameter.Value.String()
+		case "cache_disabled":
+			options.RunName = parameter.Value.String()
+		case "log_level":
+			options.RunName = parameter.Value.String()
+		case "publish_logs":
+			options.RunName = parameter.Value.String()
+		// Container dag:
+		case "container":
+			options.RunName = parameter.Value.String()
+		case "kubernetes-config":
+			options.RunName = parameter.Value.String()
 		}
+
 	}
 
-	//ctx := context.Background()
-	//var execution *Execution
-	//switch req.DriverType {
-	//case "ROOT_DAG":
-	//	execution, err = RootDAG(ctx, options, s.mlmdClient)
-	//case "DAG":
-	//	execution, err = DAG(ctx, options, s.mlmdClient)
-	//case "CONTAINER":
-	//	execution, err = Container(ctx, options, s.mlmdClient, s.cacheClient)
-	//default:
-	//	http.Error(w, fmt.Sprintf("Unknown driver type: %s", req.DriverType), http.StatusBadRequest)
-	//	return
-	//}
+	ctx := context.Background()
+	var execution *Execution
+	switch req.DriverType {
+	case "ROOT_DAG":
+		execution, err = RootDAG(ctx, options, s.mlmdClient)
+	case "DAG":
+		execution, err = DAG(ctx, options, s.mlmdClient)
+	case "CONTAINER":
+		execution, err = Container(ctx, options, s.mlmdClient, s.cacheClient)
+	default:
+		http.Error(w, fmt.Sprintf("Unknown driver type: %s", req.DriverType), http.StatusBadRequest)
+		return
+	}
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Driver execution failed: %v", err), http.StatusInternalServerError)
 		return
 	}
-
+	// TODO outputs
 	response := executor.ExecuteTemplateResponse{
 		Body: executor.ExecuteTemplateReply{
 			Node: &v1alpha1.NodeResult{
