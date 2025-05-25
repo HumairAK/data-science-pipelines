@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	"github.com/argoproj/argo-workflows/v3/pkg/plugins/executor"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	"github.com/kubeflow/pipelines/kubernetes_platform/go/kubernetesplatform"
 	"net/http"
@@ -206,19 +207,73 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Driver execution failed: %v", err), http.StatusInternalServerError)
 		return
 	}
-	// TODO outputs
+	var outputParameters []v1alpha1.Parameter
+
+	if execution.ID != 0 {
+		glog.Infof("output execution.ID=%v", execution.ID)
+		outputParameters = append(outputParameters, v1alpha1.Parameter{
+			Name:  "execution-id",
+			Value: v1alpha1.AnyStringPtr(fmt.Sprintf("%v", execution.ID)),
+		})
+	}
+	if execution.IterationCount != nil {
+		outputParameters = append(outputParameters, v1alpha1.Parameter{
+			Name:  "iteration-count",
+			Value: v1alpha1.AnyStringPtr(fmt.Sprintf("%v", *execution.IterationCount)),
+		})
+	} else {
+		if options.DriverType == "ROOT_DAG" {
+			outputParameters = append(outputParameters, v1alpha1.Parameter{
+				Name:  "iteration-count",
+				Value: v1alpha1.AnyStringPtr("0"),
+			})
+		}
+	}
+	if execution.Cached != nil {
+		outputParameters = append(outputParameters, v1alpha1.Parameter{
+			Name:  "cached-decision",
+			Value: v1alpha1.AnyStringPtr(strconv.FormatBool(*execution.Cached)),
+		})
+	}
+	if execution.Condition != nil {
+		outputParameters = append(outputParameters, v1alpha1.Parameter{
+			Name:  "condition",
+			Value: v1alpha1.AnyStringPtr(strconv.FormatBool(*execution.Condition)),
+		})
+	} else {
+		// nil is a valid value for Condition
+		if options.DriverType == "ROOT_DAG" || options.DriverType == "CONTAINER" {
+			outputParameters = append(outputParameters, v1alpha1.Parameter{
+				Name:  "condition",
+				Value: v1alpha1.AnyStringPtr("nil"),
+			})
+		}
+	}
+	if execution.PodSpecPatch != "" {
+		glog.Infof("output podSpecPatch=\n%s\n", execution.PodSpecPatch)
+		outputParameters = append(outputParameters, v1alpha1.Parameter{
+			Name:  "pod-spec-patch",
+			Value: v1alpha1.AnyStringPtr(execution.PodSpecPatch),
+		})
+	}
+	if execution.ExecutorInput != nil {
+		marshaler := jsonpb.Marshaler{}
+		executorInputJSON, err := marshaler.MarshalToString(execution.ExecutorInput)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to marshal ExecutorInput to JSON: %v", err), http.StatusInternalServerError)
+			return
+		}
+		glog.Infof("output ExecutorInput:%s\n", executorInputJSON)
+	}
+
 	response := executor.ExecuteTemplateResponse{
 		Body: executor.ExecuteTemplateReply{
 			Node: &v1alpha1.NodeResult{
-				Phase:   "succeeded",
-				Message: "hello tempalte!",
+				Phase: "succeeded",
+				Message: fmt.Sprintf("Driver call for driver type %s completed successfully. Execution ID: %d",
+					options.DriverType, execution.ID),
 				Outputs: &v1alpha1.Outputs{
-					Parameters: []v1alpha1.Parameter{
-						{
-							Name:  "pod-spec-patch",
-							Value: v1alpha1.AnyStringPtr("some json"),
-						},
-					},
+					Parameters: outputParameters,
 				},
 			},
 		},
