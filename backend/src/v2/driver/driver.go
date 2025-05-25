@@ -16,12 +16,8 @@ package driver
 
 import (
 	"fmt"
-	"github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
-	"github.com/golang/glog"
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
@@ -114,69 +110,6 @@ func (e *Execution) WillTrigger() bool {
 		return true
 	}
 	return *e.Condition
-}
-
-// appendExecutionParameters creates a list of output parameters based on the execution results
-func appendExecutionParameters(execution *Execution, options Options) ([]v1alpha1.Parameter, error) {
-	var outputParameters []v1alpha1.Parameter
-
-	if execution.ID != 0 {
-		glog.Infof("output execution.ID=%v", execution.ID)
-		outputParameters = append(outputParameters, v1alpha1.Parameter{
-			Name:  "execution-id",
-			Value: v1alpha1.AnyStringPtr(fmt.Sprintf("%v", execution.ID)),
-		})
-	}
-	if execution.IterationCount != nil {
-		outputParameters = append(outputParameters, v1alpha1.Parameter{
-			Name:  "iteration-count",
-			Value: v1alpha1.AnyStringPtr(fmt.Sprintf("%v", *execution.IterationCount)),
-		})
-	} else {
-		if options.DriverType == "ROOT_DAG" {
-			outputParameters = append(outputParameters, v1alpha1.Parameter{
-				Name:  "iteration-count",
-				Value: v1alpha1.AnyStringPtr("0"),
-			})
-		}
-	}
-	if execution.Cached != nil {
-		outputParameters = append(outputParameters, v1alpha1.Parameter{
-			Name:  "cached-decision",
-			Value: v1alpha1.AnyStringPtr(strconv.FormatBool(*execution.Cached)),
-		})
-	}
-	if execution.Condition != nil {
-		outputParameters = append(outputParameters, v1alpha1.Parameter{
-			Name:  "condition",
-			Value: v1alpha1.AnyStringPtr(strconv.FormatBool(*execution.Condition)),
-		})
-	} else {
-		// nil is a valid value for Condition
-		if options.DriverType == "ROOT_DAG" || options.DriverType == "CONTAINER" {
-			outputParameters = append(outputParameters, v1alpha1.Parameter{
-				Name:  "condition",
-				Value: v1alpha1.AnyStringPtr("nil"),
-			})
-		}
-	}
-	if execution.PodSpecPatch != "" {
-		glog.Infof("output podSpecPatch=\n%s\n", execution.PodSpecPatch)
-		outputParameters = append(outputParameters, v1alpha1.Parameter{
-			Name:  "pod-spec-patch",
-			Value: v1alpha1.AnyStringPtr(execution.PodSpecPatch),
-		})
-	}
-	if execution.ExecutorInput != nil {
-		marshaler := jsonpb.Marshaler{}
-		executorInputJSON, err := marshaler.MarshalToString(execution.ExecutorInput)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal ExecutorInput to JSON: %v", err)
-		}
-		glog.Infof("output ExecutorInput:%s\n", executorInputJSON)
-	}
-
-	return outputParameters, nil
 }
 
 // getPodResource will accept the new field that accepts placeholders (e.g. resourceMemoryLimit) and the old float64

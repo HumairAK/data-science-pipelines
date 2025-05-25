@@ -14,12 +14,9 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/kubeflow/pipelines/backend/src/v2/v2Util"
 
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
@@ -191,33 +188,33 @@ func drive() (err error) {
 
 	proxy.InitializeConfig(*httpProxy, *httpsProxy, *noProxy)
 
-	glog.Infof("input ComponentSpec:%s\n", prettyPrint(*componentSpecJson))
+	glog.Infof("input ComponentSpec:%s\n", util.PrettyPrint(*componentSpecJson))
 	componentSpec := &pipelinespec.ComponentSpec{}
 	if err := util.UnmarshalString(*componentSpecJson, componentSpec); err != nil {
-		return fmt.Errorf("failed to unmarshal component spec, error: %w\ncomponentSpec: %v", err, prettyPrint(*componentSpecJson))
+		return fmt.Errorf("failed to unmarshal component spec, error: %w\ncomponentSpec: %v", err, util.PrettyPrint(*componentSpecJson))
 	}
 	var taskSpec *pipelinespec.PipelineTaskSpec
 	if *taskSpecJson != "" {
-		glog.Infof("input TaskSpec:%s\n", prettyPrint(*taskSpecJson))
+		glog.Infof("input TaskSpec:%s\n", util.PrettyPrint(*taskSpecJson))
 		taskSpec = &pipelinespec.PipelineTaskSpec{}
 		if err := util.UnmarshalString(*taskSpecJson, taskSpec); err != nil {
 			return fmt.Errorf("failed to unmarshal task spec, error: %w\ntask: %v", err, taskSpecJson)
 		}
 	}
-	glog.Infof("input ContainerSpec:%s\n", prettyPrint(*containerSpecJson))
+	glog.Infof("input ContainerSpec:%s\n", util.PrettyPrint(*containerSpecJson))
 	containerSpec := &pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec{}
 	if err := util.UnmarshalString(*containerSpecJson, containerSpec); err != nil {
 		return fmt.Errorf("failed to unmarshal container spec, error: %w\ncontainerSpec: %v", err, containerSpecJson)
 	}
 	var runtimeConfig *pipelinespec.PipelineJob_RuntimeConfig
 	if *runtimeConfigJson != "" {
-		glog.Infof("input RuntimeConfig:%s\n", prettyPrint(*runtimeConfigJson))
+		glog.Infof("input RuntimeConfig:%s\n", util.PrettyPrint(*runtimeConfigJson))
 		runtimeConfig = &pipelinespec.PipelineJob_RuntimeConfig{}
 		if err := util.UnmarshalString(*runtimeConfigJson, runtimeConfig); err != nil {
 			return fmt.Errorf("failed to unmarshal runtime config, error: %w\nruntimeConfig: %v", err, runtimeConfigJson)
 		}
 	}
-	k8sExecCfg, err := v2Util.ParseExecConfigJson(k8sExecConfigJson)
+	k8sExecCfg, err := util.ParseExecConfigJson(k8sExecConfigJson)
 	if err != nil {
 		return err
 	}
@@ -337,18 +334,9 @@ func handleExecution(execution *driver.Execution, driverType string, executionPa
 		if err != nil {
 			return fmt.Errorf("failed to marshal ExecutorInput to JSON: %w", err)
 		}
-		glog.Infof("output ExecutorInput:%s\n", prettyPrint(executorInputJSON))
+		glog.Infof("output ExecutorInput:%s\n", util.PrettyPrint(executorInputJSON))
 	}
 	return nil
-}
-
-func prettyPrint(jsonStr string) string {
-	var prettyJSON bytes.Buffer
-	err := json.Indent(&prettyJSON, []byte(jsonStr), "", "  ")
-	if err != nil {
-		return jsonStr
-	}
-	return prettyJSON.String()
 }
 
 func writeFile(path string, data []byte) (err error) {

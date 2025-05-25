@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	"github.com/argoproj/argo-workflows/v3/pkg/plugins/executor"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
-	"github.com/kubeflow/pipelines/backend/src/v2/v2Util"
 	"net/http"
 	"strconv"
 
@@ -56,6 +56,69 @@ func (s *Server) Start() error {
 
 	glog.Infof("Starting driver REST server on port %d", s.port)
 	return http.ListenAndServe(fmt.Sprintf(":%d", s.port), nil)
+}
+
+// appendExecutionParameters creates a list of output parameters based on the execution results
+func appendExecutionParameters(execution *Execution, options Options) ([]v1alpha1.Parameter, error) {
+	var outputParameters []v1alpha1.Parameter
+
+	if execution.ID != 0 {
+		glog.Infof("output execution.ID=%v", execution.ID)
+		outputParameters = append(outputParameters, v1alpha1.Parameter{
+			Name:  "execution-id",
+			Value: v1alpha1.AnyStringPtr(fmt.Sprintf("%v", execution.ID)),
+		})
+	}
+	if execution.IterationCount != nil {
+		outputParameters = append(outputParameters, v1alpha1.Parameter{
+			Name:  "iteration-count",
+			Value: v1alpha1.AnyStringPtr(fmt.Sprintf("%v", *execution.IterationCount)),
+		})
+	} else {
+		if options.DriverType == "ROOT_DAG" {
+			outputParameters = append(outputParameters, v1alpha1.Parameter{
+				Name:  "iteration-count",
+				Value: v1alpha1.AnyStringPtr("0"),
+			})
+		}
+	}
+	if execution.Cached != nil {
+		outputParameters = append(outputParameters, v1alpha1.Parameter{
+			Name:  "cached-decision",
+			Value: v1alpha1.AnyStringPtr(strconv.FormatBool(*execution.Cached)),
+		})
+	}
+	if execution.Condition != nil {
+		outputParameters = append(outputParameters, v1alpha1.Parameter{
+			Name:  "condition",
+			Value: v1alpha1.AnyStringPtr(strconv.FormatBool(*execution.Condition)),
+		})
+	} else {
+		// nil is a valid value for Condition
+		if options.DriverType == "ROOT_DAG" || options.DriverType == "CONTAINER" {
+			outputParameters = append(outputParameters, v1alpha1.Parameter{
+				Name:  "condition",
+				Value: v1alpha1.AnyStringPtr("nil"),
+			})
+		}
+	}
+	if execution.PodSpecPatch != "" {
+		glog.Infof("output podSpecPatch=\n%s\n", execution.PodSpecPatch)
+		outputParameters = append(outputParameters, v1alpha1.Parameter{
+			Name:  "pod-spec-patch",
+			Value: v1alpha1.AnyStringPtr(execution.PodSpecPatch),
+		})
+	}
+	if execution.ExecutorInput != nil {
+		marshaler := jsonpb.Marshaler{}
+		executorInputJSON, err := marshaler.MarshalToString(execution.ExecutorInput)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal ExecutorInput to JSON: %v", err)
+		}
+		glog.Infof("output ExecutorInput:%s\n", executorInputJSON)
+	}
+
+	return outputParameters, nil
 }
 
 // handleTemplateExecute handles the /api/v1/template.execute endpoint
@@ -111,7 +174,7 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 		switch parameter.Name {
 		case "component":
 			componentJson := parameter.Value.String()
-			glog.Infof("input componentJson:%s\n", v2Util.PrettyPrint(componentJson))
+			glog.Infof("input componentJson:%s\n", util.PrettyPrint(componentJson))
 			componentSpec := &pipelinespec.ComponentSpec{}
 			err1 := util.UnmarshalString(componentJson, componentSpec)
 			if err1 != nil {
@@ -122,7 +185,7 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 		case "runtime-config":
 			runtimeConfigJson := parameter.Value.String()
 			if runtimeConfigJson != "" {
-				glog.Infof("input RuntimeConfig:%s\n", v2Util.PrettyPrint(runtimeConfigJson))
+				glog.Infof("input RuntimeConfig:%s\n", util.PrettyPrint(runtimeConfigJson))
 				runtimeConfig := &pipelinespec.PipelineJob_RuntimeConfig{}
 				err1 := util.UnmarshalString(runtimeConfigJson, runtimeConfig)
 				if err1 != nil {
@@ -134,7 +197,7 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 		case "task":
 			taskSpecJson := parameter.Value.String()
 			if taskSpecJson != "" {
-				glog.Infof("input TaskSpec:%s\n", v2Util.PrettyPrint(taskSpecJson))
+				glog.Infof("input TaskSpec:%s\n", util.PrettyPrint(taskSpecJson))
 				taskSpec := &pipelinespec.PipelineTaskSpec{}
 				err1 := util.UnmarshalString(taskSpecJson, taskSpec)
 				if err1 != nil {
@@ -187,7 +250,7 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 		// Container dag:
 		case "container":
 			containerSpecJson := parameter.Value.String()
-			glog.Infof("input ContainerSpec:%s\n", v2Util.PrettyPrint(containerSpecJson))
+			glog.Infof("input ContainerSpec:%s\n", util.PrettyPrint(containerSpecJson))
 			containerSpec := &pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec{}
 			err1 := util.UnmarshalString(containerSpecJson, containerSpec)
 			if err1 != nil {
@@ -197,7 +260,7 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 			options.Container = containerSpec
 		case "kubernetes-config":
 			k8sExecConfigJson := parameter.Value.String()
-			k8sExecCfg, err1 := v2Util.ParseExecConfigJson(&k8sExecConfigJson)
+			k8sExecCfg, err1 := util.ParseExecConfigJson(&k8sExecConfigJson)
 			if err1 != nil {
 				http.Error(w, fmt.Sprintf("encountered issues when parsing kube config: %v", err1), http.StatusBadRequest)
 				return

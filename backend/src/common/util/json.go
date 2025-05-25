@@ -15,7 +15,10 @@
 package util
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/kubeflow/pipelines/kubernetes_platform/go/kubernetesplatform"
 
 	"encoding/json"
 	"github.com/golang/glog"
@@ -72,4 +75,26 @@ func UnmarshalJsonWithError(data interface{}, v *interface{}) error {
 func UnmarshalString(s string, m proto.Message) error {
 	unmarshaler := jsonpb.Unmarshaler{AllowUnknownFields: true}
 	return unmarshaler.Unmarshal(strings.NewReader(s), m)
+}
+
+func ParseExecConfigJson(k8sExecConfigJson *string) (*kubernetesplatform.KubernetesExecutorConfig, error) {
+	var k8sExecCfg *kubernetesplatform.KubernetesExecutorConfig
+	if *k8sExecConfigJson != "" {
+		glog.Infof("input kubernetesConfig:%s\n", PrettyPrint(*k8sExecConfigJson))
+		k8sExecCfg = &kubernetesplatform.KubernetesExecutorConfig{}
+		if err := UnmarshalString(*k8sExecConfigJson, k8sExecCfg); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal Kubernetes config, error: %w\nKubernetesConfig: %v", err, k8sExecConfigJson)
+		}
+	}
+	return k8sExecCfg, nil
+}
+
+// TODO: use this everywhere in cli driver?
+func PrettyPrint(jsonStr string) string {
+	var prettyJSON bytes.Buffer
+	err := json.Indent(&prettyJSON, []byte(jsonStr), "", "  ")
+	if err != nil {
+		return jsonStr
+	}
+	return prettyJSON.String()
 }
