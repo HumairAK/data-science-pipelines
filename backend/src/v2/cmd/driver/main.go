@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/v2Util"
 
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
@@ -34,7 +35,6 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
-	"github.com/kubeflow/pipelines/kubernetes_platform/go/kubernetesplatform"
 )
 
 const (
@@ -48,7 +48,7 @@ const (
 	CONTAINER          = "CONTAINER"
 
 	// Server mode constants
-	defaultServerPort  = 4355
+	defaultServerPort = 4355
 )
 
 var (
@@ -64,8 +64,8 @@ var (
 	iterationIndex    = flag.Int("iteration_index", -1, "iteration index, -1 means not an interation")
 
 	// server mode
-	serverMode        = flag.Bool("server", false, "run as a REST server")
-	serverPort        = flag.Int("port", defaultServerPort, "port for the REST server to listen on")
+	serverMode = flag.Bool("server", false, "run as a REST server")
+	serverPort = flag.Int("port", defaultServerPort, "port for the REST server to listen on")
 
 	// container inputs
 	dagExecutionID    = flag.Int64("dag_execution_id", 0, "DAG execution ID")
@@ -217,7 +217,7 @@ func drive() (err error) {
 			return fmt.Errorf("failed to unmarshal runtime config, error: %w\nruntimeConfig: %v", err, runtimeConfigJson)
 		}
 	}
-	k8sExecCfg, err := parseExecConfigJson(k8sExecConfigJson)
+	k8sExecCfg, err := v2Util.ParseExecConfigJson(k8sExecConfigJson)
 	if err != nil {
 		return err
 	}
@@ -283,18 +283,6 @@ func drive() (err error) {
 	}
 
 	return handleExecution(execution, *driverType, executionPaths)
-}
-
-func parseExecConfigJson(k8sExecConfigJson *string) (*kubernetesplatform.KubernetesExecutorConfig, error) {
-	var k8sExecCfg *kubernetesplatform.KubernetesExecutorConfig
-	if *k8sExecConfigJson != "" {
-		glog.Infof("input kubernetesConfig:%s\n", prettyPrint(*k8sExecConfigJson))
-		k8sExecCfg = &kubernetesplatform.KubernetesExecutorConfig{}
-		if err := util.UnmarshalString(*k8sExecConfigJson, k8sExecCfg); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal Kubernetes config, error: %w\nKubernetesConfig: %v", err, k8sExecConfigJson)
-		}
-	}
-	return k8sExecCfg, nil
 }
 
 func handleExecution(execution *driver.Execution, driverType string, executionPaths *ExecutionPaths) error {

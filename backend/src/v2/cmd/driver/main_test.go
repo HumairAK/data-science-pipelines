@@ -44,7 +44,7 @@ func TestSpecParsing(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Logf("Running test case: %s", tc.name)
-		cfg, err := parseExecConfigJson(tc.input)
+		cfg, err := ParseExecConfigJson(tc.input)
 		assert.Equal(t, tc.wantErr, err != nil)
 		assert.True(t, proto.Equal(tc.expected, cfg))
 	}

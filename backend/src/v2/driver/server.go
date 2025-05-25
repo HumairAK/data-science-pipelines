@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	"github.com/argoproj/argo-workflows/v3/pkg/plugins/executor"
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
-	"github.com/kubeflow/pipelines/kubernetes_platform/go/kubernetesplatform"
+	"github.com/kubeflow/pipelines/backend/src/common/util"
+	"github.com/kubeflow/pipelines/backend/src/v2/v2Util"
 	"net/http"
 	"strconv"
 
@@ -91,7 +91,8 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 	// Print the decoded JSON request
 	prettyJSON, err := json.MarshalIndent(argoTemplateArgs, "", "    ")
 	if err != nil {
-		glog.Errorf("Failed to marshal request to JSON: %v", err)
+		http.Error(w, "Failed to marshal request to JSON", http.StatusBadRequest)
+		return
 	} else {
 		glog.Infof("Received request: %s", string(prettyJSON))
 	}
@@ -109,24 +110,36 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 		switch parameter.Name {
 		case "component":
 			componentJson := parameter.Value.String()
-			err1 := json.Unmarshal([]byte(componentJson), &options.Component)
+			componentSpec := &pipelinespec.ComponentSpec{}
+			err1 := util.UnmarshalString(componentJson, componentSpec)
 			if err1 != nil {
 				http.Error(w, fmt.Sprintf("failed to unmarshal component json: %v", err1), http.StatusBadRequest)
 				return
 			}
+			options.Component = componentSpec
 		case "runtime-config":
 			runtimeConfigJson := parameter.Value.String()
-			err1 := json.Unmarshal([]byte(runtimeConfigJson), &options.RuntimeConfig)
-			if err1 != nil {
-				http.Error(w, fmt.Sprintf("failed to unmarshal component json: %v", err1), http.StatusBadRequest)
-				return
+			if runtimeConfigJson != "" {
+				glog.Infof("input RuntimeConfig:%s\n", runtimeConfigJson)
+				runtimeConfig := &pipelinespec.PipelineJob_RuntimeConfig{}
+				err1 := util.UnmarshalString(runtimeConfigJson, runtimeConfig)
+				if err1 != nil {
+					http.Error(w, fmt.Sprintf("failed to unmarshal component json: %v", err1), http.StatusBadRequest)
+					return
+				}
+				options.RuntimeConfig = runtimeConfig
 			}
 		case "task":
-			taskJson := parameter.Value.String()
-			err1 := json.Unmarshal([]byte(taskJson), &options.Task)
-			if err1 != nil {
-				http.Error(w, fmt.Sprintf("failed to unmarshal component json: %v", err1), http.StatusBadRequest)
-				return
+			taskSpecJson := parameter.Value.String()
+			if taskSpecJson != "" {
+				glog.Infof("input TaskSpec:%s\n", taskSpecJson)
+				taskSpec := &pipelinespec.PipelineTaskSpec{}
+				err1 := util.UnmarshalString(taskSpecJson, taskSpec)
+				if err1 != nil {
+					http.Error(w, fmt.Sprintf("failed to unmarshal component json: %v", err1), http.StatusBadRequest)
+					return
+				}
+				options.Task = taskSpec
 			}
 		case "parent-dag-id":
 			dagID, err1 := strconv.ParseInt(parameter.Value.String(), 10, 64)
@@ -171,21 +184,23 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 			options.PublishLogs = parameter.Value.String()
 		// Container dag:
 		case "container":
-			containerJson := parameter.Value.String()
-			var containerSpec pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec
-			if err1 := json.Unmarshal([]byte(containerJson), &containerSpec); err1 != nil {
-				http.Error(w, fmt.Sprintf("failed to unmarshal container spec: %v", err1), http.StatusBadRequest)
+			containerSpecJson := parameter.Value.String()
+			glog.Infof("input ContainerSpec:%s\n", containerSpecJson)
+			containerSpec := &pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec{}
+			err1 := util.UnmarshalString(containerSpecJson, containerSpec)
+			if err1 != nil {
+				http.Error(w, fmt.Sprintf("failed to unmarshal component json: %v", err1), http.StatusBadRequest)
 				return
 			}
-			options.Container = &containerSpec
+			options.Container = containerSpec
 		case "kubernetes-config":
-			configJson := parameter.Value.String()
-			var k8sConfig kubernetesplatform.KubernetesExecutorConfig
-			if err1 := json.Unmarshal([]byte(configJson), &k8sConfig); err1 != nil {
-				http.Error(w, fmt.Sprintf("failed to unmarshal kubernetes config: %v", err1), http.StatusBadRequest)
+			k8sExecConfigJson := parameter.Value.String()
+			k8sExecCfg, err1 := v2Util.ParseExecConfigJson(&k8sExecConfigJson)
+			if err1 != nil {
+				http.Error(w, fmt.Sprintf("encountered issues when parsing kube config: %v", err1), http.StatusBadRequest)
 				return
 			}
-			options.KubernetesExecutorConfig = &k8sConfig
+			options.KubernetesExecutorConfig = k8sExecCfg
 		}
 	}
 
@@ -207,63 +222,11 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Driver execution failed: %v", err), http.StatusInternalServerError)
 		return
 	}
-	var outputParameters []v1alpha1.Parameter
 
-	if execution.ID != 0 {
-		glog.Infof("output execution.ID=%v", execution.ID)
-		outputParameters = append(outputParameters, v1alpha1.Parameter{
-			Name:  "execution-id",
-			Value: v1alpha1.AnyStringPtr(fmt.Sprintf("%v", execution.ID)),
-		})
-	}
-	if execution.IterationCount != nil {
-		outputParameters = append(outputParameters, v1alpha1.Parameter{
-			Name:  "iteration-count",
-			Value: v1alpha1.AnyStringPtr(fmt.Sprintf("%v", *execution.IterationCount)),
-		})
-	} else {
-		if options.DriverType == "ROOT_DAG" {
-			outputParameters = append(outputParameters, v1alpha1.Parameter{
-				Name:  "iteration-count",
-				Value: v1alpha1.AnyStringPtr("0"),
-			})
-		}
-	}
-	if execution.Cached != nil {
-		outputParameters = append(outputParameters, v1alpha1.Parameter{
-			Name:  "cached-decision",
-			Value: v1alpha1.AnyStringPtr(strconv.FormatBool(*execution.Cached)),
-		})
-	}
-	if execution.Condition != nil {
-		outputParameters = append(outputParameters, v1alpha1.Parameter{
-			Name:  "condition",
-			Value: v1alpha1.AnyStringPtr(strconv.FormatBool(*execution.Condition)),
-		})
-	} else {
-		// nil is a valid value for Condition
-		if options.DriverType == "ROOT_DAG" || options.DriverType == "CONTAINER" {
-			outputParameters = append(outputParameters, v1alpha1.Parameter{
-				Name:  "condition",
-				Value: v1alpha1.AnyStringPtr("nil"),
-			})
-		}
-	}
-	if execution.PodSpecPatch != "" {
-		glog.Infof("output podSpecPatch=\n%s\n", execution.PodSpecPatch)
-		outputParameters = append(outputParameters, v1alpha1.Parameter{
-			Name:  "pod-spec-patch",
-			Value: v1alpha1.AnyStringPtr(execution.PodSpecPatch),
-		})
-	}
-	if execution.ExecutorInput != nil {
-		marshaler := jsonpb.Marshaler{}
-		executorInputJSON, err := marshaler.MarshalToString(execution.ExecutorInput)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to marshal ExecutorInput to JSON: %v", err), http.StatusInternalServerError)
-			return
-		}
-		glog.Infof("output ExecutorInput:%s\n", executorInputJSON)
+	outputParameters, err := appendExecutionParameters(execution, options)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to append execution parameters: %v", err), http.StatusInternalServerError)
+		return
 	}
 
 	response := executor.ExecuteTemplateResponse{
