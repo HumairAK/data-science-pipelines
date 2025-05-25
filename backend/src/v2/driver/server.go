@@ -22,6 +22,7 @@ import (
 	"github.com/argoproj/argo-workflows/v3/pkg/plugins/executor"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	"github.com/kubeflow/pipelines/backend/src/v2/v2Util"
 	"net/http"
 	"strconv"
@@ -204,6 +205,13 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 			options.KubernetesExecutorConfig = k8sExecCfg
 		}
 	}
+
+	namespace, err := config.InPodNamespace()
+	if err != nil {
+		http.Error(w, "encountered issue when fetching pod namespace", http.StatusBadRequest)
+		return
+	}
+	options.Namespace = namespace
 
 	ctx := context.Background()
 	var execution *Execution
