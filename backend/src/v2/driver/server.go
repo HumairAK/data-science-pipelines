@@ -217,10 +217,13 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 	var execution *Execution
 	switch options.DriverType {
 	case "ROOT_DAG":
+		glog.Infof("Executing Driver type: %s", options.DriverType)
 		execution, err = RootDAG(ctx, options, s.mlmdClient)
 	case "DAG":
+		glog.Infof("Executing Driver type: %s", options.DriverType)
 		execution, err = DAG(ctx, options, s.mlmdClient)
 	case "CONTAINER":
+		glog.Infof("Executing Driver type: %s", options.DriverType)
 		execution, err = Container(ctx, options, s.mlmdClient, s.cacheClient)
 	default:
 		http.Error(w, fmt.Sprintf("Unknown driver type: %s", options.DriverType), http.StatusBadRequest)
@@ -238,15 +241,13 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := executor.ExecuteTemplateResponse{
-		Body: executor.ExecuteTemplateReply{
-			Node: &v1alpha1.NodeResult{
-				Phase: "succeeded",
-				Message: fmt.Sprintf("Driver call for driver type %s completed successfully. Execution ID: %d",
-					options.DriverType, execution.ID),
-				Outputs: &v1alpha1.Outputs{
-					Parameters: outputParameters,
-				},
+	response := executor.ExecuteTemplateReply{
+		Node: &v1alpha1.NodeResult{
+			Phase: "Succeeded",
+			Message: fmt.Sprintf("Driver call for driver type %s completed successfully. Execution ID: %d",
+				options.DriverType, execution.ID),
+			Outputs: &v1alpha1.Outputs{
+				Parameters: outputParameters,
 			},
 		},
 	}
@@ -256,4 +257,5 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Failed to encode response: %v", err), http.StatusInternalServerError)
 		return
 	}
+	glog.Infof("Driver execution completed successfully. Execution ID: %d", execution.ID)
 }
