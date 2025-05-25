@@ -110,6 +110,7 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 		switch parameter.Name {
 		case "component":
 			componentJson := parameter.Value.String()
+			glog.Infof("input componentJson:%s\n", v2Util.PrettyPrint(componentJson))
 			componentSpec := &pipelinespec.ComponentSpec{}
 			err1 := util.UnmarshalString(componentJson, componentSpec)
 			if err1 != nil {
@@ -120,7 +121,7 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 		case "runtime-config":
 			runtimeConfigJson := parameter.Value.String()
 			if runtimeConfigJson != "" {
-				glog.Infof("input RuntimeConfig:%s\n", runtimeConfigJson)
+				glog.Infof("input RuntimeConfig:%s\n", v2Util.PrettyPrint(runtimeConfigJson))
 				runtimeConfig := &pipelinespec.PipelineJob_RuntimeConfig{}
 				err1 := util.UnmarshalString(runtimeConfigJson, runtimeConfig)
 				if err1 != nil {
@@ -132,7 +133,7 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 		case "task":
 			taskSpecJson := parameter.Value.String()
 			if taskSpecJson != "" {
-				glog.Infof("input TaskSpec:%s\n", taskSpecJson)
+				glog.Infof("input TaskSpec:%s\n", v2Util.PrettyPrint(taskSpecJson))
 				taskSpec := &pipelinespec.PipelineTaskSpec{}
 				err1 := util.UnmarshalString(taskSpecJson, taskSpec)
 				if err1 != nil {
@@ -185,7 +186,7 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 		// Container dag:
 		case "container":
 			containerSpecJson := parameter.Value.String()
-			glog.Infof("input ContainerSpec:%s\n", containerSpecJson)
+			glog.Infof("input ContainerSpec:%s\n", v2Util.PrettyPrint(containerSpecJson))
 			containerSpec := &pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec{}
 			err1 := util.UnmarshalString(containerSpecJson, containerSpec)
 			if err1 != nil {
