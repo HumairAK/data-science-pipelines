@@ -121,6 +121,115 @@ func appendExecutionParameters(execution *Execution, options Options) ([]v1alpha
 	return outputParameters, nil
 }
 
+func buildOpts(argoTemplateArgs *executor.ExecuteTemplateArgs) (*Options, error) {
+	// TODO: It would be nice if instead of "parameters"
+	// we could have a "driver" field in the plugin object.
+	// and then we can just unmarshal the driver field into
+	// the Options struct.
+	// however parameters like component come from the workflow and
+	// are not est at the compiler time
+	// we will need to split those up
+	options := Options{}
+	parameters := argoTemplateArgs.Template.Inputs.Parameters
+	for _, parameter := range parameters {
+		switch parameter.Name {
+		case "component":
+			componentJson := parameter.Value.String()
+			glog.Infof("input componentJson:%s\n", util.PrettyPrint(componentJson))
+			componentSpec := &pipelinespec.ComponentSpec{}
+			err1 := util.UnmarshalString(componentJson, componentSpec)
+			if err1 != nil {
+				return nil, fmt.Errorf("failed to unmarshal component json: %v", err1)
+			}
+			options.Component = componentSpec
+		case "runtime-config":
+			runtimeConfigJson := parameter.Value.String()
+			if runtimeConfigJson != "" {
+				glog.Infof("input RuntimeConfig:%s\n", util.PrettyPrint(runtimeConfigJson))
+				runtimeConfig := &pipelinespec.PipelineJob_RuntimeConfig{}
+				err1 := util.UnmarshalString(runtimeConfigJson, runtimeConfig)
+				if err1 != nil {
+					return nil, fmt.Errorf("failed to unmarshal runtime config json: %v", err1)
+				}
+				options.RuntimeConfig = runtimeConfig
+			}
+		case "task":
+			taskSpecJson := parameter.Value.String()
+			if taskSpecJson != "" {
+				glog.Infof("input TaskSpec:%s\n", util.PrettyPrint(taskSpecJson))
+				taskSpec := &pipelinespec.PipelineTaskSpec{}
+				err1 := util.UnmarshalString(taskSpecJson, taskSpec)
+				if err1 != nil {
+					return nil, fmt.Errorf("failed to unmarshal task json: %v", err1)
+				}
+				options.Task = taskSpec
+			}
+		case "parent-dag-id":
+			dagID, err1 := strconv.ParseInt(parameter.Value.String(), 10, 64)
+			if err1 != nil {
+				return nil, fmt.Errorf("failed to parse parent dag id: %v", err1)
+			}
+			options.DAGExecutionID = dagID
+		case "iteration-index":
+			iterIndex, err1 := strconv.ParseInt(parameter.Value.String(), 10, 64)
+			if err1 != nil {
+				return nil, fmt.Errorf("failed to parse iteration index: %v", err1)
+			}
+			options.IterationIndex = int(iterIndex)
+		case "driver-type":
+			options.DriverType = parameter.Value.String()
+		case "pipeline_name":
+			options.PipelineName = parameter.Value.String()
+		case "run_id":
+			options.RunID = parameter.Value.String()
+		case "run_name":
+			options.RunName = parameter.Value.String()
+		case "run_display_name":
+			options.RunDisplayName = parameter.Value.String()
+		case "http_proxy":
+			options.RunName = parameter.Value.String()
+		case "https_proxy":
+			options.RunName = parameter.Value.String()
+		case "no_proxy":
+			options.RunName = parameter.Value.String()
+		case "cache_disabled":
+			cacheDisabled, err1 := strconv.ParseBool(parameter.Value.String())
+			if err1 != nil {
+				return nil, fmt.Errorf("failed to parse cache disabled: %v", err1)
+			}
+			options.CacheDisabled = cacheDisabled
+		case "log_level":
+			options.PipelineLogLevel = parameter.Value.String()
+		case "publish_logs":
+			options.PublishLogs = parameter.Value.String()
+		// Container dag:
+		case "container":
+			containerSpecJson := parameter.Value.String()
+			glog.Infof("input ContainerSpec:%s\n", util.PrettyPrint(containerSpecJson))
+			containerSpec := &pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec{}
+			err1 := util.UnmarshalString(containerSpecJson, containerSpec)
+			if err1 != nil {
+				return nil, fmt.Errorf("failed to unmarshal task json: %v", err1)
+			}
+			options.Container = containerSpec
+		case "kubernetes-config":
+			k8sExecConfigJson := parameter.Value.String()
+			k8sExecCfg, err1 := util.ParseExecConfigJson(&k8sExecConfigJson)
+			if err1 != nil {
+				return nil, fmt.Errorf("failed to parse kubeconfig: %v", err1)
+			}
+			options.KubernetesExecutorConfig = k8sExecCfg
+		}
+	}
+
+	namespace, err := config.InPodNamespace()
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve pod namespace: %v", err)
+	}
+	options.Namespace = namespace
+	return &options, nil
+}
+
 // handleTemplateExecute handles the /api/v1/template.execute endpoint
 func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -168,126 +277,24 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 	// however parameters like component come from the workflow and
 	// are not est at the compiler time
 	// we will need to split those up
-	options := Options{}
-	parameters := argoTemplateArgs.Template.Inputs.Parameters
-	for _, parameter := range parameters {
-		switch parameter.Name {
-		case "component":
-			componentJson := parameter.Value.String()
-			glog.Infof("input componentJson:%s\n", util.PrettyPrint(componentJson))
-			componentSpec := &pipelinespec.ComponentSpec{}
-			err1 := util.UnmarshalString(componentJson, componentSpec)
-			if err1 != nil {
-				http.Error(w, fmt.Sprintf("failed to unmarshal component json: %v", err1), http.StatusBadRequest)
-				return
-			}
-			options.Component = componentSpec
-		case "runtime-config":
-			runtimeConfigJson := parameter.Value.String()
-			if runtimeConfigJson != "" {
-				glog.Infof("input RuntimeConfig:%s\n", util.PrettyPrint(runtimeConfigJson))
-				runtimeConfig := &pipelinespec.PipelineJob_RuntimeConfig{}
-				err1 := util.UnmarshalString(runtimeConfigJson, runtimeConfig)
-				if err1 != nil {
-					http.Error(w, fmt.Sprintf("failed to unmarshal component json: %v", err1), http.StatusBadRequest)
-					return
-				}
-				options.RuntimeConfig = runtimeConfig
-			}
-		case "task":
-			taskSpecJson := parameter.Value.String()
-			if taskSpecJson != "" {
-				glog.Infof("input TaskSpec:%s\n", util.PrettyPrint(taskSpecJson))
-				taskSpec := &pipelinespec.PipelineTaskSpec{}
-				err1 := util.UnmarshalString(taskSpecJson, taskSpec)
-				if err1 != nil {
-					http.Error(w, fmt.Sprintf("failed to unmarshal component json: %v", err1), http.StatusBadRequest)
-					return
-				}
-				options.Task = taskSpec
-			}
-		case "parent-dag-id":
-			dagID, err1 := strconv.ParseInt(parameter.Value.String(), 10, 64)
-			if err1 != nil {
-				http.Error(w, fmt.Sprintf("failed to parse parent-dag-id: %v", err1), http.StatusBadRequest)
-				return
-			}
-			options.DAGExecutionID = dagID
-		case "iteration-index":
-			iterIndex, err1 := strconv.ParseInt(parameter.Value.String(), 10, 64)
-			if err1 != nil {
-				http.Error(w, fmt.Sprintf("failed to parse iteration-index: %v", err1), http.StatusBadRequest)
-				return
-			}
-			options.IterationIndex = int(iterIndex)
-		case "driver-type":
-			options.DriverType = parameter.Value.String()
-		case "pipeline_name":
-			options.PipelineName = parameter.Value.String()
-		case "run_id":
-			options.RunID = parameter.Value.String()
-		case "run_name":
-			options.RunName = parameter.Value.String()
-		case "run_display_name":
-			options.RunDisplayName = parameter.Value.String()
-		case "http_proxy":
-			options.RunName = parameter.Value.String()
-		case "https_proxy":
-			options.RunName = parameter.Value.String()
-		case "no_proxy":
-			options.RunName = parameter.Value.String()
-		case "cache_disabled":
-			cacheDisabled, err1 := strconv.ParseBool(parameter.Value.String())
-			if err1 != nil {
-				http.Error(w, fmt.Sprintf("failed to parse cache_disabled: %v", err1), http.StatusBadRequest)
-				return
-			}
-			options.CacheDisabled = cacheDisabled
-		case "log_level":
-			options.PipelineLogLevel = parameter.Value.String()
-		case "publish_logs":
-			options.PublishLogs = parameter.Value.String()
-		// Container dag:
-		case "container":
-			containerSpecJson := parameter.Value.String()
-			glog.Infof("input ContainerSpec:%s\n", util.PrettyPrint(containerSpecJson))
-			containerSpec := &pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec{}
-			err1 := util.UnmarshalString(containerSpecJson, containerSpec)
-			if err1 != nil {
-				http.Error(w, fmt.Sprintf("failed to unmarshal component json: %v", err1), http.StatusBadRequest)
-				return
-			}
-			options.Container = containerSpec
-		case "kubernetes-config":
-			k8sExecConfigJson := parameter.Value.String()
-			k8sExecCfg, err1 := util.ParseExecConfigJson(&k8sExecConfigJson)
-			if err1 != nil {
-				http.Error(w, fmt.Sprintf("encountered issues when parsing kube config: %v", err1), http.StatusBadRequest)
-				return
-			}
-			options.KubernetesExecutorConfig = k8sExecCfg
-		}
-	}
-
-	namespace, err := config.InPodNamespace()
+	options, err := buildOpts(&argoTemplateArgs)
 	if err != nil {
-		http.Error(w, "encountered issue when fetching pod namespace", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Failed to build options: %v", err), http.StatusBadRequest)
 		return
 	}
-	options.Namespace = namespace
 
 	ctx := context.Background()
 	var execution *Execution
 	switch options.DriverType {
 	case "ROOT_DAG":
 		glog.Infof("Executing Driver type: %s", options.DriverType)
-		execution, err = RootDAG(ctx, options, s.mlmdClient)
+		execution, err = RootDAG(ctx, *options, s.mlmdClient)
 	case "DAG":
 		glog.Infof("Executing Driver type: %s", options.DriverType)
-		execution, err = DAG(ctx, options, s.mlmdClient)
+		execution, err = DAG(ctx, *options, s.mlmdClient)
 	case "CONTAINER":
 		glog.Infof("Executing Driver type: %s", options.DriverType)
-		execution, err = Container(ctx, options, s.mlmdClient, s.cacheClient)
+		execution, err = Container(ctx, *options, s.mlmdClient, s.cacheClient)
 	default:
 		http.Error(w, fmt.Sprintf("Unknown driver type: %s", options.DriverType), http.StatusBadRequest)
 		return
@@ -298,7 +305,7 @@ func (s *Server) handleTemplateExecute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	outputParameters, err := appendExecutionParameters(execution, options)
+	outputParameters, err := appendExecutionParameters(execution, *options)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to append execution parameters: %v", err), http.StatusInternalServerError)
 		return
