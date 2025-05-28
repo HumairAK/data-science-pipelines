@@ -32,6 +32,7 @@ from sphinx import application  # noqa
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.insert(0, os.path.abspath('../sdk/python'))
+sys.path.insert(0, os.path.abspath('../kubernetes_platform/python'))
 
 # -- Project information -----------------------------------------------------
 project = 'Kubeflow Pipelines'
@@ -133,7 +134,7 @@ html_theme_options = {
     'version_dropdown':
         True,
     'version_json':
-        'https://gist.githubusercontent.com/HumairAK/5d103826473766d8be31343cdbe12dc0/raw/bd94d6e3327e98cf485cb15eea9a871fc8ab921d/gistfile1.txt',
+        'https://gist.githubusercontent.com/HumairAK/5d103826473766d8be31343cdbe12dc0/raw/b50368911ed00cdc92da33980f0d9b96b1b78d37/gistfile1.txt',
     # "toc_title_is_page_title": True,
 }
 # Add any paths that contain templates here, relative to this directory.

@@ -13,8 +13,8 @@ Kubeflow Pipelines (KFP)
    Quickstart <source/quickstart>
    GenAI <source/genai>
    Overview <source/overview>
-   Installation <source/installation>
-   API Reference <source/kfp>
+   Operator Guide <source/operator-guides>
+   SDK API Reference <source/kfp>
    Command Line Interface <source/cli>
 
    Usage Docs (kubeflow.org) <https://kubeflow.org/docs/pipelines/>
