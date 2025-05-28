@@ -1,10 +1,14 @@
 [
     {
+        "version": "https://kubeflow-pipelines.readthedocs.io/en/latest/",
+        "title": "latest",
+        "aliases": []
+    },
+    {
         "version": "https://kubeflow-pipelines.readthedocs.io/en/sdk-2.13.0/",
         "title": "2.13.0",
         "aliases": [
-            "stable",
-            "latest"
+            "stable"
         ]
     },
         {

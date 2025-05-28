@@ -35,7 +35,7 @@ sys.path.insert(0, os.path.abspath('../sdk/python'))
 
 # -- Project information -----------------------------------------------------
 project = 'Kubeflow Pipelines'
-copyright = '2022, The Kubeflow Authors'
+copyright = '2025, The Kubeflow Authors'
 author = 'The Kubeflow Authors'
 
 # The short X.Y version
@@ -57,6 +57,8 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx_click',
     'm2r2',
+    # Theme Documentation
+    # https://jbms.github.io/sphinx-immaterial
     'sphinx_immaterial',
     'autodocsumm',
 ]
@@ -131,7 +133,7 @@ html_theme_options = {
     'version_dropdown':
         True,
     'version_json':
-        'https://raw.githubusercontent.com/kubeflow/pipelines/master/docs/versions.json',
+        'https://gist.githubusercontent.com/HumairAK/5d103826473766d8be31343cdbe12dc0/raw/bd94d6e3327e98cf485cb15eea9a871fc8ab921d/gistfile1.txt',
     # "toc_title_is_page_title": True,
 }
 # Add any paths that contain templates here, relative to this directory.
