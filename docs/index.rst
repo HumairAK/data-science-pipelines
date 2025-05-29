@@ -16,6 +16,6 @@ Kubeflow Pipelines (KFP)
    Operator Guide <source/operator-guides>
    SDK API Reference <source/kfp>
    Command Line Interface <source/cli>
-
+   REST API <source/rest-api>
    Usage Docs (kubeflow.org) <https://kubeflow.org/docs/pipelines/>
    Source Code <https://github.com/kubeflow/pipelines/>

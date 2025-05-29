@@ -20,6 +20,7 @@
 
 import functools
 import os
+import shutil
 import sys
 from typing import List, Optional
 
@@ -271,4 +272,8 @@ def re_attach_header_of_readme_hook(app: sphinx.application.Sphinx,
 
 
 def setup(app: sphinx.application.Sphinx) -> None:
+    source_path = os.path.abspath(os.path.join(app.confdir, '..', 'backend', 'api', 'v2beta1', 'swagger' , 'kfp_api_single_file.swagger.json'))
+    dest_path = os.path.join(app.confdir, 'source', '_static', 'kfp_api_single_file.swagger.json')
+    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+    shutil.copyfile(source_path, dest_path)
     app.connect('build-finished', re_attach_header_of_readme_hook)
