@@ -12,3 +12,4 @@ API Reference
    client
    registry
    local
+   kubernetes
