@@ -81,4 +81,8 @@ var mlFlowEnvVars = []k8score.EnvVar{
 		Name:  "MLFLOW_HOST",
 		Value: os.Getenv("MLFLOW_HOST"),
 	},
+	{
+		Name:  "MLFLOW_TLS_ENABLED",
+		Value: os.Getenv("MLFLOW_TLS_ENABLED"),
+	},
 }

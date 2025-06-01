@@ -2,6 +2,7 @@ package mlflow
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"github.com/golang/glog"
@@ -260,7 +261,10 @@ func DoRequest(method, url string, body []byte, headers map[string]string) (*htt
 	glog.Infof("Sending %s request to %s", method, url)
 	glog.Infof("With Payload: %s", string(body))
 
-	client := &http.Client{}
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
 
 	req, err := http.NewRequest(method, url, bytes.NewBuffer(body))
 	if err != nil {
