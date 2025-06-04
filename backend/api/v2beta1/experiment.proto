@@ -112,6 +112,7 @@ message Experiment {
 message CreateExperimentRequest {
   // The experiment to be created.
   Experiment experiment = 1;
+  ProviderConfig
 }
 
 message GetExperimentRequest {
