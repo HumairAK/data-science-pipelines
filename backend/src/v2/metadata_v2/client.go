@@ -4,15 +4,16 @@ import (
 	"context"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	api "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
 	pb "github.com/kubeflow/pipelines/third_party/ml-metadata/go/ml_metadata"
 )
 
-// For the ability to allow the user to utilize the mlflow in an auth safe way we can
+// For the ability to allow the user to use the mlflow in an auth safe way we can
 // follow the following arch:
 // We create a temporary user/password in mlflow and assign it permission for the experiment
-// to which that run belongs, and then utilize those creds in the launcher's environment
+// to which that run belongs, and then use those creds in the launcher's environment
 // as env vars
 
 // launcher will need
@@ -25,37 +26,40 @@ type ProviderExperiment struct {
 	LastUpdateTime int64
 }
 
+// ProviderRuns map to Root, Dag, and Container driver executions.
 type ProviderRun struct {
-	ID          string
-	Name        string
-	Description string
-	Status      string
-	// timestamps
+	ID           string
+	Name         string
+	Description  string
+	Status       string
+	CreationTime int64
+	EndTime      int64
 }
 
-// Provide unopinionanted way to provide artifact location to MLFLow when creating an
+// Provide un opinionated way to provide artifact location to MLFLow when creating an
 // experiment via passthrough API. And, if not provided then:
-
 // For experiments, we use default bucket path
 
 // MetadataExperimentProvider
 // API Server creates/manages experiments
-// Anything that requires api server to manage storage should
-// be scoped only to api server as it's own interface(s)
+// Anything that requires Api server to manage storage should
+// be scoped to a separate interface utilized only by API Server
 type MetadataExperimentProvider interface {
 	// GetExperimentStore should return a provider implementation of ExperimentStoreInterface
 	// Experiment store will need to check to see if the artifact_location (e.g. in mlflow case)
 	// is using a bucket in s3 (or something else entirely) that is not configured or supported
 	// by this kfp deployment
 	GetExperimentStore() storage.ExperimentStoreInterface
-	// experimentStore createExperiment needs to accept a providerConfig object
-	// map[string]interface{}
-	// creation should also ValidateExperiment
+	// GetProviderConfig
+	// ExperimentStore createExperiment will need to use a passthrough providerConfig object
+	// createExperiment should also ValidateExperiment()
+	GetProviderConfig() ProviderConfig
 }
 
-// Note: probably don't use api.Run below, model.Run is possibly better, or other alternatives
+type ProviderConfig map[string]interface{}
+
+// MetadataProviderValidator provides static validation utilities
 type MetadataProviderValidator interface {
-	// static operation
 	ValidateRun(kfpRun api.CreateRunRequest) error
 	ValidateExperiment(experiment api.CreateExperimentRequest) error
 }
@@ -64,17 +68,18 @@ type MetadataProviderValidator interface {
 // Driver/Launcher use the below operations
 // Note: probably don't use api.Run below, model.Run is possibly better, or other alternatives
 type MetadataRunProvider interface {
-	// GetRun fetches run. Note: this forces implementation to consider
-	// how KFP ID is mapped to Provider's Run
+	// GetRun fetches the provider run mapped to this kfpRunID.
 	GetRun(experimentID string, kfpRunID string) (*ProviderRun, error)
 	// CreateRun create KFP run as a Provider Run.
 	// Provider decides how/what from KFPRun gets stored as metadata into the provider run system.
 	CreateRun(
 		experimentID string,
 		kfpRun api.Run,
-		parameters []map[string]string) (*ProviderRun, error)
-	// Todo:  Note status should re-use kfp run status enums that already exist
-	UpdateRunStatus(experimentID string, kfpRunID string, kfpRunStatus string) error
+		parameters []map[string]string,
+	) (*ProviderRun, error)
+	// LinkParentChildRuns is used for nesting Container and Dag provider runs under a Root provider run.
+	LinkParentChildRuns(parentProviderRunID string, childProviderRunID string) error
+	UpdateRunStatus(experimentID string, kfpRunID string, kfpRunStatus model.RuntimeState) error
 }
 
 type ArtifactResult struct {
@@ -93,13 +98,25 @@ type ProviderArtifact interface {
 	// GetModel()
 	// GetDataset()
 
-	// Provider can optionally utilize a defaultArtifactURI if they want to respect
+	// Provider can optionally use a defaultArtifactURI if they want to respect
 	// KFP's Artifact URI format, or they can override and return the newly formatted URI
+	// In the MLFlow case, artifact organization in the store bucket is very opinionated
+	// We cannot set artifact path for a run level. So we offload URI creation to the provider.
 	logOutputArtifact(
 		experimentID string,
 		runID string,
 		runtimeArtifact pipelinespec.RuntimeArtifact,
-		defaultArtifactURI string) ArtifactResult
+		defaultArtifactURI string) (ArtifactResult, error)
+
+	// Consider optionally
+	listArtifact(
+		experimentID string,
+		runID string,
+	) ([]pipelinespec.RuntimeArtifact, error)
+	listArtifacts(
+		experimentID string,
+		runID string,
+	) ([]pipelinespec.RuntimeArtifact, error)
 }
 
 // ##################################################################################################################
