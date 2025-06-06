@@ -10,13 +10,6 @@ import (
 	pb "github.com/kubeflow/pipelines/third_party/ml-metadata/go/ml_metadata"
 )
 
-// For the ability to allow the user to use the mlflow in an auth safe way we can
-// follow the following arch:
-// We create a temporary user/password in mlflow and assign it permission for the experiment
-// to which that run belongs, and then use those creds in the launcher's environment
-// as env vars
-
-// launcher will need
 type ProviderExperiment struct {
 	ID             string
 	Name           string
@@ -26,7 +19,7 @@ type ProviderExperiment struct {
 	LastUpdateTime int64
 }
 
-// ProviderRuns map to Root, Dag, and Container driver executions.
+// ProviderRun can be map to oneOf(Root, Dag, Container) execution
 type ProviderRun struct {
 	ID           string
 	Name         string
@@ -36,9 +29,9 @@ type ProviderRun struct {
 	EndTime      int64
 }
 
-// Provide un opinionated way to provide artifact location to MLFLow when creating an
-// experiment via passthrough API. And, if not provided then:
-// For experiments, we use default bucket path
+// Come up with an unopinionated way to provide artifact location to MLFLow when creating an
+// experiment via passthrough API. And, if not provided, then:
+// For experiments, we use a default bucket path
 
 // MetadataExperimentProvider
 // API Server creates/manages experiments
@@ -50,22 +43,28 @@ type MetadataExperimentProvider interface {
 	// is using a bucket in s3 (or something else entirely) that is not configured or supported
 	// by this kfp deployment
 	GetExperimentStore() storage.ExperimentStoreInterface
-	// GetProviderConfig
-	// ExperimentStore createExperiment will need to use a passthrough providerConfig object
-	// createExperiment should also ValidateExperiment()
-	GetProviderConfig() ProviderConfig
+	// CreateExperiment() will need to also accept a providerConfig which is used for
+	// provider specific creation options.
+	// For example, MLFlow allows you to set the artifact_location for all artifacts
+	// uploaded in any run for a given experiment. The user should be able to configure this.
 }
 
+// ProviderConfig is a map of key value pairs that can be used to configure the provider
+// The KFP Frontend will be provided a config schema that it can absorb and use to populate
+// the Experiment Creation (or potentially Run creation) forms. This is passed along with
+// the rest of the experiment create request object, and validated by backend, then
+// it is passed to the Create[Experiment,Run] handler.
 type ProviderConfig map[string]interface{}
 
 // MetadataProviderValidator provides static validation utilities
+// Note:  api.CreateExperimentRequest (and possibly api.CreateRunRequest) will also need a ProviderConfig struct field
 type MetadataProviderValidator interface {
 	ValidateRun(kfpRun api.CreateRunRequest) error
 	ValidateExperiment(experiment api.CreateExperimentRequest) error
 }
 
 // MetadataRunProvider
-// Driver/Launcher use the below operations
+// Used by Driver/Launcher
 // Note: probably don't use api.Run below, model.Run is possibly better, or other alternatives
 type MetadataRunProvider interface {
 	// GetRun fetches the provider run mapped to this kfpRunID.
@@ -77,7 +76,7 @@ type MetadataRunProvider interface {
 		kfpRun api.Run,
 		parameters []map[string]string,
 	) (*ProviderRun, error)
-	// LinkParentChildRuns is used for nesting Container and Dag provider runs under a Root provider run.
+	// LinkParentChildRuns is used for nesting Container and Dag provider runs under Dag or Root provider runs.
 	LinkParentChildRuns(parentProviderRunID string, childProviderRunID string) error
 	UpdateRunStatus(experimentID string, kfpRunID string, kfpRunStatus model.RuntimeState) error
 }
@@ -92,32 +91,37 @@ type RunParameter struct {
 }
 
 type ProviderArtifact interface {
-	// Called in the launcher, around the sametime as record artifact
-	// RuntimeArtifact implements:
+	// Called in the launcher, likely around the sametime as recordArtifact()
+	// RuntimeArtifact will need to implement:
 	// GetMetrics()
 	// GetModel()
 	// GetDataset()
 
 	// Provider can optionally use a defaultArtifactURI if they want to respect
 	// KFP's Artifact URI format, or they can override and return the newly formatted URI
-	// In the MLFlow case, artifact organization in the store bucket is very opinionated
-	// We cannot set artifact path for a run level. So we offload URI creation to the provider.
+	// In the MLFlow case; artifact organization in the store bucket is very opinionated
+	// We cannot set an artifact path for a run level. So we offload URI creation to the provider.
 	logOutputArtifact(
 		experimentID string,
 		runID string,
 		runtimeArtifact pipelinespec.RuntimeArtifact,
 		defaultArtifactURI string) (ArtifactResult, error)
 
-	// Consider optionally
-	listArtifact(
-		experimentID string,
-		runID string,
-	) ([]pipelinespec.RuntimeArtifact, error)
-	listArtifacts(
-		experimentID string,
-		runID string,
-	) ([]pipelinespec.RuntimeArtifact, error)
+	// Consider: Get/Listing of artifacts
 }
+
+// Other notes and considerations:
+// There is an ask for runs to be able to be moved to different experiments
+// this would come from the provider side of things, e.g., you move runs in mlflow to a different experiment
+// (once mlflow implements this feature)
+// but the issue is how do we then know to update the run's experiment UID in kfp runs table?
+// one solution is for each run get we validate the run's experiment provider UID is accurate, but this feels overkill
+
+// For the ability to allow the user to use mlflow in an auth safe way within their components we can
+// follow the following approach:
+// We create a temporary user/password in mlflow and assign it permissions for the experiment
+// to which that component run belongs, and then use those creds in the launcher's environment
+// as environment variables. Once the run is complete, we clean up the ephemeral user.
 
 // ##################################################################################################################
 // OLD
