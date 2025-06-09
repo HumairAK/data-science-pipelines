@@ -13,7 +13,13 @@ import (
 	"time"
 )
 
-func (m *MLFlowExperimentProvider) createRun(runName string, tags []types.RunTag, experimentID string) (*types.Run, error) {
+type MlflowClient struct {
+	apiPath     string
+	baseHost    string
+	metricsPath string
+}
+
+func (m *MlflowClient) createRun(runName string, tags []types.RunTag, experimentID string) (*types.Run, error) {
 	// Create struct with parameters
 	payload := types.CreateRunRequest{
 		ExperimentId: experimentID,
@@ -45,7 +51,7 @@ func (m *MLFlowExperimentProvider) createRun(runName string, tags []types.RunTag
 	return &runResponse.Run, nil
 }
 
-func (m *MLFlowExperimentProvider) getRun(runID string) (*types.Run, error) {
+func (m *MlflowClient) getRun(runID string) (*types.Run, error) {
 	// Create struct with parameters
 	payload := types.GetRunRequest{
 		RunID: runID,
@@ -73,7 +79,7 @@ func (m *MLFlowExperimentProvider) getRun(runID string) (*types.Run, error) {
 	return &runResponse.Run, nil
 }
 
-func (m *MLFlowExperimentProvider) updateRun(runID string, runName *string, status *types.RunStatus, endTime *int64) (*types.UpdateRunResponse, error) {
+func (m *MlflowClient) updateRun(runID string, runName *string, status *types.RunStatus, endTime *int64) (*types.UpdateRunResponse, error) {
 	// Create struct with parameters
 	payload := types.UpdateRunRequest{
 		RunId:   runID,
@@ -113,7 +119,7 @@ func (m *MLFlowExperimentProvider) updateRun(runID string, runName *string, stat
 	return typedResp, nil
 }
 
-func (m *MLFlowExperimentProvider) logParam(runID *string, key, value string) error {
+func (m *MlflowClient) logParam(runID *string, key, value string) error {
 	payload := types.LogParamRequest{
 		RunId: *runID,
 		Key:   key,
@@ -133,7 +139,7 @@ func (m *MLFlowExperimentProvider) logParam(runID *string, key, value string) er
 	return nil
 }
 
-func (m *MLFlowExperimentProvider) logMetric(runID, runUUID, key string, value float64) error {
+func (m *MlflowClient) logMetric(runID, runUUID, key string, value float64) error {
 	payload := types.LogMetricRequest{
 		RunId:     runID,
 		RunUUID:   runUUID,
@@ -155,7 +161,7 @@ func (m *MLFlowExperimentProvider) logMetric(runID, runUUID, key string, value f
 	return nil
 }
 
-func (m *MLFlowExperimentProvider) searchExperiments(
+func (m *MlflowClient) searchExperiments(
 	maxResults int64,
 	pageToken string,
 	filter string,
@@ -193,7 +199,7 @@ func (m *MLFlowExperimentProvider) searchExperiments(
 	return experimentResponse.Experiments, nil
 }
 
-func (m *MLFlowExperimentProvider) searchRuns(experimentIds []string, maxResults int64, pageToken string, filter string, orderBy []string, viewType types.ViewType) ([]types.Run, error) {
+func (m *MlflowClient) searchRuns(experimentIds []string, maxResults int64, pageToken string, filter string, orderBy []string, viewType types.ViewType) ([]types.Run, error) {
 	payload := types.SearchRunRequest{
 		ExperimentIds: experimentIds,
 		Filter:        filter,
@@ -226,7 +232,7 @@ func (m *MLFlowExperimentProvider) searchRuns(experimentIds []string, maxResults
 	return runResponse.Runs, nil
 }
 
-func (m *MLFlowExperimentProvider) createExperiment(name string, tags []types.ExperimentTag) (*string, error) {
+func (m *MlflowClient) createExperiment(name string, tags []types.ExperimentTag) (*string, error) {
 	// Create struct with parameters
 	payload := types.CreateExperimentRequest{
 		Name: name,
