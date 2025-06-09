@@ -6,22 +6,22 @@ import (
 )
 
 // Ensure MLFlowValidator implements MetadataProviderValidator
-var _ metadata_provider.MetadataProviderValidator = &MLFlowValidator{}
+var _ metadata_provider.MetadataProviderValidator = &Validator{}
 
-type MLFlowValidator struct {
+type Validator struct {
 	client MlflowClient
 }
 
-func NewMLFlowValidator(client MlflowClient) *MLFlowValidator {
-	return &MLFlowValidator{client: client}
+func NewMLFlowValidator(client MlflowClient) *Validator {
+	return &Validator{client: client}
 }
 
-func (v *MLFlowValidator) ValidateRun(kfpRun *api.CreateRunRequest) error {
+func (v *Validator) ValidateRun(kfpRun *api.CreateRunRequest) error {
 	// MLFlow doesn't have specific run validation requirements
 	return nil
 }
 
-func (v *MLFlowValidator) ValidateExperiment(experiment *api.CreateExperimentRequest) error {
+func (v *Validator) ValidateExperiment(experiment *api.CreateExperimentRequest) error {
 	// MLFlow doesn't have specific experiment validation requirements
 	return nil
 }

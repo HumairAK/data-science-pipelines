@@ -62,6 +62,6 @@ type MetadataArtifactProvider interface {
 	LogOutputArtifact(
 		experimentID string,
 		runID string,
-		runtimeArtifact pipelinespec.RuntimeArtifact,
+		runtimeArtifact *pipelinespec.RuntimeArtifact,
 		defaultArtifactURI string) (ArtifactResult, error)
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 )
 
-// Ensure MLFlowExperimentProvider implements MetadataExperimentProvider
+// Ensure RunsProvider implements MetadataRunProvider
 var _ metadata_provider.MetadataRunProvider = &RunsProvider{}
 
 type RunsProvider struct {

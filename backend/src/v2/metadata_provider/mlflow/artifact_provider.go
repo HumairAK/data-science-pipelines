@@ -20,7 +20,7 @@ func NewArtifactsProvider(client MlflowClient) *ArtifactProvider {
 func (a *ArtifactProvider) LogOutputArtifact(
 	experimentID string,
 	runID string,
-	runtimeArtifact pipelinespec.RuntimeArtifact,
+	runtimeArtifact *pipelinespec.RuntimeArtifact,
 	defaultArtifactURI string,
 ) (metadata_provider.ArtifactResult, error) {
 	return metadata_provider.ArtifactResult{}, fmt.Errorf("not implemented")
