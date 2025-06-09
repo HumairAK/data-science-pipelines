@@ -9,10 +9,10 @@ import (
 var _ metadata_provider.MetadataProviderValidator = &Validator{}
 
 type Validator struct {
-	client MlflowClient
+	client Client
 }
 
-func NewMLFlowValidator(client MlflowClient) *Validator {
+func NewMLFlowValidator(client Client) *Validator {
 	return &Validator{client: client}
 }
 

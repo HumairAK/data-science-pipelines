@@ -10,10 +10,10 @@ import (
 var _ metadata_provider.MetadataArtifactProvider = &ArtifactProvider{}
 
 type ArtifactProvider struct {
-	client MlflowClient
+	client Client
 }
 
-func NewArtifactsProvider(client MlflowClient) *ArtifactProvider {
+func NewArtifactsProvider(client Client) *ArtifactProvider {
 	return &ArtifactProvider{client: client}
 }
 

@@ -16,7 +16,7 @@ var _ storage.ExperimentStoreInterface = &ExperimentStore{}
 // is using a bucket in s3 (or something else entirely) that is not configured or supported
 // by this kfp deployment.
 type ExperimentStore struct {
-	client MlflowClient
+	client Client
 }
 
 // CreateExperiment will need to also accept a providerConfig which is used for

@@ -13,13 +13,13 @@ import (
 	"time"
 )
 
-type MlflowClient struct {
+type Client struct {
 	apiPath     string
 	baseHost    string
 	metricsPath string
 }
 
-func (m *MlflowClient) createRun(runName string, tags []types.RunTag, experimentID string) (*types.Run, error) {
+func (m *Client) createRun(runName string, tags []types.RunTag, experimentID string) (*types.Run, error) {
 	// Create struct with parameters
 	payload := types.CreateRunRequest{
 		ExperimentId: experimentID,
@@ -51,7 +51,7 @@ func (m *MlflowClient) createRun(runName string, tags []types.RunTag, experiment
 	return &runResponse.Run, nil
 }
 
-func (m *MlflowClient) getRun(runID string) (*types.Run, error) {
+func (m *Client) getRun(runID string) (*types.Run, error) {
 	// Create struct with parameters
 	payload := types.GetRunRequest{
 		RunID: runID,
@@ -79,7 +79,7 @@ func (m *MlflowClient) getRun(runID string) (*types.Run, error) {
 	return &runResponse.Run, nil
 }
 
-func (m *MlflowClient) updateRun(runID string, runName *string, status *types.RunStatus, endTime *int64) (*types.UpdateRunResponse, error) {
+func (m *Client) updateRun(runID string, runName *string, status *types.RunStatus, endTime *int64) error {
 	// Create struct with parameters
 	payload := types.UpdateRunRequest{
 		RunId:   runID,
@@ -100,7 +100,7 @@ func (m *MlflowClient) updateRun(runID string, runName *string, status *types.Ru
 	// Marshal to JSON
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	_, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/update", m.apiPath), jsonPayload, map[string]string{
@@ -108,18 +108,18 @@ func (m *MlflowClient) updateRun(runID string, runName *string, status *types.Ru
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	typedResp := &types.UpdateRunResponse{}
 	err = json.Unmarshal(body, typedResp)
 	if err != nil {
 		glog.Errorf("Failed to unmarshal: %v", err)
-		return nil, err
+		return err
 	}
-	return typedResp, nil
+	return nil
 }
 
-func (m *MlflowClient) logParam(runID *string, key, value string) error {
+func (m *Client) logParam(runID *string, key, value string) error {
 	payload := types.LogParamRequest{
 		RunId: *runID,
 		Key:   key,
@@ -139,7 +139,7 @@ func (m *MlflowClient) logParam(runID *string, key, value string) error {
 	return nil
 }
 
-func (m *MlflowClient) logMetric(runID, runUUID, key string, value float64) error {
+func (m *Client) logMetric(runID, runUUID, key string, value float64) error {
 	payload := types.LogMetricRequest{
 		RunId:     runID,
 		RunUUID:   runUUID,
@@ -161,7 +161,7 @@ func (m *MlflowClient) logMetric(runID, runUUID, key string, value float64) erro
 	return nil
 }
 
-func (m *MlflowClient) searchExperiments(
+func (m *Client) searchExperiments(
 	maxResults int64,
 	pageToken string,
 	filter string,
@@ -199,7 +199,13 @@ func (m *MlflowClient) searchExperiments(
 	return experimentResponse.Experiments, nil
 }
 
-func (m *MlflowClient) searchRuns(experimentIds []string, maxResults int64, pageToken string, filter string, orderBy []string, viewType types.ViewType) ([]types.Run, error) {
+func (m *Client) searchRuns(
+	experimentIds []string,
+	maxResults int64,
+	pageToken string,
+	filter string,
+	orderBy []string,
+	viewType types.ViewType) ([]types.Run, error) {
 	payload := types.SearchRunRequest{
 		ExperimentIds: experimentIds,
 		Filter:        filter,
@@ -232,7 +238,7 @@ func (m *MlflowClient) searchRuns(experimentIds []string, maxResults int64, page
 	return runResponse.Runs, nil
 }
 
-func (m *MlflowClient) createExperiment(name string, tags []types.ExperimentTag) (*string, error) {
+func (m *Client) createExperiment(name string, tags []types.ExperimentTag) (*string, error) {
 	// Create struct with parameters
 	payload := types.CreateExperimentRequest{
 		Name: name,

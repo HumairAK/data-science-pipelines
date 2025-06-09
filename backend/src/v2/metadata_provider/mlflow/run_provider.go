@@ -10,10 +10,10 @@ import (
 var _ metadata_provider.MetadataRunProvider = &RunsProvider{}
 
 type RunsProvider struct {
-	client MlflowClient
+	client Client
 }
 
-func NewRunsProvider(client MlflowClient) *RunsProvider {
+func NewRunsProvider(client Client) *RunsProvider {
 	return &RunsProvider{client: client}
 }
 
