@@ -19,7 +19,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/component"
@@ -29,6 +28,7 @@ import (
 // TODO: use https://github.com/spf13/cobra as a framework to create more complex CLI tools with subcommands.
 var (
 	copy              = flag.String("copy", "", "copy this binary to specified destination path")
+	experimentID      = flag.String("experiment_id", "", "experiment uid")
 	pipelineName      = flag.String("pipeline_name", "", "pipeline context name")
 	runID             = flag.String("run_id", "", "pipeline run uid")
 	parentDagID       = flag.Int64("parent_dag_id", 0, "parent DAG execution ID")
@@ -45,6 +45,9 @@ var (
 	logLevel          = flag.String("log_level", "1", "The verbosity level to log.")
 	publishLogs       = flag.String("publish_logs", "true", "Whether to publish component logs to the object store")
 	cacheDisabledFlag = flag.Bool("cache_disabled", false, "Disable cache globally.")
+
+	// metadata provider config
+	metadataProviderConfigFlag = flag.String("metadata_provider_config", "", "Metadata provider config, must be a valid JSON string.")
 )
 
 func main() {
@@ -84,6 +87,7 @@ func run() error {
 		RunID:             *runID,
 		PublishLogs:       *publishLogs,
 		CacheDisabled:     *cacheDisabledFlag,
+		ExperimentID:      *experimentID,
 	}
 
 	switch *executorType {
@@ -103,9 +107,10 @@ func run() error {
 		return nil
 	case "container":
 		clientOptions := &client_manager.Options{
-			MLMDServerAddress: launcherV2Opts.MLMDServerAddress,
-			MLMDServerPort:    launcherV2Opts.MLMDServerPort,
-			CacheDisabled:     launcherV2Opts.CacheDisabled,
+			MLMDServerAddress:        launcherV2Opts.MLMDServerAddress,
+			MLMDServerPort:           launcherV2Opts.MLMDServerPort,
+			CacheDisabled:            launcherV2Opts.CacheDisabled,
+			MetadatRunProviderConfig: *metadataProviderConfigFlag,
 		}
 		clientManager, err := client_manager.NewClientManager(clientOptions)
 		if err != nil {

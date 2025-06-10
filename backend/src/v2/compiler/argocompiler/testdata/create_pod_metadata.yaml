@@ -56,7 +56,7 @@ spec:
       - --condition_path
       - '{{outputs.parameters.condition.path}}'
       - --kubernetes_config
-      - '{{inputs.parameters.kubernetes-config}}'
+      - '{{inputs.parameters.kubernetes-factory}}'
       - --http_proxy
       - ''
       - --https_proxy
@@ -83,7 +83,7 @@ spec:
       - default: "-1"
         name: iteration-index
       - default: ""
-        name: kubernetes-config
+        name: kubernetes-factory
     metadata: {}
     name: system-container-driver
     outputs:
@@ -150,8 +150,8 @@ spec:
         name: dot-local-scratch
       - mountPath: /.cache
         name: dot-cache-scratch
-      - mountPath: /.config
-        name: dot-config-scratch
+      - mountPath: /.factory
+        name: dot-factory-scratch
     initContainers:
     - args:
       - --copy
@@ -196,7 +196,7 @@ spec:
     - emptyDir: {}
       name: dot-cache-scratch
     - emptyDir: {}
-      name: dot-config-scratch
+      name: dot-factory-scratch
   - dag:
       tasks:
       - arguments:
@@ -209,7 +209,7 @@ spec:
             value: '{{workflow.parameters.implementations-203fce8adabe0cfa7da54b9d3ff79c772136c926974659b51c378727c7ccdfb7}}'
           - name: parent-dag-id
             value: '{{inputs.parameters.parent-dag-id}}'
-          - name: kubernetes-config
+          - name: kubernetes-factory
             value: '{{workflow.parameters.kubernetes-comp-hello-world}}'
         name: hello-world-driver
         template: system-container-driver
@@ -248,7 +248,7 @@ spec:
       - --task
       - '{{inputs.parameters.task}}'
       - --runtime_config
-      - '{{inputs.parameters.runtime-config}}'
+      - '{{inputs.parameters.runtime-factory}}'
       - --iteration_index
       - '{{inputs.parameters.iteration-index}}'
       - --execution_id_path
@@ -278,7 +278,7 @@ spec:
       parameters:
       - name: component
       - default: ""
-        name: runtime-config
+        name: runtime-factory
       - default: ""
         name: task
       - default: "0"
@@ -308,7 +308,7 @@ spec:
           parameters:
           - name: component
             value: '{{workflow.parameters.components-root}}'
-          - name: runtime-config
+          - name: runtime-factory
             value: '{"parameters":{"text":{"stringValue":"hi there"}}}'
           - name: driver-type
             value: ROOT_DAG

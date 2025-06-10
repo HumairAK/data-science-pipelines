@@ -96,12 +96,17 @@ func (t *token) marshal() (string, error) {
 type Options struct {
 	PageSize int
 	*token
+	// TODO: This is a default provider specific configuration (very SQL specific), it should be confined to usage
+	// just within the experimentstore interface impl for experiments in db
+	// adding these here for now.
+	PageToken string
+	SortBy    string
 }
 
 func EmptyOptions() *Options {
 	return &Options{
-		math.MaxInt32,
-		&token{},
+		PageSize: math.MaxInt32,
+		token:    &token{},
 	}
 }
 

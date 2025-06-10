@@ -116,7 +116,7 @@ spec:
       - --task
       - '{{inputs.parameters.task}}'
       - --runtime_config
-      - '{{inputs.parameters.runtime-config}}'
+      - '{{inputs.parameters.runtime-factory}}'
       - --iteration_index
       - '{{inputs.parameters.iteration-index}}'
       - --execution_id_path
@@ -146,7 +146,7 @@ spec:
       parameters:
       - name: component
       - default: ""
-        name: runtime-config
+        name: runtime-factory
       - default: ""
         name: task
       - default: "0"
@@ -176,7 +176,7 @@ spec:
           parameters:
           - name: component
             value: '{{workflow.parameters.components-root}}'
-          - name: runtime-config
+          - name: runtime-factory
             value: '{}'
           - name: driver-type
             value: ROOT_DAG

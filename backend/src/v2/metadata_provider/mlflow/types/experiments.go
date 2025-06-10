@@ -43,3 +43,11 @@ type UpdateExperimentRequest struct {
 	ExperimentId string `json:"experiment_id"`
 	NewName      string `json:"new_name"`
 }
+
+type DeleteExperimentRequest struct {
+	ExperimentId string `json:"experiment_id"`
+}
+
+type RestoreExperimentRequest struct {
+	ExperimentId string `json:"experiment_id"`
+}

@@ -2,17 +2,22 @@ package client_manager
 
 import (
 	"fmt"
-
+	v2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/manager"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 type ClientManagerInterface interface {
 	K8sClient() kubernetes.Interface
 	MetadataClient() metadata.ClientInterface
 	CacheClient() cacheutils.Client
+	MetadataRunProvider() metadata_provider.RunProvider
+	RunServiceClient() v2beta1.RunServiceClient
+	MetadataArtifactProvider() metadata_provider.MetadataArtifactProvider
 }
 
 // Ensure ClientManager implements ClientManagerInterface
@@ -20,15 +25,21 @@ var _ ClientManagerInterface = (*ClientManager)(nil)
 
 // ClientManager is a container for various service clients.
 type ClientManager struct {
-	k8sClient      kubernetes.Interface
-	metadataClient metadata.ClientInterface
-	cacheClient    cacheutils.Client
+	k8sClient                kubernetes.Interface
+	metadataClient           metadata.ClientInterface
+	cacheClient              cacheutils.Client
+	metadataRunProvider      metadata_provider.RunProvider
+	runServiceClient         v2beta1.RunServiceClient
+	metadataArtifactProvider metadata_provider.MetadataArtifactProvider
 }
 
 type Options struct {
-	MLMDServerAddress string
-	MLMDServerPort    string
-	CacheDisabled     bool
+	MLMDServerAddress         string
+	MLMDServerPort            string
+	CacheDisabled             bool
+	MetadatRunProviderConfig  string
+	MLPipelineServiceName     string
+	MLPipelineServiceGRPCPort string
 }
 
 // NewClientManager creates and Init a new instance of ClientManager.
@@ -54,6 +65,18 @@ func (cm *ClientManager) CacheClient() cacheutils.Client {
 	return cm.cacheClient
 }
 
+func (cm *ClientManager) MetadataRunProvider() metadata_provider.RunProvider {
+	return cm.metadataRunProvider
+}
+
+func (cm *ClientManager) MetadataArtifactProvider() metadata_provider.MetadataArtifactProvider {
+	return cm.metadataArtifactProvider
+}
+
+func (cm *ClientManager) RunServiceClient() v2beta1.RunServiceClient {
+	return cm.runServiceClient
+}
+
 func (cm *ClientManager) init(opts *Options) error {
 	k8sClient, err := initK8sClient()
 	if err != nil {
@@ -70,11 +93,42 @@ func (cm *ClientManager) init(opts *Options) error {
 	cm.k8sClient = k8sClient
 	cm.metadataClient = metadataClient
 	cm.cacheClient = cacheClient
+
+	if opts.MetadatRunProviderConfig != "" {
+		metadataProvider, err := md.NewProviderFromJSON(opts.MetadatRunProviderConfig)
+		if err != nil {
+			return fmt.Errorf("failed to parse metadata provider config: %w", err)
+		}
+		metadatRunProvider, err := metadataProvider.NewRunProvider()
+		if err != nil {
+			return fmt.Errorf("failed to create metadata provider: %w", err)
+		}
+		cm.metadataRunProvider = metadatRunProvider
+
+		artifactProvider, err := metadataProvider.NewMetadataArtifactProvider()
+		if err != nil {
+			return fmt.Errorf("failed to create metadata artifact provider: %w", err)
+		}
+		cm.metadataArtifactProvider = artifactProvider
+	}
+
+	connection, err := util.GetRpcConnection(
+		fmt.Sprintf(
+			"%s:%s",
+			opts.MLPipelineServiceName,
+			opts.MLPipelineServiceGRPCPort,
+		),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to connect to ML Pipeline GRPC server: %w", err)
+	}
+	cm.runServiceClient = v2beta1.NewRunServiceClient(connection)
+
 	return nil
 }
 
 func initK8sClient() (kubernetes.Interface, error) {
-	restConfig, err := rest.InClusterConfig()
+	restConfig, err := util.GetKubernetesConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize kubernetes client: %w", err)
 	}

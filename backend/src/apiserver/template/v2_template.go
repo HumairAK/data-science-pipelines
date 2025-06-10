@@ -77,7 +77,7 @@ func NewGenericScheduledWorkflow(modelJob *model.Job) (*scheduledworkflow.Schedu
 }
 
 // Converts modelJob to ScheduledWorkflow.
-func (t *V2Spec) ScheduledWorkflow(modelJob *model.Job) (*scheduledworkflow.ScheduledWorkflow, error) {
+func (t *V2Spec) ScheduledWorkflow(modelJob *model.Job, options ScheduledWorkflowOptions) (*scheduledworkflow.ScheduledWorkflow, error) {
 	job := &pipelinespec.PipelineJob{}
 
 	bytes, err := protojson.Marshal(t.spec)
@@ -110,7 +110,11 @@ func (t *V2Spec) ScheduledWorkflow(modelJob *model.Job) (*scheduledworkflow.Sche
 
 	var obj interface{}
 	if util.CurrentExecutionType() == util.ArgoWorkflow {
-		obj, err = argocompiler.Compile(job, kubernetesSpec, &argocompiler.Options{CacheDisabled: t.cacheDisabled})
+		obj, err = argocompiler.Compile(job, kubernetesSpec, &argocompiler.Options{
+			CacheDisabled:    t.cacheDisabled,
+			MetadataProvider: options.MetadataProvider,
+			ExperimentID:     modelJob.ExperimentId,
+		})
 	}
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to compile job")
@@ -315,7 +319,11 @@ func (t *V2Spec) RunWorkflow(modelRun *model.Run, options RunWorkflowOptions) (u
 
 	var obj interface{}
 	if util.CurrentExecutionType() == util.ArgoWorkflow {
-		obj, err = argocompiler.Compile(job, kubernetesSpec, &argocompiler.Options{CacheDisabled: options.CacheDisabled})
+		obj, err = argocompiler.Compile(job, kubernetesSpec, &argocompiler.Options{
+			CacheDisabled:    options.CacheDisabled,
+			MetadataProvider: options.MetadataProvider,
+			ExperimentID:     modelRun.ExperimentId,
+		})
 	}
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to compile job")

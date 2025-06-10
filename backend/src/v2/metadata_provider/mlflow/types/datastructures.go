@@ -17,10 +17,10 @@ type DataSetInput struct {
 type Experiment struct {
 	ExperimentID     string          `json:"experiment_id"`
 	Name             string          `json:"name"`
-	ArtifactLocation string          `json:"artifact_location"`
-	LifecycleStage   string          `json:"lifecycle_stage"`
-	LastUpdateTime   int64           `json:"last_update_time"`
 	CreationTime     int64           `json:"creation_time"`
+	LastUpdateTime   int64           `json:"last_update_time"`
+	LifecycleStage   string          `json:"lifecycle_stage"`
+	ArtifactLocation string          `json:"artifact_location"`
 	Tags             []ExperimentTag `json:"tags"`
 }
 

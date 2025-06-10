@@ -18,12 +18,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
+	v2util "github.com/kubeflow/pipelines/backend/src/v2/util"
 	"strconv"
 
 	"github.com/golang/glog"
 	"github.com/google/uuid"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
-	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
 	"github.com/kubeflow/pipelines/backend/src/v2/expression"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
 	pb "github.com/kubeflow/pipelines/third_party/ml-metadata/go/ml_metadata"
@@ -41,7 +42,14 @@ func validateContainer(opts Options) (err error) {
 	return validateNonRoot(opts)
 }
 
-func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheClient cacheutils.Client) (execution *Execution, err error) {
+func Container(ctx context.Context, opts Options, cm *client_manager.ClientManager) (execution *Execution, err error) {
+	mlmdInterface := cm.MetadataClient()
+	mlmd, ok := mlmdInterface.(*metadata.Client)
+	if !ok {
+		return nil, fmt.Errorf("invalid metadata client")
+	}
+	cacheClient := cm.CacheClient()
+
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("driver.Container(%s) failed: %w", opts.info(), err)
@@ -143,12 +151,34 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 		ecfg.FingerPrint = fingerPrint
 	}
 
-	// TODO(Bobgy): change execution state to pending, because this is driver, execution hasn't started.
-	createdExecution, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
-
-	if err != nil {
-		return execution, err
+	runProvider := cm.MetadataRunProvider()
+	if runProvider != nil {
+		var parentID string
+		if runProvider.NestedRunsSupported() {
+			var exists bool
+			parentID, exists = dag.Execution.GetProviderRunID()
+			if !exists {
+				return nil, fmt.Errorf("parent dag id is not set")
+			}
+		}
+		id, err := v2util.CreateRunMetadata(ctx, opts.Task.GetTaskInfo().GetName(), cm, opts.ExperimentId, opts.RunID, ecfg, parentID)
+		if err != nil {
+			return nil, err
+		}
+		ecfg.ExperimentID = &opts.ExperimentId
+		ecfg.ProviderRunID = &id
 	}
+
+	var createdExecution *metadata.Execution
+	if opts.DevMode {
+		createdExecution, err = mlmd.GetExecution(ctx, opts.DevExecutionId)
+	} else {
+		createdExecution, err = mlmd.CreateExecution(ctx, pipeline, ecfg)
+	}
+	if err != nil {
+		return nil, err
+	}
+
 	glog.Infof("Created execution: %s", createdExecution)
 	execution.ID = createdExecution.GetID()
 	if !execution.WillTrigger() {
@@ -180,7 +210,7 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 	} else {
 		glog.Info("Cache disabled globally at the server level.")
 	}
-
+	// todo(humair): just pass the entire opts struct to the launcher.
 	podSpec, err := initPodSpecPatch(
 		opts.Container,
 		opts.Component,
@@ -191,6 +221,8 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 		opts.PipelineLogLevel,
 		opts.PublishLogs,
 		strconv.FormatBool(opts.CacheDisabled),
+		opts.ExperimentId,
+		opts.MetdataProviderConfig,
 	)
 	if err != nil {
 		return execution, err

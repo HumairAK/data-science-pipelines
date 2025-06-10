@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
+	v2util "github.com/kubeflow/pipelines/backend/src/v2/util"
 	"io"
 	"os"
 	"os/exec"
@@ -53,16 +55,19 @@ type LauncherV2Options struct {
 	RunID string
 	PublishLogs   string
 	CacheDisabled bool
+	ExperimentID  string
 }
 
 type LauncherV2 struct {
-	executionID   int64
-	executorInput *pipelinespec.ExecutorInput
-	component     *pipelinespec.ComponentSpec
-	command       string
-	args          []string
-	options       LauncherV2Options
-	clientManager client_manager.ClientManagerInterface
+	executionID      int64
+	executorInput    *pipelinespec.ExecutorInput
+	experimentID     string
+	component        *pipelinespec.ComponentSpec
+	command          string
+	args             []string
+	options          LauncherV2Options
+	clientManager    client_manager.ClientManagerInterface
+	artifactProvider metadata_provider.MetadataArtifactProvider
 }
 
 // Client is the struct to hold the Kubernetes Clientset
@@ -105,14 +110,17 @@ func NewLauncherV2(
 	if err != nil {
 		return nil, err
 	}
+
 	return &LauncherV2{
-		executionID:   executionID,
-		executorInput: executorInput,
-		component:     component,
-		command:       cmdArgs[0],
-		args:          cmdArgs[1:],
-		options:       *opts,
-		clientManager: clientManager,
+		executionID:      executionID,
+		executorInput:    executorInput,
+		component:        component,
+		command:          cmdArgs[0],
+		args:             cmdArgs[1:],
+		options:          *opts,
+		clientManager:    clientManager,
+		experimentID:     opts.ExperimentID,
+		artifactProvider: clientManager.MetadataArtifactProvider(),
 	}, nil
 }
 
@@ -168,8 +176,11 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	var execution *metadata.Execution
 	var executorOutput *pipelinespec.ExecutorOutput
 	var outputArtifacts []*metadata.OutputArtifact
+
+	runProvider := l.clientManager.MetadataRunProvider()
 	status := pb.Execution_FAILED
 	defer func() {
+		glog.Infof("prepublishing..., status is: %d", status)
 		if perr := l.publish(ctx, execution, executorOutput, outputArtifacts, status); perr != nil {
 			if err != nil {
 				err = fmt.Errorf("failed to publish execution with error %s after execution failed: %s", perr.Error(), err.Error())
@@ -177,18 +188,43 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 				err = perr
 			}
 		}
+
+		if runProvider != nil {
+			runID, exists := execution.GetProviderRunID()
+			if !exists {
+				glog.Errorf("Provider run ID is not set for execution %d", execution.GetID())
+			} else {
+				err := runProvider.UpdateRunStatus(runID, v2util.GetKFPStateFromMLMDState(status))
+				if err != nil {
+					glog.Errorf("Failed to update provider run status for run %s: %v", runID, err.Error())
+				}
+			}
+		}
+
 		glog.Infof("publish success.")
 		// At the end of the current task, we check the statuses of all tasks in
 		// the current DAG and update the DAG's status accordingly.
-		dag, err := l.clientManager.MetadataClient().GetDAG(ctx, execution.GetExecution().CustomProperties["parent_dag_id"].GetIntValue())
+		parentDag, err := l.clientManager.MetadataClient().GetDAG(ctx, execution.GetExecution().CustomProperties["parent_dag_id"].GetIntValue())
 		if err != nil {
 			glog.Errorf("DAG Status Update: failed to get DAG: %s", err.Error())
 		}
 		pipeline, _ := l.clientManager.MetadataClient().GetPipelineFromExecution(ctx, execution.GetID())
-		err = l.clientManager.MetadataClient().UpdateDAGExecutionsState(ctx, dag, pipeline)
+		err = l.clientManager.MetadataClient().UpdateDAGExecutionsState(ctx, parentDag, pipeline)
 		if err != nil {
 			glog.Errorf("failed to update DAG state: %s", err.Error())
 		}
+		if runProvider != nil && runProvider.NestedRunsSupported() {
+			parentDagsProviderRunID, exists := parentDag.Execution.GetProviderRunID()
+			if !exists {
+				glog.Errorf("Provider run ID is not set for execution %d", execution.GetID())
+			} else {
+				err := runProvider.UpdateRunStatus(parentDagsProviderRunID, v2util.GetKFPStateFromMLMDState(status))
+				if err != nil {
+					glog.Errorf("Failed to update provider run status for run %s: %v", parentDagsProviderRunID, err.Error())
+				}
+			}
+		}
+
 	}()
 	executedStartedTime := time.Now().Unix()
 	execution, err = l.prePublish(ctx)
@@ -224,6 +260,9 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		l.options.Namespace,
 		l.clientManager.K8sClient(),
 		l.options.PublishLogs,
+		execution,
+		l.artifactProvider,
+		l.experimentID,
 	)
 	if err != nil {
 		return err
@@ -338,6 +377,9 @@ func executeV2(
 	namespace string,
 	k8sClient kubernetes.Interface,
 	publishLogs string,
+	execution *metadata.Execution,
+	artifactProvider metadata_provider.MetadataArtifactProvider,
+	experimentID string,
 ) (*pipelinespec.ExecutorOutput, []*metadata.OutputArtifact, error) {
 
 	// Add parameter default values to executorInput, if there is not already a user input.
@@ -376,10 +418,12 @@ func executeV2(
 		return nil, nil, err
 	}
 	// TODO(Bobgy): should we log metadata per each artifact, or batched after uploading all artifacts.
-	outputArtifacts, err := uploadOutputArtifacts(ctx, executorInput, executorOutput, uploadOutputArtifactsOptions{
-		bucketConfig:   bucketConfig,
-		bucket:         bucket,
-		metadataClient: metadataClient,
+	outputArtifacts, err := uploadOutputArtifacts(ctx, executorInput, executorOutput, execution, uploadOutputArtifactsOptions{
+		bucketConfig:     bucketConfig,
+		bucket:           bucket,
+		metadataClient:   metadataClient,
+		artifactProvider: artifactProvider,
+		experimentID:     experimentID,
 	})
 	if err != nil {
 		return nil, nil, err
@@ -510,12 +554,17 @@ func execute(
 }
 
 type uploadOutputArtifactsOptions struct {
-	bucketConfig   *objectstore.Config
-	bucket         *blob.Bucket
-	metadataClient metadata.ClientInterface
+	bucketConfig     *objectstore.Config
+	bucket           *blob.Bucket
+	metadataClient   metadata.ClientInterface
+	artifactProvider metadata_provider.MetadataArtifactProvider
+	experimentID     string
 }
 
-func uploadOutputArtifacts(ctx context.Context, executorInput *pipelinespec.ExecutorInput, executorOutput *pipelinespec.ExecutorOutput, opts uploadOutputArtifactsOptions) ([]*metadata.OutputArtifact, error) {
+func uploadOutputArtifacts(
+	ctx context.Context,
+	executorInput *pipelinespec.ExecutorInput, executorOutput *pipelinespec.ExecutorOutput, execution *metadata.Execution,
+	opts uploadOutputArtifactsOptions) ([]*metadata.OutputArtifact, error) {
 	// Register artifacts with MLMD.
 	outputArtifacts := make([]*metadata.OutputArtifact, 0, len(executorInput.GetOutputs().GetArtifacts()))
 	for name, artifactList := range executorInput.GetOutputs().GetArtifacts() {
@@ -559,6 +608,44 @@ func uploadOutputArtifacts(ctx context.Context, executorInput *pipelinespec.Exec
 			if err != nil {
 				return nil, fmt.Errorf("failed to determine schema for output %q: %w", name, err)
 			}
+
+			if opts.artifactProvider != nil {
+				runID, exists := execution.GetProviderRunID()
+				if !exists {
+					return nil, fmt.Errorf("Execution does not have a provider run id")
+				}
+				artifactResult, err := opts.artifactProvider.LogOutputArtifact(runID, opts.experimentID, outputArtifact)
+				if err != nil {
+					return nil, err
+				}
+				// if artifactResult is nil with no error, we assume it is not supported by the provider
+				// if it is not nil we continue to check for nested runs supportability
+				if artifactResult != nil {
+					glog.Infof("Logged artifact result: %v", artifactResult.Name)
+					outputArtifact.Uri = artifactResult.ArtifactURL
+					if opts.artifactProvider.NestedRunsSupported() {
+						parentDagID := execution.GetParentDagID()
+						parentDagExecution, err1 := opts.metadataClient.GetExecution(ctx, parentDagID)
+						if err1 != nil {
+							return nil, err1
+						}
+						parentProviderRunID, parentRunExists := parentDagExecution.GetProviderRunID()
+						if !parentRunExists {
+							return nil, fmt.Errorf("Parent dag execution does not have a provider run id")
+						}
+						parentArtifactResult, err1 := opts.artifactProvider.LogOutputArtifact(parentProviderRunID, opts.experimentID, outputArtifact)
+						if err1 != nil {
+							return nil, err1
+						}
+						if parentArtifactResult != nil {
+							outputArtifact.Uri = parentArtifactResult.ArtifactURL
+							glog.Infof("Logged artifact result: (Name=%s, URI=%s, URL=%s)",
+								parentArtifactResult.Name, parentArtifactResult.ArtifactURI, parentArtifactResult.ArtifactURL)
+						}
+					}
+				}
+			}
+
 			mlmdArtifact, err := opts.metadataClient.RecordArtifact(ctx, name, schema, outputArtifact, pb.Artifact_LIVE, opts.bucketConfig)
 			if err != nil {
 				return nil, metadataErr(err)

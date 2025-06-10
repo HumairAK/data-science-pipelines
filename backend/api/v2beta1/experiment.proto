@@ -21,6 +21,7 @@ import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "protoc-gen-swagger/options/annotations.proto";
+import "google/protobuf/struct.proto";
 
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
   schemes: [1, 2], // http + https
@@ -107,6 +108,12 @@ message Experiment {
 
   // Output. The creation time of the last run in this experiment.
   google.protobuf.Timestamp last_run_created_at = 7;
+
+  // Optional Input. Pass through JSON object to be handled by
+  // metadata providers. This is useful for when
+  // providers have provider specific config options
+  // (e.g. MLFlow experiments can take artifact_location)
+  google.protobuf.Struct provider_config = 8;
 }
 
 message CreateExperimentRequest {

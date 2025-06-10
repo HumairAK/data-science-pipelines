@@ -415,7 +415,7 @@ func (r *Run) GetFieldValue(name string) interface{} {
 		return r.RunDetails.Conditions
 	case "Namespace":
 		return r.Namespace
-	case "ExperimentId":
+	case "ExperimentID":
 		return r.ExperimentId
 	case "State":
 		return r.RunDetails.State

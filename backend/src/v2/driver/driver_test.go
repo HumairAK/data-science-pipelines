@@ -261,17 +261,7 @@ func Test_initPodSpecPatch_acceleratorConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			podSpec, err := initPodSpecPatch(
-				tt.args.container,
-				tt.args.componentSpec,
-				tt.args.executorInput,
-				tt.args.executionID,
-				tt.args.pipelineName,
-				tt.args.runID,
-				tt.args.pipelineLogLevel,
-				tt.args.publishLogs,
-				"false",
-			)
+			podSpec, err := initPodSpecPatch(tt.args.container, tt.args.componentSpec, tt.args.executorInput, tt.args.executionID, tt.args.pipelineName, tt.args.runID, tt.args.pipelineLogLevel, tt.args.publishLogs, "false", nil)
 			if tt.wantErr {
 				assert.Nil(t, podSpec)
 				assert.NotNil(t, err)
@@ -370,17 +360,7 @@ func Test_initPodSpecPatch_resource_placeholders(t *testing.T) {
 		},
 	}
 
-	podSpec, err := initPodSpecPatch(
-		containerSpec,
-		componentSpec,
-		executorInput,
-		27,
-		"test",
-		"0254beba-0be4-4065-8d97-7dc5e3adf300",
-		"1",
-		"false",
-		"false",
-	)
+	podSpec, err := initPodSpecPatch(containerSpec, componentSpec, executorInput, 27, "test", "0254beba-0be4-4065-8d97-7dc5e3adf300", "1", "false", "false", nil)
 	assert.Nil(t, err)
 	assert.Len(t, podSpec.Containers, 1)
 
@@ -411,17 +391,7 @@ func Test_initPodSpecPatch_legacy_resources(t *testing.T) {
 	componentSpec := &pipelinespec.ComponentSpec{}
 	executorInput := &pipelinespec.ExecutorInput{}
 
-	podSpec, err := initPodSpecPatch(
-		containerSpec,
-		componentSpec,
-		executorInput,
-		27,
-		"test",
-		"0254beba-0be4-4065-8d97-7dc5e3adf300",
-		"1",
-		"false",
-		"false",
-	)
+	podSpec, err := initPodSpecPatch(containerSpec, componentSpec, executorInput, 27, "test", "0254beba-0be4-4065-8d97-7dc5e3adf300", "1", "false", "false", nil)
 	assert.Nil(t, err)
 	assert.Len(t, podSpec.Containers, 1)
 
@@ -454,17 +424,7 @@ func Test_initPodSpecPatch_modelcar_input_artifact(t *testing.T) {
 		},
 	}
 
-	podSpec, err := initPodSpecPatch(
-		containerSpec,
-		componentSpec,
-		executorInput,
-		27,
-		"test",
-		"0254beba-0be4-4065-8d97-7dc5e3adf300",
-		"1",
-		"false",
-		"false",
-	)
+	podSpec, err := initPodSpecPatch(containerSpec, componentSpec, executorInput, 27, "test", "0254beba-0be4-4065-8d97-7dc5e3adf300", "1", "false", "false", nil)
 	assert.Nil(t, err)
 
 	assert.Len(t, podSpec.InitContainers, 1)
@@ -492,18 +452,7 @@ func Test_initPodSpecPatch_modelcar_input_artifact(t *testing.T) {
 // Validate that setting publishLogs to true propagates to the driver container
 // commands in the podSpec.
 func Test_initPodSpecPatch_publishLogs(t *testing.T) {
-	podSpec, err := initPodSpecPatch(
-		&pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec{},
-		&pipelinespec.ComponentSpec{},
-		&pipelinespec.ExecutorInput{},
-		// executorInput,
-		27,
-		"test",
-		"0254beba-0be4-4065-8d97-7dc5e3adf300",
-		"1",
-		"true",
-		"false",
-	)
+	podSpec, err := initPodSpecPatch(&pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec{}, &pipelinespec.ComponentSpec{}, &pipelinespec.ExecutorInput{}, 27, "test", "0254beba-0be4-4065-8d97-7dc5e3adf300", "1", "true", "false", nil)
 	assert.Nil(t, err)
 	cmd := podSpec.Containers[0].Command
 	assert.Contains(t, cmd, "--publish_logs")
@@ -614,17 +563,7 @@ func Test_initPodSpecPatch_resourceRequests(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			podSpec, err := initPodSpecPatch(
-				tt.args.container,
-				tt.args.componentSpec,
-				tt.args.executorInput,
-				tt.args.executionID,
-				tt.args.pipelineName,
-				tt.args.runID,
-				tt.args.pipelineLogLevel,
-				tt.args.publishLogs,
-				"false",
-			)
+			podSpec, err := initPodSpecPatch(tt.args.container, tt.args.componentSpec, tt.args.executorInput, tt.args.executionID, tt.args.pipelineName, tt.args.runID, tt.args.pipelineLogLevel, tt.args.publishLogs, "false", nil)
 			assert.Nil(t, err)
 			assert.NotEmpty(t, podSpec)
 			podSpecString, err := json.Marshal(podSpec)
@@ -672,17 +611,7 @@ func Test_initPodSpecPatch_inputTaskFinalStatus(t *testing.T) {
 		},
 	}
 
-	podSpec, err := initPodSpecPatch(
-		containerSpec,
-		componentSpec,
-		executorInput,
-		27,
-		"test",
-		"0254beba-0be4-4065-8d97-7dc5e3adf300",
-		"1",
-		"false",
-		"false",
-	)
+	podSpec, err := initPodSpecPatch(containerSpec, componentSpec, executorInput, 27, "test", "0254beba-0be4-4065-8d97-7dc5e3adf300", "1", "false", "false", nil)
 	require.Nil(t, err)
 
 	expectedExecutorInput := map[string]interface{}{

@@ -18,6 +18,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
@@ -25,6 +27,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
+	v2util "github.com/kubeflow/pipelines/backend/src/v2/util"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -64,7 +67,13 @@ func validateRootDAG(opts Options) (err error) {
 	return nil
 }
 
-func RootDAG(ctx context.Context, opts Options, mlmd *metadata.Client) (execution *Execution, err error) {
+func RootDAG(ctx context.Context, opts Options, cm *client_manager.ClientManager) (execution *Execution, err error) {
+	mlmdInterface := cm.MetadataClient()
+	mlmd, ok := mlmdInterface.(*metadata.Client)
+	if !ok {
+		return nil, fmt.Errorf("invalid metadata client")
+	}
+
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("driver.RootDAG(%s) failed: %w", opts.info(), err)
@@ -126,10 +135,30 @@ func RootDAG(ctx context.Context, opts Options, mlmd *metadata.Client) (executio
 	}
 	ecfg.ExecutionType = metadata.DagExecutionTypeName
 	ecfg.Name = fmt.Sprintf("run/%s", opts.RunID)
-	exec, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	runProvider := cm.MetadataRunProvider()
+	if runProvider != nil && runProvider.NestedRunsSupported() {
+		id, err := v2util.CreateRunMetadata(ctx, opts.RunDisplayName, cm, opts.ExperimentId, opts.RunID, ecfg, "")
+		if err != nil {
+			return nil, err
+		}
+		ecfg.ExperimentID = &opts.ExperimentId
+		ecfg.ProviderRunID = &id
+	}
+
+	var exec *metadata.Execution
+	if opts.DevMode {
+		exec, err = mlmd.GetExecution(ctx, opts.DevExecutionId)
+	} else {
+		exec, err = mlmd.CreateExecution(ctx, pipeline, ecfg)
+	}
 	if err != nil {
 		return nil, err
 	}
+
 	glog.Infof("Created execution: %s", exec)
 	// No need to return ExecutorInput, because tasks in the DAG will resolve
 	// needed info from MLMD.

@@ -51,7 +51,7 @@ it should have the following content:
   set up go environment value
 
   ```bash
-  # .env is a Makefile local config (ignored by git)
+  # .env is a Makefile local factory (ignored by git)
   echo "GOOS_VALUE=$(go env GOOS)" >> .env
   echo "GOARCH_VALUE="$(go env GOARCH) >> .env
   ```

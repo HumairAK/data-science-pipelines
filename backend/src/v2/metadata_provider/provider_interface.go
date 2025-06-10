@@ -2,66 +2,89 @@ package metadata_provider
 
 import (
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
-	api "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
+	api "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type ProviderExperiment struct {
-	ID             string
-	Name           string
-	Description    string
-	Namespace      string
-	CreationTime   int64
-	LastUpdateTime int64
+	ID          string
+	Name        string
+	Description string
+	Namespace   string
 }
 
 type ProviderRun struct {
-	ID           string
-	Name         string
-	Description  string
-	Status       string
-	CreationTime int64
-	EndTime      int64
+	ID     string
+	Name   string
+	Status string
 }
 
 type ArtifactResult struct {
-	artifactURI string
-	artifactURL string
+	Name        string
+	ArtifactURI string
+	ArtifactURL string
 }
 
 type RunParameter struct {
-	name  string
-	value string
+	Name  string
+	Value string
 }
-type ProviderConfig map[string]interface{}
 
+// Validator implements callback validation methods
 type Validator interface {
+	// ValidateRun will be called when a KFP run is created
 	ValidateRun(kfpRun *api.CreateRunRequest) error
+	// ValidateExperiment will be called when an experiment is created
 	ValidateExperiment(experiment *api.CreateExperimentRequest) error
+	// ValidateConfig will be called on KFP start up when the pipeline config.json is parsed.
+	ValidateConfig(config config.GenericProviderConfig, envvars []corev1.EnvVar) error
 }
 
 type RunProvider interface {
-	GetRun(experimentID string, kfpRunID string) (*ProviderRun, error)
+	GetRun(experimentID string, ProviderRunID string) (*ProviderRun, error)
 	CreateRun(
 		experimentID string,
-		kfpRun model.Run,
+		// TODO: replace kfprun and taskname with apiv2beta1.TaskDetails
+		kfpRun *apiv2beta1.Run,
+		ProviderRunName string,
 		parameters []RunParameter,
+		parentRunID string,
 	) (*ProviderRun, error)
-	LinkParentChildRuns(
-		parentProviderRunID string,
-		childProviderRunID string,
-	) error
 	UpdateRunStatus(
-		experimentID string,
-		kfpRunID string,
+		providerRunID string,
 		kfpRunStatus model.RuntimeState,
 	) error
+
+	// NestedRunsSupported
+	// Enable run nesting by having this function return true
+	// Otherwise all kfp pipeline run tasks are logged flatly
+	// TODO(humairak): make this a top level config
+	NestedRunsSupported() bool
 }
 
 type MetadataArtifactProvider interface {
+	// LogOutputArtifact will be called when a KFP artifact is logged.
+	// If the artifact is not supported, return nil runtimeArtifact and no error.
+	// If the artifact is supported, return the artifact result and no error.
 	LogOutputArtifact(
-		experimentID string,
 		runID string,
+		experimentID string,
 		runtimeArtifact *pipelinespec.RuntimeArtifact,
-		defaultArtifactURI string) (ArtifactResult, error)
+	) (*ArtifactResult, error)
+
+	// NestedRunsSupported
+	// If true then the metadata provider will log artifacts for parent runs.
+	// TODO(humairak): make this a top level config
+	NestedRunsSupported() bool
+}
+
+type ProviderFactory interface {
+	NewExperimentStore(cfg config.GenericProviderConfig) (storage.ExperimentStoreInterface, error)
+	NewRunProvider(cfg config.GenericProviderConfig) (RunProvider, error)
+	NewMetadataArtifactProvider(cfg config.GenericProviderConfig) (MetadataArtifactProvider, error)
+	NewValidator(cfg config.GenericProviderConfig) (Validator, error)
 }

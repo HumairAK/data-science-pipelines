@@ -55,8 +55,9 @@ import (
 )
 
 const (
-	executionTypeEnv = "ExecutionType"
-	launcherEnv      = "Launcher"
+	executionTypeEnv          = "ExecutionType"
+	launcherEnv               = "Launcher"
+	metadataProviderConfigEnv = "MetadataProvider"
 )
 
 var (
@@ -98,6 +99,13 @@ func main() {
 		GlobalKubernetesWebhookMode:  *globalKubernetesWebhookMode,
 		Context:                      backgroundCtx,
 		WaitGroup:                    &wg,
+	}
+	if viper.IsSet(metadataProviderConfigEnv) {
+		configJSON := common.GetSubConfigJSON(metadataProviderConfigEnv)
+		if configJSON == "" {
+			glog.Fatalf("No metadataProviderConfig found in config/env: %s", metadataProviderConfigEnv)
+		}
+		options.MetadataProviderConfig = configJSON
 	}
 
 	logLevel := *logLevelFlag
@@ -160,8 +168,9 @@ func main() {
 	resourceManager := resource.NewResourceManager(
 		clientManager,
 		&resource.ResourceManagerOptions{
-			CollectMetrics: *collectMetricsFlag,
-			CacheDisabled:  !common.GetBoolConfigWithDefault("CacheEnabled", true),
+			CollectMetrics:   *collectMetricsFlag,
+			CacheDisabled:    !common.GetBoolConfigWithDefault("CacheEnabled", true),
+			MetadataProvider: clientManager.GetMetadataProvider(),
 		},
 	)
 	err = config.LoadSamples(resourceManager, *sampleConfigPath)
@@ -210,7 +219,10 @@ func startRpcServer(resourceManager *resource.ResourceManager) {
 	}
 	s := grpc.NewServer(grpc.UnaryInterceptor(apiServerInterceptor), grpc.MaxRecvMsgSize(math.MaxInt32))
 
-	sharedExperimentServer := server.NewExperimentServer(resourceManager, &server.ExperimentServerOptions{CollectMetrics: *collectMetricsFlag})
+	sharedExperimentServer := server.NewExperimentServer(resourceManager, &server.ExperimentServerOptions{
+		CollectMetrics:   *collectMetricsFlag,
+		MetadataProvider: resourceManager.GetMetadataProvider(),
+	})
 	sharedPipelineServer := server.NewPipelineServer(
 		resourceManager,
 		&server.PipelineServerOptions{
@@ -218,7 +230,10 @@ func startRpcServer(resourceManager *resource.ResourceManager) {
 		},
 	)
 	sharedJobServer := server.NewJobServer(resourceManager, &server.JobServerOptions{CollectMetrics: *collectMetricsFlag})
-	sharedRunServer := server.NewRunServer(resourceManager, &server.RunServerOptions{CollectMetrics: *collectMetricsFlag})
+	sharedRunServer := server.NewRunServer(resourceManager, &server.RunServerOptions{
+		CollectMetrics:   *collectMetricsFlag,
+		MetadataProvider: resourceManager.GetMetadataProvider(),
+	})
 	sharedReportServer := server.NewReportServer(resourceManager)
 
 	apiv1beta1.RegisterExperimentServiceServer(s, sharedExperimentServer)

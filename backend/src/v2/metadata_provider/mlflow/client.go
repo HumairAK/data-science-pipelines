@@ -6,21 +6,55 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golang/glog"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
 	"github.com/pkg/errors"
 	"io"
 	"net/http"
+	"os"
 	"time"
 )
 
 type Client struct {
-	apiPath     string
-	baseHost    string
-	metricsPath string
+	apiPath  string
+	baseHost string
+	token    string
+}
+
+// NewClient returns a new MLFlow client.
+// Assumes Env vars:
+// MLFLOW_TRACKING_SERVER_TOKEN
+func NewClient(config config.GenericProviderConfig) (*Client, error) {
+	mlFlowConfig, err := ConvertToMLFlowConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	host := mlFlowConfig.Host
+	port := mlFlowConfig.Port
+	tlsEnabled := mlFlowConfig.TLSEnabled
+	var protocol string
+	if tlsEnabled == "true" {
+		protocol = "https"
+	} else {
+		protocol = "http"
+	}
+	var basePath string
+	if port != "" {
+		basePath = fmt.Sprintf("%s://%s:%s", protocol, host, port)
+	} else {
+		basePath = fmt.Sprintf("%s://%s", protocol, host)
+	}
+	apiPath := fmt.Sprintf("%s/api/2.0/mlflow", basePath)
+	authToken := os.Getenv("MLFLOW_TRACKING_SERVER_TOKEN")
+
+	return &Client{
+		apiPath:  apiPath,
+		baseHost: basePath,
+		token:    authToken,
+	}, nil
 }
 
 func (m *Client) createRun(runName string, tags []types.RunTag, experimentID string) (*types.Run, error) {
-	// Create struct with parameters
 	payload := types.CreateRunRequest{
 		ExperimentId: experimentID,
 		RunName:      runName,
@@ -28,7 +62,6 @@ func (m *Client) createRun(runName string, tags []types.RunTag, experimentID str
 		Tags:         tags,
 	}
 
-	// Marshal to JSON
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
@@ -36,7 +69,7 @@ func (m *Client) createRun(runName string, tags []types.RunTag, experimentID str
 
 	_, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/create", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Bearer YOUR_TOKEN_HERE",
+		"Authorization": m.token,
 	})
 	if err != nil {
 		return nil, err
@@ -52,12 +85,10 @@ func (m *Client) createRun(runName string, tags []types.RunTag, experimentID str
 }
 
 func (m *Client) getRun(runID string) (*types.Run, error) {
-	// Create struct with parameters
 	payload := types.GetRunRequest{
 		RunID: runID,
 	}
 
-	// Marshal to JSON
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
@@ -65,7 +96,7 @@ func (m *Client) getRun(runID string) (*types.Run, error) {
 
 	_, body, err := DoRequest("GET", fmt.Sprintf("%s/runs/get", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Bearer YOUR_TOKEN_HERE",
+		"Authorization": m.token,
 	})
 	if err != nil {
 		return nil, err
@@ -80,7 +111,6 @@ func (m *Client) getRun(runID string) (*types.Run, error) {
 }
 
 func (m *Client) updateRun(runID string, runName *string, status *types.RunStatus, endTime *int64) error {
-	// Create struct with parameters
 	payload := types.UpdateRunRequest{
 		RunId:   runID,
 		RunUUID: runID,
@@ -97,7 +127,6 @@ func (m *Client) updateRun(runID string, runName *string, status *types.RunStatu
 		payload.EndTime = *endTime
 	}
 
-	// Marshal to JSON
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -105,7 +134,7 @@ func (m *Client) updateRun(runID string, runName *string, status *types.RunStatu
 
 	_, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/update", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Bearer YOUR_TOKEN_HERE",
+		"Authorization": m.token,
 	})
 	if err != nil {
 		return err
@@ -119,9 +148,9 @@ func (m *Client) updateRun(runID string, runName *string, status *types.RunStatu
 	return nil
 }
 
-func (m *Client) logParam(runID *string, key, value string) error {
+func (m *Client) logParam(runID string, key, value string) error {
 	payload := types.LogParamRequest{
-		RunId: *runID,
+		RunId: runID,
 		Key:   key,
 		Value: value,
 	}
@@ -131,7 +160,7 @@ func (m *Client) logParam(runID *string, key, value string) error {
 	}
 	_, _, err = DoRequest("POST", fmt.Sprintf("%s/runs/log-parameter", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Bearer YOUR_TOKEN_HERE",
+		"Authorization": m.token,
 	})
 	if err != nil {
 		return err
@@ -153,7 +182,7 @@ func (m *Client) logMetric(runID, runUUID, key string, value float64) error {
 	}
 	_, _, err = DoRequest("POST", fmt.Sprintf("%s/runs/log-metric", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Bearer YOUR_TOKEN_HERE",
+		"Authorization": m.token,
 	})
 	if err != nil {
 		return err
@@ -161,12 +190,61 @@ func (m *Client) logMetric(runID, runUUID, key string, value float64) error {
 	return nil
 }
 
-func (m *Client) searchExperiments(
-	maxResults int64,
-	pageToken string,
-	filter string,
-	orderBy []string,
-	viewType types.ViewType) ([]types.Experiment, error) {
+func (m *Client) getExperiment(id string) (*types.Experiment, error) {
+	payload := types.GetExperimentRequest{
+		ExperimentId: id,
+	}
+	// Marshal to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	_, body, err := DoRequest("GET", fmt.Sprintf("%s/experiments/get", m.apiPath), jsonPayload, map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": m.token,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	experimentResponse := &types.GetExperimentResponse{}
+	err = json.Unmarshal(body, experimentResponse)
+	if err != nil {
+		glog.Errorf("Failed to unmarshal: %v", err)
+		return nil, err
+	}
+	return &experimentResponse.Experiment, nil
+}
+
+func (m *Client) getExperimentByName(name string) (*types.Experiment, error) {
+	payload := types.GetExperimentByNameRequest{
+		ExperimentName: name,
+	}
+	// Marshal to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	_, body, err := DoRequest("GET", fmt.Sprintf("%s/experiments/get-by-name", m.apiPath), jsonPayload, map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": m.token,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	experimentResponse := &types.GetExperimentByNameResponse{}
+	err = json.Unmarshal(body, experimentResponse)
+	if err != nil {
+		glog.Errorf("Failed to unmarshal: %v", err)
+		return nil, err
+	}
+	return &experimentResponse.Experiment, nil
+}
+
+func (m *Client) searchExperiments(maxResults int64, pageToken string, filter string, orderBy []string, viewType types.ViewType) ([]types.Experiment, string, error) {
 
 	payload := types.SearchExperimentRequest{
 		Filter:     filter,
@@ -179,24 +257,24 @@ func (m *Client) searchExperiments(
 	// Marshal to JSON
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	_, body, err := DoRequest("POST", fmt.Sprintf("%s/experiments/search", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Bearer YOUR_TOKEN_HERE",
+		"Authorization": m.token,
 	})
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	experimentResponse := &types.SearchExperimentResponse{}
 	err = json.Unmarshal(body, experimentResponse)
 	if err != nil {
 		glog.Errorf("Failed to unmarshal: %v", err)
-		return nil, err
+		return nil, "", err
 	}
-	return experimentResponse.Experiments, nil
+	return experimentResponse.Experiments, experimentResponse.NextPageToken, nil
 }
 
 func (m *Client) searchRuns(
@@ -223,7 +301,7 @@ func (m *Client) searchRuns(
 
 	_, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/search", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Bearer YOUR_TOKEN_HERE",
+		"Authorization": m.token,
 	})
 	if err != nil {
 		return nil, err
@@ -238,34 +316,105 @@ func (m *Client) searchRuns(
 	return runResponse.Runs, nil
 }
 
-func (m *Client) createExperiment(name string, tags []types.ExperimentTag) (*string, error) {
-	// Create struct with parameters
+// createExperiment creates experiment
+// artifactLocation is optional and is ignored if it's an empty string
+// namespace is optional
+// returns experiment id
+func (m *Client) createExperiment(name, artifactLocation string, tags []types.ExperimentTag) (string, error) {
+
 	payload := types.CreateExperimentRequest{
 		Name: name,
 		Tags: tags,
 	}
 
+	if artifactLocation != "" {
+		payload.ArtifactLocation = artifactLocation
+	}
+
 	// Marshal to JSON
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	_, body, err := DoRequest("POST", fmt.Sprintf("%s/experiments/create", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Bearer YOUR_TOKEN_HERE",
+		"Authorization": m.token,
 	})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	experimentResponse := &types.CreateExperimentResponse{}
 	err = json.Unmarshal(body, experimentResponse)
 	if err != nil {
 		glog.Errorf("Failed to unmarshal: %v", err)
-		return nil, err
+		return "", err
 	}
-	return &experimentResponse.ExperimentId, nil
+	return experimentResponse.ExperimentId, nil
+}
+
+func (m *Client) deleteExperiment(id string) error {
+	payload := types.DeleteExperimentRequest{
+		ExperimentId: id,
+	}
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = DoRequest("POST", fmt.Sprintf("%s/experiments/delete", m.apiPath), jsonPayload, map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": m.token,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *Client) restoreExperiment(id string) error {
+	payload := types.RestoreExperimentRequest{
+		ExperimentId: id,
+	}
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+	}
+
+	_, _, err = DoRequest("POST", fmt.Sprintf("%s/experiments/restore", m.apiPath), jsonPayload, map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": m.token,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *Client) IsHealthy() error {
+	payload := types.SearchExperimentRequest{
+		MaxResults: 1,
+	}
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	_, body, err := DoRequest("POST", fmt.Sprintf("%s/experiments/search", m.apiPath), jsonPayload, map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": m.token,
+	})
+	if err != nil {
+		return err
+	}
+	experimentResponse := &types.SearchExperimentResponse{}
+	err = json.Unmarshal(body, experimentResponse)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+	return nil
 }
 
 func DoRequest(method, url string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
@@ -309,4 +458,8 @@ func DoRequest(method, url string, body []byte, headers map[string]string) (*htt
 	glog.Infof("------------------------------------")
 
 	return resp, respBody, nil
+}
+
+func (m *Client) GetMetricsPath() string {
+	return fmt.Sprintf("%s/#/metric", m.baseHost)
 }

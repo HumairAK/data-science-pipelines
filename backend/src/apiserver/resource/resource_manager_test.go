@@ -160,7 +160,7 @@ func initWithExperiment(t *testing.T) (*FakeClientManager, *ResourceManager, *mo
 	store := NewFakeClientManagerOrFatal(util.NewFakeTimeForEpoch())
 	manager := NewResourceManager(store, &ResourceManagerOptions{CollectMetrics: false})
 	apiExperiment := &model.Experiment{Name: "e1", Namespace: "ns1"}
-	experiment, err := manager.CreateExperiment(apiExperiment)
+	experiment, err := manager.CreateExperiment(apiExperiment, nil)
 	assert.Nil(t, err)
 	return store, manager, experiment
 }
@@ -170,7 +170,7 @@ func initWithExperimentAndPipeline(t *testing.T) (*FakeClientManager, *ResourceM
 	store := NewFakeClientManagerOrFatal(util.NewFakeTimeForEpoch())
 	manager := NewResourceManager(store, &ResourceManagerOptions{CollectMetrics: false})
 	apiExperiment := &model.Experiment{Name: "e1"}
-	experiment, err := manager.CreateExperiment(apiExperiment)
+	experiment, err := manager.CreateExperiment(apiExperiment, nil)
 	assert.Nil(t, err)
 	p1 := createPipeline("p1", "", "ns1")
 	p, _ := manager.CreatePipeline(p1)
@@ -1612,7 +1612,7 @@ func TestCreateRun_ThroughPipelineID(t *testing.T) {
 	store, manager, p, _ := initWithPipeline(t)
 	defer store.Close()
 	apiExperiment := &model.Experiment{Name: "e1"}
-	experiment, err := manager.CreateExperiment(apiExperiment)
+	experiment, err := manager.CreateExperiment(apiExperiment, nil)
 	assert.Nil(t, err)
 
 	// Create a new pipeline version with UUID being FakeUUID.
@@ -2433,7 +2433,7 @@ func TestCreateJob_ThroughPipelineID(t *testing.T) {
 	store, manager, pipeline, _ := initWithPipeline(t)
 	defer store.Close()
 	apiExperiment := &model.Experiment{Name: "e1"}
-	experiment, _ := manager.CreateExperiment(apiExperiment)
+	experiment, _ := manager.CreateExperiment(apiExperiment, nil)
 	job := &model.Job{
 		DisplayName:  "j1",
 		Enabled:      true,

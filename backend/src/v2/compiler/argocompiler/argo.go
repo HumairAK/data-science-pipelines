@@ -19,6 +19,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/manager"
 	"strings"
 
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
@@ -42,7 +43,10 @@ type Options struct {
 	// optional
 	PipelineRoot string
 	// optional
-	CacheDisabled bool
+	CacheDisabled    bool
+	MetadataProvider *md.Provider
+	ExperimentID     string
+
 	// TODO(Bobgy): add an option -- dev mode, ImagePullPolicy should only be Always in dev mode.
 }
 
@@ -144,6 +148,7 @@ func Compile(jobArg *pipelinespec.PipelineJob, kubernetesSpecArg *pipelinespec.S
 		job:             job,
 		spec:            spec,
 		executors:       deploy.GetExecutors(),
+		experimentID:    opts.ExperimentID,
 	}
 	if opts != nil {
 		c.cacheDisabled = opts.CacheDisabled
@@ -155,6 +160,14 @@ func Compile(jobArg *pipelinespec.PipelineJob, kubernetesSpecArg *pipelinespec.S
 		}
 		if opts.PipelineRoot != "" {
 			job.RuntimeConfig.GcsOutputDirectory = opts.PipelineRoot
+		}
+		if opts.MetadataProvider != nil {
+			c.metadataProviderEnv = opts.MetadataProvider.GetEnvVars()
+			configJson, err1 := opts.MetadataProvider.ProviderConfigToJSON()
+			if err1 != nil {
+				return nil, err1
+			}
+			c.metadataProviderConfig = configJson
 		}
 	}
 
@@ -175,13 +188,16 @@ type workflowCompiler struct {
 	spec      *pipelinespec.PipelineSpec
 	executors map[string]*pipelinespec.PipelineDeploymentConfig_ExecutorSpec
 	// state
-	wf              *wfapi.Workflow
-	templates       map[string]*wfapi.Template
-	driverImage     string
-	driverCommand   []string
-	launcherImage   string
-	launcherCommand []string
-	cacheDisabled   bool
+	wf                     *wfapi.Workflow
+	templates              map[string]*wfapi.Template
+	driverImage            string
+	driverCommand          []string
+	launcherImage          string
+	launcherCommand        []string
+	cacheDisabled          bool
+	metadataProviderEnv    []k8score.EnvVar
+	metadataProviderConfig string
+	experimentID           string
 }
 
 func (c *workflowCompiler) Resolver(name string, component *pipelinespec.ComponentSpec, resolver *pipelinespec.PipelineDeploymentConfig_ResolverSpec) error {
