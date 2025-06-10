@@ -7,21 +7,17 @@ import (
 )
 
 type ProviderExperiment struct {
-	ID             string
-	Name           string
-	Description    string
-	Namespace      string
-	CreationTime   int64
-	LastUpdateTime int64
+	ID          string
+	Name        string
+	Description string
+	Namespace   string
 }
 
 type ProviderRun struct {
-	ID           string
-	Name         string
-	Description  string
-	Status       string
-	CreationTime int64
-	EndTime      int64
+	ID          string
+	Name        string
+	Description string
+	Status      string
 }
 
 type ArtifactResult struct {
@@ -46,11 +42,8 @@ type RunProvider interface {
 		experimentID string,
 		kfpRun model.Run,
 		parameters []RunParameter,
+		parentRunID string,
 	) (*ProviderRun, error)
-	LinkParentChildRuns(
-		parentProviderRunID string,
-		childProviderRunID string,
-	) error
 	UpdateRunStatus(
 		experimentID string,
 		kfpRunID string,

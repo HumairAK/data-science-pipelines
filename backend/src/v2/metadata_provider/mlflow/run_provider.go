@@ -25,12 +25,9 @@ func (r *RunProvider) CreateRun(
 	experimentID string,
 	kfpRun model.Run,
 	parameters []metadata_provider.RunParameter,
+	parentRunID string,
 ) (*metadata_provider.ProviderRun, error) {
 	return nil, fmt.Errorf("not implemented")
-}
-
-func (r *RunProvider) LinkParentChildRuns(parentProviderRunID string, childProviderRunID string) error {
-	return fmt.Errorf("not implemented")
 }
 
 func (r *RunProvider) UpdateRunStatus(experimentID string, kfpRunID string, kfpRunStatus model.RuntimeState) error {
