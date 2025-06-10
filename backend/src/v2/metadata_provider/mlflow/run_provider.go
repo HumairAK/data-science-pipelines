@@ -6,22 +6,22 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 )
 
-// Ensure RunsProvider implements MetadataRunProvider
-var _ metadata_provider.MetadataRunProvider = &RunsProvider{}
+// Ensure RunProvider implements RunProvider
+var _ metadata_provider.RunProvider = &RunProvider{}
 
-type RunsProvider struct {
+type RunProvider struct {
 	client Client
 }
 
-func NewRunsProvider(client Client) *RunsProvider {
-	return &RunsProvider{client: client}
+func NewRunsProvider(client Client) *RunProvider {
+	return &RunProvider{client: client}
 }
 
-func (r *RunsProvider) GetRun(experimentID string, kfpRunID string) (*metadata_provider.ProviderRun, error) {
+func (r *RunProvider) GetRun(experimentID string, kfpRunID string) (*metadata_provider.ProviderRun, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (r *RunsProvider) CreateRun(
+func (r *RunProvider) CreateRun(
 	experimentID string,
 	kfpRun model.Run,
 	parameters []metadata_provider.RunParameter,
@@ -29,10 +29,10 @@ func (r *RunsProvider) CreateRun(
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (r *RunsProvider) LinkParentChildRuns(parentProviderRunID string, childProviderRunID string) error {
+func (r *RunProvider) LinkParentChildRuns(parentProviderRunID string, childProviderRunID string) error {
 	return fmt.Errorf("not implemented")
 }
 
-func (r *RunsProvider) UpdateRunStatus(experimentID string, kfpRunID string, kfpRunStatus model.RuntimeState) error {
+func (r *RunProvider) UpdateRunStatus(experimentID string, kfpRunID string, kfpRunStatus model.RuntimeState) error {
 	return fmt.Errorf("not implemented")
 }

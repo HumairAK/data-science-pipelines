@@ -35,12 +35,12 @@ type RunParameter struct {
 }
 type ProviderConfig map[string]interface{}
 
-type MetadataProviderValidator interface {
+type Validator interface {
 	ValidateRun(kfpRun *api.CreateRunRequest) error
 	ValidateExperiment(experiment *api.CreateExperimentRequest) error
 }
 
-type MetadataRunProvider interface {
+type RunProvider interface {
 	GetRun(experimentID string, kfpRunID string) (*ProviderRun, error)
 	CreateRun(
 		experimentID string,

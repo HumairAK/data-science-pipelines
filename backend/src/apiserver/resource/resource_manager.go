@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"io"
 	"net"
 	"reflect"
@@ -166,7 +167,7 @@ func (r *ResourceManager) CreateExperiment(experiment *model.Experiment) (*model
 			return nil, util.NewInvalidInputError("Namespace cannot be empty")
 		}
 	}
-	return r.experimentStore.CreateExperiment(experiment)
+	return r.experimentStore.CreateExperiment(experiment, &metadata_provider.ProviderConfig{})
 }
 
 // Fetches an experiment with the given id.

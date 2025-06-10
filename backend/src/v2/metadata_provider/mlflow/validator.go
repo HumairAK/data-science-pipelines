@@ -5,8 +5,8 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 )
 
-// Ensure MLFlowValidator implements MetadataProviderValidator
-var _ metadata_provider.MetadataProviderValidator = &Validator{}
+// Ensure MLFlowValidator implements Validator
+var _ metadata_provider.Validator = &Validator{}
 
 type Validator struct {
 	client Client

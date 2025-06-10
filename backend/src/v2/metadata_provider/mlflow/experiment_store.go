@@ -5,6 +5,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 )
 
 // Ensure MLFlowExperimentProvider implements MetadataExperimentProvider
@@ -25,7 +26,7 @@ type ExperimentStore struct {
 // uploaded in any run for a given experiment. The user should be able to configure this.
 // If the provider config is not provided, we would use the default bucket path
 // TODO: Experiment Store should accet pass through map[string]interface{} for providerConfig
-func (s *ExperimentStore) CreateExperiment(experiment *model.Experiment) (*model.Experiment, error) {
+func (s *ExperimentStore) CreateExperiment(experiment *model.Experiment, providerConfig *metadata_provider.ProviderConfig) (*model.Experiment, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
