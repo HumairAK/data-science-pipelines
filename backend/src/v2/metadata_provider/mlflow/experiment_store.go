@@ -2,6 +2,7 @@ package mlflow
 
 import (
 	"fmt"
+	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
@@ -180,6 +181,9 @@ func (s *ExperimentStore) DeleteExperiment(expId string) error {
 	return fmt.Errorf("Permanently deleting experiments is not supported. Please use the archive API instead.")
 }
 
+// SetLastRunTimestamp
+// Don't fail to avoid blocking pipeline creation
 func (s *ExperimentStore) SetLastRunTimestamp(run *model.Run) error {
-	return fmt.Errorf("Set last run timestamp is not supported.")
+	glog.Warning("SetLastRunTimestamp is not implemented for MLFlow.")
+	return nil
 }

@@ -305,9 +305,9 @@ func (c *ClientManager) init(options *Options) error {
 		c.experimentStore = storage.NewExperimentStore(db, c.time, c.uuid)
 	}
 	c.defaultExperimentStore = storage.NewDefaultExperimentStore(db)
-	c.jobStore = storage.NewJobStore(db, c.time, pipelineStoreForRef)
+	c.jobStore = storage.NewJobStore(db, c.time, pipelineStoreForRef, c.experimentStore)
 	c.taskStore = storage.NewTaskStore(db, c.time, c.uuid)
-	c.resourceReferenceStore = storage.NewResourceReferenceStore(db, pipelineStoreForRef)
+	c.resourceReferenceStore = storage.NewResourceReferenceStore(db, pipelineStoreForRef, c.experimentStore)
 	c.dBStatusStore = storage.NewDBStatusStore(db)
 	glog.Info("Initializing Object store client...")
 	c.objectStore = initMinioClient(common.GetDurationConfig(initConnectionTimeout))
@@ -325,7 +325,7 @@ func (c *ClientManager) init(options *Options) error {
 
 	c.k8sCoreClient = client.CreateKubernetesCoreOrFatal(common.GetDurationConfig(initConnectionTimeout), clientParams)
 
-	runStore := storage.NewRunStore(db, c.time)
+	runStore := storage.NewRunStore(db, c.time, c.experimentStore)
 	c.runStore = runStore
 
 	// Log archive

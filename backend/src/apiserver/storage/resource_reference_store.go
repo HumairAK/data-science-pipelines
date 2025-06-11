@@ -37,8 +37,9 @@ type ResourceReferenceStoreInterface interface {
 }
 
 type ResourceReferenceStore struct {
-	db            *DB
-	pipelineStore PipelineStoreInterface
+	db              *DB
+	pipelineStore   PipelineStoreInterface
+	experimentStore ExperimentStoreInterface
 }
 
 // Create a resource reference.
@@ -77,18 +78,20 @@ func (s *ResourceReferenceStore) checkReferenceExist(tx *sql.Tx, referenceId str
 	case model.JobResourceType:
 		selectBuilder = sq.Select("1").From("jobs").Where(sq.Eq{"uuid": referenceId})
 	case model.ExperimentResourceType:
+		if s.experimentStore != nil {
+			e, _ := s.experimentStore.GetExperiment(referenceId)
+			return e != nil
+		}
 		selectBuilder = sq.Select("1").From("experiments").Where(sq.Eq{"uuid": referenceId})
 	case model.PipelineVersionResourceType:
 		if s.pipelineStore != nil {
 			pv, _ := s.pipelineStore.GetPipelineVersion(referenceId)
-
 			return pv != nil
 		}
 		selectBuilder = sq.Select("1").From("pipeline_versions").Where(sq.Eq{"uuid": referenceId})
 	case model.PipelineResourceType:
 		if s.pipelineStore != nil {
 			p, _ := s.pipelineStore.GetPipeline(referenceId)
-
 			return p != nil
 		}
 		selectBuilder = sq.Select("1").From("pipelines").Where(sq.Eq{"uuid": referenceId})
@@ -187,8 +190,16 @@ func (s *ResourceReferenceStore) scanRows(r *sql.Rows) ([]model.ResourceReferenc
 	return references, nil
 }
 
-func NewResourceReferenceStore(db *DB, pipelineStore PipelineStoreInterface) *ResourceReferenceStore {
+func NewResourceReferenceStore(
+	db *DB,
+	pipelineStore PipelineStoreInterface,
+	experimentStore ExperimentStoreInterface,
+) *ResourceReferenceStore {
 	// If pipelineStore is specified and it is not nil, it will be used instead of the DB.
 	// This will make pipelines and pipeline versions to get stored in K8s instead of Database.
-	return &ResourceReferenceStore{db: db, pipelineStore: pipelineStore}
+	return &ResourceReferenceStore{
+		db:              db,
+		pipelineStore:   pipelineStore,
+		experimentStore: experimentStore,
+	}
 }

@@ -713,10 +713,13 @@ func (s *RunStore) CreateMetric(metric *model.RunMetric) error {
 }
 
 // Returns a new RunStore.
-func NewRunStore(db *DB, time util.TimeInterface) *RunStore {
+func NewRunStore(
+	db *DB,
+	time util.TimeInterface,
+	experimentStore ExperimentStoreInterface) *RunStore {
 	return &RunStore{
 		db:                     db,
-		resourceReferenceStore: NewResourceReferenceStore(db, nil),
+		resourceReferenceStore: NewResourceReferenceStore(db, nil, experimentStore),
 		time:                   time,
 	}
 }

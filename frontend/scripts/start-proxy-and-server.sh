@@ -33,12 +33,12 @@ popd
 
 echo "Starting to port forward backend apis..."
 kubectl port-forward -n $NAMESPACE svc/metadata-envoy-service 9090:9090 &
-kubectl port-forward -n $NAMESPACE svc/ml-pipeline 3002:8888 &
+#kubectl port-forward -n $NAMESPACE svc/ml-pipeline 3002:8888 &
 kubectl port-forward -n $NAMESPACE svc/minio-service 9000:9000 &
 export MINIO_HOST=localhost
 export MINIO_NAMESPACE=
 if [ "$1" == "--inspect" ]; then
-  ML_PIPELINE_SERVICE_PORT=3002 npm run mock:server:inspect 3001
+  ML_PIPELINE_SERVICE_PORT=8888 npm run mock:server:inspect 3001
 else
-  ML_PIPELINE_SERVICE_PORT=3002 npm run mock:server 3001
+  ML_PIPELINE_SERVICE_PORT=8888 npm run mock:server 3001
 fi
