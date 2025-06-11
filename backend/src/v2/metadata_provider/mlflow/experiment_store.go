@@ -163,12 +163,15 @@ func (s *ExperimentStore) ListExperiments(filterContext *model.FilterContext, op
 func (s *ExperimentStore) ArchiveExperiment(expId string) error {
 	return fmt.Errorf("not implemented")
 }
+
 func (s *ExperimentStore) UnarchiveExperiment(expId string) error {
 	return fmt.Errorf("not implemented")
 }
-func (s *ExperimentStore) DeleteExperiment(uuid string) error {
+
+func (s *ExperimentStore) DeleteExperiment(expId string) error {
 	return fmt.Errorf("not implemented")
 }
+
 func (s *ExperimentStore) SetLastRunTimestamp(run *model.Run) error {
 	return fmt.Errorf("not implemented")
 }

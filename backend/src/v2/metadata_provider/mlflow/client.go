@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"io"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -17,6 +18,7 @@ type Client struct {
 	apiPath     string
 	baseHost    string
 	metricsPath string
+	token       string
 }
 
 func NewClient(config *MLFlowServerConfig) (*Client, error) {
@@ -38,10 +40,13 @@ func NewClient(config *MLFlowServerConfig) (*Client, error) {
 	apiPath := fmt.Sprintf("%s/api/2.0/mlflow", basePath)
 	metricsPath := fmt.Sprintf("%s/#/metric", basePath)
 
+	authToken := os.Getenv("MLFLOW_TRACKING_SERVER_TOKEN")
+
 	return &Client{
 		apiPath:     apiPath,
 		baseHost:    basePath,
 		metricsPath: metricsPath,
+		token:       authToken,
 	}, nil
 }
 
@@ -60,7 +65,7 @@ func (m *Client) createRun(runName string, tags []types.RunTag, experimentID str
 
 	_, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/create", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Bearer YOUR_TOKEN_HERE",
+		"Authorization": m.token,
 	})
 	if err != nil {
 		return nil, err
@@ -87,7 +92,7 @@ func (m *Client) getRun(runID string) (*types.Run, error) {
 
 	_, body, err := DoRequest("GET", fmt.Sprintf("%s/runs/get", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Bearer YOUR_TOKEN_HERE",
+		"Authorization": m.token,
 	})
 	if err != nil {
 		return nil, err
@@ -125,7 +130,7 @@ func (m *Client) updateRun(runID string, runName *string, status *types.RunStatu
 
 	_, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/update", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Bearer YOUR_TOKEN_HERE",
+		"Authorization": m.token,
 	})
 	if err != nil {
 		return err
@@ -151,7 +156,7 @@ func (m *Client) logParam(runID *string, key, value string) error {
 	}
 	_, _, err = DoRequest("POST", fmt.Sprintf("%s/runs/log-parameter", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Bearer YOUR_TOKEN_HERE",
+		"Authorization": m.token,
 	})
 	if err != nil {
 		return err
@@ -173,7 +178,7 @@ func (m *Client) logMetric(runID, runUUID, key string, value float64) error {
 	}
 	_, _, err = DoRequest("POST", fmt.Sprintf("%s/runs/log-metric", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Bearer YOUR_TOKEN_HERE",
+		"Authorization": m.token,
 	})
 	if err != nil {
 		return err
@@ -193,7 +198,7 @@ func (m *Client) getExperiment(id string) (*types.Experiment, error) {
 
 	_, body, err := DoRequest("GET", fmt.Sprintf("%s/experiments/get", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Bearer YOUR_TOKEN_HERE",
+		"Authorization": m.token,
 	})
 	if err != nil {
 		return nil, err
@@ -220,7 +225,7 @@ func (m *Client) getExperimentByName(name string) (*types.Experiment, error) {
 
 	_, body, err := DoRequest("GET", fmt.Sprintf("%s/experiments/get-by-name", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Bearer YOUR_TOKEN_HERE",
+		"Authorization": m.token,
 	})
 	if err != nil {
 		return nil, err
@@ -253,7 +258,7 @@ func (m *Client) searchExperiments(maxResults int64, pageToken string, filter st
 
 	_, body, err := DoRequest("POST", fmt.Sprintf("%s/experiments/search", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Bearer YOUR_TOKEN_HERE",
+		"Authorization": m.token,
 	})
 	if err != nil {
 		return nil, "", err
@@ -292,7 +297,7 @@ func (m *Client) searchRuns(
 
 	_, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/search", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Bearer YOUR_TOKEN_HERE",
+		"Authorization": m.token,
 	})
 	if err != nil {
 		return nil, err
@@ -330,7 +335,7 @@ func (m *Client) createExperiment(name, artifactLocation string, tags []types.Ex
 
 	_, body, err := DoRequest("POST", fmt.Sprintf("%s/experiments/create", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Bearer YOUR_TOKEN_HERE",
+		"Authorization": m.token,
 	})
 	if err != nil {
 		return "", err
@@ -343,6 +348,26 @@ func (m *Client) createExperiment(name, artifactLocation string, tags []types.Ex
 		return "", err
 	}
 	return experimentResponse.ExperimentId, nil
+}
+
+func (m *Client) deleteExperiment(id string) error {
+	payload := types.DeleteExperimentRequest{
+		ExperimentId: id,
+	}
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = DoRequest("POST", fmt.Sprintf("%s/experiments/delete", m.apiPath), jsonPayload, map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": m.token,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func DoRequest(method, url string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
