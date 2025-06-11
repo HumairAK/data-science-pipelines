@@ -46,7 +46,6 @@ func NewClient(config *MLFlowServerConfig) (*Client, error) {
 }
 
 func (m *Client) createRun(runName string, tags []types.RunTag, experimentID string) (*types.Run, error) {
-	// Create struct with parameters
 	payload := types.CreateRunRequest{
 		ExperimentId: experimentID,
 		RunName:      runName,
@@ -54,7 +53,6 @@ func (m *Client) createRun(runName string, tags []types.RunTag, experimentID str
 		Tags:         tags,
 	}
 
-	// Marshal to JSON
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
@@ -78,12 +76,10 @@ func (m *Client) createRun(runName string, tags []types.RunTag, experimentID str
 }
 
 func (m *Client) getRun(runID string) (*types.Run, error) {
-	// Create struct with parameters
 	payload := types.GetRunRequest{
 		RunID: runID,
 	}
 
-	// Marshal to JSON
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
@@ -106,7 +102,6 @@ func (m *Client) getRun(runID string) (*types.Run, error) {
 }
 
 func (m *Client) updateRun(runID string, runName *string, status *types.RunStatus, endTime *int64) error {
-	// Create struct with parameters
 	payload := types.UpdateRunRequest{
 		RunId:   runID,
 		RunUUID: runID,
@@ -123,7 +118,6 @@ func (m *Client) updateRun(runID string, runName *string, status *types.RunStatu
 		payload.EndTime = *endTime
 	}
 
-	// Marshal to JSON
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -185,6 +179,60 @@ func (m *Client) logMetric(runID, runUUID, key string, value float64) error {
 		return err
 	}
 	return nil
+}
+
+func (m *Client) getExperiment(id string) (*types.Experiment, error) {
+	payload := types.GetExperimentRequest{
+		ExperimentId: id,
+	}
+	// Marshal to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	_, body, err := DoRequest("POST", fmt.Sprintf("%s/experiments/get", m.apiPath), jsonPayload, map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": "Bearer YOUR_TOKEN_HERE",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	experimentResponse := &types.GetExperimentResponse{}
+	err = json.Unmarshal(body, experimentResponse)
+	if err != nil {
+		glog.Errorf("Failed to unmarshal: %v", err)
+		return nil, err
+	}
+	return &experimentResponse.Experiment, nil
+}
+
+func (m *Client) getExperimentByName(name string) (*types.Experiment, error) {
+	payload := types.GetExperimentByNameRequest{
+		ExperimentName: name,
+	}
+	// Marshal to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	_, body, err := DoRequest("POST", fmt.Sprintf("%s/experiments/get-by-name", m.apiPath), jsonPayload, map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": "Bearer YOUR_TOKEN_HERE",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	experimentResponse := &types.GetExperimentByNameResponse{}
+	err = json.Unmarshal(body, experimentResponse)
+	if err != nil {
+		glog.Errorf("Failed to unmarshal: %v", err)
+		return nil, err
+	}
+	return &experimentResponse.Experiment, nil
 }
 
 func (m *Client) searchExperiments(
@@ -264,17 +312,23 @@ func (m *Client) searchRuns(
 	return runResponse.Runs, nil
 }
 
-func (m *Client) createExperiment(name string, tags []types.ExperimentTag) (*string, error) {
-	// Create struct with parameters
+// createExperiment creates experiment
+// artifactLocation is optional and is ignored if it's an empty string
+// returns experiment id
+func (m *Client) createExperiment(name, artifactLocation string, tags []types.ExperimentTag) (string, error) {
 	payload := types.CreateExperimentRequest{
 		Name: name,
 		Tags: tags,
 	}
 
+	if artifactLocation != "" {
+		payload.ArtifactLocation = artifactLocation
+	}
+
 	// Marshal to JSON
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	_, body, err := DoRequest("POST", fmt.Sprintf("%s/experiments/create", m.apiPath), jsonPayload, map[string]string{
@@ -282,16 +336,16 @@ func (m *Client) createExperiment(name string, tags []types.ExperimentTag) (*str
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	experimentResponse := &types.CreateExperimentResponse{}
 	err = json.Unmarshal(body, experimentResponse)
 	if err != nil {
 		glog.Errorf("Failed to unmarshal: %v", err)
-		return nil, err
+		return "", err
 	}
-	return &experimentResponse.ExperimentId, nil
+	return experimentResponse.ExperimentId, nil
 }
 
 func DoRequest(method, url string, body []byte, headers map[string]string) (*http.Response, []byte, error) {

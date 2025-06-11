@@ -300,16 +300,11 @@ func (c *ClientManager) init(options *Options) error {
 		if err != nil {
 			return err
 		}
-		c.defaultExperimentStore, err = mlflow.NewDefaultExperimentStore(mlflowConfig)
-		if err != nil {
-			return err
-		}
 	default:
 		// If no provider
 		c.experimentStore = storage.NewExperimentStore(db, c.time, c.uuid)
-		c.defaultExperimentStore = storage.NewDefaultExperimentStore(db)
 	}
-
+	c.defaultExperimentStore = storage.NewDefaultExperimentStore(db)
 	c.jobStore = storage.NewJobStore(db, c.time, pipelineStoreForRef)
 	c.taskStore = storage.NewTaskStore(db, c.time, c.uuid)
 	c.resourceReferenceStore = storage.NewResourceReferenceStore(db, pipelineStoreForRef)

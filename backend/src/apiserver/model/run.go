@@ -49,6 +49,7 @@ const (
 	StorageStateUnspecified StorageState = "STORAGE_STATE_UNSPECIFIED"
 	StorageStateAvailable   StorageState = "AVAILABLE"
 	StorageStateArchived    StorageState = "ARCHIVED"
+	StorageStateDeleted     StorageState = "DELETED"
 
 	// V1 storage states
 	StorageStateUnspecifiedV1 StorageState = "STORAGESTATE_UNSPECIFIED"

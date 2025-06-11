@@ -6,6 +6,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
 )
 
 // Ensure MLFlowExperimentProvider implements MetadataExperimentProvider
@@ -40,16 +41,70 @@ func NewExperimentStore(config *MLFlowServerConfig) (*ExperimentStore, error) {
 // uploaded in any run for a given experiment. The user should be able to configure this.
 // If the provider config is not provided, we would use the default bucket path
 // TODO: Experiment Store should accet pass through map[string]interface{} for providerConfig
-func (s *ExperimentStore) CreateExperiment(experiment *model.Experiment, providerConfig *metadata_provider.ProviderRuntimeConfig) (*model.Experiment, error) {
-	return nil, fmt.Errorf("not implemented")
+func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, providerConfig *metadata_provider.ProviderRuntimeConfig) (*model.Experiment, error) {
+	experimentTags := []types.ExperimentTag{
+		{
+			Key:   NamespaceTag,
+			Value: baseExperiment.Namespace,
+		},
+		{
+			Key:   ExperimentDescriptionTag,
+			Value: baseExperiment.Description,
+		},
+	}
+
+	creationConfig, err := ConvertToExperimentCreationConfig(*providerConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	mlflowExperimentID, err := s.client.createExperiment(baseExperiment.Name, creationConfig.ArtifactLocation, experimentTags)
+	if err != nil {
+		return nil, err
+	}
+
+	experiment, err := s.client.getExperiment(mlflowExperimentID)
+	if err != nil {
+		return nil, err
+	}
+
+	modelExperiment, err := mlflowExperimentToModelExperiment(*experiment)
+	if err != nil {
+		return nil, err
+	}
+	return modelExperiment, nil
+
 }
 
 func (s *ExperimentStore) GetExperiment(uuid string) (*model.Experiment, error) {
-	return nil, fmt.Errorf("not implemented")
+	experiment, err := s.client.getExperiment(uuid)
+	if err != nil {
+		return nil, err
+	}
+	experimentModel, err := mlflowExperimentToModelExperiment(*experiment)
+	if err != nil {
+		return nil, err
+	}
+	return experimentModel, nil
 }
 
+// GetExperimentByNameNamespace returns the experiment with the given name and namespace.
+// If no experiment is found, it returns an error.
 func (s *ExperimentStore) GetExperimentByNameNamespace(name string, namespace string) (*model.Experiment, error) {
-	return nil, fmt.Errorf("not implemented")
+	filter := fmt.Sprintf("name='%s' AND %s='%s'", name, NamespaceTag, namespace)
+	experiments, err := s.client.searchExperiments(1, "", filter, []string{}, "")
+	if err != nil {
+		return nil, err
+	}
+	if len(experiments) < 1 {
+		return nil, fmt.Errorf("no experiment found with name %s and namespace %s", name, namespace)
+	}
+	experiment := experiments[1]
+	experimentModel, err := mlflowExperimentToModelExperiment(experiment)
+	if err != nil {
+		return nil, err
+	}
+	return experimentModel, nil
 }
 func (s *ExperimentStore) ListExperiments(filterContext *model.FilterContext, opts *list.Options) ([]*model.Experiment, int, string, error) {
 	return nil, 0, "", fmt.Errorf("not implemented")
