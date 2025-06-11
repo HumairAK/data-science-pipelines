@@ -29,7 +29,6 @@ type RunParameter struct {
 	name  string
 	value string
 }
-type ProviderConfig map[string]interface{}
 
 type Validator interface {
 	ValidateRun(kfpRun *api.CreateRunRequest) error

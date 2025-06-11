@@ -167,7 +167,7 @@ func (r *ResourceManager) CreateExperiment(experiment *model.Experiment) (*model
 			return nil, util.NewInvalidInputError("Namespace cannot be empty")
 		}
 	}
-	return r.experimentStore.CreateExperiment(experiment, &metadata_provider.ProviderConfig{})
+	return r.experimentStore.CreateExperiment(experiment, &metadata_provider.MetadataProviderConfig{})
 }
 
 // Fetches an experiment with the given id.

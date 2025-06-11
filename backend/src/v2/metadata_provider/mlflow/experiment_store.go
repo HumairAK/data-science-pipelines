@@ -17,7 +17,11 @@ var _ storage.ExperimentStoreInterface = &ExperimentStore{}
 // is using a bucket in s3 (or something else entirely) that is not configured or supported
 // by this kfp deployment.
 type ExperimentStore struct {
-	client Client
+	client *Client
+}
+
+func NewExperimentStore(client *Client) *ExperimentStore {
+	return &ExperimentStore{client: client}
 }
 
 // CreateExperiment will need to also accept a providerConfig which is used for
@@ -26,7 +30,7 @@ type ExperimentStore struct {
 // uploaded in any run for a given experiment. The user should be able to configure this.
 // If the provider config is not provided, we would use the default bucket path
 // TODO: Experiment Store should accet pass through map[string]interface{} for providerConfig
-func (s *ExperimentStore) CreateExperiment(experiment *model.Experiment, providerConfig *metadata_provider.ProviderConfig) (*model.Experiment, error) {
+func (s *ExperimentStore) CreateExperiment(experiment *model.Experiment, providerConfig *metadata_provider.ProviderRuntimeConfig) (*model.Experiment, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

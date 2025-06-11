@@ -18,6 +18,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow"
 	"os"
 	"strings"
 	"sync"
@@ -120,6 +122,7 @@ type Options struct {
 	GlobalKubernetesWebhookMode  bool
 	Context                      context.Context
 	WaitGroup                    *sync.WaitGroup
+	MetadataProvider             metadata_provider.MetadataProvider
 }
 
 func (c *ClientManager) TaskStore() storage.TaskStoreInterface {
@@ -278,12 +281,36 @@ func (c *ClientManager) init(options *Options) error {
 	if !options.UsePipelineKubernetesStorage {
 		c.pipelineStore = storage.NewPipelineStore(db, c.time, c.uuid)
 	}
-	c.experimentStore = storage.NewExperimentStore(db, c.time, c.uuid)
+
+	switch metadataProvider := options.MetadataProvider; metadataProvider {
+	case metadata_provider.MetadataProviderMLFlow:
+		// get mlflow client (provider)
+		// Problem:
+		// API Server needs to create client for mlflow
+		// Driver/Launcher need to create client for mlflow
+		// API Server needs to pass passthrough connection info for a Provider
+		// Launcher/Driver needs to use it to create MLFlow or other client
+		provider, err := metadata_provider.NewProviderConfig(metadata_provider.MetadataProviderMLFlow)
+		if err != nil {
+			return err
+		}
+		mlflowClient, err := mlflow.NewClient(provider)
+		if err != nil {
+			return err
+		}
+		c.experimentStore = mlflow.NewExperimentStore(mlflowClient)
+		c.defaultExperimentStore = mlflow.NewDefaultExperimentStore(mlflowClient)
+
+	default:
+		// If no provider
+		c.experimentStore = storage.NewExperimentStore(db, c.time, c.uuid)
+		c.defaultExperimentStore = storage.NewDefaultExperimentStore(db)
+	}
+
 	c.jobStore = storage.NewJobStore(db, c.time, pipelineStoreForRef)
 	c.taskStore = storage.NewTaskStore(db, c.time, c.uuid)
 	c.resourceReferenceStore = storage.NewResourceReferenceStore(db, pipelineStoreForRef)
 	c.dBStatusStore = storage.NewDBStatusStore(db)
-	c.defaultExperimentStore = storage.NewDefaultExperimentStore(db)
 	glog.Info("Initializing Object store client...")
 	c.objectStore = initMinioClient(common.GetDurationConfig(initConnectionTimeout))
 	glog.Info("Object store client initialized successfully")

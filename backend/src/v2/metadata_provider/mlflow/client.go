@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golang/glog"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
 	"github.com/pkg/errors"
 	"io"
@@ -17,6 +18,10 @@ type Client struct {
 	apiPath     string
 	baseHost    string
 	metricsPath string
+}
+
+func NewClient(config *metadata_provider.MetadataProviderConfig) (*Client, error) {
+	return &Client{}, nil
 }
 
 func (m *Client) createRun(runName string, tags []types.RunTag, experimentID string) (*types.Run, error) {
