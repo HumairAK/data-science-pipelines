@@ -20,8 +20,30 @@ type Client struct {
 	metricsPath string
 }
 
-func NewClient(config *metadata_provider.MetadataProviderConfig) (*Client, error) {
-	return &Client{}, nil
+func NewClient(config *metadata_provider.MLFlow) (*Client, error) {
+	host := config.MLFlowServerConfig.Host
+	port := config.MLFlowServerConfig.Port
+	tlsEnabled := config.MLFlowServerConfig.TLSEnabled
+	var protocol string
+	if tlsEnabled == "true" {
+		protocol = "https"
+	} else {
+		protocol = "http"
+	}
+	var basePath string
+	if port != "" {
+		basePath = fmt.Sprintf("%s://%s:%s", protocol, host, port)
+	} else {
+		basePath = fmt.Sprintf("%s://%s", protocol, host)
+	}
+	apiPath := fmt.Sprintf("%s/api/2.0/mlflow", basePath)
+	metricsPath := fmt.Sprintf("%s/#/metric", basePath)
+
+	return &Client{
+		apiPath:     apiPath,
+		baseHost:    basePath,
+		metricsPath: metricsPath,
+	}, nil
 }
 
 func (m *Client) createRun(runName string, tags []types.RunTag, experimentID string) (*types.Run, error) {

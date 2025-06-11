@@ -20,8 +20,18 @@ type ExperimentStore struct {
 	client *Client
 }
 
-func NewExperimentStore(client *Client) *ExperimentStore {
-	return &ExperimentStore{client: client}
+func NewExperimentStore(config *metadata_provider.MLFlow) (*ExperimentStore, error) {
+	// get mlflow client (provider)
+	// Problem:
+	// API Server needs to create client for mlflow
+	// Driver/Launcher need to create client for mlflow
+	// API Server needs to pass passthrough connection info for a Provider
+	// Launcher/Driver needs to use it to create MLFlow or other client
+	client, err := NewClient(config)
+	if err != nil {
+		return nil, err
+	}
+	return &ExperimentStore{client: client}, nil
 }
 
 // CreateExperiment will need to also accept a providerConfig which is used for

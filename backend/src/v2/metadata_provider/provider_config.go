@@ -30,11 +30,9 @@ type ExecutionConfig struct {
 }
 
 type MLFlowServerConfig struct {
-	Host        string `json:"host"`
-	Port        string `json:"port"`
-	TLSEnabled  bool   `json:"TLSEnabled"`
-	APIPath     string `json:"apiPath"`
-	MetricsPath string `json:"metricsPath"`
+	Host       string `json:"host"`
+	Port       string `json:"port"`
+	TLSEnabled string `json:"TLSEnabled"`
 	// TODO: Add tls cert handling
 }
 
@@ -48,28 +46,12 @@ func NewProviderConfig(provider MetadataProvider) (*MetadataProviderConfig, erro
 			return nil, fmt.Errorf("Missing environment variable MLFLOW_HOST")
 		}
 
-		var protocol string
-		if tlsEnabled == "true" {
-			protocol = "https"
-		} else {
-			protocol = "http"
-		}
-		var basePath string
-		if portEnv != "" {
-			basePath = fmt.Sprintf("%s://%s:%s", protocol, hostEnv, portEnv)
-		} else {
-			basePath = fmt.Sprintf("%s://%s", protocol, hostEnv)
-		}
-		apiPath := fmt.Sprintf("%s/api/2.0/mlflow", basePath)
-		metricsPath := fmt.Sprintf("%s/#/metric", basePath)
 		return &MetadataProviderConfig{
 			MLFlow: &MLFlow{
 				MLFlowServerConfig: &MLFlowServerConfig{
-					Host:        hostEnv,
-					Port:        portEnv,
-					TLSEnabled:  tlsEnabled == "true",
-					APIPath:     apiPath,
-					MetricsPath: metricsPath,
+					Host:       hostEnv,
+					Port:       portEnv,
+					TLSEnabled: tlsEnabled,
 				},
 			},
 		}, nil
