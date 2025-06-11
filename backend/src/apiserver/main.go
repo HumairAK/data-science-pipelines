@@ -19,6 +19,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"io"
 	"math"
 	"net"
@@ -98,6 +99,9 @@ func main() {
 		GlobalKubernetesWebhookMode:  *globalKubernetesWebhookMode,
 		Context:                      backgroundCtx,
 		WaitGroup:                    &wg,
+	}
+	if viper.IsSet("METADATA_PROVIDER") {
+		options.MetadataProvider = metadata_provider.MetadataProvider(common.GetStringConfig("METADATA_PROVIDER"))
 	}
 
 	logLevel := *logLevelFlag

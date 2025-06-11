@@ -284,7 +284,6 @@ func (c *ClientManager) init(options *Options) error {
 
 	switch metadataProvider := options.MetadataProvider; metadataProvider {
 	case metadata_provider.MetadataProviderMLFlow:
-
 		hostEnv := os.Getenv("MLFLOW_HOST")
 		portEnv := os.Getenv("MLFLOW_PORT")
 		tlsEnabled := os.Getenv("MLFLOW_TLS_ENABLED")
