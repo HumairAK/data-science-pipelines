@@ -191,7 +191,7 @@ func (m *Client) getExperiment(id string) (*types.Experiment, error) {
 		return nil, err
 	}
 
-	_, body, err := DoRequest("POST", fmt.Sprintf("%s/experiments/get", m.apiPath), jsonPayload, map[string]string{
+	_, body, err := DoRequest("GET", fmt.Sprintf("%s/experiments/get", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
@@ -218,7 +218,7 @@ func (m *Client) getExperimentByName(name string) (*types.Experiment, error) {
 		return nil, err
 	}
 
-	_, body, err := DoRequest("POST", fmt.Sprintf("%s/experiments/get-by-name", m.apiPath), jsonPayload, map[string]string{
+	_, body, err := DoRequest("GET", fmt.Sprintf("%s/experiments/get-by-name", m.apiPath), jsonPayload, map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
@@ -235,12 +235,7 @@ func (m *Client) getExperimentByName(name string) (*types.Experiment, error) {
 	return &experimentResponse.Experiment, nil
 }
 
-func (m *Client) searchExperiments(
-	maxResults int64,
-	pageToken string,
-	filter string,
-	orderBy []string,
-	viewType types.ViewType) ([]types.Experiment, error) {
+func (m *Client) searchExperiments(maxResults int64, pageToken string, filter string, orderBy []string, viewType types.ViewType) ([]types.Experiment, string, error) {
 
 	payload := types.SearchExperimentRequest{
 		Filter:     filter,
@@ -253,7 +248,7 @@ func (m *Client) searchExperiments(
 	// Marshal to JSON
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	_, body, err := DoRequest("POST", fmt.Sprintf("%s/experiments/search", m.apiPath), jsonPayload, map[string]string{
@@ -261,16 +256,16 @@ func (m *Client) searchExperiments(
 		"Authorization": "Bearer YOUR_TOKEN_HERE",
 	})
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	experimentResponse := &types.SearchExperimentResponse{}
 	err = json.Unmarshal(body, experimentResponse)
 	if err != nil {
 		glog.Errorf("Failed to unmarshal: %v", err)
-		return nil, err
+		return nil, "", err
 	}
-	return experimentResponse.Experiments, nil
+	return experimentResponse.Experiments, experimentResponse.NextPageToken, nil
 }
 
 func (m *Client) searchRuns(

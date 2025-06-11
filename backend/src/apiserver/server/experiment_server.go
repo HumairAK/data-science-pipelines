@@ -16,6 +16,7 @@ package server
 
 import (
 	"context"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
@@ -81,7 +82,7 @@ type ExperimentServer struct {
 	options         *ExperimentServerOptions
 }
 
-func (s *ExperimentServer) createExperiment(ctx context.Context, experiment *model.Experiment) (*model.Experiment, error) {
+func (s *ExperimentServer) createExperiment(ctx context.Context, experiment *model.Experiment, config *metadata_provider.ProviderRuntimeConfig) (*model.Experiment, error) {
 	experiment.Namespace = s.resourceManager.ReplaceNamespace(experiment.Namespace)
 	resourceAttributes := &authorizationv1.ResourceAttributes{
 		Namespace: experiment.Namespace,
@@ -92,7 +93,7 @@ func (s *ExperimentServer) createExperiment(ctx context.Context, experiment *mod
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to authorize the request")
 	}
-	return s.resourceManager.CreateExperiment(experiment)
+	return s.resourceManager.CreateExperiment(experiment, config)
 }
 
 func (s *ExperimentServer) CreateExperimentV1(ctx context.Context, request *apiv1beta1.CreateExperimentRequest) (
@@ -107,7 +108,7 @@ func (s *ExperimentServer) CreateExperimentV1(ctx context.Context, request *apiv
 		return nil, util.Wrap(err, "[ExperimentServer]: Failed to create a v1beta1 experiment due to conversion error")
 	}
 
-	newExperiment, err := s.createExperiment(ctx, modelExperiment)
+	newExperiment, err := s.createExperiment(ctx, modelExperiment, nil)
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to create a v1beta1 experiment")
 	}
@@ -135,7 +136,8 @@ func (s *ExperimentServer) CreateExperiment(ctx context.Context, request *apiv2b
 		return nil, util.Wrap(err, "[ExperimentServer]: Failed to create a experiment due to conversion error")
 	}
 
-	newExperiment, err := s.createExperiment(ctx, modelExperiment)
+	config := metadata_provider.ConvertStructToConfig(request.GetProviderConfig())
+	newExperiment, err := s.createExperiment(ctx, modelExperiment, &config)
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to create a experiment")
 	}

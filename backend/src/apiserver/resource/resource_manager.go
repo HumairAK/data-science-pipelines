@@ -161,13 +161,13 @@ func (r *ResourceManager) getScheduledWorkflowClient(namespace string) scheduled
 }
 
 // Creates a new experiment.
-func (r *ResourceManager) CreateExperiment(experiment *model.Experiment) (*model.Experiment, error) {
+func (r *ResourceManager) CreateExperiment(experiment *model.Experiment, config *metadata_provider.ProviderRuntimeConfig) (*model.Experiment, error) {
 	if common.IsMultiUserMode() {
 		if experiment.Namespace == "" {
 			return nil, util.NewInvalidInputError("Namespace cannot be empty")
 		}
 	}
-	return r.experimentStore.CreateExperiment(experiment, &metadata_provider.ProviderRuntimeConfig{})
+	return r.experimentStore.CreateExperiment(experiment, config)
 }
 
 // Fetches an experiment with the given id.
@@ -1557,7 +1557,7 @@ func (r *ResourceManager) CreateDefaultExperiment(namespace string) (string, err
 			Namespace:    namespace,
 			StorageState: model.StorageStateAvailable,
 		}
-		defaultExperiment, err = r.CreateExperiment(defaultExperiment)
+		defaultExperiment, err = r.CreateExperiment(defaultExperiment, nil)
 		if err != nil {
 			return "", util.Wrap(err, "Failed to create the default experiment")
 		}

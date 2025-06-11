@@ -172,7 +172,7 @@ func initWithExperiment(t *testing.T) (*resource.FakeClientManager, *resource.Re
 	}
 	modelExperiment, err := toModelExperiment(apiExperiment)
 	assert.Nil(t, err)
-	experiment, err := resourceManager.CreateExperiment(modelExperiment)
+	experiment, err := resourceManager.CreateExperiment(modelExperiment, nil)
 	assert.Nil(t, err)
 	return clientManager, resourceManager, experiment
 }
@@ -197,7 +197,7 @@ func initWithExperiment_SubjectAccessReview_Unauthorized(t *testing.T) (*resourc
 	modelExperiment, err := toModelExperiment(apiExperiment)
 	modelExperiment.Namespace = resourceManager.ReplaceNamespace(modelExperiment.Namespace)
 	assert.Nil(t, err)
-	experiment, err := resourceManager.CreateExperiment(modelExperiment)
+	experiment, err := resourceManager.CreateExperiment(modelExperiment, nil)
 	assert.Nil(t, err)
 	return clientManager, resourceManager, experiment
 }
@@ -211,7 +211,7 @@ func initWithExperimentAndPipelineVersion(t *testing.T) (*resource.FakeClientMan
 	apiExperiment := &apiv1beta1.Experiment{Name: "exp1"}
 	modelExperiment, err := toModelExperiment(apiExperiment)
 	assert.Nil(t, err)
-	experiment, err := resourceManager.CreateExperiment(modelExperiment)
+	experiment, err := resourceManager.CreateExperiment(modelExperiment, nil)
 	assert.Nil(t, err)
 
 	// Create a pipeline and then a pipeline version.
@@ -250,7 +250,7 @@ func initWithExperimentsAndTwoPipelineVersions(t *testing.T) *resource.FakeClien
 	apiExperiment := &apiv1beta1.Experiment{Name: "exp1"}
 	modelExperiment, err := toModelExperiment(apiExperiment)
 	assert.Nil(t, err)
-	_, err = resourceManager.CreateExperiment(modelExperiment)
+	_, err = resourceManager.CreateExperiment(modelExperiment, nil)
 	assert.Nil(t, err)
 
 	// Create a pipeline and then a pipeline version.

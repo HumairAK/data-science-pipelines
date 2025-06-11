@@ -5,6 +5,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
+	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
 )
@@ -53,12 +54,16 @@ func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, pro
 		},
 	}
 
-	creationConfig, err := ConvertToExperimentCreationConfig(*providerConfig)
-	if err != nil {
-		return nil, err
+	var artifactLocation string
+	if providerConfig != nil {
+		creationConfig, err := ConvertToExperimentCreationConfig(*providerConfig)
+		if err != nil {
+			return nil, err
+		}
+		artifactLocation = creationConfig.ArtifactLocation
 	}
 
-	mlflowExperimentID, err := s.client.createExperiment(baseExperiment.Name, creationConfig.ArtifactLocation, experimentTags)
+	mlflowExperimentID, err := s.client.createExperiment(baseExperiment.Name, artifactLocation, experimentTags)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +78,6 @@ func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, pro
 		return nil, err
 	}
 	return modelExperiment, nil
-
 }
 
 func (s *ExperimentStore) GetExperiment(uuid string) (*model.Experiment, error) {
@@ -91,8 +95,8 @@ func (s *ExperimentStore) GetExperiment(uuid string) (*model.Experiment, error) 
 // GetExperimentByNameNamespace returns the experiment with the given name and namespace.
 // If no experiment is found, it returns an error.
 func (s *ExperimentStore) GetExperimentByNameNamespace(name string, namespace string) (*model.Experiment, error) {
-	filter := fmt.Sprintf("name='%s' AND %s='%s'", name, NamespaceTag, namespace)
-	experiments, err := s.client.searchExperiments(1, "", filter, []string{}, "")
+	filter := fmt.Sprintf("name='%s' AND tag.%s='%s'", name, NamespaceTag, namespace)
+	experiments, _, err := s.client.searchExperiments(1, "", filter, []string{}, "")
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +111,32 @@ func (s *ExperimentStore) GetExperimentByNameNamespace(name string, namespace st
 	return experimentModel, nil
 }
 func (s *ExperimentStore) ListExperiments(filterContext *model.FilterContext, opts *list.Options) ([]*model.Experiment, int, string, error) {
-	return nil, 0, "", fmt.Errorf("not implemented")
+	errorF := func(err error) ([]*model.Experiment, int, string, error) {
+		return nil, 0, "", util.NewInternalServerError(err, "Failed to list experiments: %v", err)
+	}
+
+	var namespace string
+	var experimentModels []*model.Experiment
+
+	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.NamespaceResourceType {
+		namespace = filterContext.ReferenceKey.ID
+	}
+
+	filter := fmt.Sprintf("tag.%s='%s'", NamespaceTag, namespace)
+	experiments, nextPageToken, err := s.client.searchExperiments(1, opts.to, filter, []string{}, "")
+	if err != nil {
+		return errorF(err)
+	}
+
+	for _, experiment := range experiments {
+		experimentModel, err1 := mlflowExperimentToModelExperiment(experiment)
+		if err1 != nil {
+			return errorF(err1)
+		}
+		experimentModels = append(experimentModels, experimentModel)
+	}
+
+	return experimentModels, len(experimentModels), nextPageToken, nil
 }
 func (s *ExperimentStore) ArchiveExperiment(expId string) error {
 	return fmt.Errorf("not implemented")
