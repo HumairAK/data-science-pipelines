@@ -161,17 +161,25 @@ func (s *ExperimentStore) ListExperiments(filterContext *model.FilterContext, op
 }
 
 func (s *ExperimentStore) ArchiveExperiment(expId string) error {
-	return fmt.Errorf("not implemented")
+	err := s.client.deleteExperiment(expId)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *ExperimentStore) UnarchiveExperiment(expId string) error {
-	return fmt.Errorf("not implemented")
+	err := s.client.restoreExperiment(expId)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *ExperimentStore) DeleteExperiment(expId string) error {
-	return fmt.Errorf("not implemented")
+	return fmt.Errorf("Permanently deleting experiments is not supported. Please use the archive API instead.")
 }
 
 func (s *ExperimentStore) SetLastRunTimestamp(run *model.Run) error {
-	return fmt.Errorf("not implemented")
+	return fmt.Errorf("Set last run timestamp is not supported.")
 }
