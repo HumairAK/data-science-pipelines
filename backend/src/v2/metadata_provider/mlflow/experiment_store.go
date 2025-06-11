@@ -23,12 +23,6 @@ type ExperimentStore struct {
 }
 
 func NewExperimentStore(config *MLFlowServerConfig) (*ExperimentStore, error) {
-	// get mlflow client (provider)
-	// Problem:
-	// API Server needs to create client for mlflow
-	// Driver/Launcher need to create client for mlflow
-	// API Server needs to pass passthrough connection info for a Provider
-	// Launcher/Driver needs to use it to create MLFlow or other client
 	client, err := NewClient(config)
 	if err != nil {
 		return nil, err
