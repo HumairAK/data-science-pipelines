@@ -96,12 +96,14 @@ func (t *token) marshal() (string, error) {
 type Options struct {
 	PageSize int
 	*token
+	PageToken string
+	SortBy    string
 }
 
 func EmptyOptions() *Options {
 	return &Options{
-		math.MaxInt32,
-		&token{},
+		PageSize: math.MaxInt32,
+		token:    &token{},
 	}
 }
 

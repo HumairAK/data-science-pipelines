@@ -199,7 +199,7 @@ func (s *ExperimentServer) GetExperiment(ctx context.Context, request *apiv2beta
 	return apiExperiment, nil
 }
 
-func (s *ExperimentServer) listExperiments(ctx context.Context, pageToken string, pageSize int32, sortBy string, opts *list.Options, namespace string) ([]*model.Experiment, int32, string, error) {
+func (s *ExperimentServer) listExperiments(ctx context.Context, opts *list.Options, namespace string) ([]*model.Experiment, int32, string, error) {
 	namespace = s.resourceManager.ReplaceNamespace(namespace)
 	resourceAttributes := &authorizationv1.ResourceAttributes{
 		Namespace: namespace,
@@ -247,9 +247,6 @@ func (s *ExperimentServer) ListExperimentsV1(ctx context.Context, request *apiv1
 
 	experiments, totalSize, nextPageToken, err := s.listExperiments(
 		ctx,
-		request.GetPageToken(),
-		request.GetPageSize(),
-		request.GetSortBy(),
 		opts,
 		namespace,
 	)
@@ -275,7 +272,7 @@ func (s *ExperimentServer) ListExperiments(ctx context.Context, request *apiv2be
 		return nil, util.Wrap(err, "Failed to create list options")
 	}
 
-	experiments, totalSize, nextPageToken, err := s.listExperiments(ctx, request.GetPageToken(), request.GetPageSize(), request.GetSortBy(), opts, request.GetNamespace())
+	experiments, totalSize, nextPageToken, err := s.listExperiments(ctx, opts, request.GetNamespace())
 	if err != nil {
 		return nil, util.Wrap(err, "List experiments failed")
 	}

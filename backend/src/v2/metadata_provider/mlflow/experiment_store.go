@@ -122,8 +122,10 @@ func (s *ExperimentStore) ListExperiments(filterContext *model.FilterContext, op
 		namespace = filterContext.ReferenceKey.ID
 	}
 
+	// TODO add sorting logic, sorting info is in opts.token and opts.sortby
+
 	filter := fmt.Sprintf("tag.%s='%s'", NamespaceTag, namespace)
-	experiments, nextPageToken, err := s.client.searchExperiments(1, opts.to, filter, []string{}, "")
+	experiments, nextPageToken, err := s.client.searchExperiments(int64(opts.PageSize), opts.PageToken, filter, []string{}, "")
 	if err != nil {
 		return errorF(err)
 	}
@@ -138,6 +140,7 @@ func (s *ExperimentStore) ListExperiments(filterContext *model.FilterContext, op
 
 	return experimentModels, len(experimentModels), nextPageToken, nil
 }
+
 func (s *ExperimentStore) ArchiveExperiment(expId string) error {
 	return fmt.Errorf("not implemented")
 }

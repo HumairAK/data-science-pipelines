@@ -191,6 +191,9 @@ func validatedListOptions(listable list.Listable, pageToken string, pageSize int
 	if err != nil {
 		return nil, err
 	}
+	opts.PageSize = pageSize
+	opts.PageToken = pageToken
+	opts.SortBy = sortBy
 
 	if sortBy != "" || filterSpec != "" {
 		// Sanity check that these match the page token.
