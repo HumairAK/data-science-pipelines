@@ -45,13 +45,26 @@ func NewExperimentStore(config *MLFlowServerConfig) (*ExperimentStore, error) {
 func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, providerConfig *metadata_provider.ProviderRuntimeConfig) (*model.Experiment, error) {
 	experimentTags := []types.ExperimentTag{
 		{
-			Key:   NamespaceTag,
-			Value: baseExperiment.Namespace,
-		},
-		{
 			Key:   ExperimentDescriptionTag,
 			Value: baseExperiment.Description,
 		},
+	}
+	namespace := baseExperiment.Namespace
+	// Experiments in MLFlow have no notion of namespaces
+	// So we label experiments using tags, but tags are not
+	// unique, thus we must also include the namespace in the name
+	if namespace != "" {
+		experimentTags = append(experimentTags,
+			types.ExperimentTag{
+				Key:   NameTag,
+				Value: baseExperiment.Name,
+			},
+			types.ExperimentTag{
+				Key:   NamespaceTag,
+				Value: baseExperiment.Namespace,
+			},
+		)
+		baseExperiment.Name = BuildExperimentNamespaceName(baseExperiment.Name, namespace)
 	}
 
 	var artifactLocation string
@@ -63,7 +76,11 @@ func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, pro
 		artifactLocation = creationConfig.ArtifactLocation
 	}
 
-	mlflowExperimentID, err := s.client.createExperiment(baseExperiment.Name, artifactLocation, experimentTags)
+	mlflowExperimentID, err := s.client.createExperiment(
+		baseExperiment.Name,
+		artifactLocation,
+		experimentTags,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +112,11 @@ func (s *ExperimentStore) GetExperiment(uuid string) (*model.Experiment, error) 
 // GetExperimentByNameNamespace returns the experiment with the given name and namespace.
 // If no experiment is found, it returns an error.
 func (s *ExperimentStore) GetExperimentByNameNamespace(name string, namespace string) (*model.Experiment, error) {
-	filter := fmt.Sprintf("name='%s' AND tag.%s='%s'", name, NamespaceTag, namespace)
+	filter := fmt.Sprintf("name='%s'", name)
+	// In multi-user mode namespace is set, in which case we only list experiments in the given namespace
+	if namespace != "" {
+		filter = fmt.Sprintf("%s' AND tag.%s='%s'", filter, NamespaceTag, namespace)
+	}
 	experiments, _, err := s.client.searchExperiments(1, "", filter, []string{}, "")
 	if err != nil {
 		return nil, err
@@ -110,6 +131,7 @@ func (s *ExperimentStore) GetExperimentByNameNamespace(name string, namespace st
 	}
 	return experimentModel, nil
 }
+
 func (s *ExperimentStore) ListExperiments(filterContext *model.FilterContext, opts *list.Options) ([]*model.Experiment, int, string, error) {
 	errorF := func(err error) ([]*model.Experiment, int, string, error) {
 		return nil, 0, "", util.NewInternalServerError(err, "Failed to list experiments: %v", err)
@@ -122,22 +144,26 @@ func (s *ExperimentStore) ListExperiments(filterContext *model.FilterContext, op
 		namespace = filterContext.ReferenceKey.ID
 	}
 
+	var filter string
 	// TODO add sorting logic, sorting info is in opts.token and opts.sortby
-
-	filter := fmt.Sprintf("tag.%s='%s'", NamespaceTag, namespace)
+	if namespace != "" {
+		filter = fmt.Sprintf("tag.%s='%s'", NamespaceTag, namespace)
+	}
 	experiments, nextPageToken, err := s.client.searchExperiments(int64(opts.PageSize), opts.PageToken, filter, []string{}, "")
 	if err != nil {
 		return errorF(err)
 	}
-
 	for _, experiment := range experiments {
-		experimentModel, err1 := mlflowExperimentToModelExperiment(experiment)
-		if err1 != nil {
-			return errorF(err1)
+		// if experiment is valid convert to model.Experiment and append to experimentModels
+		err1 := validateMLFlowExperiment(experiment, namespace)
+		if err1 == nil {
+			experimentModel, err2 := mlflowExperimentToModelExperiment(experiment)
+			if err2 != nil {
+				return errorF(err2)
+			}
+			experimentModels = append(experimentModels, experimentModel)
 		}
-		experimentModels = append(experimentModels, experimentModel)
 	}
-
 	return experimentModels, len(experimentModels), nextPageToken, nil
 }
 

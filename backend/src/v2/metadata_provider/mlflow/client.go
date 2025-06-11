@@ -309,8 +309,10 @@ func (m *Client) searchRuns(
 
 // createExperiment creates experiment
 // artifactLocation is optional and is ignored if it's an empty string
+// namespace is optional
 // returns experiment id
 func (m *Client) createExperiment(name, artifactLocation string, tags []types.ExperimentTag) (string, error) {
+
 	payload := types.CreateExperimentRequest{
 		Name: name,
 		Tags: tags,
