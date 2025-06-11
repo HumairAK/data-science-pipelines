@@ -135,8 +135,8 @@ func (s *ExperimentServer) CreateExperiment(ctx context.Context, request *apiv2b
 	if err != nil {
 		return nil, util.Wrap(err, "[ExperimentServer]: Failed to create a experiment due to conversion error")
 	}
-
-	config := metadata_provider.ConvertStructToConfig(request.GetProviderConfig())
+	// Todo: move the config conversion to the metadata provider.
+	config := metadata_provider.ConvertStructToConfig(request.Experiment.GetProviderConfig())
 	newExperiment, err := s.createExperiment(ctx, modelExperiment, &config)
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to create a experiment")

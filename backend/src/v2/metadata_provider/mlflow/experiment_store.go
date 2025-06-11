@@ -35,7 +35,6 @@ func NewExperimentStore(config *MLFlowServerConfig) (*ExperimentStore, error) {
 // For example, MLFlow allows you to set the artifact_location for all artifacts
 // uploaded in any run for a given experiment. The user should be able to configure this.
 // If the provider config is not provided, we would use the default bucket path
-// TODO: Experiment Store should accet pass through map[string]interface{} for providerConfig
 func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, providerConfig *metadata_provider.ProviderRuntimeConfig) (*model.Experiment, error) {
 	experimentTags := []types.ExperimentTag{
 		{
