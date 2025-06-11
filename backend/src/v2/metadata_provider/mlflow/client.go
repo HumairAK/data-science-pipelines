@@ -370,6 +370,25 @@ func (m *Client) deleteExperiment(id string) error {
 	return nil
 }
 
+func (m *Client) restoreExperiment(id string) error {
+	payload := types.RestoreExperimentRequest{
+		ExperimentId: id,
+	}
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+	}
+
+	_, _, err = DoRequest("POST", fmt.Sprintf("%s/experiments/restore", m.apiPath), jsonPayload, map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": m.token,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func DoRequest(method, url string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
 	glog.Infof("------------------------------------")
 	glog.Infof("Sending %s request to %s", method, url)
