@@ -142,7 +142,7 @@ func (s *ExperimentStore) ListExperiments(filterContext *model.FilterContext, op
 	if namespace != "" {
 		filter = fmt.Sprintf("tag.%s='%s'", NamespaceTag, namespace)
 	}
-	experiments, nextPageToken, err := s.client.searchExperiments(int64(opts.PageSize), opts.PageToken, filter, []string{}, "")
+	experiments, nextPageToken, err := s.client.searchExperiments(int64(opts.PageSize), opts.PageToken, filter, []string{}, "ALL")
 	if err != nil {
 		return errorF(err)
 	}
