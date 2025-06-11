@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golang/glog"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
 	"github.com/pkg/errors"
 	"io"
@@ -20,10 +19,10 @@ type Client struct {
 	metricsPath string
 }
 
-func NewClient(config *metadata_provider.MLFlow) (*Client, error) {
-	host := config.MLFlowServerConfig.Host
-	port := config.MLFlowServerConfig.Port
-	tlsEnabled := config.MLFlowServerConfig.TLSEnabled
+func NewClient(config *MLFlowServerConfig) (*Client, error) {
+	host := config.Host
+	port := config.Port
+	tlsEnabled := config.TLSEnabled
 	var protocol string
 	if tlsEnabled == "true" {
 		protocol = "https"

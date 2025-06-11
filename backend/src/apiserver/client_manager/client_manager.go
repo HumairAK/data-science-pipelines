@@ -284,15 +284,24 @@ func (c *ClientManager) init(options *Options) error {
 
 	switch metadataProvider := options.MetadataProvider; metadataProvider {
 	case metadata_provider.MetadataProviderMLFlow:
-		providerConfig, err := metadata_provider.NewProviderConfig(metadata_provider.MetadataProviderMLFlow)
+
+		hostEnv := os.Getenv("MLFLOW_HOST")
+		portEnv := os.Getenv("MLFLOW_PORT")
+		tlsEnabled := os.Getenv("MLFLOW_TLS_ENABLED")
+		if hostEnv == "" {
+			return fmt.Errorf("Missing environment variable MLFLOW_HOST")
+		}
+		mlflowConfig := &mlflow.MLFlowServerConfig{
+			Host:       hostEnv,
+			Port:       portEnv,
+			TLSEnabled: tlsEnabled,
+		}
+		var err error
+		c.experimentStore, err = mlflow.NewExperimentStore(mlflowConfig)
 		if err != nil {
 			return err
 		}
-		c.experimentStore, err = mlflow.NewExperimentStore(providerConfig.MLFlow)
-		if err != nil {
-			return err
-		}
-		c.defaultExperimentStore, err = mlflow.NewDefaultExperimentStore(providerConfig.MLFlow)
+		c.defaultExperimentStore, err = mlflow.NewDefaultExperimentStore(mlflowConfig)
 		if err != nil {
 			return err
 		}

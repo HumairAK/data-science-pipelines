@@ -3,7 +3,6 @@ package mlflow
 import (
 	"fmt"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 )
 
 // Ensure MLFlowExperimentProvider implements MetadataExperimentProvider
@@ -13,7 +12,7 @@ type DefaultExperimentStore struct {
 	client *Client
 }
 
-func NewDefaultExperimentStore(config *metadata_provider.MLFlow) (*DefaultExperimentStore, error) {
+func NewDefaultExperimentStore(config *MLFlowServerConfig) (*DefaultExperimentStore, error) {
 	client, err := NewClient(config)
 	if err != nil {
 		return nil, err

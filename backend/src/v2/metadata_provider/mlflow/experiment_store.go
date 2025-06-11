@@ -20,7 +20,7 @@ type ExperimentStore struct {
 	client *Client
 }
 
-func NewExperimentStore(config *metadata_provider.MLFlow) (*ExperimentStore, error) {
+func NewExperimentStore(config *MLFlowServerConfig) (*ExperimentStore, error) {
 	// get mlflow client (provider)
 	// Problem:
 	// API Server needs to create client for mlflow
