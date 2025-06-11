@@ -35,10 +35,10 @@ func validateMLFlowExperiment(experiment types.Experiment, namespace string) err
 		if GetExperimentTag(&experiment, NamespaceTag) != namespace {
 			return fmt.Errorf("namespace tag in experiment %s does not match namespace %s", experiment.ExperimentID, namespace)
 		}
-		if experiment.Name != BuildExperimentNamespaceName(experiment.Name, namespace) {
+		kfpName := GetExperimentTag(&experiment, NameTag)
+		if experiment.Name != BuildExperimentNamespaceName(kfpName, namespace) {
 			return fmt.Errorf("experiment name %s with namespace %s, does not match the format <namespace>/<kfp_experiment_name>", experiment.Name, namespace)
 		}
 	}
-
 	return nil
 }
