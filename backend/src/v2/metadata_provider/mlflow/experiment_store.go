@@ -3,6 +3,8 @@ package mlflow
 import (
 	"fmt"
 	"github.com/golang/glog"
+	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/filter"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
@@ -143,7 +145,9 @@ func (s *ExperimentStore) ListExperiments(filterContext *model.FilterContext, op
 	if namespace != "" {
 		filter = fmt.Sprintf("tag.%s='%s'", NamespaceTag, namespace)
 	}
-	experiments, nextPageToken, err := s.client.searchExperiments(int64(opts.PageSize), opts.PageToken, filter, []string{}, "ALL")
+
+	viewType := determineStorageState(opts.Filter)
+	experiments, nextPageToken, err := s.client.searchExperiments(int64(opts.PageSize), opts.PageToken, filter, []string{}, types.ViewType(viewType))
 	if err != nil {
 		return errorF(err)
 	}
@@ -186,4 +190,23 @@ func (s *ExperimentStore) DeleteExperiment(expId string) error {
 func (s *ExperimentStore) SetLastRunTimestamp(run *model.Run) error {
 	glog.Warning("SetLastRunTimestamp is not implemented for MLFlow.")
 	return nil
+}
+
+func determineStorageState(f *filter.Filter) string {
+	if f == nil {
+		return ""
+	}
+	if match := f.FilterOn("experiments.StorageState", string(model.StorageStateAvailable), apiv2beta1.Predicate_EQUALS); match != nil && *match {
+		return "ACTIVE_ONLY"
+	}
+	if match := f.FilterOn("experiments.StorageState", string(model.StorageStateAvailable), apiv2beta1.Predicate_NOT_EQUALS); match != nil && *match {
+		return "DELETED_ONLY"
+	}
+	if match := f.FilterOn("experiments.StorageState", string(model.StorageStateArchived), apiv2beta1.Predicate_EQUALS); match != nil && *match {
+		return "DELETED_ONLY"
+	}
+	if match := f.FilterOn("experiments.StorageState", string(model.StorageStateArchived), apiv2beta1.Predicate_NOT_EQUALS); match != nil && *match {
+		return "ACTIVE_ONLY"
+	}
+	return ""
 }
