@@ -195,17 +195,5 @@ func validatedListOptions(listable list.Listable, pageToken string, pageSize int
 	opts.PageToken = pageToken
 	opts.SortBy = sortBy
 
-	if sortBy != "" || filterSpec != "" {
-		// Sanity check that these match the page token.
-		do, err := defaultOpts()
-		if err != nil {
-			return nil, err
-		}
-
-		if !opts.Matches(do) {
-			return nil, util.NewInvalidInputError("page token does not match the supplied sort by and/or filtering criteria. Either specify the same criteria or leave the latter empty if page token is specified")
-		}
-	}
-
 	return opts, nil
 }
