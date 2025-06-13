@@ -24,7 +24,6 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
-	providerutils "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/util"
 )
 
 type ExperimentStoreInterface interface {
