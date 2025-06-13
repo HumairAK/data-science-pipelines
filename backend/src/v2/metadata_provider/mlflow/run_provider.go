@@ -10,11 +10,15 @@ import (
 var _ metadata_provider.RunProvider = &RunProvider{}
 
 type RunProvider struct {
-	client Client
+	client *Client
 }
 
-func NewRunsProvider(client Client) *RunProvider {
-	return &RunProvider{client: client}
+func NewRunsProvider(config metadata_provider.UnstructuredJSON) (metadata_provider.RunProvider, error) {
+	client, err := NewClient(config)
+	if err != nil {
+		return nil, err
+	}
+	return &RunProvider{client: client}, nil
 }
 
 func (r *RunProvider) GetRun(experimentID string, kfpRunID string) (*metadata_provider.ProviderRun, error) {

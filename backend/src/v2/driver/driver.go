@@ -16,6 +16,7 @@ package driver
 
 import (
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"slices"
 	"strings"
 
@@ -64,7 +65,8 @@ type Options struct {
 
 	PublishLogs string
 
-	CacheDisabled bool
+	CacheDisabled      bool
+	MetadatRunProvider *metadata_provider.RunProvider
 }
 
 // Identifying information used for error messages

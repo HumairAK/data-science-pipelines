@@ -45,6 +45,9 @@ var (
 	logLevel          = flag.String("log_level", "1", "The verbosity level to log.")
 	publishLogs       = flag.String("publish_logs", "true", "Whether to publish component logs to the object store")
 	cacheDisabledFlag = flag.Bool("cache_disabled", false, "Disable cache globally.")
+
+	// metadata provider config
+	metadataProviderConfig = flag.String("metadata_provider_config", "", "Metadata provider config, must be a valid JSON string.")
 )
 
 func main() {

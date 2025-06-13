@@ -25,7 +25,7 @@ type ExperimentStore struct {
 	client *Client
 }
 
-func NewExperimentStore(config *MLFlowServerConfig) (*ExperimentStore, error) {
+func NewExperimentStore(config metadata_provider.UnstructuredJSON) (storage.ExperimentStoreInterface, error) {
 	client, err := NewClient(config)
 	if err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func NewExperimentStore(config *MLFlowServerConfig) (*ExperimentStore, error) {
 // For example, MLFlow allows you to set the artifact_location for all artifacts
 // uploaded in any run for a given experiment. The user should be able to configure this.
 // If the provider config is not provided, we would use the default bucket path
-func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, providerConfig *metadata_provider.ProviderRuntimeConfig) (*model.Experiment, error) {
+func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, providerConfig *map[string]interface{}) (*model.Experiment, error) {
 	experimentTags := []types.ExperimentTag{
 		{
 			Key:   ExperimentDescriptionTag,

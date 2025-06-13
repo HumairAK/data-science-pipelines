@@ -19,10 +19,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
-
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -84,6 +83,9 @@ var (
 	noProxy           = flag.String(noProxyArg, unsetProxyArgValue, "Addresses that should ignore the proxy.")
 	publishLogs       = flag.String("publish_logs", "true", "Whether to publish component logs to the object store")
 	cacheDisabledFlag = flag.Bool("cache_disabled", false, "Disable cache globally.")
+
+	// metadata provider conf
+	metadataProviderConfigFlag = flag.String("metadata_provider_config", "", "Metadata provider config, must be a valid JSON string.")
 )
 
 // func RootDAG(pipelineName string, runID string, component *pipelinespec.ComponentSpec, task *pipelinespec.PipelineTaskSpec, mlmd *metadata.Client) (*Execution, error) {
@@ -182,20 +184,32 @@ func drive() (err error) {
 	if err != nil {
 		return err
 	}
-	options := driver.Options{
-		PipelineName:     *pipelineName,
-		RunID:            *runID,
-		RunName:          *runName,
-		RunDisplayName:   *runDisplayName,
-		Namespace:        namespace,
-		Component:        componentSpec,
-		Task:             taskSpec,
-		DAGExecutionID:   *dagExecutionID,
-		IterationIndex:   *iterationIndex,
-		PipelineLogLevel: *logLevel,
-		PublishLogs:      *publishLogs,
-		CacheDisabled:    *cacheDisabledFlag,
+
+	metadataProviderConfig, err := metadata_provider.JSONToProviderConfig(*metadataProviderConfigFlag)
+	if err != nil {
+		return fmt.Errorf("failed to parse metadata provider config: %w", err)
 	}
+	metadatRunProvider, err := metadataProviderConfig.NewRunProvider()
+	if err != nil {
+		return fmt.Errorf("failed to create metadata provider: %w", err)
+	}
+
+	options := driver.Options{
+		PipelineName:       *pipelineName,
+		RunID:              *runID,
+		RunName:            *runName,
+		RunDisplayName:     *runDisplayName,
+		Namespace:          namespace,
+		Component:          componentSpec,
+		Task:               taskSpec,
+		DAGExecutionID:     *dagExecutionID,
+		IterationIndex:     *iterationIndex,
+		PipelineLogLevel:   *logLevel,
+		PublishLogs:        *publishLogs,
+		CacheDisabled:      *cacheDisabledFlag,
+		MetadatRunProvider: metadatRunProvider,
+	}
+
 	var execution *driver.Execution
 	var driverErr error
 	switch *driverType {

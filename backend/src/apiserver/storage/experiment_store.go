@@ -17,7 +17,6 @@ package storage
 import (
 	"database/sql"
 	"fmt"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/golang/glog"
@@ -27,7 +26,7 @@ import (
 )
 
 type ExperimentStoreInterface interface {
-	CreateExperiment(*model.Experiment, *metadata_provider.ProviderRuntimeConfig) (*model.Experiment, error)
+	CreateExperiment(*model.Experiment, *map[string]interface{}) (*model.Experiment, error)
 	GetExperiment(uuid string) (*model.Experiment, error)
 	GetExperimentByNameNamespace(name string, namespace string) (*model.Experiment, error)
 	ListExperiments(filterContext *model.FilterContext, opts *list.Options) ([]*model.Experiment, int, string, error)
@@ -221,7 +220,7 @@ func (s *ExperimentStore) scanRows(rows *sql.Rows) ([]*model.Experiment, error) 
 	return experiments, nil
 }
 
-func (s *ExperimentStore) CreateExperiment(experiment *model.Experiment, _ *metadata_provider.ProviderRuntimeConfig) (*model.Experiment, error) {
+func (s *ExperimentStore) CreateExperiment(experiment *model.Experiment, _ *map[string]interface{}) (*model.Experiment, error) {
 	newExperiment := *experiment
 	now := s.time.Now().Unix()
 	newExperiment.CreatedAtInSec = now

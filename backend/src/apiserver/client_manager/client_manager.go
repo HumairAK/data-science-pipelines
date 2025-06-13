@@ -19,7 +19,6 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow"
 	"os"
 	"strings"
 	"sync"
@@ -122,7 +121,7 @@ type Options struct {
 	GlobalKubernetesWebhookMode  bool
 	Context                      context.Context
 	WaitGroup                    *sync.WaitGroup
-	MetadataProvider             metadata_provider.MetadataProvider
+	MetadataProviderConfig       *metadata_provider.ProviderConfig
 }
 
 func (c *ClientManager) TaskStore() storage.TaskStoreInterface {
@@ -282,28 +281,43 @@ func (c *ClientManager) init(options *Options) error {
 		c.pipelineStore = storage.NewPipelineStore(db, c.time, c.uuid)
 	}
 
-	switch metadataProvider := options.MetadataProvider; metadataProvider {
-	case metadata_provider.MetadataProviderMLFlow:
-		hostEnv := os.Getenv("MLFLOW_HOST")
-		portEnv := os.Getenv("MLFLOW_PORT")
-		tlsEnabled := os.Getenv("MLFLOW_TLS_ENABLED")
-		if hostEnv == "" {
-			return fmt.Errorf("Missing environment variable MLFLOW_HOST")
-		}
-		mlflowConfig := &mlflow.MLFlowServerConfig{
-			Host:       hostEnv,
-			Port:       portEnv,
-			TLSEnabled: tlsEnabled,
-		}
+	if options.MetadataProviderConfig != nil {
 		var err error
-		c.experimentStore, err = mlflow.NewExperimentStore(mlflowConfig)
+		experimentStore, err := options.MetadataProviderConfig.NewExperimentStore()
 		if err != nil {
 			return err
 		}
-	default:
-		// If no provider
+		if experimentStore == nil {
+			return fmt.Errorf("Experiment store is nil")
+		}
+		c.experimentStore = *experimentStore
+
+	} else {
 		c.experimentStore = storage.NewExperimentStore(db, c.time, c.uuid)
 	}
+
+	//switch metadataProvider := options.MetadataProvider; metadataProvider {
+	//case metadata_provider.MetadataProviderMLFlow:
+	//	hostEnv := os.Getenv("MLFLOW_HOST")
+	//	portEnv := os.Getenv("MLFLOW_PORT")
+	//	tlsEnabled := os.Getenv("MLFLOW_TLS_ENABLED")
+	//	if hostEnv == "" {
+	//		return fmt.Errorf("Missing environment variable MLFLOW_HOST")
+	//	}
+	//	mlflowConfig := &mlflow.MLFlowServerConfig{
+	//		Host:       hostEnv,
+	//		Port:       portEnv,
+	//		TLSEnabled: tlsEnabled,
+	//	}
+	//	var err error
+	//	c.experimentStore, err = mlflow.NewExperimentStore(mlflowConfig)
+	//	if err != nil {
+	//		return err
+	//	}
+	//default:
+	//	// If no provider
+	//	c.experimentStore = storage.NewExperimentStore(db, c.time, c.uuid)
+	//}
 	c.defaultExperimentStore = storage.NewDefaultExperimentStore(db)
 	c.jobStore = storage.NewJobStore(db, c.time, pipelineStoreForRef, c.experimentStore)
 	c.taskStore = storage.NewTaskStore(db, c.time, c.uuid)

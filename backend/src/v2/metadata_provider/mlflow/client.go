@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golang/glog"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
 	"github.com/pkg/errors"
 	"io"
@@ -21,10 +22,17 @@ type Client struct {
 	token       string
 }
 
-func NewClient(config *MLFlowServerConfig) (*Client, error) {
-	host := config.Host
-	port := config.Port
-	tlsEnabled := config.TLSEnabled
+// NewClient returns a new MLFlow client.
+// Assumes Env vars:
+// MLFLOW_TRACKING_SERVER_TOKEN
+func NewClient(config metadata_provider.UnstructuredJSON) (*Client, error) {
+	mlFlowConfig, err := ConvertToMLFlowConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	host := mlFlowConfig.Host
+	port := mlFlowConfig.Port
+	tlsEnabled := mlFlowConfig.TLSEnabled
 	var protocol string
 	if tlsEnabled == "true" {
 		protocol = "https"

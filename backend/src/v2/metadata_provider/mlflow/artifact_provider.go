@@ -10,11 +10,15 @@ import (
 var _ metadata_provider.MetadataArtifactProvider = &ArtifactProvider{}
 
 type ArtifactProvider struct {
-	client Client
+	client *Client
 }
 
-func NewArtifactsProvider(client Client) *ArtifactProvider {
-	return &ArtifactProvider{client: client}
+func NewArtifactsProvider(config map[string]interface{}) (metadata_provider.MetadataArtifactProvider, error) {
+	client, err := NewClient(config)
+	if err != nil {
+		return nil, err
+	}
+	return &ArtifactProvider{client: client}, nil
 }
 
 func (a *ArtifactProvider) LogOutputArtifact(
