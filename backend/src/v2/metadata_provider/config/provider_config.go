@@ -3,16 +3,16 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/util"
 	"google.golang.org/protobuf/types/known/structpb"
 	k8score "k8s.io/api/core/v1"
 )
 
 // TODO: This should be the Proto value once defined in experiment.proto for createrequest
-type ProviderRuntimeConfig util.UnstructuredJSON
+type ProviderRuntimeConfig common.UnstructuredJSON
 
 func ConvertStructToConfig(s *structpb.Struct) ProviderRuntimeConfig {
 	return s.AsMap()
@@ -26,9 +26,9 @@ const (
 )
 
 type ProviderConfig struct {
-	MetadataProviderName MetadataProvider      `json:"metadata_provider_name"`
-	EnvironmentVariables []k8score.EnvVar      `json:"environment_variables"`
-	Config               util.UnstructuredJSON `json:"config"`
+	MetadataProviderName MetadataProvider        `json:"metadata_provider_name"`
+	EnvironmentVariables []k8score.EnvVar        `json:"environment_variables"`
+	Config               common.UnstructuredJSON `json:"config"`
 }
 
 func (c *ProviderConfig) NewExperimentStore() (storage.ExperimentStoreInterface, error) {

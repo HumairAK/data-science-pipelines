@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"github.com/golang/glog"
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/filter"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
 	commonutils "github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/util"
 )
 
 // Ensure MLFlowExperimentProvider implements MetadataExperimentProvider
@@ -25,7 +25,7 @@ type ExperimentStore struct {
 	client *Client
 }
 
-func NewExperimentStore(config util.UnstructuredJSON) (storage.ExperimentStoreInterface, error) {
+func NewExperimentStore(config common.UnstructuredJSON) (storage.ExperimentStoreInterface, error) {
 	client, err := NewClient(config)
 	if err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func NewExperimentStore(config util.UnstructuredJSON) (storage.ExperimentStoreIn
 // For example, MLFlow allows you to set the artifact_location for all artifacts
 // uploaded in any run for a given experiment. The user should be able to configure this.
 // If the provider config is not provided, we would use the default bucket path
-func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, providerConfig *util.UnstructuredJSON) (*model.Experiment, error) {
+func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, providerConfig *common.UnstructuredJSON) (*model.Experiment, error) {
 	experimentTags := []types.ExperimentTag{
 		{
 			Key:   ExperimentDescriptionTag,

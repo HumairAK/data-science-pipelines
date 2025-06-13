@@ -32,6 +32,8 @@ const (
 	pipelineNamePattern = "^[a-z0-9][a-z0-9-]{0,127}$"
 )
 
+type UnstructuredJSON map[string]interface{}
+
 // CreateArtifactPath creates artifact resource path.
 func CreateArtifactPath(runID string, nodeID string, artifactName string) string {
 	return fmt.Sprintf("runs/%s/nodes/%s/artifacts/%s", runID, nodeID, artifactName)

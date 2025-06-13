@@ -19,7 +19,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
+	providerconfig "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 	"io"
 	"math"
 	"net"
@@ -56,8 +56,9 @@ import (
 )
 
 const (
-	executionTypeEnv = "ExecutionType"
-	launcherEnv      = "Launcher"
+	executionTypeEnv          = "ExecutionType"
+	launcherEnv               = "Launcher"
+	metadataProviderConfigEnv = "MetadataProviderConfig"
 )
 
 var (
@@ -100,8 +101,14 @@ func main() {
 		Context:                      backgroundCtx,
 		WaitGroup:                    &wg,
 	}
-	if viper.IsSet("METADATA_PROVIDER") {
-		options.MetadataProvider = metadata_provider.MetadataProvider(common.GetStringConfig("METADATA_PROVIDER"))
+
+	if viper.IsSet(metadataProviderConfigEnv) {
+		configJSON := common.GetStringConfig(metadataProviderConfigEnv)
+		metadataProviderConfig, err := providerconfig.JSONToProviderConfig(configJSON)
+		if err != nil {
+			glog.Fatalf("Failed to parse metadata provider config: %v", err)
+		}
+		options.MetadataProviderConfig = metadataProviderConfig
 	}
 
 	logLevel := *logLevelFlag

@@ -2,9 +2,9 @@ package mlflow
 
 import (
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/util"
 )
 
 // Ensure RunProvider implements RunProvider
@@ -14,7 +14,7 @@ type RunProvider struct {
 	client *Client
 }
 
-func NewRunsProvider(config util.UnstructuredJSON) (metadata_provider.RunProvider, error) {
+func NewRunsProvider(config common.UnstructuredJSON) (metadata_provider.RunProvider, error) {
 	client, err := NewClient(config)
 	if err != nil {
 		return nil, err
