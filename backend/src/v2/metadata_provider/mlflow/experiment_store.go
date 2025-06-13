@@ -33,7 +33,7 @@ func NewExperimentStore(config *MLFlowServerConfig) (*ExperimentStore, error) {
 	return &ExperimentStore{client: client}, nil
 }
 
-// CreateExperiment will need to also accept a providerConfig which is used for
+// CreateExperiment accepts a providerConfig which is used for
 // provider-specific creation options.
 // For example, MLFlow allows you to set the artifact_location for all artifacts
 // uploaded in any run for a given experiment. The user should be able to configure this.
@@ -51,6 +51,7 @@ func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, pro
 	// unique, thus we must also include the namespace in the name
 	if namespace != "" {
 		experimentTags = append(experimentTags,
+			// For easy searching and future parsing, we keep the canonical name as a tag
 			types.ExperimentTag{
 				Key:   NameTag,
 				Value: baseExperiment.Name,
@@ -182,7 +183,7 @@ func (s *ExperimentStore) UnarchiveExperiment(expId string) error {
 }
 
 func (s *ExperimentStore) DeleteExperiment(expId string) error {
-	return fmt.Errorf("Permanently deleting experiments is not supported. Please use the archive API instead.")
+	return fmt.Errorf("Permanently deleting experiments is not supported in MLFlow. Please use the archive API instead.")
 }
 
 // SetLastRunTimestamp
