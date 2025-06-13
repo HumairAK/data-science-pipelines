@@ -95,6 +95,7 @@ func main() {
 
 	wg := sync.WaitGroup{}
 
+	var metadataProviderConfig *providerconfig.ProviderConfig
 	options := &cm.Options{
 		UsePipelineKubernetesStorage: *usePipelinesKubernetesStorage,
 		GlobalKubernetesWebhookMode:  *globalKubernetesWebhookMode,
@@ -104,12 +105,13 @@ func main() {
 
 	if viper.IsSet(metadataProviderConfigEnv) {
 		configJSON := common.GetStringConfig(metadataProviderConfigEnv)
-		metadataProviderConfig, err := providerconfig.JSONToProviderConfig(configJSON)
+		var err error
+		metadataProviderConfig, err = providerconfig.JSONToProviderConfig(configJSON)
 		if err != nil {
 			glog.Fatalf("Failed to parse metadata provider config: %v", err)
 		}
-		options.MetadataProviderConfig = metadataProviderConfig
 	}
+	options.MetadataProviderConfig = metadataProviderConfig
 
 	logLevel := *logLevelFlag
 	if logLevel == "" {
@@ -171,8 +173,9 @@ func main() {
 	resourceManager := resource.NewResourceManager(
 		clientManager,
 		&resource.ResourceManagerOptions{
-			CollectMetrics: *collectMetricsFlag,
-			CacheDisabled:  !common.GetBoolConfigWithDefault("CacheEnabled", true),
+			CollectMetrics:         *collectMetricsFlag,
+			CacheDisabled:          !common.GetBoolConfigWithDefault("CacheEnabled", true),
+			MetadataProviderConfig: metadataProviderConfig,
 		},
 	)
 	err = config.LoadSamples(resourceManager, *sampleConfigPath)

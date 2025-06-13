@@ -16,7 +16,7 @@ package server
 
 import (
 	"context"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
+	providerconfig "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
@@ -82,7 +82,7 @@ type ExperimentServer struct {
 	options         *ExperimentServerOptions
 }
 
-func (s *ExperimentServer) createExperiment(ctx context.Context, experiment *model.Experiment, config *metadata_provider.ProviderRuntimeConfig) (*model.Experiment, error) {
+func (s *ExperimentServer) createExperiment(ctx context.Context, experiment *model.Experiment, config *common.UnstructuredJSON) (*model.Experiment, error) {
 	experiment.Namespace = s.resourceManager.ReplaceNamespace(experiment.Namespace)
 	resourceAttributes := &authorizationv1.ResourceAttributes{
 		Namespace: experiment.Namespace,
@@ -136,7 +136,7 @@ func (s *ExperimentServer) CreateExperiment(ctx context.Context, request *apiv2b
 		return nil, util.Wrap(err, "[ExperimentServer]: Failed to create a experiment due to conversion error")
 	}
 	// Todo: move the config conversion to the metadata provider.
-	config := metadata_provider.ConvertStructToConfig(request.Experiment.GetProviderConfig())
+	config := providerconfig.ConvertStructToJSON(request.Experiment.GetProviderConfig())
 	newExperiment, err := s.createExperiment(ctx, modelExperiment, &config)
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to create a experiment")

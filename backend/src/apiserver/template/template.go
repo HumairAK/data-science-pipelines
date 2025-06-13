@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	providerconfig "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 	"io"
 	"regexp"
 	"strings"
@@ -128,15 +129,19 @@ type Template interface {
 	// Get workflow
 	RunWorkflow(modelRun *model.Run, options RunWorkflowOptions) (util.ExecutionSpec, error)
 
-	ScheduledWorkflow(modelJob *model.Job) (*scheduledworkflow.ScheduledWorkflow, error)
+	ScheduledWorkflow(modelJob *model.Job, options ScheduledWorkflowOptions) (*scheduledworkflow.ScheduledWorkflow, error)
 
 	IsCacheDisabled() bool
 }
 
 type RunWorkflowOptions struct {
-	RunId         string
-	RunAt         int64
-	CacheDisabled bool
+	RunId                  string
+	RunAt                  int64
+	CacheDisabled          bool
+	MetadataProviderConfig *providerconfig.ProviderConfig
+}
+type ScheduledWorkflowOptions struct {
+	MetadataProviderConfig *providerconfig.ProviderConfig
 }
 
 func New(bytes []byte, cacheDisabled bool) (Template, error) {

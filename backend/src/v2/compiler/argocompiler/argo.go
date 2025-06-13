@@ -19,6 +19,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	providerconfig "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 	"strings"
 
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
@@ -42,7 +43,9 @@ type Options struct {
 	// optional
 	PipelineRoot string
 	// optional
-	CacheDisabled bool
+	CacheDisabled          bool
+	MetadataProviderConfig *providerconfig.ProviderConfig
+
 	// TODO(Bobgy): add an option -- dev mode, ImagePullPolicy should only be Always in dev mode.
 }
 

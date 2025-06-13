@@ -14,7 +14,7 @@ import (
 // TODO: This should be the Proto value once defined in experiment.proto for createrequest
 type ProviderRuntimeConfig common.UnstructuredJSON
 
-func ConvertStructToConfig(s *structpb.Struct) ProviderRuntimeConfig {
+func ConvertStructToJSON(s *structpb.Struct) common.UnstructuredJSON {
 	return s.AsMap()
 }
 
