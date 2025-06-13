@@ -7,16 +7,8 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow"
-	"google.golang.org/protobuf/types/known/structpb"
 	k8score "k8s.io/api/core/v1"
 )
-
-// TODO: This should be the Proto value once defined in experiment.proto for createrequest
-type ProviderRuntimeConfig common.UnstructuredJSON
-
-func ConvertStructToJSON(s *structpb.Struct) common.UnstructuredJSON {
-	return s.AsMap()
-}
 
 // MetadataProvider defines the type of metadata provider
 type MetadataProvider string

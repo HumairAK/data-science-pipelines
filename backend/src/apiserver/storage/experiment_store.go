@@ -27,7 +27,7 @@ import (
 )
 
 type ExperimentStoreInterface interface {
-	CreateExperiment(*model.Experiment, *common.UnstructuredJSON) (*model.Experiment, error)
+	CreateExperiment(*model.Experiment, common.UnstructuredJSON) (*model.Experiment, error)
 	GetExperiment(uuid string) (*model.Experiment, error)
 	GetExperimentByNameNamespace(name string, namespace string) (*model.Experiment, error)
 	ListExperiments(filterContext *model.FilterContext, opts *list.Options) ([]*model.Experiment, int, string, error)
@@ -221,7 +221,7 @@ func (s *ExperimentStore) scanRows(rows *sql.Rows) ([]*model.Experiment, error) 
 	return experiments, nil
 }
 
-func (s *ExperimentStore) CreateExperiment(experiment *model.Experiment, _ *common.UnstructuredJSON) (*model.Experiment, error) {
+func (s *ExperimentStore) CreateExperiment(experiment *model.Experiment, _ common.UnstructuredJSON) (*model.Experiment, error) {
 	newExperiment := *experiment
 	now := s.time.Now().Unix()
 	newExperiment.CreatedAtInSec = now

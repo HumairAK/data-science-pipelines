@@ -162,7 +162,7 @@ func (r *ResourceManager) getScheduledWorkflowClient(namespace string) scheduled
 }
 
 // Creates a new experiment.
-func (r *ResourceManager) CreateExperiment(experiment *model.Experiment, config *common.UnstructuredJSON) (*model.Experiment, error) {
+func (r *ResourceManager) CreateExperiment(experiment *model.Experiment, config common.UnstructuredJSON) (*model.Experiment, error) {
 	if common.IsMultiUserMode() {
 		if experiment.Namespace == "" {
 			return nil, util.NewInvalidInputError("Namespace cannot be empty")

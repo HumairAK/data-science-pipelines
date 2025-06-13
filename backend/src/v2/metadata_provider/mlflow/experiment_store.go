@@ -38,7 +38,7 @@ func NewExperimentStore(config common.UnstructuredJSON) (storage.ExperimentStore
 // For example, MLFlow allows you to set the artifact_location for all artifacts
 // uploaded in any run for a given experiment. The user should be able to configure this.
 // If the provider config is not provided, we would use the default bucket path
-func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, providerConfig *common.UnstructuredJSON) (*model.Experiment, error) {
+func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, providerConfig common.UnstructuredJSON) (*model.Experiment, error) {
 	experimentTags := []types.ExperimentTag{
 		{
 			Key:   ExperimentDescriptionTag,
@@ -66,7 +66,7 @@ func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, pro
 
 	var artifactLocation string
 	if providerConfig != nil {
-		creationConfig, err := ConvertToExperimentCreationConfig(*providerConfig)
+		creationConfig, err := ConvertToExperimentCreationConfig(providerConfig)
 		if err != nil {
 			return nil, err
 		}
