@@ -8,9 +8,9 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
-	"github.com/kubeflow/pipelines/backend/src/common/util"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
+	commonutils "github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/util"
 )
 
 // Ensure MLFlowExperimentProvider implements MetadataExperimentProvider
@@ -25,7 +25,7 @@ type ExperimentStore struct {
 	client *Client
 }
 
-func NewExperimentStore(config metadata_provider.UnstructuredJSON) (storage.ExperimentStoreInterface, error) {
+func NewExperimentStore(config util.UnstructuredJSON) (storage.ExperimentStoreInterface, error) {
 	client, err := NewClient(config)
 	if err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func NewExperimentStore(config metadata_provider.UnstructuredJSON) (storage.Expe
 // For example, MLFlow allows you to set the artifact_location for all artifacts
 // uploaded in any run for a given experiment. The user should be able to configure this.
 // If the provider config is not provided, we would use the default bucket path
-func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, providerConfig *map[string]interface{}) (*model.Experiment, error) {
+func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, providerConfig *util.UnstructuredJSON) (*model.Experiment, error) {
 	experimentTags := []types.ExperimentTag{
 		{
 			Key:   ExperimentDescriptionTag,
@@ -131,7 +131,7 @@ func (s *ExperimentStore) GetExperimentByNameNamespace(name string, namespace st
 
 func (s *ExperimentStore) ListExperiments(filterContext *model.FilterContext, opts *list.Options) ([]*model.Experiment, int, string, error) {
 	errorF := func(err error) ([]*model.Experiment, int, string, error) {
-		return nil, 0, "", util.NewInternalServerError(err, "Failed to list experiments: %v", err)
+		return nil, 0, "", commonutils.NewInternalServerError(err, "Failed to list experiments: %v", err)
 	}
 
 	var namespace string

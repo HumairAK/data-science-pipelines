@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/util"
 )
 
 // Ensure ArtifactProvider implements MetadataArtifactsProvider
@@ -13,7 +14,7 @@ type ArtifactProvider struct {
 	client *Client
 }
 
-func NewArtifactsProvider(config map[string]interface{}) (metadata_provider.MetadataArtifactProvider, error) {
+func NewArtifactsProvider(config util.UnstructuredJSON) (metadata_provider.MetadataArtifactProvider, error) {
 	client, err := NewClient(config)
 	if err != nil {
 		return nil, err

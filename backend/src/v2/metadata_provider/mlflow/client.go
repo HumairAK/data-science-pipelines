@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golang/glog"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/util"
 	"github.com/pkg/errors"
 	"io"
 	"net/http"
@@ -25,7 +25,7 @@ type Client struct {
 // NewClient returns a new MLFlow client.
 // Assumes Env vars:
 // MLFLOW_TRACKING_SERVER_TOKEN
-func NewClient(config metadata_provider.UnstructuredJSON) (*Client, error) {
+func NewClient(config util.UnstructuredJSON) (*Client, error) {
 	mlFlowConfig, err := ConvertToMLFlowConfig(config)
 	if err != nil {
 		return nil, err

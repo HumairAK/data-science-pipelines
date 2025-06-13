@@ -1,16 +1,18 @@
-package metadata_provider
+package config
 
 import (
 	"encoding/json"
 	"fmt"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/util"
 	"google.golang.org/protobuf/types/known/structpb"
 	k8score "k8s.io/api/core/v1"
 )
 
 // TODO: This should be the Proto value once defined in experiment.proto for createrequest
-type ProviderRuntimeConfig map[string]interface{}
+type ProviderRuntimeConfig util.UnstructuredJSON
 
 func ConvertStructToConfig(s *structpb.Struct) ProviderRuntimeConfig {
 	return s.AsMap()
@@ -23,12 +25,19 @@ const (
 	MetadataProviderMLFlow MetadataProvider = "mlflow"
 )
 
-type UnstructuredJSON map[string]interface{}
-
 type ProviderConfig struct {
-	MetadataProviderName MetadataProvider `json:"metadata_provider_name"`
-	EnvironmentVariables []k8score.EnvVar `json:"environment_variables"`
-	Config               UnstructuredJSON `json:"config"`
+	MetadataProviderName MetadataProvider      `json:"metadata_provider_name"`
+	EnvironmentVariables []k8score.EnvVar      `json:"environment_variables"`
+	Config               util.UnstructuredJSON `json:"config"`
+}
+
+func JSONToProviderConfig(jsonSTR string) (*ProviderConfig, error) {
+	var metadataProviderConfig ProviderConfig
+	err := json.Unmarshal([]byte(jsonSTR), &metadataProviderConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal metadata provider config, error: %w\nmetadataProviderConfig: %v", err, jsonSTR)
+	}
+	return &metadataProviderConfig, nil
 }
 
 func (c *ProviderConfig) NewExperimentStore() (storage.ExperimentStoreInterface, error) {
@@ -44,7 +53,7 @@ func (c *ProviderConfig) NewExperimentStore() (storage.ExperimentStoreInterface,
 	}
 }
 
-func (c *ProviderConfig) NewRunProvider() (RunProvider, error) {
+func (c *ProviderConfig) NewRunProvider() (metadata_provider.RunProvider, error) {
 	switch c.MetadataProviderName {
 	case MetadataProviderMLFlow:
 		provider, err := mlflow.NewRunsProvider(c.Config)
@@ -57,7 +66,7 @@ func (c *ProviderConfig) NewRunProvider() (RunProvider, error) {
 	}
 }
 
-func (c *ProviderConfig) NewMetadataArtifactProvider() (*MetadataArtifactProvider, error) {
+func (c *ProviderConfig) NewMetadataArtifactProvider() (metadata_provider.MetadataArtifactProvider, error) {
 	switch c.MetadataProviderName {
 	case MetadataProviderMLFlow:
 		provider, err := mlflow.NewArtifactsProvider(c.Config)
@@ -68,13 +77,4 @@ func (c *ProviderConfig) NewMetadataArtifactProvider() (*MetadataArtifactProvide
 	default:
 		return nil, fmt.Errorf("unsupported metadata provider: %s", c.MetadataProviderName)
 	}
-}
-
-func JSONToProviderConfig(jsonSTR string) (*ProviderConfig, error) {
-	var metadataProviderConfig ProviderConfig
-	err := json.Unmarshal([]byte(jsonSTR), &metadataProviderConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal metadata provider config, error: %w\nmetadataProviderConfig: %v", err, jsonSTR)
-	}
-	return &metadataProviderConfig, nil
 }

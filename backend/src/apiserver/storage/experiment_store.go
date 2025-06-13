@@ -23,10 +23,11 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	providerutils "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/util"
 )
 
 type ExperimentStoreInterface interface {
-	CreateExperiment(*model.Experiment, *map[string]interface{}) (*model.Experiment, error)
+	CreateExperiment(*model.Experiment, *providerutils.UnstructuredJSON) (*model.Experiment, error)
 	GetExperiment(uuid string) (*model.Experiment, error)
 	GetExperimentByNameNamespace(name string, namespace string) (*model.Experiment, error)
 	ListExperiments(filterContext *model.FilterContext, opts *list.Options) ([]*model.Experiment, int, string, error)
@@ -220,7 +221,7 @@ func (s *ExperimentStore) scanRows(rows *sql.Rows) ([]*model.Experiment, error) 
 	return experiments, nil
 }
 
-func (s *ExperimentStore) CreateExperiment(experiment *model.Experiment, _ *map[string]interface{}) (*model.Experiment, error) {
+func (s *ExperimentStore) CreateExperiment(experiment *model.Experiment, _ *providerutils.UnstructuredJSON) (*model.Experiment, error) {
 	newExperiment := *experiment
 	now := s.time.Now().Unix()
 	newExperiment.CreatedAtInSec = now
