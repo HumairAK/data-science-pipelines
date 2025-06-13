@@ -18,9 +18,9 @@ const (
 )
 
 type ProviderConfig struct {
-	MetadataProviderName MetadataProvider        `json:"metadata_provider_name"`
-	EnvironmentVariables []k8score.EnvVar        `json:"environment_variables"`
-	Config               common.UnstructuredJSON `json:"config"`
+	MetadataProviderName MetadataProvider        `json:"MetadataProviderName"`
+	EnvironmentVariables []k8score.EnvVar        `json:"EnvironmentVariables"`
+	Config               common.UnstructuredJSON `json:"Config"`
 }
 
 func (c *ProviderConfig) NewExperimentStore() (storage.ExperimentStoreInterface, error) {
@@ -60,6 +60,20 @@ func (c *ProviderConfig) NewMetadataArtifactProvider() (metadata_provider.Metada
 	default:
 		return nil, fmt.Errorf("unsupported metadata provider: %s", c.MetadataProviderName)
 	}
+}
+
+func (c *ProviderConfig) ValidateConfig() error {
+	if c == nil {
+		return fmt.Errorf("metadata provider config is empty")
+	}
+	if c.MetadataProviderName == "" {
+		return fmt.Errorf("metadata provider name is empty")
+	}
+	if c.Config == nil {
+		return fmt.Errorf("metadata provider config is empty")
+		// todo: add more validation for each provider
+	}
+	return nil
 }
 
 func JSONToProviderConfig(jsonSTR string) (*ProviderConfig, error) {

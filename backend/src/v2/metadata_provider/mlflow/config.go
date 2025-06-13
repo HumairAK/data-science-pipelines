@@ -6,9 +6,9 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 )
 
-type MLFlowConfig struct {
-	Host       string `json:"host"`
-	Port       string `json:"port"`
+type Config struct {
+	Host       string `json:"Host"`
+	Port       string `json:"Port"`
 	TLSEnabled string `json:"TLSEnabled"`
 	// TODO: Add tls cert handling
 }
@@ -34,12 +34,12 @@ func ConvertToExperimentCreationConfig(config common.UnstructuredJSON) (*Experim
 	return &typed, nil
 }
 
-func ConvertToMLFlowConfig(data common.UnstructuredJSON) (*MLFlowConfig, error) {
+func ConvertToMLFlowConfig(data common.UnstructuredJSON) (*Config, error) {
 	raw, err := json.Marshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal unstructured JSON: %w", err)
 	}
-	var config MLFlowConfig
+	var config Config
 	if err := json.Unmarshal(raw, &config); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal into MLFlowConfig: %w", err)
 	}

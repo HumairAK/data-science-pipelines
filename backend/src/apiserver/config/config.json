@@ -25,4 +25,12 @@
   "CRON_SCHEDULE_TIMEZONE": "UTC",
   "CACHE_IMAGE": "registry.k8s.io/busybox",
   "CACHE_NODE_RESTRICTIONS": "false",
+  "MetadataProviderConfig": {
+    "MetadataProviderName": "mlflow",
+    "Config": {
+      "Host": "mlflow-server-mlflow.apps.hukhan-10.dev.datahub.redhat.com",
+      "Port": "",
+      "TLSEnabled": "true"
+    }
+  }
 }

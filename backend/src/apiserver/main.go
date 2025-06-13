@@ -104,13 +104,21 @@ func main() {
 	}
 
 	if viper.IsSet(metadataProviderConfigEnv) {
-		configJSON := common.GetStringConfig(metadataProviderConfigEnv)
+		configJSON := common.GetSubConfigJSON(metadataProviderConfigEnv)
+		if configJSON == "" {
+			glog.Fatalf("No MetadataProviderConfig found in config/env: %s", metadataProviderConfigEnv)
+		}
 		var err error
 		metadataProviderConfig, err = providerconfig.JSONToProviderConfig(configJSON)
 		if err != nil {
 			glog.Fatalf("Failed to parse metadata provider config: %v", err)
 		}
+		err = metadataProviderConfig.ValidateConfig()
+		if err != nil {
+			glog.Fatalf("Invalid metadata provider config: %v", err)
+		}
 	}
+
 	options.MetadataProviderConfig = metadataProviderConfig
 
 	logLevel := *logLevelFlag
