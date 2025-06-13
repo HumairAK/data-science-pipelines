@@ -66,7 +66,7 @@ type Options struct {
 	PublishLogs string
 
 	CacheDisabled      bool
-	MetadatRunProvider *metadata_provider.RunProvider
+	MetadatRunProvider metadata_provider.RunProvider
 }
 
 // Identifying information used for error messages

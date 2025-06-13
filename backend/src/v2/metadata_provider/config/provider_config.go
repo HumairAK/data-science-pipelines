@@ -31,15 +31,6 @@ type ProviderConfig struct {
 	Config               util.UnstructuredJSON `json:"config"`
 }
 
-func JSONToProviderConfig(jsonSTR string) (*ProviderConfig, error) {
-	var metadataProviderConfig ProviderConfig
-	err := json.Unmarshal([]byte(jsonSTR), &metadataProviderConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal metadata provider config, error: %w\nmetadataProviderConfig: %v", err, jsonSTR)
-	}
-	return &metadataProviderConfig, nil
-}
-
 func (c *ProviderConfig) NewExperimentStore() (storage.ExperimentStoreInterface, error) {
 	switch c.MetadataProviderName {
 	case MetadataProviderMLFlow:
@@ -77,4 +68,13 @@ func (c *ProviderConfig) NewMetadataArtifactProvider() (metadata_provider.Metada
 	default:
 		return nil, fmt.Errorf("unsupported metadata provider: %s", c.MetadataProviderName)
 	}
+}
+
+func JSONToProviderConfig(jsonSTR string) (*ProviderConfig, error) {
+	var metadataProviderConfig ProviderConfig
+	err := json.Unmarshal([]byte(jsonSTR), &metadataProviderConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal metadata provider config, error: %w\nmetadataProviderConfig: %v", err, jsonSTR)
+	}
+	return &metadataProviderConfig, nil
 }

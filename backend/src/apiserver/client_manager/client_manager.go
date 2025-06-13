@@ -18,7 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 	"os"
 	"strings"
 	"sync"
@@ -121,7 +121,7 @@ type Options struct {
 	GlobalKubernetesWebhookMode  bool
 	Context                      context.Context
 	WaitGroup                    *sync.WaitGroup
-	MetadataProviderConfig       *metadata_provider.ProviderConfig
+	MetadataProviderConfig       *config.ProviderConfig
 }
 
 func (c *ClientManager) TaskStore() storage.TaskStoreInterface {
@@ -287,11 +287,7 @@ func (c *ClientManager) init(options *Options) error {
 		if err != nil {
 			return err
 		}
-		if experimentStore == nil {
-			return fmt.Errorf("Experiment store is nil")
-		}
-		c.experimentStore = *experimentStore
-
+		c.experimentStore = experimentStore
 	} else {
 		c.experimentStore = storage.NewExperimentStore(db, c.time, c.uuid)
 	}
