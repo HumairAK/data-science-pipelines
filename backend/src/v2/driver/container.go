@@ -18,7 +18,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	v2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"strconv"
 
 	"github.com/golang/glog"
@@ -150,6 +152,34 @@ func Container(ctx context.Context, opts Options, cm *client_manager.ClientManag
 		ecfg.FingerPrint = fingerPrint
 	}
 
+	if cm.MetadataRunProvider != nil {
+		parentID, exists := dag.Execution.GetProviderRunID()
+		if !exists {
+			return nil, fmt.Errorf("parent dag id is not set")
+		}
+		runParameters := metadata_provider.PBParamsToRunParameters(ecfg.InputParameters)
+
+		kfpRun, err := cm.RunServiceClient.GetRun(
+			ctx,
+			&v2beta1.GetRunRequest{
+				RunId: opts.RunID,
+			})
+		if err != nil {
+			return nil, err
+		}
+		run, err := opts.MetadatRunProvider.CreateRun(
+			opts.ExperimentId,
+			kfpRun,
+			runParameters,
+			parentID,
+		)
+		if err != nil {
+			return nil, err
+		}
+		ecfg.ProviderRunID = &run.ID
+		ecfg.ExperimentID = &opts.ExperimentId
+	}
+
 	var createdExecution *metadata.Execution
 	if opts.DevMode {
 		createdExecution, err = mlmd.GetExecution(ctx, opts.DevExecutionId)
@@ -160,9 +190,6 @@ func Container(ctx context.Context, opts Options, cm *client_manager.ClientManag
 		return nil, err
 	}
 
-	if err != nil {
-		return execution, err
-	}
 	glog.Infof("Created execution: %s", createdExecution)
 	execution.ID = createdExecution.GetID()
 	if !execution.WillTrigger() {

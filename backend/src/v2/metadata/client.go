@@ -284,6 +284,34 @@ func (e *Execution) FingerPrint() string {
 	return e.execution.GetCustomProperties()[keyCacheFingerPrint].GetStringValue()
 }
 
+func (e *Execution) GetParentDagID() int64 {
+	return e.execution.GetCustomProperties()[keyParentDagID].GetIntValue()
+}
+
+func (e *Execution) GetProviderRunID() (val string, exists bool) {
+	v, exists := e.execution.GetCustomProperties()[keyProviderRunID]
+	if !exists {
+		return "", false
+	}
+	return v.GetStringValue(), true
+}
+
+func (e *Execution) GetIterationIndex() (val int64, exists bool) {
+	v, exists := e.execution.GetCustomProperties()[keyIterationIndex]
+	if !exists {
+		return -1, false
+	}
+	return v.GetIntValue(), true
+}
+
+func (e *Execution) GetIterationCount() (val int64, exists bool) {
+	v, exists := e.execution.GetCustomProperties()[keyIterationCount]
+	if !exists {
+		return -1, false
+	}
+	return v.GetIntValue(), true
+}
+
 // GetTaskNameWithDagID appends the taskName with its parent dag id. This is
 // used to help avoid collisions when creating the taskMap for downstream input
 // resolution.
