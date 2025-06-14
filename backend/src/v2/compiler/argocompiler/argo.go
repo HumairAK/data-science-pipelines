@@ -45,6 +45,7 @@ type Options struct {
 	// optional
 	CacheDisabled    bool
 	MetadataProvider *md.Provider
+	ExperimentID     string
 
 	// TODO(Bobgy): add an option -- dev mode, ImagePullPolicy should only be Always in dev mode.
 }
@@ -147,6 +148,7 @@ func Compile(jobArg *pipelinespec.PipelineJob, kubernetesSpecArg *pipelinespec.S
 		job:             job,
 		spec:            spec,
 		executors:       deploy.GetExecutors(),
+		experimentID:    opts.ExperimentID,
 	}
 	if opts != nil {
 		c.cacheDisabled = opts.CacheDisabled
@@ -160,12 +162,12 @@ func Compile(jobArg *pipelinespec.PipelineJob, kubernetesSpecArg *pipelinespec.S
 			job.RuntimeConfig.GcsOutputDirectory = opts.PipelineRoot
 		}
 		if opts.MetadataProvider != nil {
-			c.MetadataProviderEnv = opts.MetadataProvider.GetEnvVars()
+			c.metadataProviderEnv = opts.MetadataProvider.GetEnvVars()
 			configJson, err1 := opts.MetadataProvider.ProviderConfigToJSON()
 			if err1 != nil {
 				return nil, err1
 			}
-			c.MetadataProviderConfig = configJson
+			c.metadataProviderConfig = configJson
 		}
 	}
 
@@ -193,8 +195,9 @@ type workflowCompiler struct {
 	launcherImage          string
 	launcherCommand        []string
 	cacheDisabled          bool
-	MetadataProviderEnv    []k8score.EnvVar
-	MetadataProviderConfig string
+	metadataProviderEnv    []k8score.EnvVar
+	metadataProviderConfig string
+	experimentID           string
 }
 
 func (c *workflowCompiler) Resolver(name string, component *pipelinespec.ComponentSpec, resolver *pipelinespec.PipelineDeploymentConfig_ResolverSpec) error {

@@ -113,6 +113,7 @@ func (t *V2Spec) ScheduledWorkflow(modelJob *model.Job, options ScheduledWorkflo
 		obj, err = argocompiler.Compile(job, kubernetesSpec, &argocompiler.Options{
 			CacheDisabled:    t.cacheDisabled,
 			MetadataProvider: options.MetadataProvider,
+			ExperimentID:     modelJob.ExperimentId,
 		})
 	}
 	if err != nil {
@@ -321,6 +322,7 @@ func (t *V2Spec) RunWorkflow(modelRun *model.Run, options RunWorkflowOptions) (u
 		obj, err = argocompiler.Compile(job, kubernetesSpec, &argocompiler.Options{
 			CacheDisabled:    options.CacheDisabled,
 			MetadataProvider: options.MetadataProvider,
+			ExperimentID:     modelRun.ExperimentId,
 		})
 	}
 	if err != nil {

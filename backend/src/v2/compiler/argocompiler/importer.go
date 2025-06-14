@@ -73,6 +73,7 @@ func (c *workflowCompiler) addImporterTemplate() string {
 		"--pipeline_name", c.spec.PipelineInfo.GetName(),
 		"--run_id", runID(),
 		"--parent_dag_id", inputValue(paramParentDagID),
+		"--experiment_id", c.experimentID,
 		"--pod_name",
 		fmt.Sprintf("$(%s)", component.EnvPodName),
 		"--pod_uid",
@@ -91,10 +92,10 @@ func (c *workflowCompiler) addImporterTemplate() string {
 	if value, ok := os.LookupEnv(PublishLogsEnvVar); ok {
 		args = append(args, "--publish_logs", value)
 	}
-	if c.MetadataProviderConfig != "" {
-		args = append(args, "--metadata_provider_config", c.MetadataProviderConfig)
+	if c.metadataProviderConfig != "" {
+		args = append(args, "--metadata_provider_config", c.metadataProviderConfig)
 	}
-	envvars := append(commonEnvs, c.MetadataProviderEnv...)
+	envvars := append(commonEnvs, c.metadataProviderEnv...)
 	importerTemplate := &wfapi.Template{
 		Name: name,
 		Inputs: wfapi.Inputs{

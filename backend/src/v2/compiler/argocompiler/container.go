@@ -188,6 +188,7 @@ func (c *workflowCompiler) addContainerDriverTemplate() string {
 		"--run_id", runID(),
 		"--run_name", runResourceName(),
 		"--run_display_name", c.job.DisplayName,
+		"--experiment_id", c.experimentID,
 		"--dag_execution_id", inputValue(paramParentDagID),
 		"--component", inputValue(paramComponent),
 		"--task", inputValue(paramTask),
@@ -211,11 +212,11 @@ func (c *workflowCompiler) addContainerDriverTemplate() string {
 		args = append(args, "--publish_logs", value)
 	}
 
-	if c.MetadataProviderConfig != "" {
-		args = append(args, "--metadata_provider_config", c.MetadataProviderConfig)
+	if c.metadataProviderConfig != "" {
+		args = append(args, "--metadata_provider_config", c.metadataProviderConfig)
 	}
 
-	envvars := append(proxy.GetConfig().GetEnvVars(), c.MetadataProviderEnv...)
+	envvars := append(proxy.GetConfig().GetEnvVars(), c.metadataProviderEnv...)
 
 	t := &wfapi.Template{
 		Name: name,
@@ -347,6 +348,7 @@ func (c *workflowCompiler) addContainerExecutorTemplate(task *pipelinespec.Pipel
 
 	args := []string{
 		"--copy", component.KFPLauncherPath,
+		"--experiment_id", c.experimentID,
 	}
 	if c.cacheDisabled {
 		args = append(args, "--cache_disabled", "true")
@@ -358,7 +360,7 @@ func (c *workflowCompiler) addContainerExecutorTemplate(task *pipelinespec.Pipel
 		args = append(args, "--publish_logs", value)
 	}
 
-	envvars := append(commonEnvs, c.MetadataProviderEnv...)
+	envvars := append(commonEnvs, c.metadataProviderEnv...)
 
 	executor := &wfapi.Template{
 		Name: nameContainerImpl,

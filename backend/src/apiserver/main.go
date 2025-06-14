@@ -57,7 +57,7 @@ import (
 const (
 	executionTypeEnv          = "ExecutionType"
 	launcherEnv               = "Launcher"
-	metadataProviderConfigEnv = "MetadataProviderConfig"
+	metadataProviderConfigEnv = "metadataProviderConfig"
 )
 
 var (
@@ -103,7 +103,7 @@ func main() {
 	if viper.IsSet(metadataProviderConfigEnv) {
 		configJSON := common.GetSubConfigJSON(metadataProviderConfigEnv)
 		if configJSON == "" {
-			glog.Fatalf("No MetadataProviderConfig found in config/env: %s", metadataProviderConfigEnv)
+			glog.Fatalf("No metadataProviderConfig found in config/env: %s", metadataProviderConfigEnv)
 		}
 		options.MetadataProviderConfig = configJSON
 	}
