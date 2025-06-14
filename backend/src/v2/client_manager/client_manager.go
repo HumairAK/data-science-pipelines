@@ -3,7 +3,7 @@ package client_manager
 import (
 	"fmt"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
-	mdfactory "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/factory"
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/factory"
 
 	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
@@ -75,7 +75,7 @@ func (cm *ClientManager) init(opts *Options) error {
 	cm.metadataClient = metadataClient
 	cm.cacheClient = cacheClient
 
-	metadataProviderConfig, err := mdfactory.JSONToProviderConfig(opts.MetadatRunProvider)
+	metadataProviderConfig, err := md.JSONToProviderConfig(opts.MetadatRunProvider)
 	if err != nil {
 		return fmt.Errorf("failed to parse metadata provider config: %w", err)
 	}
