@@ -55,12 +55,10 @@ func envVarExists(key string, envvars []corev1.EnvVar) (err error) {
 }
 
 func (v *Validator) ValidateRun(kfpRun *api.CreateRunRequest) error {
-	// MLFlow doesn't have specific run validation requirements
 	return nil
 }
 
 func (v *Validator) ValidateExperiment(experiment *api.CreateExperimentRequest) error {
-	// MLFlow doesn't have specific experiment validation requirements
 	return nil
 }
 
