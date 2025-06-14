@@ -1,4 +1,4 @@
-package factory
+package config
 
 import (
 	"encoding/json"
@@ -50,9 +50,19 @@ func (c *ProviderConfig) ValidateConfig() error {
 	if c.MetadataProviderName == "" {
 		return fmt.Errorf("metadata provider name is empty")
 	}
-	if c.Config == nil {
-		return fmt.Errorf("metadata provider config is empty")
-		// todo: add more validation for each provider
+	if c.Config != nil {
+		factory, ok := metadata_provider.Lookup(string(c.MetadataProviderName))
+		if !ok {
+			return fmt.Errorf("unsupported metadata provider: %s", c.MetadataProviderName)
+		}
+		validator, err := factory.NewValidator(c.Config)
+		if err != nil {
+			return err
+		}
+		err = validator.ValidateConfig(c.Config, c.EnvironmentVariables)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

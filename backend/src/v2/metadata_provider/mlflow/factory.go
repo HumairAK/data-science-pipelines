@@ -8,6 +8,10 @@ import (
 
 type mlflowFactory struct{}
 
+func (f *mlflowFactory) NewValidator(cfg common.UnstructuredJSON) (metadata_provider.Validator, error) {
+	return NewMLFlowValidator(cfg)
+}
+
 func (f *mlflowFactory) NewExperimentStore(cfg common.UnstructuredJSON) (storage.ExperimentStoreInterface, error) {
 	return NewExperimentStore(cfg)
 }

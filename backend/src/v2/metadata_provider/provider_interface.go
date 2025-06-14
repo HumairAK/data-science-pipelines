@@ -6,7 +6,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
-	"sync"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type ProviderExperiment struct {
@@ -36,6 +36,7 @@ type RunParameter struct {
 type Validator interface {
 	ValidateRun(kfpRun *api.CreateRunRequest) error
 	ValidateExperiment(experiment *api.CreateExperimentRequest) error
+	ValidateConfig(config common.UnstructuredJSON, envvars []corev1.EnvVar) error
 }
 
 type RunProvider interface {
@@ -65,24 +66,5 @@ type ProviderFactory interface {
 	NewExperimentStore(cfg common.UnstructuredJSON) (storage.ExperimentStoreInterface, error)
 	NewRunProvider(cfg common.UnstructuredJSON) (RunProvider, error)
 	NewMetadataArtifactProvider(cfg common.UnstructuredJSON) (MetadataArtifactProvider, error)
-}
-
-var (
-	registryMu sync.RWMutex
-	registry   = make(map[string]ProviderFactory)
-)
-
-// Register is called by each provider package at init time
-func Register(name string, factory ProviderFactory) {
-	registryMu.Lock()
-	defer registryMu.Unlock()
-	registry[name] = factory
-}
-
-// Lookup returns a registered factory
-func Lookup(name string) (ProviderFactory, bool) {
-	registryMu.RLock()
-	defer registryMu.RUnlock()
-	f, ok := registry[name]
-	return f, ok
+	NewValidator(cfg common.UnstructuredJSON) (Validator, error)
 }

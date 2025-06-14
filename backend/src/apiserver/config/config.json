@@ -27,6 +27,12 @@
   "CACHE_NODE_RESTRICTIONS": "false",
   "MetadataProviderConfig": {
     "MetadataProviderName": "mlflow",
+    "EnvironmentVariables": [
+      {
+        "name": "MLFLOW_TRACKING_URI",
+        "value": "mlflow-server-mlflow.apps.hukhan-10.dev.datahub.redhat.com"
+      }
+    ],
     "Config": {
       "Host": "mlflow-server-mlflow.apps.hukhan-10.dev.datahub.redhat.com",
       "Port": "",

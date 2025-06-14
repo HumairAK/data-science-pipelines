@@ -19,7 +19,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/factory"
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 	"strings"
 
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"

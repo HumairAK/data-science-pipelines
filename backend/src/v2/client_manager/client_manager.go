@@ -3,7 +3,7 @@ package client_manager
 import (
 	"fmt"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
-	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/factory"
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 
 	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"

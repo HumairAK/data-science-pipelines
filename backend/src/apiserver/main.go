@@ -19,7 +19,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/factory"
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 	"io"
 	"math"
 	"net"
