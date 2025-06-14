@@ -303,8 +303,10 @@ func (c *ClientManager) init(options *Options) error {
 		}
 		c.experimentStore = experimentStore
 		c.metadataProvider = metadataProvider
+		glog.Infof("Custom MetadataProvider %s experiment store configured.", metadataProvider.Type)
 	} else {
 		c.experimentStore = storage.NewExperimentStore(db, c.time, c.uuid)
+		glog.Info("Default experiment store configured.")
 	}
 
 	//switch metadataProvider := options.MetadataProvider; metadataProvider {

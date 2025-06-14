@@ -397,6 +397,30 @@ func (m *Client) restoreExperiment(id string) error {
 	return nil
 }
 
+func (m *Client) IsHealthy() error {
+	payload := types.SearchExperimentRequest{
+		MaxResults: 1,
+	}
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	_, body, err := DoRequest("POST", fmt.Sprintf("%s/experiments/search", m.apiPath), jsonPayload, map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": m.token,
+	})
+	if err != nil {
+		return err
+	}
+	experimentResponse := &types.SearchExperimentResponse{}
+	err = json.Unmarshal(body, experimentResponse)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+	return nil
+}
+
 func DoRequest(method, url string, body []byte, headers map[string]string) (*http.Response, []byte, error) {
 	glog.Infof("------------------------------------")
 	glog.Infof("Sending %s request to %s", method, url)

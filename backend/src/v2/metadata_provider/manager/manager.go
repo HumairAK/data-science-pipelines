@@ -11,11 +11,15 @@ import (
 )
 
 type Provider struct {
+	Type   config.MetadataProvider
 	config config.ProviderConfig
 }
 
 func NewProvider(config config.ProviderConfig) (*Provider, error) {
-	provider := &Provider{config: config}
+	provider := &Provider{
+		config: config,
+		Type:   config.MetadataProviderName,
+	}
 	err := provider.ValidateConfig()
 	if err != nil {
 		return nil, err

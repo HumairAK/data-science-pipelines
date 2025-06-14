@@ -3,6 +3,7 @@ package mlflow
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/golang/glog"
 	api "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
@@ -34,6 +35,16 @@ func (v *Validator) ValidateConfig(config config.GenericProviderConfig, envvars 
 		return fmt.Errorf("MLFLOW_TRACKING_URI environment variable not found")
 	}
 
+	client, err := NewClient(config)
+	if err != nil {
+		return fmt.Errorf("failed to create MLFlow client: %w", err)
+	}
+	err = client.IsHealthy()
+	if err != nil {
+		return fmt.Errorf("failed to connect to MLFlow server using the provided configs: %w", err)
+	}
+	v.client = client
+	glog.Info("Successfully connected to MLFlow server using the provided configs")
 	return nil
 }
 
