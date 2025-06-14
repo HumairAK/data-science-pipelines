@@ -18,6 +18,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	v2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
+	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
@@ -64,7 +69,13 @@ func validateRootDAG(opts Options) (err error) {
 	return nil
 }
 
-func RootDAG(ctx context.Context, opts Options, mlmd *metadata.Client) (execution *Execution, err error) {
+func RootDAG(ctx context.Context, opts Options, cm *client_manager.ClientManager) (execution *Execution, err error) {
+	mlmdInterface := cm.MetadataClient()
+	mlmd, ok := mlmdInterface.(*metadata.Client)
+	if !ok {
+		return nil, fmt.Errorf("invalid metadata client")
+	}
+
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("driver.RootDAG(%s) failed: %w", opts.info(), err)
@@ -127,6 +138,33 @@ func RootDAG(ctx context.Context, opts Options, mlmd *metadata.Client) (executio
 	ecfg.ExecutionType = metadata.DagExecutionTypeName
 	ecfg.Name = fmt.Sprintf("run/%s", opts.RunID)
 
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	kfpRun, err := cm.RunServiceClient.GetRun(ctx, &v2beta1.GetRunRequest{RunId: opts.RunID})
+	if err != nil {
+		return nil, err
+	}
+
+	var parameters []metadata_provider.RunParameter
+	for k, p := range ecfg.InputParameters {
+		parameter := metadata_provider.RunParameter{
+			k,
+			p.String(),
+		}
+		parameters = append(parameters, parameter)
+	}
+	run, err := opts.MetadatRunProvider.CreateRun(
+		opts.ExperimentId,
+		kfpRun,
+		parameters,
+		"",
+	)
+	if err != nil {
+		return nil, err
+	}
+	ecfg.ProviderRunID = run.ID
+	ecfg.ExperimentID = opts.ExperimentId
 	var exec *metadata.Execution
 	if opts.DevMode {
 		exec, err = mlmd.GetExecution(ctx, opts.DevExecutionId)

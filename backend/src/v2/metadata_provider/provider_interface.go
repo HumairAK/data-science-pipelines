@@ -3,6 +3,7 @@ package metadata_provider
 import (
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	api "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
@@ -29,8 +30,8 @@ type ArtifactResult struct {
 }
 
 type RunParameter struct {
-	name  string
-	value string
+	Name  string
+	Value string
 }
 
 // Validator implements callback validation methods
@@ -47,7 +48,7 @@ type RunProvider interface {
 	GetRun(experimentID string, kfpRunID string) (*ProviderRun, error)
 	CreateRun(
 		experimentID string,
-		kfpRun model.Run,
+		kfpRun *apiv2beta1.Run,
 		parameters []RunParameter,
 		parentRunID string,
 	) (*ProviderRun, error)

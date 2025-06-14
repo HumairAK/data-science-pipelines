@@ -18,12 +18,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"strconv"
 
 	"github.com/golang/glog"
 	"github.com/google/uuid"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
-	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
 	"github.com/kubeflow/pipelines/backend/src/v2/expression"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
 	pb "github.com/kubeflow/pipelines/third_party/ml-metadata/go/ml_metadata"
@@ -41,7 +41,14 @@ func validateContainer(opts Options) (err error) {
 	return validateNonRoot(opts)
 }
 
-func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheClient cacheutils.Client) (execution *Execution, err error) {
+func Container(ctx context.Context, opts Options, cm *client_manager.ClientManager) (execution *Execution, err error) {
+	mlmdInterface := cm.MetadataClient()
+	mlmd, ok := mlmdInterface.(*metadata.Client)
+	if !ok {
+		return nil, fmt.Errorf("invalid metadata client")
+	}
+	cacheClient := cm.CacheClient()
+
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("driver.Container(%s) failed: %w", opts.info(), err)

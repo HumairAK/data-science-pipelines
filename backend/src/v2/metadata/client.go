@@ -149,6 +149,9 @@ type ExecutionConfig struct {
 	// DAGExecution custom properties
 	IterationCount *int // Number of iterations for an iterator DAG.
 	TotalDagTasks  *int // Number of tasks inside the DAG
+
+	// MetadataProvider custom properties
+	ProviderRunID, ExperimentID string
 }
 
 // InputArtifact is a wrapper around an MLMD artifact used as component inputs.

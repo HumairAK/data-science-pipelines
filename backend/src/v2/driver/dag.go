@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
@@ -38,7 +39,15 @@ func validateDAG(opts Options) (err error) {
 	return validateNonRoot(opts)
 }
 
-func DAG(ctx context.Context, opts Options, mlmd *metadata.Client) (execution *Execution, err error) {
+func DAG(ctx context.Context, opts Options, cm *client_manager.ClientManager) (execution *Execution, err error) {
+	// Todo: this should remain as the interface but we have leaking abstractions
+	// so we expose underlying mlmd client to the driver.
+	mlmdInterface := cm.MetadataClient()
+	mlmd, ok := mlmdInterface.(*metadata.Client)
+	if !ok {
+		return nil, fmt.Errorf("invalid metadata client")
+	}
+
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("driver.DAG(%s) failed: %w", opts.info(), err)

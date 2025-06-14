@@ -2,6 +2,7 @@ package mlflow
 
 import (
 	"fmt"
+	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 )
@@ -19,7 +20,7 @@ func (r *RunProvider) GetRun(experimentID string, kfpRunID string) (*metadata_pr
 
 func (r *RunProvider) CreateRun(
 	experimentID string,
-	kfpRun model.Run,
+	kfpRun *apiv2beta1.Run,
 	parameters []metadata_provider.RunParameter,
 	parentRunID string,
 ) (*metadata_provider.ProviderRun, error) {

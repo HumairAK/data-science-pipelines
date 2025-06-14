@@ -2,11 +2,12 @@ package client_manager
 
 import (
 	"fmt"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
-	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/manager"
-
+	v2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/manager"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -26,13 +27,16 @@ type ClientManager struct {
 	metadataClient      metadata.ClientInterface
 	cacheClient         cacheutils.Client
 	MetadataRunProvider metadata_provider.RunProvider
+	RunServiceClient    v2beta1.RunServiceClient
 }
 
 type Options struct {
-	MLMDServerAddress        string
-	MLMDServerPort           string
-	CacheDisabled            bool
-	MetadatRunProviderConfig string
+	MLMDServerAddress         string
+	MLMDServerPort            string
+	CacheDisabled             bool
+	MetadatRunProviderConfig  string
+	MLPipelineServiceName     string
+	MLPipelineServiceGRPCPort string
 }
 
 // NewClientManager creates and Init a new instance of ClientManager.
@@ -85,6 +89,19 @@ func (cm *ClientManager) init(opts *Options) error {
 	}
 
 	cm.MetadataRunProvider = metadatRunProvider
+
+	connection, err := util.GetRpcConnection(
+		fmt.Sprintf(
+			"%s:%s",
+			opts.MLPipelineServiceName,
+			opts.MLPipelineServiceGRPCPort,
+		),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to connect to ML Pipeline GRPC server: %w", err)
+	}
+	cm.RunServiceClient = v2beta1.NewRunServiceClient(connection)
+
 	return nil
 }
 
