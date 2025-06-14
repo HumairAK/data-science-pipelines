@@ -9,19 +9,35 @@ import (
 type mlflowFactory struct{}
 
 func (f *mlflowFactory) NewValidator(cfg common.UnstructuredJSON) (metadata_provider.Validator, error) {
-	return NewMLFlowValidator(cfg)
+	client, err := NewClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Validator{client: client}, nil
 }
 
 func (f *mlflowFactory) NewExperimentStore(cfg common.UnstructuredJSON) (storage.ExperimentStoreInterface, error) {
-	return NewExperimentStore(cfg)
+	client, err := NewClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &ExperimentStore{client: client}, nil
 }
 
 func (f *mlflowFactory) NewRunProvider(cfg common.UnstructuredJSON) (metadata_provider.RunProvider, error) {
-	return NewRunsProvider(cfg)
+	client, err := NewClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &RunProvider{client: client}, nil
 }
 
 func (f *mlflowFactory) NewMetadataArtifactProvider(cfg common.UnstructuredJSON) (metadata_provider.MetadataArtifactProvider, error) {
-	return NewArtifactsProvider(cfg)
+	client, err := NewClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &ArtifactProvider{client: client}, nil
 }
 
 func init() {

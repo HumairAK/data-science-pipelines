@@ -2,7 +2,6 @@ package mlflow
 
 import (
 	"fmt"
-	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 )
@@ -12,14 +11,6 @@ var _ metadata_provider.RunProvider = &RunProvider{}
 
 type RunProvider struct {
 	client *Client
-}
-
-func NewRunsProvider(config common.UnstructuredJSON) (metadata_provider.RunProvider, error) {
-	client, err := NewClient(config)
-	if err != nil {
-		return nil, err
-	}
-	return &RunProvider{client: client}, nil
 }
 
 func (r *RunProvider) GetRun(experimentID string, kfpRunID string) (*metadata_provider.ProviderRun, error) {

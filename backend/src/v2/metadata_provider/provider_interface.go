@@ -35,7 +35,7 @@ type RunParameter struct {
 
 // Validator implements callback validation methods
 type Validator interface {
-	// ValidateRun will be called when a run is created
+	// ValidateRun will be called when a KFP run is created
 	ValidateRun(kfpRun *api.CreateRunRequest) error
 	// ValidateExperiment will be called when an experiment is created
 	ValidateExperiment(experiment *api.CreateExperimentRequest) error

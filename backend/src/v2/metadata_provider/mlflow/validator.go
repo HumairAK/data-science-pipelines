@@ -17,14 +17,6 @@ type Validator struct {
 	client *Client
 }
 
-func NewMLFlowValidator(config common.UnstructuredJSON) (metadata_provider.Validator, error) {
-	client, err := NewClient(config)
-	if err != nil {
-		return nil, err
-	}
-	return &Validator{client: client}, nil
-}
-
 func (v *Validator) ValidateConfig(config common.UnstructuredJSON, envvars []corev1.EnvVar) error {
 	var cfg Config
 	bytes, err := json.Marshal(config)

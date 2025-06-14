@@ -25,14 +25,6 @@ type ExperimentStore struct {
 	client *Client
 }
 
-func NewExperimentStore(config common.UnstructuredJSON) (storage.ExperimentStoreInterface, error) {
-	client, err := NewClient(config)
-	if err != nil {
-		return nil, err
-	}
-	return &ExperimentStore{client: client}, nil
-}
-
 // CreateExperiment accepts a providerConfig which is used for
 // provider-specific creation options.
 // For example, MLFlow allows you to set the artifact_location for all artifacts
