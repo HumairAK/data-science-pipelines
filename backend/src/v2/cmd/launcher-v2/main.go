@@ -105,10 +105,10 @@ func run() error {
 		return nil
 	case "container":
 		clientOptions := &client_manager.Options{
-			MLMDServerAddress:  launcherV2Opts.MLMDServerAddress,
-			MLMDServerPort:     launcherV2Opts.MLMDServerPort,
-			CacheDisabled:      launcherV2Opts.CacheDisabled,
-			MetadatRunProvider: *metadataProviderConfigFlag,
+			MLMDServerAddress:        launcherV2Opts.MLMDServerAddress,
+			MLMDServerPort:           launcherV2Opts.MLMDServerPort,
+			CacheDisabled:            launcherV2Opts.CacheDisabled,
+			MetadatRunProviderConfig: *metadataProviderConfigFlag,
 		}
 		clientManager, err := client_manager.NewClientManager(clientOptions)
 		if err != nil {

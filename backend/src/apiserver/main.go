@@ -19,7 +19,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 	"io"
 	"math"
 	"net"
@@ -95,31 +94,19 @@ func main() {
 
 	wg := sync.WaitGroup{}
 
-	var metadataProviderConfig *md.ProviderConfig
 	options := &cm.Options{
 		UsePipelineKubernetesStorage: *usePipelinesKubernetesStorage,
 		GlobalKubernetesWebhookMode:  *globalKubernetesWebhookMode,
 		Context:                      backgroundCtx,
 		WaitGroup:                    &wg,
 	}
-
 	if viper.IsSet(metadataProviderConfigEnv) {
 		configJSON := common.GetSubConfigJSON(metadataProviderConfigEnv)
 		if configJSON == "" {
 			glog.Fatalf("No MetadataProviderConfig found in config/env: %s", metadataProviderConfigEnv)
 		}
-		var err error
-		metadataProviderConfig, err = md.JSONToProviderConfig(configJSON)
-		if err != nil {
-			glog.Fatalf("Failed to parse metadata provider config: %v", err)
-		}
-		err = metadataProviderConfig.ValidateConfig()
-		if err != nil {
-			glog.Fatalf("Invalid metadata provider config: %v", err)
-		}
+		options.MetadataProviderConfig = configJSON
 	}
-
-	options.MetadataProviderConfig = metadataProviderConfig
 
 	logLevel := *logLevelFlag
 	if logLevel == "" {
@@ -181,9 +168,9 @@ func main() {
 	resourceManager := resource.NewResourceManager(
 		clientManager,
 		&resource.ResourceManagerOptions{
-			CollectMetrics:         *collectMetricsFlag,
-			CacheDisabled:          !common.GetBoolConfigWithDefault("CacheEnabled", true),
-			MetadataProviderConfig: metadataProviderConfig,
+			CollectMetrics:   *collectMetricsFlag,
+			CacheDisabled:    !common.GetBoolConfigWithDefault("CacheEnabled", true),
+			MetadataProvider: clientManager.GetMetadataProvider(),
 		},
 	)
 	err = config.LoadSamples(resourceManager, *sampleConfigPath)
@@ -233,8 +220,8 @@ func startRpcServer(resourceManager *resource.ResourceManager) {
 	s := grpc.NewServer(grpc.UnaryInterceptor(apiServerInterceptor), grpc.MaxRecvMsgSize(math.MaxInt32))
 
 	sharedExperimentServer := server.NewExperimentServer(resourceManager, &server.ExperimentServerOptions{
-		CollectMetrics:         *collectMetricsFlag,
-		MetadataProviderConfig: resourceManager.GetMetadataProviderConfig(),
+		CollectMetrics:   *collectMetricsFlag,
+		MetadataProvider: resourceManager.GetMetadataProvider(),
 	})
 	sharedPipelineServer := server.NewPipelineServer(
 		resourceManager,
@@ -244,8 +231,8 @@ func startRpcServer(resourceManager *resource.ResourceManager) {
 	)
 	sharedJobServer := server.NewJobServer(resourceManager, &server.JobServerOptions{CollectMetrics: *collectMetricsFlag})
 	sharedRunServer := server.NewRunServer(resourceManager, &server.RunServerOptions{
-		CollectMetrics:         *collectMetricsFlag,
-		MetadataProviderConfig: resourceManager.GetMetadataProviderConfig(),
+		CollectMetrics:   *collectMetricsFlag,
+		MetadataProvider: resourceManager.GetMetadataProvider(),
 	})
 	sharedReportServer := server.NewReportServer(resourceManager)
 

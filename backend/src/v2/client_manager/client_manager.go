@@ -3,7 +3,7 @@ package client_manager
 import (
 	"fmt"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
-	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/manager"
 
 	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
@@ -29,10 +29,10 @@ type ClientManager struct {
 }
 
 type Options struct {
-	MLMDServerAddress  string
-	MLMDServerPort     string
-	CacheDisabled      bool
-	MetadatRunProvider string
+	MLMDServerAddress        string
+	MLMDServerPort           string
+	CacheDisabled            bool
+	MetadatRunProviderConfig string
 }
 
 // NewClientManager creates and Init a new instance of ClientManager.
@@ -75,11 +75,11 @@ func (cm *ClientManager) init(opts *Options) error {
 	cm.metadataClient = metadataClient
 	cm.cacheClient = cacheClient
 
-	metadataProviderConfig, err := md.JSONToProviderConfig(opts.MetadatRunProvider)
+	metadataProvider, err := md.NewProviderFromJSON(opts.MetadatRunProviderConfig)
 	if err != nil {
 		return fmt.Errorf("failed to parse metadata provider config: %w", err)
 	}
-	metadatRunProvider, err := metadataProviderConfig.NewRunProvider()
+	metadatRunProvider, err := metadataProvider.NewRunProvider()
 	if err != nil {
 		return fmt.Errorf("failed to create metadata provider: %w", err)
 	}

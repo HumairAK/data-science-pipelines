@@ -16,7 +16,7 @@ package server
 
 import (
 	"context"
-	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/manager"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes/empty"
@@ -93,8 +93,8 @@ var (
 )
 
 type RunServerOptions struct {
-	CollectMetrics         bool `json:"collect_metrics,omitempty"`
-	MetadataProviderConfig *md.ProviderConfig
+	CollectMetrics   bool `json:"collect_metrics,omitempty"`
+	MetadataProvider *md.Provider
 }
 
 type RunServer struct {
@@ -499,8 +499,8 @@ func (s *RunServer) CreateRun(ctx context.Context, request *apiv2beta1.CreateRun
 		return nil, util.Wrap(err, "CreateJob(job.ToV2())Failed to create a run due to conversion error")
 	}
 
-	if s.options.MetadataProviderConfig != nil {
-		validator, err := s.options.MetadataProviderConfig.NewValidator()
+	if s.options.MetadataProvider != nil {
+		validator, err := s.options.MetadataProvider.NewValidator()
 		if err != nil {
 			return nil, err
 		}

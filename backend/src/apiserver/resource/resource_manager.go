@@ -18,7 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/manager"
 	"io"
 	"net"
 	"reflect"
@@ -102,9 +102,9 @@ type ClientManagerInterface interface {
 }
 
 type ResourceManagerOptions struct {
-	CollectMetrics         bool `json:"collect_metrics,omitempty"`
-	CacheDisabled          bool `json:"cache_disabled,omitempty"`
-	MetadataProviderConfig *md.ProviderConfig
+	CollectMetrics   bool `json:"collect_metrics,omitempty"`
+	CacheDisabled    bool `json:"cache_disabled,omitempty"`
+	MetadataProvider *md.Provider
 }
 
 type ResourceManager struct {
@@ -505,10 +505,10 @@ func (r *ResourceManager) CreateRun(ctx context.Context, run *model.Run) (*model
 	}
 	run.RunDetails.CreatedAtInSec = r.time.Now().Unix()
 	runWorkflowOptions := template.RunWorkflowOptions{
-		RunId:                  run.UUID,
-		RunAt:                  run.RunDetails.CreatedAtInSec,
-		CacheDisabled:          r.options.CacheDisabled,
-		MetadataProviderConfig: r.options.MetadataProviderConfig,
+		RunId:            run.UUID,
+		RunAt:            run.RunDetails.CreatedAtInSec,
+		CacheDisabled:    r.options.CacheDisabled,
+		MetadataProvider: r.options.MetadataProvider,
 	}
 	executionSpec, err := tmpl.RunWorkflow(run, runWorkflowOptions)
 	if err != nil {
@@ -618,7 +618,7 @@ func (r *ResourceManager) ReconcileSwfCrs(ctx context.Context) error {
 
 		newScheduledWorkflow, err := tmpl.ScheduledWorkflow(
 			jobs[i],
-			template.ScheduledWorkflowOptions{MetadataProviderConfig: r.options.MetadataProviderConfig},
+			template.ScheduledWorkflowOptions{MetadataProvider: r.options.MetadataProvider},
 		)
 		if err != nil {
 			return failedToReconcileSwfCrsError(err)
@@ -1095,7 +1095,7 @@ func (r *ResourceManager) CreateJob(ctx context.Context, job *model.Job) (*model
 		// Convert modelJob into scheduledWorkflow.
 		scheduledWorkflow, err = tmpl.ScheduledWorkflow(
 			job,
-			template.ScheduledWorkflowOptions{MetadataProviderConfig: r.options.MetadataProviderConfig},
+			template.ScheduledWorkflowOptions{MetadataProvider: r.options.MetadataProvider},
 		)
 		if err != nil {
 			return nil, util.Wrap(err, "Failed to create a recurring run during scheduled workflow creation")
@@ -1118,7 +1118,7 @@ func (r *ResourceManager) CreateJob(ctx context.Context, job *model.Job) (*model
 
 		_, err = tmpl.ScheduledWorkflow(
 			job,
-			template.ScheduledWorkflowOptions{MetadataProviderConfig: r.options.MetadataProviderConfig},
+			template.ScheduledWorkflowOptions{MetadataProvider: r.options.MetadataProvider},
 		)
 		if err != nil {
 			return nil, util.Wrap(err, "Failed to validate the input parameters on the latest pipeline version")
@@ -2023,6 +2023,6 @@ func (r *ResourceManager) GetTask(taskId string) (*model.Task, error) {
 	return task, nil
 }
 
-func (r *ResourceManager) GetMetadataProviderConfig() *md.ProviderConfig {
-	return r.options.MetadataProviderConfig
+func (r *ResourceManager) GetMetadataProvider() *md.Provider {
+	return r.options.MetadataProvider
 }

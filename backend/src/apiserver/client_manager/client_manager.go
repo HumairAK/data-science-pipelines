@@ -18,7 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/manager"
 	"os"
 	"strings"
 	"sync"
@@ -113,6 +113,7 @@ type ClientManager struct {
 	authenticators            []auth.Authenticator
 	controllerClient          ctrlclient.Client
 	controllerClientNoCache   ctrlclient.Client
+	metadataProvider          *md.Provider
 }
 
 // Options to pass to Client Manager initialization
@@ -121,7 +122,11 @@ type Options struct {
 	GlobalKubernetesWebhookMode  bool
 	Context                      context.Context
 	WaitGroup                    *sync.WaitGroup
-	MetadataProviderConfig       *md.ProviderConfig
+	MetadataProviderConfig       string
+}
+
+func (c *ClientManager) GetMetadataProvider() *md.Provider {
+	return c.metadataProvider
 }
 
 func (c *ClientManager) TaskStore() storage.TaskStoreInterface {
@@ -281,13 +286,23 @@ func (c *ClientManager) init(options *Options) error {
 		c.pipelineStore = storage.NewPipelineStore(db, c.time, c.uuid)
 	}
 
-	if options.MetadataProviderConfig != nil {
+	var metadataProvider *md.Provider
+	if options.MetadataProviderConfig != "" {
 		var err error
-		experimentStore, err := options.MetadataProviderConfig.NewExperimentStore()
+		metadataProvider, err = md.NewProviderFromJSON(options.MetadataProviderConfig)
+		if err != nil {
+			return fmt.Errorf("Failed to parse metadata provider config: %v", err)
+		}
+		err = metadataProvider.ValidateConfig()
+		if err != nil {
+			return fmt.Errorf("Invalid metadata provider config: %v", err)
+		}
+		experimentStore, err := metadataProvider.NewExperimentStore()
 		if err != nil {
 			return err
 		}
 		c.experimentStore = experimentStore
+		c.metadataProvider = metadataProvider
 	} else {
 		c.experimentStore = storage.NewExperimentStore(db, c.time, c.uuid)
 	}

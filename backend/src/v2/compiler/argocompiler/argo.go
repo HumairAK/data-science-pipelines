@@ -19,7 +19,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/manager"
 	"strings"
 
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
@@ -43,8 +43,8 @@ type Options struct {
 	// optional
 	PipelineRoot string
 	// optional
-	CacheDisabled          bool
-	MetadataProviderConfig *md.ProviderConfig
+	CacheDisabled    bool
+	MetadataProvider *md.Provider
 
 	// TODO(Bobgy): add an option -- dev mode, ImagePullPolicy should only be Always in dev mode.
 }
@@ -159,9 +159,9 @@ func Compile(jobArg *pipelinespec.PipelineJob, kubernetesSpecArg *pipelinespec.S
 		if opts.PipelineRoot != "" {
 			job.RuntimeConfig.GcsOutputDirectory = opts.PipelineRoot
 		}
-		if opts.MetadataProviderConfig != nil {
-			c.MetadataProviderEnv = opts.MetadataProviderConfig.EnvironmentVariables
-			configJson, err1 := opts.MetadataProviderConfig.ProviderConfigToJSON()
+		if opts.MetadataProvider != nil {
+			c.MetadataProviderEnv = opts.MetadataProvider.GetEnvVars()
+			configJson, err1 := opts.MetadataProvider.ProviderConfigToJSON()
 			if err1 != nil {
 				return nil, err1
 			}

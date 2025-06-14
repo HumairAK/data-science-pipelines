@@ -19,7 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/manager"
 	"io"
 	"regexp"
 	"strings"
@@ -135,13 +135,13 @@ type Template interface {
 }
 
 type RunWorkflowOptions struct {
-	RunId                  string
-	RunAt                  int64
-	CacheDisabled          bool
-	MetadataProviderConfig *md.ProviderConfig
+	RunId            string
+	RunAt            int64
+	CacheDisabled    bool
+	MetadataProvider *md.Provider
 }
 type ScheduledWorkflowOptions struct {
-	MetadataProviderConfig *md.ProviderConfig
+	MetadataProvider *md.Provider
 }
 
 func New(bytes []byte, cacheDisabled bool) (Template, error) {

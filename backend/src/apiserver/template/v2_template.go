@@ -111,8 +111,8 @@ func (t *V2Spec) ScheduledWorkflow(modelJob *model.Job, options ScheduledWorkflo
 	var obj interface{}
 	if util.CurrentExecutionType() == util.ArgoWorkflow {
 		obj, err = argocompiler.Compile(job, kubernetesSpec, &argocompiler.Options{
-			CacheDisabled:          t.cacheDisabled,
-			MetadataProviderConfig: options.MetadataProviderConfig,
+			CacheDisabled:    t.cacheDisabled,
+			MetadataProvider: options.MetadataProvider,
 		})
 	}
 	if err != nil {
@@ -319,8 +319,8 @@ func (t *V2Spec) RunWorkflow(modelRun *model.Run, options RunWorkflowOptions) (u
 	var obj interface{}
 	if util.CurrentExecutionType() == util.ArgoWorkflow {
 		obj, err = argocompiler.Compile(job, kubernetesSpec, &argocompiler.Options{
-			CacheDisabled:          options.CacheDisabled,
-			MetadataProviderConfig: options.MetadataProviderConfig,
+			CacheDisabled:    options.CacheDisabled,
+			MetadataProvider: options.MetadataProvider,
 		})
 	}
 	if err != nil {
