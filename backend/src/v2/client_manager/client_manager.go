@@ -2,6 +2,8 @@ package client_manager
 
 import (
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
+	providerconfig "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 
 	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
@@ -20,15 +22,17 @@ var _ ClientManagerInterface = (*ClientManager)(nil)
 
 // ClientManager is a container for various service clients.
 type ClientManager struct {
-	k8sClient      kubernetes.Interface
-	metadataClient metadata.ClientInterface
-	cacheClient    cacheutils.Client
+	k8sClient           kubernetes.Interface
+	metadataClient      metadata.ClientInterface
+	cacheClient         cacheutils.Client
+	MetadataRunProvider metadata_provider.RunProvider
 }
 
 type Options struct {
-	MLMDServerAddress string
-	MLMDServerPort    string
-	CacheDisabled     bool
+	MLMDServerAddress  string
+	MLMDServerPort     string
+	CacheDisabled      bool
+	MetadatRunProvider string
 }
 
 // NewClientManager creates and Init a new instance of ClientManager.
@@ -70,6 +74,17 @@ func (cm *ClientManager) init(opts *Options) error {
 	cm.k8sClient = k8sClient
 	cm.metadataClient = metadataClient
 	cm.cacheClient = cacheClient
+
+	metadataProviderConfig, err := providerconfig.JSONToProviderConfig(opts.MetadatRunProvider)
+	if err != nil {
+		return fmt.Errorf("failed to parse metadata provider config: %w", err)
+	}
+	metadatRunProvider, err := metadataProviderConfig.NewRunProvider()
+	if err != nil {
+		return fmt.Errorf("failed to create metadata provider: %w", err)
+	}
+
+	cm.MetadataRunProvider = metadatRunProvider
 	return nil
 }
 

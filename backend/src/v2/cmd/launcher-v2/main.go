@@ -19,7 +19,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/component"
@@ -47,7 +46,7 @@ var (
 	cacheDisabledFlag = flag.Bool("cache_disabled", false, "Disable cache globally.")
 
 	// metadata provider config
-	metadataProviderConfig = flag.String("metadata_provider_config", "", "Metadata provider config, must be a valid JSON string.")
+	metadataProviderConfigFlag = flag.String("metadata_provider_config", "", "Metadata provider config, must be a valid JSON string.")
 )
 
 func main() {
@@ -106,9 +105,10 @@ func run() error {
 		return nil
 	case "container":
 		clientOptions := &client_manager.Options{
-			MLMDServerAddress: launcherV2Opts.MLMDServerAddress,
-			MLMDServerPort:    launcherV2Opts.MLMDServerPort,
-			CacheDisabled:     launcherV2Opts.CacheDisabled,
+			MLMDServerAddress:  launcherV2Opts.MLMDServerAddress,
+			MLMDServerPort:     launcherV2Opts.MLMDServerPort,
+			CacheDisabled:      launcherV2Opts.CacheDisabled,
+			MetadatRunProvider: *metadataProviderConfigFlag,
 		}
 		clientManager, err := client_manager.NewClientManager(clientOptions)
 		if err != nil {
