@@ -76,6 +76,14 @@ func (c *ProviderConfig) ValidateConfig() error {
 	return nil
 }
 
+func (c *ProviderConfig) ProviderConfigToJSON() (string, error) {
+	jsonBytes, err := json.Marshal(c)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal metadata provider config, error: %w\nmetadataProviderConfig: %v", err, c)
+	}
+	return string(jsonBytes), nil
+}
+
 func JSONToProviderConfig(jsonSTR string) (*ProviderConfig, error) {
 	var metadataProviderConfig ProviderConfig
 	err := json.Unmarshal([]byte(jsonSTR), &metadataProviderConfig)

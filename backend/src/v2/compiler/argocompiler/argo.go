@@ -159,6 +159,14 @@ func Compile(jobArg *pipelinespec.PipelineJob, kubernetesSpecArg *pipelinespec.S
 		if opts.PipelineRoot != "" {
 			job.RuntimeConfig.GcsOutputDirectory = opts.PipelineRoot
 		}
+		if opts.MetadataProviderConfig != nil {
+			c.MetadataProviderEnv = opts.MetadataProviderConfig.EnvironmentVariables
+			configJson, err1 := opts.MetadataProviderConfig.ProviderConfigToJSON()
+			if err1 != nil {
+				return nil, err1
+			}
+			c.MetadataProviderConfig = configJson
+		}
 	}
 
 	// compile
@@ -178,13 +186,15 @@ type workflowCompiler struct {
 	spec      *pipelinespec.PipelineSpec
 	executors map[string]*pipelinespec.PipelineDeploymentConfig_ExecutorSpec
 	// state
-	wf              *wfapi.Workflow
-	templates       map[string]*wfapi.Template
-	driverImage     string
-	driverCommand   []string
-	launcherImage   string
-	launcherCommand []string
-	cacheDisabled   bool
+	wf                     *wfapi.Workflow
+	templates              map[string]*wfapi.Template
+	driverImage            string
+	driverCommand          []string
+	launcherImage          string
+	launcherCommand        []string
+	cacheDisabled          bool
+	MetadataProviderEnv    []k8score.EnvVar
+	MetadataProviderConfig string
 }
 
 func (c *workflowCompiler) Resolver(name string, component *pipelinespec.ComponentSpec, resolver *pipelinespec.PipelineDeploymentConfig_ResolverSpec) error {

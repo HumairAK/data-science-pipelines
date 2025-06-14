@@ -91,6 +91,10 @@ func (c *workflowCompiler) addImporterTemplate() string {
 	if value, ok := os.LookupEnv(PublishLogsEnvVar); ok {
 		args = append(args, "--publish_logs", value)
 	}
+	if c.MetadataProviderConfig != "" {
+		args = append(args, "--metadata_provider_config", c.MetadataProviderConfig)
+	}
+	envvars := append(commonEnvs, c.MetadataProviderEnv...)
 	importerTemplate := &wfapi.Template{
 		Name: name,
 		Inputs: wfapi.Inputs{
@@ -106,7 +110,7 @@ func (c *workflowCompiler) addImporterTemplate() string {
 			Command:   c.launcherCommand,
 			Args:      args,
 			EnvFrom:   []k8score.EnvFromSource{metadataEnvFrom},
-			Env:       commonEnvs,
+			Env:       envvars,
 			Resources: driverResources,
 		},
 	}
