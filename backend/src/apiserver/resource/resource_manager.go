@@ -39,6 +39,7 @@ import (
 	exec "github.com/kubeflow/pipelines/backend/src/common"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	scheduledworkflowclient "github.com/kubeflow/pipelines/backend/src/crd/pkg/client/clientset/versioned/typed/scheduledworkflow/v1beta1"
+	providerconfig "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -162,7 +163,7 @@ func (r *ResourceManager) getScheduledWorkflowClient(namespace string) scheduled
 }
 
 // Creates a new experiment.
-func (r *ResourceManager) CreateExperiment(experiment *model.Experiment, config common.UnstructuredJSON) (*model.Experiment, error) {
+func (r *ResourceManager) CreateExperiment(experiment *model.Experiment, config providerconfig.GenericProviderConfig) (*model.Experiment, error) {
 	if common.IsMultiUserMode() {
 		if experiment.Namespace == "" {
 			return nil, util.NewInvalidInputError("Namespace cannot be empty")

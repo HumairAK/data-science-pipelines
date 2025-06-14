@@ -24,6 +24,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/resource"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	providerconfig "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/manager"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -82,7 +83,7 @@ type ExperimentServer struct {
 	options         *ExperimentServerOptions
 }
 
-func (s *ExperimentServer) createExperiment(ctx context.Context, experiment *model.Experiment, config common.UnstructuredJSON) (*model.Experiment, error) {
+func (s *ExperimentServer) createExperiment(ctx context.Context, experiment *model.Experiment, config providerconfig.GenericProviderConfig) (*model.Experiment, error) {
 	experiment.Namespace = s.resourceManager.ReplaceNamespace(experiment.Namespace)
 	resourceAttributes := &authorizationv1.ResourceAttributes{
 		Namespace: experiment.Namespace,

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	api "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
-	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -17,7 +17,7 @@ type Validator struct {
 	client *Client
 }
 
-func (v *Validator) ValidateConfig(config common.UnstructuredJSON, envvars []corev1.EnvVar) error {
+func (v *Validator) ValidateConfig(config config.GenericProviderConfig, envvars []corev1.EnvVar) error {
 	var cfg Config
 	bytes, err := json.Marshal(config)
 	if err != nil {

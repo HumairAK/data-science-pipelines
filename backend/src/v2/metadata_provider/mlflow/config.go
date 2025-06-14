@@ -3,7 +3,7 @@ package mlflow
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 )
 
 type Config struct {
@@ -17,7 +17,7 @@ type ExperimentCreationConfig struct {
 	ArtifactLocation string `json:"artifact_location"`
 }
 
-func ConvertToExperimentCreationConfig(config common.UnstructuredJSON) (*ExperimentCreationConfig, error) {
+func ConvertToExperimentCreationConfig(config config.GenericProviderConfig) (*ExperimentCreationConfig, error) {
 	// Re-marshal the generic map to JSON
 	bytes, err := json.Marshal(config)
 	if err != nil {
@@ -34,15 +34,15 @@ func ConvertToExperimentCreationConfig(config common.UnstructuredJSON) (*Experim
 	return &typed, nil
 }
 
-func ConvertToMLFlowConfig(data common.UnstructuredJSON) (*Config, error) {
+func ConvertToMLFlowConfig(data config.GenericProviderConfig) (*Config, error) {
 	raw, err := json.Marshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal unstructured JSON: %w", err)
 	}
-	var config Config
-	if err := json.Unmarshal(raw, &config); err != nil {
+	var cfg Config
+	if err := json.Unmarshal(raw, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal into MLFlowConfig: %w", err)
 	}
 
-	return &config, nil
+	return &cfg, nil
 }

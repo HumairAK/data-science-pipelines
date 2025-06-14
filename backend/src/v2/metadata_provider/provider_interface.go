@@ -3,9 +3,9 @@ package metadata_provider
 import (
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	api "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
-	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -40,7 +40,7 @@ type Validator interface {
 	// ValidateExperiment will be called when an experiment is created
 	ValidateExperiment(experiment *api.CreateExperimentRequest) error
 	// ValidateConfig will be called on KFP start up when the pipeline config.json is parsed.
-	ValidateConfig(config common.UnstructuredJSON, envvars []corev1.EnvVar) error
+	ValidateConfig(config config.GenericProviderConfig, envvars []corev1.EnvVar) error
 }
 
 type RunProvider interface {
@@ -67,8 +67,8 @@ type MetadataArtifactProvider interface {
 }
 
 type ProviderFactory interface {
-	NewExperimentStore(cfg common.UnstructuredJSON) (storage.ExperimentStoreInterface, error)
-	NewRunProvider(cfg common.UnstructuredJSON) (RunProvider, error)
-	NewMetadataArtifactProvider(cfg common.UnstructuredJSON) (MetadataArtifactProvider, error)
-	NewValidator(cfg common.UnstructuredJSON) (Validator, error)
+	NewExperimentStore(cfg config.GenericProviderConfig) (storage.ExperimentStoreInterface, error)
+	NewRunProvider(cfg config.GenericProviderConfig) (RunProvider, error)
+	NewMetadataArtifactProvider(cfg config.GenericProviderConfig) (MetadataArtifactProvider, error)
+	NewValidator(cfg config.GenericProviderConfig) (Validator, error)
 }

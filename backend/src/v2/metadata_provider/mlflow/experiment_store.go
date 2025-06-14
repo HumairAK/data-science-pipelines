@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"github.com/golang/glog"
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
-	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/filter"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
 	commonutils "github.com/kubeflow/pipelines/backend/src/common/util"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
 )
 
@@ -30,7 +30,7 @@ type ExperimentStore struct {
 // For example, MLFlow allows you to set the artifact_location for all artifacts
 // uploaded in any run for a given experiment. The user should be able to configure this.
 // If the provider config is not provided, we would use the default bucket path
-func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, providerConfig common.UnstructuredJSON) (*model.Experiment, error) {
+func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, providerConfig config.GenericProviderConfig) (*model.Experiment, error) {
 	experimentTags := []types.ExperimentTag{
 		{
 			Key:   ExperimentDescriptionTag,
