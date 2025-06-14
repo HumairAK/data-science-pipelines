@@ -2022,3 +2022,7 @@ func (r *ResourceManager) GetTask(taskId string) (*model.Task, error) {
 	}
 	return task, nil
 }
+
+func (r *ResourceManager) GetMetadataProviderConfig() *md.ProviderConfig {
+	return r.options.MetadataProviderConfig
+}

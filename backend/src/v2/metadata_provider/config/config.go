@@ -43,6 +43,14 @@ func (c *ProviderConfig) NewMetadataArtifactProvider() (metadata_provider.Metada
 	return factory.NewMetadataArtifactProvider(c.Config)
 }
 
+func (c *ProviderConfig) NewValidator() (metadata_provider.Validator, error) {
+	factory, ok := metadata_provider.Lookup(string(c.MetadataProviderName))
+	if !ok {
+		return nil, fmt.Errorf("unsupported metadata provider: %s", c.MetadataProviderName)
+	}
+	return factory.NewValidator(c.Config)
+}
+
 func (c *ProviderConfig) ValidateConfig() error {
 	if c == nil {
 		return fmt.Errorf("metadata provider config is empty")

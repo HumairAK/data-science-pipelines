@@ -3,7 +3,7 @@ package mlflow
 import (
 	"encoding/json"
 	"fmt"
-	api "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
+	api "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
@@ -59,6 +59,13 @@ func (v *Validator) ValidateRun(kfpRun *api.CreateRunRequest) error {
 }
 
 func (v *Validator) ValidateExperiment(experiment *api.CreateExperimentRequest) error {
+	if experiment.Experiment.GetDisplayName() == "" {
+		return fmt.Errorf("experiment name is empty")
+	}
+	// TODO: Enable once form is added to the UI
+	//if experiment.Experiment.ProviderConfig == nil {
+	//	return fmt.Errorf("experiment provider config is empty")
+	//}
 	return nil
 }
 

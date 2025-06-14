@@ -232,7 +232,10 @@ func startRpcServer(resourceManager *resource.ResourceManager) {
 	}
 	s := grpc.NewServer(grpc.UnaryInterceptor(apiServerInterceptor), grpc.MaxRecvMsgSize(math.MaxInt32))
 
-	sharedExperimentServer := server.NewExperimentServer(resourceManager, &server.ExperimentServerOptions{CollectMetrics: *collectMetricsFlag})
+	sharedExperimentServer := server.NewExperimentServer(resourceManager, &server.ExperimentServerOptions{
+		CollectMetrics:         *collectMetricsFlag,
+		MetadataProviderConfig: resourceManager.GetMetadataProviderConfig(),
+	})
 	sharedPipelineServer := server.NewPipelineServer(
 		resourceManager,
 		&server.PipelineServerOptions{
@@ -240,7 +243,10 @@ func startRpcServer(resourceManager *resource.ResourceManager) {
 		},
 	)
 	sharedJobServer := server.NewJobServer(resourceManager, &server.JobServerOptions{CollectMetrics: *collectMetricsFlag})
-	sharedRunServer := server.NewRunServer(resourceManager, &server.RunServerOptions{CollectMetrics: *collectMetricsFlag})
+	sharedRunServer := server.NewRunServer(resourceManager, &server.RunServerOptions{
+		CollectMetrics:         *collectMetricsFlag,
+		MetadataProviderConfig: resourceManager.GetMetadataProviderConfig(),
+	})
 	sharedReportServer := server.NewReportServer(resourceManager)
 
 	apiv1beta1.RegisterExperimentServiceServer(s, sharedExperimentServer)

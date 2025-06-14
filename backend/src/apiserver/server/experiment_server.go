@@ -24,6 +24,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/resource"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -72,7 +73,8 @@ var (
 )
 
 type ExperimentServerOptions struct {
-	CollectMetrics bool
+	CollectMetrics         bool
+	MetadataProviderConfig *md.ProviderConfig
 }
 
 type ExperimentServer struct {
@@ -132,6 +134,17 @@ func (s *ExperimentServer) CreateExperiment(ctx context.Context, request *apiv2b
 	modelExperiment, err := toModelExperiment(request.GetExperiment())
 	if err != nil {
 		return nil, util.Wrap(err, "[ExperimentServer]: Failed to create a experiment due to conversion error")
+	}
+
+	if s.options.MetadataProviderConfig != nil {
+		validator, err := s.options.MetadataProviderConfig.NewValidator()
+		if err != nil {
+			return nil, err
+		}
+		err = validator.ValidateExperiment(request)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	newExperiment, err := s.createExperiment(ctx, modelExperiment, request.Experiment.GetProviderConfig().AsMap())

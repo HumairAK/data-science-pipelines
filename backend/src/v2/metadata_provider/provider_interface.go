@@ -2,7 +2,7 @@ package metadata_provider
 
 import (
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
-	api "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
+	api "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
@@ -33,9 +33,13 @@ type RunParameter struct {
 	value string
 }
 
+// Validator implements callback validation methods
 type Validator interface {
+	// ValidateRun will be called when a run is created
 	ValidateRun(kfpRun *api.CreateRunRequest) error
+	// ValidateExperiment will be called when an experiment is created
 	ValidateExperiment(experiment *api.CreateExperimentRequest) error
+	// ValidateConfig will be called on KFP start up when the pipeline config.json is parsed.
 	ValidateConfig(config common.UnstructuredJSON, envvars []corev1.EnvVar) error
 }
 
