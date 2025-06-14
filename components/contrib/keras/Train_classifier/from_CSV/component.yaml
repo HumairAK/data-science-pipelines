@@ -200,7 +200,7 @@ implementation:
     - if:
         cond: {isPresent: optimizer_config}
         then:
-        - --optimizer-config
+        - --optimizer-factory
         - {inputValue: optimizer_config}
     - if:
         cond: {isPresent: learning_rate}

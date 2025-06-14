@@ -44,7 +44,7 @@ def verify_monitoring_schedule_component_outputs(
     "test_file_dir",
     [
         pytest.param(
-            "resources/config/v2-monitoring-schedule",
+            "resources/factory/v2-monitoring-schedule",
             marks=[pytest.mark.canary_test, pytest.mark.v2],
         ),
     ],
@@ -55,8 +55,8 @@ def test_create_v2_monitoring_schedule(
     download_dir = utils.mkdir(os.path.join(test_file_dir + "/generated"))
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
 
@@ -146,7 +146,7 @@ def test_create_v2_monitoring_schedule(
     "test_file_dir",
     [
         pytest.param(
-            "resources/config/v2-monitoring-schedule-update",
+            "resources/factory/v2-monitoring-schedule-update",
             marks=[pytest.mark.v2],
         ),
     ],
@@ -157,8 +157,8 @@ def test_update_v2_monitoring_schedule(
     download_dir = utils.mkdir(os.path.join(test_file_dir + "/generated"))
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
 

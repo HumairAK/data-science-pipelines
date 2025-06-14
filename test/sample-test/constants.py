@@ -22,8 +22,8 @@ GITHUB_REPO = 'kubeflow/pipelines'
 BASE_DIR = os.path.abspath('./')
 TEST_DIR = os.path.join(BASE_DIR, 'test/sample-test')
 CONFIG_DIR = os.path.join(TEST_DIR, 'configs')
-DEFAULT_CONFIG = os.path.join(CONFIG_DIR, 'default.config.yaml')
-SCHEMA_CONFIG = os.path.join(CONFIG_DIR, 'schema.config.yaml')
+DEFAULT_CONFIG = os.path.join(CONFIG_DIR, 'default.factory.yaml')
+SCHEMA_CONFIG = os.path.join(CONFIG_DIR, 'schema.factory.yaml')
 
 # Common test params
 RUN_LIST_PAGE_SIZE = 1000

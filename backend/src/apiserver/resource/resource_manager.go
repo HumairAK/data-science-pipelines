@@ -18,7 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	providerconfig "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
+	mdfactory "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/factory"
 	"io"
 	"net"
 	"reflect"
@@ -104,7 +104,7 @@ type ClientManagerInterface interface {
 type ResourceManagerOptions struct {
 	CollectMetrics         bool `json:"collect_metrics,omitempty"`
 	CacheDisabled          bool `json:"cache_disabled,omitempty"`
-	MetadataProviderConfig *providerconfig.ProviderConfig
+	MetadataProviderConfig *mdfactory.ProviderConfig
 }
 
 type ResourceManager struct {

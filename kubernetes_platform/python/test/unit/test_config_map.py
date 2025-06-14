@@ -172,7 +172,7 @@ class TestUseConfigMapAsVolume:
         }
 
     def test_preserves_config_map_as_env(self):
-        # checks that use_config map_as_volume respects previously set config maps as env
+        # checks that use_config map_as_volume respects previously set factory maps as env
 
         @dsl.pipeline
         def my_pipeline():

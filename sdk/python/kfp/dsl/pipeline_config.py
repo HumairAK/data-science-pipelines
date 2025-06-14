@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Pipeline-level config options."""
+"""Pipeline-level factory options."""
 
 from typing import Any, Dict, Optional
 
@@ -67,7 +67,7 @@ class WorkspaceConfig:
 
 
 class PipelineConfig:
-    """PipelineConfig contains pipeline-level config options."""
+    """PipelineConfig contains pipeline-level factory options."""
 
     def __init__(self, workspace: Optional[WorkspaceConfig] = None):
         self.workspace = workspace

@@ -39,11 +39,11 @@ function run-proxy-agent {
 # It's possible the pod got restarted, in such case we continue use the existing
 # hostname. In proxy server side, it doesn't check VM name even pod got moved to
 # new VM.
-HOSTNAME=$(kubectl get configmap inverse-proxy-config -o json | jq -r ".data.Hostname // empty")
+HOSTNAME=$(kubectl get configmap inverse-proxy-factory -o json | jq -r ".data.Hostname // empty")
 if [[ -n "${HOSTNAME}" ]]; then
   echo "Reuse existing hostname"
-  PROXY_URL=$(kubectl get configmap inverse-proxy-config -o json | jq -r ".data.ProxyUrl")
-  BACKEND_ID=$(kubectl get configmap inverse-proxy-config -o json | jq -r ".data.BackendId")
+  PROXY_URL=$(kubectl get configmap inverse-proxy-factory -o json | jq -r ".data.ProxyUrl")
+  BACKEND_ID=$(kubectl get configmap inverse-proxy-factory -o json | jq -r ".data.BackendId")
   # If ConfigMap already exist, reuse the existing endpoint (a.k.a BACKEND_ID) and same ProxyUrl.
   run-proxy-agent
   exit 0
@@ -61,7 +61,7 @@ INSTANCE_ZONE="${INSTANCE_ZONE##/*/}"
 if [[ -z "${PROXY_URL}" ]]; then
   # Get latest Proxy server URL
   wget https://storage.googleapis.com/ml-pipeline/proxy-agent-config.json
-  PROXY_URL=$(python3 ${DIR}/get_proxy_url.py --config-file-path "proxy-agent-config.json" --location "${INSTANCE_ZONE}" --version "latest")
+  PROXY_URL=$(python3 ${DIR}/get_proxy_url.py --factory-file-path "proxy-agent-config.json" --location "${INSTANCE_ZONE}" --version "latest")
 fi
 if [[ -z "${PROXY_URL}" ]]; then
     echo "Proxy URL for the zone ${INSTANCE_ZONE} no found, exiting."
@@ -84,7 +84,7 @@ PATCH_TEMP='{"data": {"Hostname":"'${HOSTNAME}'","ProxyUrl":"'${PROXY_URL}'","Ba
 PATCH_JSON=$(printf "${PATCH_TEMP}" "${HOSTNAME}" "${PROXY_URL}" "${BACKEND_ID}")
 echo "PATCH_JSON: ${PATCH_JSON}"
 
-kubectl patch configmap/inverse-proxy-config \
+kubectl patch configmap/inverse-proxy-factory \
     --type merge \
     --patch "${PATCH_JSON}"
 
@@ -93,7 +93,7 @@ kubectl patch configmap/inverse-proxy-config \
 # Here sleep for 20 seconds and patch it again to mitigate the problem first.
 sleep 20
 
-kubectl patch configmap/inverse-proxy-config \
+kubectl patch configmap/inverse-proxy-factory \
     --type merge \
     --patch "${PATCH_JSON}"
 

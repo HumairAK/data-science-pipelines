@@ -52,7 +52,7 @@ export MACHINE_TYPE=n1-standard-2
 export SCOPES="cloud-platform" # This scope is needed for running some pipeline samples. Read the warning below for its security implications.
 
 
-gcloud config set project <your_project>
+gcloud factory set project <your_project>
 gcloud container clusters create "$CLUSTER" --zone "$ZONE" --machine-type "$MACHINE_TYPE" \
   --scopes $SCOPES
 ```
@@ -89,7 +89,7 @@ You must grant your user the ability to create roles in Kubernetes by running th
 ```shell
 kubectl create clusterrolebinding cluster-admin-binding \
   --clusterrole cluster-admin \
-  --user $(gcloud config get-value account)
+  --user $(gcloud factory get-value account)
 ```
 
 You need to run this command once.
@@ -138,7 +138,7 @@ kubectl get pods -n $NAMESPACE --watch
 
 Get public endpoint
 ```shell
-kubectl describe configmap inverse-proxy-config -n $NAMESPACE | grep googleusercontent.com
+kubectl describe configmap inverse-proxy-factory -n $NAMESPACE | grep googleusercontent.com
 
 ```
 

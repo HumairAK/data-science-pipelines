@@ -11,8 +11,8 @@ def create_initial_workteam(
 ):
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
 
@@ -34,7 +34,7 @@ def create_initial_workteam(
     "test_file_dir",
     [
         pytest.param(
-            "resources/config/image-classification-groundtruth",
+            "resources/factory/image-classification-groundtruth",
             marks=pytest.mark.canary_test,
         )
     ],
@@ -46,8 +46,8 @@ def test_groundtruth_labeling_job(
     download_dir = utils.mkdir(os.path.join(test_file_dir + "/generated"))
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
 
@@ -60,7 +60,7 @@ def test_groundtruth_labeling_job(
             experiment_id,
             region,
             sagemaker_client,
-            "resources/config/create-workteam",
+            "resources/factory/create-workteam",
             download_dir,
         )
 

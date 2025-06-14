@@ -61,7 +61,7 @@ def evaluation_llm_text_generation_pipeline(  # pylint: disable=dangerous-defaul
   Args:
     project: Required. The GCP project that runs the pipeline components.
     location: Required. The GCP region that runs the pipeline components.
-    batch_predict_gcs_source_uris: Required. Google Cloud Storage URI(s) to your eval dataset instances data to run batch prediction on. The instances data should also contain the ground truth (target) data, used for evaluation. May contain wildcards. For more information on [wildcards](https://cloud.google.com/storage/docs/gsutil/addlhelp/WildcardNames). For more details about this [input config](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig). The content of gcs source files should be preset to one of the following formats:
+    batch_predict_gcs_source_uris: Required. Google Cloud Storage URI(s) to your eval dataset instances data to run batch prediction on. The instances data should also contain the ground truth (target) data, used for evaluation. May contain wildcards. For more information on [wildcards](https://cloud.google.com/storage/docs/gsutil/addlhelp/WildcardNames). For more details about this [input factory](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig). The content of gcs source files should be preset to one of the following formats:
         1) Prediction & Evaluation Dataset format, guaranteeing "prompt" and "ground_truth" attributes are included
         {
           "prompt": "your input/prompt text",
@@ -79,8 +79,8 @@ def evaluation_llm_text_generation_pipeline(  # pylint: disable=dangerous-defaul
     role_field_name: The field name of the role for input eval dataset instances that contains the input prompts to the LLM.
     input_field_name: The field name of the input eval dataset instances that contains the input prompts to the LLM.
     target_field_name: The field name of the eval dataset instance that contains an example reference text response. Alternatively referred to as the ground truth (or ground_truth_column) field. If not set, defaulted to `output_text`.
-    batch_predict_instances_format: The format in which instances are given, must be one of the Model's supportedInputStorageFormats. Only "jsonl" is currently supported. For more details about this input config, see https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.
-    batch_predict_predictions_format: The format in which Vertex AI gives the predictions. Must be one of the Model's supportedOutputStorageFormats. Only "jsonl" is currently supported. For more details about this output config, see https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.
+    batch_predict_instances_format: The format in which instances are given, must be one of the Model's supportedInputStorageFormats. Only "jsonl" is currently supported. For more details about this input factory, see https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.
+    batch_predict_predictions_format: The format in which Vertex AI gives the predictions. Must be one of the Model's supportedOutputStorageFormats. Only "jsonl" is currently supported. For more details about this output factory, see https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.
     batch_predict_model_parameters: A map of parameters that govern the predictions. Some acceptable parameters include: maxOutputTokens, topK, topP, and temperature.
     enable_row_based_metrics: Flag of if row based metrics is enabled, default value is false.
     machine_type: The machine type of this custom job. If not set, defaulted to `e2-standard-4`. More details: https://cloud.google.com/compute/docs/machine-resource

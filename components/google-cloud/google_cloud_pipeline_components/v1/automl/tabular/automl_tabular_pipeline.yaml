@@ -4982,7 +4982,7 @@ components:
 
             represented as a STRUCT, and containing only `code` and
 
-            `message`. For more details about this output config, see
+            `message`. For more details about this output factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.'
           isOptional: true
@@ -4993,7 +4993,7 @@ components:
 
             `projectId.bqDatasetId.bqTableId`  For more details about this input
 
-            config, see
+            factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.'
           isOptional: true
@@ -5115,7 +5115,7 @@ components:
 
             value has `google.rpc.Status` containing only `code` and
 
-            `message` fields.  For more details about this output config, see
+            `message` fields.  For more details about this output factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.'
           isOptional: true
@@ -5129,7 +5129,7 @@ components:
 
             information on wildcards, see [WildcardNames](https://cloud.google.com/storage/docs/gsutil/addlhelp/WildcardNames).
 
-            For more details about this input config, see [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig).'
+            For more details about this input factory, see [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig).'
           isOptional: true
           parameterType: LIST
         generate_explanation:
@@ -5211,7 +5211,7 @@ components:
             given, must be one of the [Model](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.models)''s
             supportedInputStorageFormats.
 
-            For more details about this input config, see
+            For more details about this input factory, see
 
             [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.)'
           isOptional: true
@@ -5260,11 +5260,11 @@ components:
 
             prediction on dedicated resources. If the Model supports
 
-            DEDICATED_RESOURCES this config may be provided (and the job will use
+            DEDICATED_RESOURCES this factory may be provided (and the job will use
 
             these resources). If the Model doesn''t support AUTOMATIC_RESOURCES,
 
-            this config must be provided.  For more details about the
+            this factory must be provided.  For more details about the
 
             BatchDedicatedResources, see
 
@@ -5313,7 +5313,7 @@ components:
 
             Model''s supportedOutputStorageFormats.
 
-            For more details about this output config, see [OutputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig).'
+            For more details about this output factory, see [OutputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig).'
           isOptional: true
           parameterType: STRING
         project:
@@ -5457,7 +5457,7 @@ components:
 
             represented as a STRUCT, and containing only `code` and
 
-            `message`. For more details about this output config, see
+            `message`. For more details about this output factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.'
           isOptional: true
@@ -5468,7 +5468,7 @@ components:
 
             `projectId.bqDatasetId.bqTableId`  For more details about this input
 
-            config, see
+            factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.'
           isOptional: true
@@ -5590,7 +5590,7 @@ components:
 
             value has `google.rpc.Status` containing only `code` and
 
-            `message` fields.  For more details about this output config, see
+            `message` fields.  For more details about this output factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.'
           isOptional: true
@@ -5604,7 +5604,7 @@ components:
 
             information on wildcards, see [WildcardNames](https://cloud.google.com/storage/docs/gsutil/addlhelp/WildcardNames).
 
-            For more details about this input config, see [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig).'
+            For more details about this input factory, see [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig).'
           isOptional: true
           parameterType: LIST
         generate_explanation:
@@ -5686,7 +5686,7 @@ components:
             given, must be one of the [Model](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.models)''s
             supportedInputStorageFormats.
 
-            For more details about this input config, see
+            For more details about this input factory, see
 
             [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.)'
           isOptional: true
@@ -5735,11 +5735,11 @@ components:
 
             prediction on dedicated resources. If the Model supports
 
-            DEDICATED_RESOURCES this config may be provided (and the job will use
+            DEDICATED_RESOURCES this factory may be provided (and the job will use
 
             these resources). If the Model doesn''t support AUTOMATIC_RESOURCES,
 
-            this config must be provided.  For more details about the
+            this factory must be provided.  For more details about the
 
             BatchDedicatedResources, see
 
@@ -5788,7 +5788,7 @@ components:
 
             Model''s supportedOutputStorageFormats.
 
-            For more details about this output config, see [OutputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig).'
+            For more details about this output factory, see [OutputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig).'
           isOptional: true
           parameterType: STRING
         project:
@@ -5932,7 +5932,7 @@ components:
 
             represented as a STRUCT, and containing only `code` and
 
-            `message`. For more details about this output config, see
+            `message`. For more details about this output factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.'
           isOptional: true
@@ -5943,7 +5943,7 @@ components:
 
             `projectId.bqDatasetId.bqTableId`  For more details about this input
 
-            config, see
+            factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.'
           isOptional: true
@@ -6065,7 +6065,7 @@ components:
 
             value has `google.rpc.Status` containing only `code` and
 
-            `message` fields.  For more details about this output config, see
+            `message` fields.  For more details about this output factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.'
           isOptional: true
@@ -6079,7 +6079,7 @@ components:
 
             information on wildcards, see [WildcardNames](https://cloud.google.com/storage/docs/gsutil/addlhelp/WildcardNames).
 
-            For more details about this input config, see [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig).'
+            For more details about this input factory, see [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig).'
           isOptional: true
           parameterType: LIST
         generate_explanation:
@@ -6161,7 +6161,7 @@ components:
             given, must be one of the [Model](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.models)''s
             supportedInputStorageFormats.
 
-            For more details about this input config, see
+            For more details about this input factory, see
 
             [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.)'
           isOptional: true
@@ -6210,11 +6210,11 @@ components:
 
             prediction on dedicated resources. If the Model supports
 
-            DEDICATED_RESOURCES this config may be provided (and the job will use
+            DEDICATED_RESOURCES this factory may be provided (and the job will use
 
             these resources). If the Model doesn''t support AUTOMATIC_RESOURCES,
 
-            this config must be provided.  For more details about the
+            this factory must be provided.  For more details about the
 
             BatchDedicatedResources, see
 
@@ -6263,7 +6263,7 @@ components:
 
             Model''s supportedOutputStorageFormats.
 
-            For more details about this output config, see [OutputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig).'
+            For more details about this output factory, see [OutputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig).'
           isOptional: true
           parameterType: STRING
         project:
@@ -6407,7 +6407,7 @@ components:
 
             represented as a STRUCT, and containing only `code` and
 
-            `message`. For more details about this output config, see
+            `message`. For more details about this output factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.'
           isOptional: true
@@ -6418,7 +6418,7 @@ components:
 
             `projectId.bqDatasetId.bqTableId`  For more details about this input
 
-            config, see
+            factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.'
           isOptional: true
@@ -6540,7 +6540,7 @@ components:
 
             value has `google.rpc.Status` containing only `code` and
 
-            `message` fields.  For more details about this output config, see
+            `message` fields.  For more details about this output factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.'
           isOptional: true
@@ -6554,7 +6554,7 @@ components:
 
             information on wildcards, see [WildcardNames](https://cloud.google.com/storage/docs/gsutil/addlhelp/WildcardNames).
 
-            For more details about this input config, see [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig).'
+            For more details about this input factory, see [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig).'
           isOptional: true
           parameterType: LIST
         generate_explanation:
@@ -6636,7 +6636,7 @@ components:
             given, must be one of the [Model](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.models)''s
             supportedInputStorageFormats.
 
-            For more details about this input config, see
+            For more details about this input factory, see
 
             [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.)'
           isOptional: true
@@ -6685,11 +6685,11 @@ components:
 
             prediction on dedicated resources. If the Model supports
 
-            DEDICATED_RESOURCES this config may be provided (and the job will use
+            DEDICATED_RESOURCES this factory may be provided (and the job will use
 
             these resources). If the Model doesn''t support AUTOMATIC_RESOURCES,
 
-            this config must be provided.  For more details about the
+            this factory must be provided.  For more details about the
 
             BatchDedicatedResources, see
 
@@ -6738,7 +6738,7 @@ components:
 
             Model''s supportedOutputStorageFormats.
 
-            For more details about this output config, see [OutputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig).'
+            For more details about this output factory, see [OutputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig).'
           isOptional: true
           parameterType: STRING
         project:
@@ -6882,7 +6882,7 @@ components:
 
             represented as a STRUCT, and containing only `code` and
 
-            `message`. For more details about this output config, see
+            `message`. For more details about this output factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.'
           isOptional: true
@@ -6893,7 +6893,7 @@ components:
 
             `projectId.bqDatasetId.bqTableId`  For more details about this input
 
-            config, see
+            factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.'
           isOptional: true
@@ -7015,7 +7015,7 @@ components:
 
             value has `google.rpc.Status` containing only `code` and
 
-            `message` fields.  For more details about this output config, see
+            `message` fields.  For more details about this output factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.'
           isOptional: true
@@ -7029,7 +7029,7 @@ components:
 
             information on wildcards, see [WildcardNames](https://cloud.google.com/storage/docs/gsutil/addlhelp/WildcardNames).
 
-            For more details about this input config, see [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig).'
+            For more details about this input factory, see [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig).'
           isOptional: true
           parameterType: LIST
         generate_explanation:
@@ -7111,7 +7111,7 @@ components:
             given, must be one of the [Model](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.models)''s
             supportedInputStorageFormats.
 
-            For more details about this input config, see
+            For more details about this input factory, see
 
             [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.)'
           isOptional: true
@@ -7160,11 +7160,11 @@ components:
 
             prediction on dedicated resources. If the Model supports
 
-            DEDICATED_RESOURCES this config may be provided (and the job will use
+            DEDICATED_RESOURCES this factory may be provided (and the job will use
 
             these resources). If the Model doesn''t support AUTOMATIC_RESOURCES,
 
-            this config must be provided.  For more details about the
+            this factory must be provided.  For more details about the
 
             BatchDedicatedResources, see
 
@@ -7213,7 +7213,7 @@ components:
 
             Model''s supportedOutputStorageFormats.
 
-            For more details about this output config, see [OutputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig).'
+            For more details about this output factory, see [OutputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig).'
           isOptional: true
           parameterType: STRING
         project:
@@ -10630,7 +10630,7 @@ root:
         description: The Vertex dataset artifact.
     parameters:
       additional_experiments:
-        description: Use this field to config private preview features.
+        description: Use this field to factory private preview features.
         isOptional: true
         parameterType: STRUCT
       cv_trainer_worker_pool_specs_override:

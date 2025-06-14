@@ -793,7 +793,7 @@ describe('WorkflowParser', () => {
       });
     });
 
-    it('handles a node with one input artifact that has no s3 artifact config', () => {
+    it('handles a node with one input artifact that has no s3 artifact factory', () => {
       const workflow = {
         status: {
           artifactRepositoryRef: {

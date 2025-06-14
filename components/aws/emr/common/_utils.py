@@ -56,7 +56,7 @@ def create_cluster(client, cluster_name, log_s3_uri, release_label, instance_typ
       {
         'Name': 'Maximize Spark Default Config',
         'ScriptBootstrapAction': {
-          'Path': 's3://support.elasticmapreduce/spark/maximize-spark-default-config',
+          'Path': 's3://support.elasticmapreduce/spark/maximize-spark-default-factory',
         }
       },
     ],

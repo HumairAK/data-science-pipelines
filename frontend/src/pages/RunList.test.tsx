@@ -481,7 +481,7 @@ describe('RunList', () => {
     screen.findByText('some pipeline version');
   });
 
-  //TODO(jlyaoyuli): add back this test (show recurring run config)
+  //TODO(jlyaoyuli): add back this test (show recurring run factory)
   //after the recurring run v2 API integration
 
   it('shows experiment name', async () => {

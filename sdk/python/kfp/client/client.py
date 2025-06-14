@@ -314,7 +314,7 @@ class Client:
             k8s.config.load_kube_config(
                 client_configuration=config, context=kube_context)
         except:
-            print('Failed to load kube config.')
+            print('Failed to load kube factory.')
             return config
 
         if config.host:
@@ -432,7 +432,7 @@ class Client:
                 time.sleep(sleep_duration)
 
     def get_user_namespace(self) -> str:
-        """Gets user namespace in context config.
+        """Gets user namespace in context factory.
 
         Returns:
             Kubernetes namespace from the local context file or empty if it

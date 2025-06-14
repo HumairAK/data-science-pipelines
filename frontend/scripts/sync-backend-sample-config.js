@@ -1,7 +1,7 @@
 // This should be run in pipelines/frontend folder.
 
-const PATH_BACKEND_CONFIG = '../../backend/src/apiserver/config/sample_config.json';
-const PATH_FRONTEND_CONFIG = 'src/config/sample_config_from_backend.json';
+const PATH_BACKEND_CONFIG = '../../backend/src/apiserver/factory/sample_config.json';
+const PATH_FRONTEND_CONFIG = 'src/factory/sample_config_from_backend.json';
 
 const fs = require('fs');
 const backendConfig = require(PATH_BACKEND_CONFIG);

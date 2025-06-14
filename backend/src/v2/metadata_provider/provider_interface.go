@@ -3,7 +3,10 @@ package metadata_provider
 import (
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	api "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
+	"sync"
 )
 
 type ProviderExperiment struct {
@@ -56,4 +59,30 @@ type MetadataArtifactProvider interface {
 		runID string,
 		runtimeArtifact *pipelinespec.RuntimeArtifact,
 		defaultArtifactURI string) (ArtifactResult, error)
+}
+
+type ProviderFactory interface {
+	NewExperimentStore(cfg common.UnstructuredJSON) (storage.ExperimentStoreInterface, error)
+	NewRunProvider(cfg common.UnstructuredJSON) (RunProvider, error)
+	NewMetadataArtifactProvider(cfg common.UnstructuredJSON) (MetadataArtifactProvider, error)
+}
+
+var (
+	registryMu sync.RWMutex
+	registry   = make(map[string]ProviderFactory)
+)
+
+// Register is called by each provider package at init time
+func Register(name string, factory ProviderFactory) {
+	registryMu.Lock()
+	defer registryMu.Unlock()
+	registry[name] = factory
+}
+
+// Lookup returns a registered factory
+func Lookup(name string) (ProviderFactory, bool) {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	f, ok := registry[name]
+	return f, ok
 }

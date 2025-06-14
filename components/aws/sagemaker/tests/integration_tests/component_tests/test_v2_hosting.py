@@ -13,24 +13,24 @@ import json
     "test_file_dir",
     [
         pytest.param(
-            "resources/config/ack-hosting",
+            "resources/factory/ack-hosting",
             marks=[pytest.mark.canary_test, pytest.mark.v2, pytest.mark.shallow_canary],
         ),
-        pytest.param("resources/config/ack-hosting-update", marks=pytest.mark.v2),
+        pytest.param("resources/factory/ack-hosting-update", marks=pytest.mark.v2),
     ],
 )
 def test_create_v2_endpoint(kfp_client, experiment_id, boto3_session, test_file_dir):
     download_dir = utils.mkdir(os.path.join(test_file_dir + "/generated"))
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
             shallow_canary=True,
         )
     )
     input_model_name = utils.generate_random_string(10) + "-v2-model"
     input_endpoint_config_name = (
-        utils.generate_random_string(10) + "-v2-endpoint-config"
+        utils.generate_random_string(10) + "-v2-endpoint-factory"
     )
     input_endpoint_name = utils.generate_random_string(10) + "-v2-endpoint"
 
@@ -41,7 +41,7 @@ def test_create_v2_endpoint(kfp_client, experiment_id, boto3_session, test_file_
 
     if "ExpectedEndpointConfig" in test_params.keys():
         input_second_endpoint_config_name = (
-            utils.generate_random_string(10) + "-v2-sec-endpoint-config"
+            utils.generate_random_string(10) + "-v2-sec-endpoint-factory"
         )
         test_params["Arguments"][
             "second_endpoint_config_name"
@@ -125,7 +125,7 @@ def test_create_v2_endpoint(kfp_client, experiment_id, boto3_session, test_file_
         assert output_endpoint_config_name in output_ack_resource_metadata_endpoint_config["arn"]
         assert output_model_name in output_ack_resource_metadata_model["arn"]
 
-        # Verify that the update was successful by checking that the endpoint config name is the same as the second one.
+        # Verify that the update was successful by checking that the endpoint factory name is the same as the second one.
         if "ExpectedEndpointConfig" in test_params.keys():
             endpoint_describe["spec"][
                 "endpointConfigName"
@@ -150,17 +150,17 @@ def test_create_v2_endpoint(kfp_client, experiment_id, boto3_session, test_file_
 
 @pytest.mark.v2
 def test_terminate_v2_endpoint(kfp_client, experiment_id):
-    test_file_dir = "resources/config/ack-hosting"
+    test_file_dir = "resources/factory/ack-hosting"
     download_dir = utils.mkdir(os.path.join(test_file_dir + "/generated"))
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
     input_model_name = utils.generate_random_string(10) + "-v2-model"
     input_endpoint_config_name = (
-        utils.generate_random_string(10) + "-v2-endpoint-config"
+        utils.generate_random_string(10) + "-v2-endpoint-factory"
     )
     input_endpoint_name = utils.generate_random_string(10) + "-v2-endpoint"
     test_params["Arguments"]["model_name"] = input_model_name

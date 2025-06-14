@@ -21,7 +21,7 @@ import ROCCurve from './ROCCurve';
 import { render, screen } from '@testing-library/react';
 
 describe('ROCCurve', () => {
-  it('does not break on no config', () => {
+  it('does not break on no factory', () => {
     const tree = shallow(<ROCCurve configs={[]} />);
     expect(tree).toMatchSnapshot();
   });
@@ -39,7 +39,7 @@ describe('ROCCurve', () => {
     { x: 1, y: 1, label: '5' },
   ];
 
-  it('renders a simple ROC curve given one config', () => {
+  it('renders a simple ROC curve given one factory', () => {
     const tree = shallow(<ROCCurve configs={[{ data, type: PlotType.ROC }]} />);
     expect(tree).toMatchSnapshot();
   });
@@ -76,7 +76,7 @@ describe('ROCCurve', () => {
     expect(line1Color !== line2Color && line1Color !== line3Color && line2Color !== line3Color);
   });
 
-  it('does not render a legend when there is only one config', () => {
+  it('does not render a legend when there is only one factory', () => {
     const config = { data, type: PlotType.ROC };
     const tree = shallow(<ROCCurve configs={[config]} />);
     expect(tree.find('DiscreteColorLegendItem').length).toBe(0);
@@ -102,7 +102,7 @@ describe('ROCCurve', () => {
     expect(ROCCurve.prototype.isAggregatable()).toBeTruthy();
   });
 
-  it('Force legend display even with one config', async () => {
+  it('Force legend display even with one factory', async () => {
     const config = { data, type: PlotType.ROC };
     render(<ROCCurve configs={[config]} forceLegend />);
 

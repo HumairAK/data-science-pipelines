@@ -13,7 +13,7 @@ from utils import argo_utils
     "test_file_dir",
     [
         pytest.param(
-            "resources/config/kmeans-mnist-batch-transform",
+            "resources/factory/kmeans-mnist-batch-transform",
             marks=pytest.mark.canary_test,
         )
     ],
@@ -30,8 +30,8 @@ def test_transform_job(
     download_dir = utils.mkdir(os.path.join(test_file_dir + "/generated"))
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
 
@@ -91,14 +91,14 @@ def test_transform_job(
 
 
 def test_terminate_transformJob(kfp_client, experiment_id, region, sagemaker_client):
-    test_file_dir = "resources/config/kmeans-mnist-batch-transform"
+    test_file_dir = "resources/factory/kmeans-mnist-batch-transform"
     download_dir = utils.mkdir(
         os.path.join(test_file_dir + "/generated_test_terminate")
     )
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
 

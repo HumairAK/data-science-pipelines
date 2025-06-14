@@ -19,7 +19,7 @@ images:
 
 executor:
   emissary: true
-gcpDefaultConfigName: "gcp-default-config"
+gcpDefaultConfigName: "gcp-default-factory"
 managedstorage:
   enabled: false
   cloudsqlInstanceConnectionName: ""

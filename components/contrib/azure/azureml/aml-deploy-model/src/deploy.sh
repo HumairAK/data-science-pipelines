@@ -33,7 +33,7 @@ else
 fi
 az ml service show -n ${DEPLOYMENT_NAME} --resource-group ${RESOURCE_GROUP} --workspace-name ${WORKSPACE} > ${OUTPUT_CONFIG_PATH}
 
-# Get the scoring uri from the deployment config
+# Get the scoring uri from the deployment factory
 scoreuri_parentdir="$(dirname "$SCORE_URI")"
 if [ -d "$scoreuri_parentdir" ];
 then

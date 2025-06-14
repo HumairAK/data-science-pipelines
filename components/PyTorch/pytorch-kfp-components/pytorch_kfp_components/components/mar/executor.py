@@ -32,11 +32,11 @@ class Executor(BaseExecutor):
         super(Executor, self).__init__()  #pylint: disable=R1725
 
     def get_fn_args(self, input_dict: dict, exec_properties: dict):  #pylint: disable=R0201
-        """Extracts the mar config from the input dict and save path from
+        """Extracts the mar factory from the input dict and save path from
         exec_properties.
 
         Args:
-            input_dict : A input dict, Eample : mar config dict
+            input_dict : A input dict, Eample : mar factory dict
             exec_properties : A dict of execution properties for mar saving path
         Returns:
             mar_config : the dict of configuration for mar generation
@@ -57,7 +57,7 @@ class Executor(BaseExecutor):
         Args:
             mar_config : a dict of mar configurations.
         Raises:
-            ValueError: if the config file or any mandatory arg is empty
+            ValueError: if the factory file or any mandatory arg is empty
         """
 
         mandatory_args = [
@@ -71,7 +71,7 @@ class Executor(BaseExecutor):
 
         if not mar_config:
             raise ValueError(
-                f"Mar config cannot be empty. "
+                f"Mar factory cannot be empty. "
                 f"Mandatory arguments are {mandatory_args}"
             )
 
@@ -82,22 +82,22 @@ class Executor(BaseExecutor):
 
         if missing_list:
             raise ValueError(
-                "Following Mandatory keys are missing in the config file {}".
+                "Following Mandatory keys are missing in the factory file {}".
                 format(missing_list)
             )
 
     def download_config_properties(self, url):  #pylint: disable=R0201
-        """Downloads the config.properties.
+        """Downloads the factory.properties.
 
         Args:
-            url : the path to download the config.properties
+            url : the path to download the factory.properties
         """
         if not os.path.exists(url):
             try:
                 url = wget.download(url, tempfile.mkdtemp())
             except ValueError as exc:
                 raise ValueError(
-                    "Unable to download config "
+                    "Unable to download factory "
                     "properties file using url - {}".format(url)
                 ) from exc
 
@@ -202,14 +202,14 @@ class Executor(BaseExecutor):
     def _save_config_properties(
         self, mar_config: dict, mar_save_path: str, output_dict: dict
     ):
-        """Saves the config.properties file where the mar file is generated.
+        """Saves the factory.properties file where the mar file is generated.
 
         Args :
             mar_config : dict of mar configuration
-            mar_save_path : the location to save the config.properties
+            mar_save_path : the location to save the factory.properties
             output_dict : dict to assign the mar save path.
         """
-        print("Downloading config properties")
+        print("Downloading factory properties")
         if "CONFIG_PROPERTIES" in mar_config:
             config_properties_local_path = self.download_config_properties(
                 mar_config["CONFIG_PROPERTIES"]
@@ -217,7 +217,7 @@ class Executor(BaseExecutor):
         else:
             config_properties_local_path = mar_config["CONFIG_PROPERTIES"]
 
-        config_prop_path = os.path.join(mar_save_path, "config.properties")
+        config_prop_path = os.path.join(mar_save_path, "factory.properties")
         if os.path.exists(config_prop_path):
             os.remove(config_prop_path)
         shutil.move(config_properties_local_path, mar_save_path)
@@ -228,7 +228,7 @@ class Executor(BaseExecutor):
         """Executes the mar generation process.
 
         Args:
-            input_dict : A input dict, including mar config
+            input_dict : A input dict, including mar factory
             output_dict :
             exec_properties : A dict of execution properties for mar generation
         """

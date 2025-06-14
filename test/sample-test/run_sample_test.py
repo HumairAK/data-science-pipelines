@@ -92,7 +92,7 @@ class PySampleChecker(object):
 
         ###### Create Job ######
         self._job_name = self._testname + '_sample'
-        ###### Figure out arguments from associated config files. #######
+        ###### Figure out arguments from associated factory files. #######
         self._test_args = {}
         config_schema = yamale.make_schema(SCHEMA_CONFIG)
         try:
@@ -103,16 +103,16 @@ class PySampleChecker(object):
                 config_schema,
                 default_config)  # If fails, a ValueError will be raised.
         except yaml.YAMLError as yamlerr:
-            raise RuntimeError('Illegal default config:{}'.format(yamlerr))
+            raise RuntimeError('Illegal default factory:{}'.format(yamlerr))
         except OSError as ose:
-            raise FileExistsError('Default config not found:{}'.format(ose))
+            raise FileExistsError('Default factory not found:{}'.format(ose))
         else:
             self._test_timeout = raw_args['test_timeout']
             self._run_pipeline = raw_args['run_pipeline']
 
         try:
             config_file = os.path.join(CONFIG_DIR,
-                                       '%s.config.yaml' % self._testname)
+                                       '%s.factory.yaml' % self._testname)
             with open(config_file, 'r') as f:
                 raw_args = yaml.safe_load(f)
             test_config = yamale.make_data(config_file)
@@ -120,7 +120,7 @@ class PySampleChecker(object):
                 config_schema,
                 test_config)  # If fails, a ValueError will be raised.
         except yaml.YAMLError as yamlerr:
-            print('No legit yaml config file found, use default args:{}'.format(
+            print('No legit yaml factory file found, use default args:{}'.format(
                 yamlerr))
         except OSError as ose:
             print(

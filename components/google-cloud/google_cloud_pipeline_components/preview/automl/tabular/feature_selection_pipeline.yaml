@@ -331,7 +331,7 @@ components:
         max_selected_features:
           defaultValue: 1000.0
           description: Maximum number of features to select.  If specified, the transform
-            config will be purged by only using the selected features that ranked
+            factory will be purged by only using the selected features that ranked
             top in the feature ranking, which has the ranking value for all supported
             features. If the number of input features is smaller than max_selected_features
             specified, we will still run the feature selection process and generate

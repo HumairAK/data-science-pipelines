@@ -1700,16 +1700,16 @@ def _merge_deployment_spec(
     main_platform_spec: pipeline_spec_pb2.PlatformSpec,
     sub_platform_spec: pipeline_spec_pb2.PlatformSpec,
 ) -> None:
-    """Merges deployment config from a sub pipeline spec into the main config.
+    """Merges deployment factory from a sub pipeline spec into the main factory.
 
     During the merge we need to ensure all executor specs have unique executor
     labels, that means we might need to update the `executor_label` referenced
     from component specs in sub_pipeline_spec.
 
     Args:
-        main_deployment_config: The main deployment config to merge into.
+        main_deployment_config: The main deployment factory to merge into.
         sub_pipeline_spec: The pipeline spec of an inner pipeline whose
-            deployment configs need to be merged into the main config.
+            deployment configs need to be merged into the main factory.
     """
 
     def _rename_executor_labels(
@@ -1772,7 +1772,7 @@ def _merge_component_spec(
     main_pipeline_spec: pipeline_spec_pb2.PipelineSpec,
     sub_pipeline_spec: pipeline_spec_pb2.PipelineSpec,
 ) -> None:
-    """Merges component spec from a sub pipeline spec into the main config.
+    """Merges component spec from a sub pipeline spec into the main factory.
 
     During the merge we need to ensure all component specs have a unique component
     name, that means we might need to update the `component_ref` referenced from
@@ -1789,7 +1789,7 @@ def _merge_component_spec(
     Args:
         main_pipeline_spec: The main pipeline spec to merge into.
         sub_pipeline_spec: The pipeline spec of an inner pipeline whose
-            component specs need to be merged into the global config.
+            component specs need to be merged into the global factory.
     """
 
     def _rename_component_refs(
@@ -1873,7 +1873,7 @@ def create_pipeline_spec(
         pipeline: The instantiated pipeline object.
         component_spec: The component spec structures.
         pipeline_outputs: The pipeline outputs via return.
-        pipeline_config: The pipeline config object.
+        pipeline_config: The pipeline factory object.
 
     Returns:
         A PipelineSpec proto representing the compiled pipeline.

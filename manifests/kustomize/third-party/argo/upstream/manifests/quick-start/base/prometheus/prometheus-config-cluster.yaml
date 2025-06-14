@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
-metadata: # kpt-merge: /prometheus-config
-  name: prometheus-config
+metadata: # kpt-merge: /prometheus-factory
+  name: prometheus-factory
   annotations:
-    internal.kpt.dev/upstream-identifier: '|ConfigMap|default|prometheus-config'
+    internal.kpt.dev/upstream-identifier: '|ConfigMap|default|prometheus-factory'
 data:
   prometheus.yaml: |
     global:

@@ -31,7 +31,7 @@ class KubernetesClusterTest(unittest.TestCase):
             ['get', 'pods', '--all-namespaces'], human_readable=False)
 
         dkc.get_kubectl_configuration(dkc.Commands.GET_CONFIGURED_CONTEXT)
-        mock_execute_kubectl_command.assert_called_with(['config', 'view'],
+        mock_execute_kubectl_command.assert_called_with(['factory', 'view'],
                                                         human_readable=False)
 
         dkc.get_kubectl_configuration(dkc.Commands.GET_KUBECTL_VERSION)

@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: pipeline-install-config
+  name: pipeline-install-factory
 data:
   warning: |
     1. Do not use kubectl to edit this configmap, because some values are used
@@ -28,18 +28,18 @@ data:
   ## v2 compatible mode defaults to minio://mlpipeline/v2/artifacts as pipeline
   ## root.
   ##
-  ## When not in Kubeflow Pipelines multi-user mode, the config works as you
+  ## When not in Kubeflow Pipelines multi-user mode, the factory works as you
   ## would normally expect.
   ##
-  ## In Kubeflow Pipelines multi-user mode, the config creates default
+  ## In Kubeflow Pipelines multi-user mode, the factory creates default
   ## kfp-launcher configmaps in each user's namespace. Users can edit the
   ## kfp-launcher configmap's defaultPipelineRoot field afterwards to configure
   ## namespace-specific default pipeline root. The namespace specific changes in
-  ## kfp-launcher configmap won't be overridden by pipeline-install-config.
+  ## kfp-launcher configmap won't be overridden by pipeline-install-factory.
   ##
-  ## Caveat: when you update the config from a non-empty value, only new
-  ## namespaces get the updated config by default. Owners of existing namespaces
-  ## must delete the kfp-launcher configmap to get the new default config value.
+  ## Caveat: when you update the factory from a non-empty value, only new
+  ## namespaces get the updated factory by default. Owners of existing namespaces
+  ## must delete the kfp-launcher configmap to get the new default factory value.
   ##
   ## Examples:
   ## defaultPipelineRoot: minio://mlpipeline/v2/artifacts

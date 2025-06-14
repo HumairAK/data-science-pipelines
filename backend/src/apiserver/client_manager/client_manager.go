@@ -18,7 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/factory"
 	"os"
 	"strings"
 	"sync"
@@ -121,7 +121,7 @@ type Options struct {
 	GlobalKubernetesWebhookMode  bool
 	Context                      context.Context
 	WaitGroup                    *sync.WaitGroup
-	MetadataProviderConfig       *config.ProviderConfig
+	MetadataProviderConfig       *factory.ProviderConfig
 }
 
 func (c *ClientManager) TaskStore() storage.TaskStoreInterface {

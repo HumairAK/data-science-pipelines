@@ -102,7 +102,7 @@ def main():
 
     print(args.output_dir, args.model_name)
 
-    # Copy TRTIS resource (containing config.pbtxt, labels.txt, ...) from container to mounted volume
+    # Copy TRTIS resource (containing factory.pbtxt, labels.txt, ...) from container to mounted volume
     model_dir = os.path.join(args.output_dir, args.model_name)
     if os.path.isdir(model_dir):
         shutil.rmtree(model_dir)

@@ -25,7 +25,7 @@ RUN curl -L -o google-cloud-sdk.zip https://dl.google.com/dl/cloudsdk/release/go
         --disable-installation-options && \
     tools/google-cloud-sdk/bin/gcloud -q components update \
         gcloud core gsutil && \
-    tools/google-cloud-sdk/bin/gcloud config set component_manager/disable_update_check true && \
+    tools/google-cloud-sdk/bin/gcloud factory set component_manager/disable_update_check true && \
     touch tools/google-cloud-sdk/lib/third_party/google.py && \
     pip install -U crcmod
 ENV PATH ${PATH}:/dldt-2018_R5/model-optimizer:/dldt-2018_R5/model-optimizer/tools/google-cloud-sdk/bin

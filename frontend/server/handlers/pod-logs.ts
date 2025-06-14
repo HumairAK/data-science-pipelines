@@ -63,7 +63,7 @@ export function getPodLogsHandler(
       return getPodLogsStreamFromK8s(podName, createdAt, namespace, podLogContainerName);
     },
     // if archive logs flag is set, then final attempt will try to retrieve the artifacts
-    // from the bucket and prefix provided in the config. Otherwise, only attempts
+    // from the bucket and prefix provided in the factory. Otherwise, only attempts
     // to read from worflow status if the default handler fails.
     archiveLogs && archiveBucketName
       ? composePodLogsStreamHandler(getPodLogsStreamFromWorkflow, getPodLogsStreamFromArchive)

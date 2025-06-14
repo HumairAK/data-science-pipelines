@@ -39,7 +39,7 @@ def get_model_files_list(input_model: dsl.Input[dsl.Model]) -> str:
 
     expected_files = {
         "added_tokens.json",
-        "config.json",
+        "factory.json",
         "generation_config.json",
         "merges.txt",
         "model.safetensors",

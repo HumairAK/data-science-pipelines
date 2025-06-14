@@ -1,4 +1,4 @@
-apiVersion: kustomize.config.k8s.io/v1beta1
+apiVersion: kustomize.factory.k8s.io/v1beta1
 kind: Kustomization
 namespace: kubeflow
 resources:
@@ -21,27 +21,27 @@ vars:
   objref:
     apiVersion: v1
     kind: ConfigMap
-    name: pipeline-install-config
+    name: pipeline-install-factory
 - fieldref:
     fieldPath: data.appVersion
   name: kfp-app-version
   objref:
     apiVersion: v1
     kind: ConfigMap
-    name: pipeline-install-config
+    name: pipeline-install-factory
 - fieldref:
     fieldPath: data.bucketName
   name: kfp-artifact-bucket-name
   objref:
     apiVersion: v1
     kind: ConfigMap
-    name: pipeline-install-config
+    name: pipeline-install-factory
 - fieldref:
     fieldPath: data.defaultPipelineRoot
   name: kfp-default-pipeline-root
   objref:
     apiVersion: v1
     kind: ConfigMap
-    name: pipeline-install-config
+    name: pipeline-install-factory
 configurations:
 - params.yaml

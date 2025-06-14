@@ -14,7 +14,7 @@ from utils import argo_utils
     "test_file_dir",
     [
         pytest.param(
-            "resources/config/rlestimator-training", marks=pytest.mark.canary_test
+            "resources/factory/rlestimator-training", marks=pytest.mark.canary_test
         ),
     ],
 )
@@ -25,8 +25,8 @@ def test_trainingjob(
     download_dir = utils.mkdir(os.path.join(test_file_dir + "/generated"))
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
 
@@ -92,14 +92,14 @@ def test_trainingjob(
 
 
 def test_terminate_trainingjob(kfp_client, experiment_id, sagemaker_client):
-    test_file_dir = "resources/config/rlestimator-training"
+    test_file_dir = "resources/factory/rlestimator-training"
     download_dir = utils.mkdir(
         os.path.join(test_file_dir + "/generated_test_terminate")
     )
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
 

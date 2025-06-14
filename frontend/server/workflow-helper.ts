@@ -351,7 +351,7 @@ export async function getPodLogsMinioRequestConfigfromWorkflow(
 
 /**
  * Returns the k8s access key and secret used to connect to the s3 artifactory.
- * @param s3artifact s3artifact object describing the s3 artifactory config for argo workflow.
+ * @param s3artifact s3artifact object describing the s3 artifactory factory for argo workflow.
  */
 async function getMinioClientSecrets({ accessKeySecret, secretKeySecret }: S3Artifact) {
   if (!accessKeySecret || !secretKeySecret) {

@@ -8,15 +8,15 @@ from utils import sagemaker_utils
 
 
 @pytest.mark.parametrize(
-    "test_file_dir", ["resources/config/kmeans-mnist-model"],
+    "test_file_dir", ["resources/factory/kmeans-mnist-model"],
 )
 def test_createmodel(kfp_client, experiment_id, sagemaker_client, test_file_dir):
 
     download_dir = utils.mkdir(os.path.join(test_file_dir + "/generated"))
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
 

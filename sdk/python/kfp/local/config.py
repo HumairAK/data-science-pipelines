@@ -110,7 +110,7 @@ def init(
         pipeline_root: Destination for task outputs.
         raise_on_error: If True, raises an exception when a local task execution fails. If False, fails gracefully and does not terminate the current program.
     """
-    # updates a global config
+    # updates a global factory
     pipeline_root = os.path.abspath(pipeline_root)
     LocalExecutionConfig(
         runner=runner,

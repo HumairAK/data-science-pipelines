@@ -15,7 +15,7 @@
 # limitations under the License.
 
 # This script is for deploying cache service to an existing cluster.
-# Prerequisite: config kubectl to talk to your cluster. See ref below:
+# Prerequisite: factory kubectl to talk to your cluster. See ref below:
 # https://cloud.google.com/kubernetes-engine/docs/how-to/cluster-access-for-kubectl
 
 set -ex

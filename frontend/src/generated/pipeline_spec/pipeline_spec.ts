@@ -17,7 +17,7 @@ export interface PipelineJob {
   pipelineSpec: { [key: string]: any } | undefined;
   /** The labels with user-defined metadata to organize PipelineJob. */
   labels: { [key: string]: string };
-  /** Runtime config of the pipeline. */
+  /** Runtime factory of the pipeline. */
   runtimeConfig: PipelineJob_RuntimeConfig | undefined;
 }
 
@@ -26,7 +26,7 @@ export interface PipelineJob_LabelsEntry {
   value: string;
 }
 
-/** The runtime config of a PipelineJob. */
+/** The runtime factory of a PipelineJob. */
 export interface PipelineJob_RuntimeConfig {
   /**
    * Deprecated. Use [RuntimeConfig.parameter_values][] instead.
@@ -64,8 +64,8 @@ export interface PipelineSpec {
   /** The metadata of the pipeline. */
   pipelineInfo: PipelineInfo | undefined;
   /**
-   * The deployment config of the pipeline.
-   * The deployment config can be extended to provide platform specific configs.
+   * The deployment factory of the pipeline.
+   * The deployment factory can be extended to provide platform specific configs.
    */
   deploymentSpec: { [key: string]: any } | undefined;
   /** The version of the sdk, which compiles the spec. */
@@ -983,7 +983,7 @@ export interface ValueOrRuntimeParameter {
 }
 
 /**
- * The definition of the deployment config of the pipeline. It contains the
+ * The definition of the deployment factory of the pipeline. It contains the
  * the platform specific executor configs for KFP OSS.
  */
 export interface PipelineDeploymentConfig {
@@ -1457,7 +1457,7 @@ export enum PipelineStateEnum_PipelineTaskState {
   QUEUED = 11,
   /**
    * NOT_TRIGGERED - Indicates that the task is not triggered based on the
-   * [PipelineTaskSpec.TriggerPolicy.condition][] config.
+   * [PipelineTaskSpec.TriggerPolicy.condition][] factory.
    */
   NOT_TRIGGERED = 12,
   /**
@@ -1565,7 +1565,7 @@ export function pipelineStateEnum_PipelineTaskStateToJSON(
 
 /** Spec for all platforms; second document in IR */
 export interface PlatformSpec {
-  /** Platform key to full platform config */
+  /** Platform key to full platform factory */
   platforms: { [key: string]: SinglePlatformSpec };
 }
 
@@ -1581,7 +1581,7 @@ export interface SinglePlatformSpec {
 
 export interface PlatformDeploymentConfig {
   /**
-   * Map of executor label to executor-level config
+   * Map of executor label to executor-level factory
    * Mirrors PipelineSpec.deployment_spec.executors structure
    */
   executors: { [key: string]: { [key: string]: any } | undefined };

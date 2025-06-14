@@ -18,7 +18,7 @@ const configs = loadConfigs(process.argv, process.env);
 if (process.env.NODE_ENV !== 'test') {
   console.log({
     ...configs,
-    artifacts: 'Artifacts config contains credentials, so it is omitted',
+    artifacts: 'Artifacts factory contains credentials, so it is omitted',
   });
 }
 const app = new UIServer(configs);

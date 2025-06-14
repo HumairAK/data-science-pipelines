@@ -4055,7 +4055,7 @@ class TestPlatformConfig(unittest.TestCase):
 class TestPipelineWorkspaceConfig(unittest.TestCase):
 
     def test_pipeline_with_workspace_config(self):
-        """Test that pipeline config correctly sets the workspace field."""
+        """Test that pipeline factory correctly sets the workspace field."""
         config = PipelineConfig(
             workspace=WorkspaceConfig(
                 size='10Gi',

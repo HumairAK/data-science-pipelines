@@ -2961,7 +2961,7 @@ components:
         max_selected_features:
           defaultValue: 1000.0
           description: Maximum number of features to select.  If specified, the transform
-            config will be purged by only using the selected features that ranked
+            factory will be purged by only using the selected features that ranked
             top in the feature ranking, which has the ranking value for all supported
             features. If the number of input features is smaller than max_selected_features
             specified, we will still run the feature selection process and generate
@@ -3759,7 +3759,7 @@ components:
 
             represented as a STRUCT, and containing only `code` and
 
-            `message`. For more details about this output config, see
+            `message`. For more details about this output factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.'
           isOptional: true
@@ -3770,7 +3770,7 @@ components:
 
             `projectId.bqDatasetId.bqTableId`  For more details about this input
 
-            config, see
+            factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.'
           isOptional: true
@@ -3892,7 +3892,7 @@ components:
 
             value has `google.rpc.Status` containing only `code` and
 
-            `message` fields.  For more details about this output config, see
+            `message` fields.  For more details about this output factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.'
           isOptional: true
@@ -3906,7 +3906,7 @@ components:
 
             information on wildcards, see [WildcardNames](https://cloud.google.com/storage/docs/gsutil/addlhelp/WildcardNames).
 
-            For more details about this input config, see [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig).'
+            For more details about this input factory, see [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig).'
           isOptional: true
           parameterType: LIST
         generate_explanation:
@@ -3988,7 +3988,7 @@ components:
             given, must be one of the [Model](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.models)''s
             supportedInputStorageFormats.
 
-            For more details about this input config, see
+            For more details about this input factory, see
 
             [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.)'
           isOptional: true
@@ -4037,11 +4037,11 @@ components:
 
             prediction on dedicated resources. If the Model supports
 
-            DEDICATED_RESOURCES this config may be provided (and the job will use
+            DEDICATED_RESOURCES this factory may be provided (and the job will use
 
             these resources). If the Model doesn''t support AUTOMATIC_RESOURCES,
 
-            this config must be provided.  For more details about the
+            this factory must be provided.  For more details about the
 
             BatchDedicatedResources, see
 
@@ -4090,7 +4090,7 @@ components:
 
             Model''s supportedOutputStorageFormats.
 
-            For more details about this output config, see [OutputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig).'
+            For more details about this output factory, see [OutputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig).'
           isOptional: true
           parameterType: STRING
         project:
@@ -4234,7 +4234,7 @@ components:
 
             represented as a STRUCT, and containing only `code` and
 
-            `message`. For more details about this output config, see
+            `message`. For more details about this output factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.'
           isOptional: true
@@ -4245,7 +4245,7 @@ components:
 
             `projectId.bqDatasetId.bqTableId`  For more details about this input
 
-            config, see
+            factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.'
           isOptional: true
@@ -4367,7 +4367,7 @@ components:
 
             value has `google.rpc.Status` containing only `code` and
 
-            `message` fields.  For more details about this output config, see
+            `message` fields.  For more details about this output factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.'
           isOptional: true
@@ -4381,7 +4381,7 @@ components:
 
             information on wildcards, see [WildcardNames](https://cloud.google.com/storage/docs/gsutil/addlhelp/WildcardNames).
 
-            For more details about this input config, see [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig).'
+            For more details about this input factory, see [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig).'
           isOptional: true
           parameterType: LIST
         generate_explanation:
@@ -4463,7 +4463,7 @@ components:
             given, must be one of the [Model](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.models)''s
             supportedInputStorageFormats.
 
-            For more details about this input config, see
+            For more details about this input factory, see
 
             [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.)'
           isOptional: true
@@ -4512,11 +4512,11 @@ components:
 
             prediction on dedicated resources. If the Model supports
 
-            DEDICATED_RESOURCES this config may be provided (and the job will use
+            DEDICATED_RESOURCES this factory may be provided (and the job will use
 
             these resources). If the Model doesn''t support AUTOMATIC_RESOURCES,
 
-            this config must be provided.  For more details about the
+            this factory must be provided.  For more details about the
 
             BatchDedicatedResources, see
 
@@ -4565,7 +4565,7 @@ components:
 
             Model''s supportedOutputStorageFormats.
 
-            For more details about this output config, see [OutputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig).'
+            For more details about this output factory, see [OutputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig).'
           isOptional: true
           parameterType: STRING
         project:
@@ -6774,7 +6774,7 @@ deploymentSpec:
           \  import collections\n  from google.cloud import aiplatform\n  from google.cloud\
           \ import aiplatform_v1beta1 as aip\n  # pylint: enable=g-import-not-at-top,import-outside-toplevel,redefined-outer-name\n\
           \n  # TODO(b/261504514) Remove this handling when we use the FTE transform\
-          \ config.\n  transformations['stats_gen_execution_engine'] = stats_gen_execution_engine\n\
+          \ factory.\n  transformations['stats_gen_execution_engine'] = stats_gen_execution_engine\n\
           \n  if not model_display_name:\n    model_display_name = _DEFAULT_MODEL_DISPLAY_NAME\n\
           \n  if vertex_dataset is not None:\n    # of format\n    # projects/294348452381/locations/us-central1/datasets/7104764862735056896\n\
           \    dataset_name = vertex_dataset.metadata['resourceName']\n\n    aiplatform.init(project=project,\

@@ -933,7 +933,7 @@ components:
 
             represented as a STRUCT, and containing only `code` and
 
-            `message`. For more details about this output config, see
+            `message`. For more details about this output factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.'
           isOptional: true
@@ -944,7 +944,7 @@ components:
 
             `projectId.bqDatasetId.bqTableId`  For more details about this input
 
-            config, see
+            factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.'
           isOptional: true
@@ -1066,7 +1066,7 @@ components:
 
             value has `google.rpc.Status` containing only `code` and
 
-            `message` fields.  For more details about this output config, see
+            `message` fields.  For more details about this output factory, see
 
             https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.'
           isOptional: true
@@ -1080,7 +1080,7 @@ components:
 
             information on wildcards, see [WildcardNames](https://cloud.google.com/storage/docs/gsutil/addlhelp/WildcardNames).
 
-            For more details about this input config, see [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig).'
+            For more details about this input factory, see [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig).'
           isOptional: true
           parameterType: LIST
         generate_explanation:
@@ -1162,7 +1162,7 @@ components:
             given, must be one of the [Model](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.models)''s
             supportedInputStorageFormats.
 
-            For more details about this input config, see
+            For more details about this input factory, see
 
             [InputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.)'
           isOptional: true
@@ -1211,11 +1211,11 @@ components:
 
             prediction on dedicated resources. If the Model supports
 
-            DEDICATED_RESOURCES this config may be provided (and the job will use
+            DEDICATED_RESOURCES this factory may be provided (and the job will use
 
             these resources). If the Model doesn''t support AUTOMATIC_RESOURCES,
 
-            this config must be provided.  For more details about the
+            this factory must be provided.  For more details about the
 
             BatchDedicatedResources, see
 
@@ -1264,7 +1264,7 @@ components:
 
             Model''s supportedOutputStorageFormats.
 
-            For more details about this output config, see [OutputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig).'
+            For more details about this output factory, see [OutputConfig](https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig).'
           isOptional: true
           parameterType: STRING
         project:
@@ -1577,12 +1577,12 @@ deploymentSpec:
           \ *\n\ndef build_job_configuration_query(\n    project_id: str = '',\n \
           \   dataset_id: str = '',\n    table_id: str = '',\n    write_disposition:\
           \ str = '',\n    priority: str = 'INTERACTIVE',\n) -> dict:  # pylint: disable=g-bare-generic\n\
-          \  \"\"\"Creates a JobConfigurationQuery object.\"\"\"\n  config = {\n \
+          \  \"\"\"Creates a JobConfigurationQuery object.\"\"\"\n  factory = {\n \
           \     'priority': priority,\n  }\n  if all([project_id, dataset_id, table_id]):\n\
-          \    config['destinationTable'] = {\n        'projectId': project_id,\n\
+          \    factory['destinationTable'] = {\n        'projectId': project_id,\n\
           \        'datasetId': dataset_id,\n        'tableId': table_id,\n    }\n\
-          \  if write_disposition:\n    config['write_disposition'] = write_disposition\n\
-          \  return config\n\n"
+          \  if write_disposition:\n    factory['write_disposition'] = write_disposition\n\
+          \  return factory\n\n"
         image: us-docker.pkg.dev/vertex-ai/automl-tabular/kfp-v2-base:20250129_0625
     exec-build-job-configuration-query-2:
       container:
@@ -1611,12 +1611,12 @@ deploymentSpec:
           \ *\n\ndef build_job_configuration_query(\n    project_id: str = '',\n \
           \   dataset_id: str = '',\n    table_id: str = '',\n    write_disposition:\
           \ str = '',\n    priority: str = 'INTERACTIVE',\n) -> dict:  # pylint: disable=g-bare-generic\n\
-          \  \"\"\"Creates a JobConfigurationQuery object.\"\"\"\n  config = {\n \
+          \  \"\"\"Creates a JobConfigurationQuery object.\"\"\"\n  factory = {\n \
           \     'priority': priority,\n  }\n  if all([project_id, dataset_id, table_id]):\n\
-          \    config['destinationTable'] = {\n        'projectId': project_id,\n\
+          \    factory['destinationTable'] = {\n        'projectId': project_id,\n\
           \        'datasetId': dataset_id,\n        'tableId': table_id,\n    }\n\
-          \  if write_disposition:\n    config['write_disposition'] = write_disposition\n\
-          \  return config\n\n"
+          \  if write_disposition:\n    factory['write_disposition'] = write_disposition\n\
+          \  return factory\n\n"
         image: us-docker.pkg.dev/vertex-ai/automl-tabular/kfp-v2-base:20250129_0625
     exec-get-first-valid:
       container:
@@ -1980,12 +1980,12 @@ deploymentSpec:
           \ and\n      not column_pattern.fullmatch(timestamp_split_key)):\n    raise\
           \ ValueError(f'Invalid column name: {timestamp_split_key}.')\n  if timestamp_split_key\
           \ and not all(fraction_splits):\n    raise ValueError('All fractions must\
-          \ be non-zero for timestamp split.')\n\n  # Validate window config.\n  if\
+          \ be non-zero for timestamp split.')\n\n  # Validate window factory.\n  if\
           \ window_stride_length == -1:\n    window_stride_length = None\n  if window_max_count\
           \ == -1:\n    window_max_count = None\n  window_configs = [window_column,\
-          \ window_stride_length, window_max_count]\n  window_config_count = sum([bool(config)\
-          \ for config in window_configs])\n  if window_config_count > 1:\n    raise\
-          \ ValueError(f'Expected 1 window config, found {window_config_count}.')\n\
+          \ window_stride_length, window_max_count]\n  window_config_count = sum([bool(factory)\
+          \ for factory in window_configs])\n  if window_config_count > 1:\n    raise\
+          \ ValueError(f'Expected 1 window factory, found {window_config_count}.')\n\
           \  if window_column and not column_pattern.fullmatch(window_column):\n \
           \   raise ValueError(f'Invalid column name: {window_column}.')\n  if window_stride_length\
           \ and (window_stride_length < 1 or\n                               window_stride_length\

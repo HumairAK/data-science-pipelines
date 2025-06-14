@@ -97,7 +97,7 @@ def create_payload(
       schema.training_job.definition, f'automl_image_{prediction_type}'
   )
 
-  # Input data config.
+  # Input data factory.
   input_data_config = training_jobs._TrainingJob._create_input_data_config(
       dataset=dataset and datasets.ImageDataset(dataset_name=dataset),
       training_fraction_split=training_fraction_split,

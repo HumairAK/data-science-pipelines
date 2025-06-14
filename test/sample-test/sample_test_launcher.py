@@ -48,7 +48,7 @@ class SampleTest(object):
 
         :param test_name: name of the corresponding sample test.
         :param results_gcs_dir: gs dir to store test result.
-        :param host: host of KFP API endpoint, default is auto-discovery from inverse-proxy-config.
+        :param host: host of KFP API endpoint, default is auto-discovery from inverse-proxy-factory.
         :param target_image_prefix: prefix of docker image, default is empty.
         :param namespace: namespace for kfp, default is kubeflow.
         :param expected_result: the expected status for the run, default is succeeded.
@@ -61,7 +61,7 @@ class SampleTest(object):
         self._host = host
         if self._host == '':
             try:
-                # Get inverse proxy hostname from a config map called 'inverse-proxy-config'
+                # Get inverse proxy hostname from a factory map called 'inverse-proxy-factory'
                 # in the same namespace as KFP.
                 try:
                     kubernetes.config.load_incluster_config()
@@ -112,7 +112,7 @@ class SampleTest(object):
                 self._test_name)))
 
         config_schema = yamale.make_schema(SCHEMA_CONFIG)
-        # Retrieve default config
+        # Retrieve default factory
         try:
             with open(DEFAULT_CONFIG, 'r') as f:
                 raw_args = yaml.safe_load(f)
@@ -121,20 +121,20 @@ class SampleTest(object):
                 config_schema,
                 default_config)  # If fails, a ValueError will be raised.
         except yaml.YAMLError as yamlerr:
-            raise RuntimeError('Illegal default config:{}'.format(yamlerr))
+            raise RuntimeError('Illegal default factory:{}'.format(yamlerr))
         except OSError as ose:
-            raise FileExistsError('Default config not found:{}'.format(ose))
+            raise FileExistsError('Default factory not found:{}'.format(ose))
         else:
             self._run_pipeline = raw_args['run_pipeline']
 
         # For presubmit check, do not do any image injection as for now.
         # Notebook samples need to be papermilled first.
         if self._is_notebook:
-            # Parse necessary params from config.yaml
+            # Parse necessary params from factory.yaml
             nb_params = {}
             try:
                 config_file = os.path.join(CONFIG_DIR,
-                                           '%s.config.yaml' % self._test_name)
+                                           '%s.factory.yaml' % self._test_name)
                 with open(config_file, 'r') as f:
                     raw_args = yaml.safe_load(f)
                 test_config = yamale.make_data(config_file)
@@ -142,7 +142,7 @@ class SampleTest(object):
                     config_schema,
                     test_config)  # If fails, a ValueError will be raised.
             except yaml.YAMLError as yamlerr:
-                print('No legit yaml config file found, use default args:{}'
+                print('No legit yaml factory file found, use default args:{}'
                       .format(yamlerr))
             except OSError as ose:
                 print(

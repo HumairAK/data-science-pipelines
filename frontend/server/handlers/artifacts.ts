@@ -261,7 +261,7 @@ async function parseGCSProviderInfo(
     configGCS.scopes = 'https://www.googleapis.com/auth/devstorage.read_write';
     return configGCS;
   } catch (err) {
-    throw new Error('Failed to parse GCS Provider config. Error: ' + err);
+    throw new Error('Failed to parse GCS Provider factory. Error: ' + err);
   }
 }
 

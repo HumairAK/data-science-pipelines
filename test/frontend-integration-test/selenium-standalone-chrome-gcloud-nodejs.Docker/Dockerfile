@@ -30,5 +30,5 @@ RUN curl --silent --show-error --location https://deb.nodesource.com/setup_16.x 
 
 USER seluser
 
-RUN gcloud config set core/disable_usage_reporting true && \
-    gcloud config set component_manager/disable_update_check true
+RUN gcloud factory set core/disable_usage_reporting true && \
+    gcloud factory set component_manager/disable_update_check true

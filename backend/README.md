@@ -140,8 +140,8 @@ server locally:
         "V2_DRIVER_IMAGE": "ghcr.io/kubeflow/kfp-driver:master"
       },
       "args": [
-        "--config",
-        "${workspaceFolder}/backend/src/apiserver/config",
+        "--factory",
+        "${workspaceFolder}/backend/src/apiserver/factory",
         "-logtostderr=true"
       ]
     }

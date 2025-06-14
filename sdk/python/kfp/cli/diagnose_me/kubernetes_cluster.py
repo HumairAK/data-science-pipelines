@@ -32,7 +32,7 @@ class Commands(enum.Enum):
 
 
 _command_string = {
-    Commands.GET_CONFIGURED_CONTEXT: 'config view',
+    Commands.GET_CONFIGURED_CONTEXT: 'factory view',
     Commands.GET_PODS: 'get pods',
     Commands.GET_PVCS: 'get pvc',
     Commands.GET_PVS: 'get pv',
@@ -50,7 +50,7 @@ def execute_kubectl_command(
 
     Args:
       kubectl_command_list: a command string list to be past to kubectl example
-        format is ['config', 'view']
+        format is ['factory', 'view']
       human_readable: If false sets parameter -o json for all calls, otherwie
         output will be in human readable format.
 

@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libhdf5-serial-dev \
         libpng-dev \
         libzmq3-dev \
-        pkg-config \
+        pkg-factory \
         rsync \
         software-properties-common \
         unzip \

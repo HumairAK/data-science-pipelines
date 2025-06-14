@@ -92,7 +92,7 @@ class ComponentCompileTest(unittest.TestCase):  #pylint: disable=too-many-instan
             log_bucket=self.log_bucket,
             log_dir=f"tensorboard/logs/{dsl.RUN_ID_PLACEHOLDER}",
             mar_path=f"mar/{dsl.RUN_ID_PLACEHOLDER}/model-store",
-            config_prop_path=f"mar/{dsl.RUN_ID_PLACEHOLDER}/config",
+            config_prop_path=f"mar/{dsl.RUN_ID_PLACEHOLDER}/factory",
             model_uri=f"s3://mlpipeline/mar/{dsl.RUN_ID_PLACEHOLDER}",
             tf_image=self.tensorboard_image,
             deploy=self.deploy_name_cifar,
@@ -207,7 +207,7 @@ class ComponentCompileTest(unittest.TestCase):  #pylint: disable=too-many-instan
                     bucket_name="mlpipeline",
                     folder_name=config_prop_path,
                     input_path=train_task.outputs["checkpoint_dir"],
-                    filename="config.properties",
+                    filename="factory.properties",
                 ).after(train_task).set_display_name("Conifg Pusher")
             )
 
@@ -291,7 +291,7 @@ class ComponentCompileTest(unittest.TestCase):  #pylint: disable=too-many-instan
             log_bucket=self.log_bucket,
             log_dir=f"tensorboard/logs/{dsl.RUN_ID_PLACEHOLDER}",
             mar_path=f"mar/{dsl.RUN_ID_PLACEHOLDER}/model-store",
-            config_prop_path=f"mar/{dsl.RUN_ID_PLACEHOLDER}/config",
+            config_prop_path=f"mar/{dsl.RUN_ID_PLACEHOLDER}/factory",
             model_uri=f"s3://mlpipeline/mar/{dsl.RUN_ID_PLACEHOLDER}",
             tf_image=self.tensorboard_image,
             deploy=self.deploy_name_bert,
@@ -394,7 +394,7 @@ class ComponentCompileTest(unittest.TestCase):  #pylint: disable=too-many-instan
                     bucket_name="mlpipeline",
                     folder_name=config_prop_path,
                     input_path=train_task.outputs["checkpoint_dir"],
-                    filename="config.properties",
+                    filename="factory.properties",
                 ).after(train_task).set_display_name("Conifg Pusher")
             )
 
@@ -459,7 +459,7 @@ class ComponentCompileTest(unittest.TestCase):  #pylint: disable=too-many-instan
             log_bucket=self.log_bucket,
             log_dir=f"tensorboard/logs/{dsl.RUN_ID_PLACEHOLDER}",
             mar_path=f"mar/{dsl.RUN_ID_PLACEHOLDER}/model-store",
-            config_prop_path=f"mar/{dsl.RUN_ID_PLACEHOLDER}/config",
+            config_prop_path=f"mar/{dsl.RUN_ID_PLACEHOLDER}/factory",
             model_uri=f"s3://mlpipeline/mar/{dsl.RUN_ID_PLACEHOLDER}",
             tf_image=self.tensorboard_image,
             deploy=self.deploy_name_cifar,
@@ -573,7 +573,7 @@ class ComponentCompileTest(unittest.TestCase):  #pylint: disable=too-many-instan
                     bucket_name="mlpipeline",
                     folder_name=config_prop_path,
                     input_path=train_task.outputs["checkpoint_dir"],
-                    filename="config.properties",
+                    filename="factory.properties",
                 ).after(train_task).set_display_name("Conifg Pusher")
             )
 
@@ -658,7 +658,7 @@ class ComponentCompileTest(unittest.TestCase):  #pylint: disable=too-many-instan
             log_bucket=self.log_bucket,
             log_dir=f"tensorboard/logs/{dsl.RUN_ID_PLACEHOLDER}",
             mar_path=f"mar/{dsl.RUN_ID_PLACEHOLDER}/model-store",
-            config_prop_path=f"mar/{dsl.RUN_ID_PLACEHOLDER}/config",
+            config_prop_path=f"mar/{dsl.RUN_ID_PLACEHOLDER}/factory",
             model_uri=f"s3://mlpipeline/mar/{dsl.RUN_ID_PLACEHOLDER}",
             tf_image=self.tensorboard_image,
             deploy=self.deploy_name_bert,
@@ -761,7 +761,7 @@ class ComponentCompileTest(unittest.TestCase):  #pylint: disable=too-many-instan
                     bucket_name="mlpipeline",
                     folder_name=config_prop_path,
                     input_path=train_task.outputs["checkpoint_dir"],
-                    filename="config.properties",
+                    filename="factory.properties",
                 ).after(train_task).set_display_name("Conifg Pusher")
             )
 

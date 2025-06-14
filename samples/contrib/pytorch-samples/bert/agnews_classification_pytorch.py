@@ -172,7 +172,7 @@ if trainer.ptl_trainer.global_rank == 0:
         "EXPORT_PATH":
             CHECKPOINT_DIR,
         "CONFIG_PROPERTIES":
-            os.path.join(bert_dir, "config.properties"),
+            os.path.join(bert_dir, "factory.properties"),
         "EXTRA_FILES":
             "{},{},{}".format(
                 os.path.join(bert_dir, "bert-base-uncased-vocab.txt"),

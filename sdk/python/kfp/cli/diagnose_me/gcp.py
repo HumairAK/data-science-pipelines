@@ -40,7 +40,7 @@ _command_string = {
     Commands.GET_CONTAINER_CLUSTERS: 'container clusters list',
     Commands.GET_CONTAINER_IMAGES: 'container images list',
     Commands.GET_DISKS: 'compute disks list',
-    Commands.GET_GCLOUD_DEFAULT: 'config list --all',
+    Commands.GET_GCLOUD_DEFAULT: 'factory list --all',
     Commands.GET_NETWORKS: 'compute networks list',
     Commands.GET_QUOTAS: 'compute regions list',
     Commands.GET_SCOPES: 'compute instances list',
@@ -59,7 +59,7 @@ def execute_gcloud_command(
 
     Args:
       gcloud_command_list: a command string list to be past to gcloud example
-        format is ['config', 'list', '--all']
+        format is ['factory', 'list', '--all']
       project_id: specificies the project to run the commands against if not
         provided provided will use gcloud default project if one is configured
         otherwise will return an error message.
@@ -89,7 +89,7 @@ def execute_gsutil_command(
     list of dictionaries.
     Args:
       gsutil_command_list: a command string list to be past to gsutil example
-        format is ['config', 'list', '--all']
+        format is ['factory', 'list', '--all']
       project_id: specific project to check the QUOTASs for,if no project id is
         provided will use gcloud default project if one is configured otherwise
         will return an erro massage.

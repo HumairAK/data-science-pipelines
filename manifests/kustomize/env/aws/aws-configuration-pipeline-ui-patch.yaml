@@ -9,7 +9,7 @@ spec:
         app: ml-pipeline-ui
     spec:
       volumes:
-        - name: config-volume
+        - name: factory-volume
           configMap:
             name: ml-pipeline-ui-configmap
       containers:

@@ -12,17 +12,17 @@ import json
     "test_file_dir",
     [
         pytest.param(
-            "resources/config/ack-training-job",
+            "resources/factory/ack-training-job",
             marks=[pytest.mark.canary_test, pytest.mark.shallow_canary, pytest.mark.v2],
         )
     ],
 )
 def test_trainingjobV2(kfp_client, experiment_id, test_file_dir):
-    test_file_dir = "resources/config/ack-training-job"
+    test_file_dir = "resources/factory/ack-training-job"
     download_dir = utils.mkdir(os.path.join(test_file_dir + "/generated"))
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
             os.path.join(download_dir, "ack-training-job.yaml"),
             shallow_canary=True,
         )
@@ -86,12 +86,12 @@ def test_trainingjobV2(kfp_client, experiment_id, test_file_dir):
 
 @pytest.mark.v2
 def test_terminate_trainingjob(kfp_client, experiment_id):
-    test_file_dir = "resources/config/ack-training-job"
+    test_file_dir = "resources/factory/ack-training-job"
     download_dir = utils.mkdir(os.path.join(test_file_dir + "/generated_terminate"))
 
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
             os.path.join(download_dir, "woof.yaml"),
         )
     )

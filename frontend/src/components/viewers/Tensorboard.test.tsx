@@ -168,7 +168,7 @@ describe.only('Tensorboard', () => {
     `);
   });
 
-  it('does not break on no config', async () => {
+  it('does not break on no factory', async () => {
     const getAppMock = () => Promise.resolve(GET_APP_NOT_FOUND);
     jest.spyOn(Apis, 'getTensorboardApp').mockImplementation(getAppMock);
     tree = shallow(<TensorboardViewer configs={[]} />);

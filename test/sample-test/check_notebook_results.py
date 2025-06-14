@@ -59,9 +59,9 @@ class NoteBookChecker(object):
             with open(DEFAULT_CONFIG, 'r') as f:
                 raw_args = yaml.safe_load(f)
         except yaml.YAMLError as yamlerr:
-            raise RuntimeError('Illegal default config:{}'.format(yamlerr))
+            raise RuntimeError('Illegal default factory:{}'.format(yamlerr))
         except OSError as ose:
-            raise FileExistsError('Default config not found:{}'.format(ose))
+            raise FileExistsError('Default factory not found:{}'.format(ose))
         else:
             test_timeout = raw_args['test_timeout']
 

@@ -151,7 +151,7 @@ export default class Buttons {
   }
 
   // Delete resources of the same type, which can be pipeline, pipeline version,
-  // or recurring run config.
+  // or recurring run factory.
   public delete(
     getSelectedIds: () => string[],
     resourceName: 'pipeline' | 'recurring run config' | 'run',
@@ -550,12 +550,12 @@ export default class Buttons {
   ): void {
     this._dialogActionHandler(
       [id],
-      'Do you want to delete this recurring run config? This action cannot be undone.',
+      'Do you want to delete this recurring run factory? This action cannot be undone.',
       useCurrentResource,
       recurringRunId => Apis.recurringRunServiceApi.deleteRecurringRun(recurringRunId),
       callback,
       'Delete',
-      'recurring run config',
+      'recurring run factory',
     );
   }
 

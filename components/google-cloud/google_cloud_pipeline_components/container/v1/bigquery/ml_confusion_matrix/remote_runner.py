@@ -103,7 +103,7 @@ def bigquery_ml_confusion_matrix_job(
 
   # For ML confusion matrix job, as the returned results is the same as the
   # number of input, which can be very large. In this case we would like to ask
-  # users to insert a destination table into the job config.
+  # users to insert a destination table into the job factory.
   return bigquery_util.bigquery_query_job(
       type,
       project,

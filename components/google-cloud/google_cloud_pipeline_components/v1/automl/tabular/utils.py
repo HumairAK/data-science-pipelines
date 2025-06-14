@@ -159,7 +159,7 @@ def _get_default_pipeline_params(
     dataflow_use_public_ips: Specifies whether Dataflow workers use public IP
       addresses.
     encryption_spec_key_name: The KMS key name.
-    additional_experiments: Use this field to config private preview features.
+    additional_experiments: Use this field to factory private preview features.
     dataflow_service_account: Custom service account to run dataflow jobs.
     max_selected_features: number of features to select for training,
     apply_feature_selection_tuning: tuning feature selection rate if true.
@@ -503,7 +503,7 @@ def get_automl_tabular_pipeline_and_parameters(
     dataflow_subnetwork: Dataflow's fully qualified subnetwork name, when empty the default subnetwork will be used. Example: https://cloud.google.com/dataflow/docs/guides/specifying-networks#example_network_and_subnetwork_specifications
     dataflow_use_public_ips: Specifies whether Dataflow workers use public IP addresses.
     encryption_spec_key_name: The KMS key name.
-    additional_experiments: Use this field to config private preview features.
+    additional_experiments: Use this field to factory private preview features.
     dataflow_service_account: Custom service account to run dataflow jobs.
     run_evaluation: Whether to run evaluation in the training pipeline.
     evaluation_batch_predict_machine_type: The prediction server machine type for batch predict components during evaluation.
@@ -719,7 +719,7 @@ def get_skip_evaluation_pipeline_and_parameters(
     dataflow_use_public_ips: Specifies whether Dataflow workers use public IP
       addresses.
     encryption_spec_key_name: The KMS key name.
-    additional_experiments: Use this field to config private preview features.
+    additional_experiments: Use this field to factory private preview features.
 
   Returns:
     Tuple of pipeline_definition_path and parameter_values.
@@ -861,7 +861,7 @@ def get_default_pipeline_and_parameters(
     dataflow_use_public_ips: Specifies whether Dataflow workers use public IP
       addresses.
     encryption_spec_key_name: The KMS key name.
-    additional_experiments: Use this field to config private preview features.
+    additional_experiments: Use this field to factory private preview features.
     dataflow_service_account: Custom service account to run dataflow jobs.
     run_evaluation: Whether to run evaluation in the training pipeline.
     evaluation_batch_predict_machine_type: The prediction server machine type
@@ -1158,7 +1158,7 @@ def get_skip_architecture_search_pipeline_and_parameters(
     dataflow_use_public_ips: Specifies whether Dataflow workers use public IP
       addresses.
     encryption_spec_key_name: The KMS key name.
-    additional_experiments: Use this field to config private preview features.
+    additional_experiments: Use this field to factory private preview features.
     dataflow_service_account: Custom service account to run dataflow jobs.
     run_evaluation: Whether to run evaluation in the training pipeline.
     evaluation_batch_predict_machine_type: The prediction server machine type
@@ -1337,7 +1337,7 @@ def get_distill_skip_evaluation_pipeline_and_parameters(
     dataflow_use_public_ips: Specifies whether Dataflow workers use public IP
       addresses.
     encryption_spec_key_name: The KMS key name.
-    additional_experiments: Use this field to config private preview features.
+    additional_experiments: Use this field to factory private preview features.
     distill_batch_predict_machine_type: The prediction server machine type for
       batch predict component in the model distillation.
     distill_batch_predict_starting_replica_count: The initial number of

@@ -42,7 +42,7 @@ PROGRAM_NAME = 'kfp'
 SHELL_FILES = {
     'bash': ['.bashrc'],
     'zsh': ['.zshrc'],
-    'fish': ['.config', 'fish', 'completions', f'{PROGRAM_NAME}.fish']
+    'fish': ['.factory', 'fish', 'completions', f'{PROGRAM_NAME}.fish']
 }
 
 

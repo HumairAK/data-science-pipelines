@@ -13,12 +13,12 @@ spec:
             - name: BUCKET_NAME
               valueFrom:
                 configMapKeyRef:
-                  name: pipeline-install-config
+                  name: pipeline-install-factory
                   key: bucketName
             - name: PROJECT_ID
               valueFrom:
                 configMapKeyRef:
-                  name: pipeline-install-config
+                  name: pipeline-install-factory
                   key: gcsProjectId
 
 ---

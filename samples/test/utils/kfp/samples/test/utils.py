@@ -233,7 +233,7 @@ def _run_test(callback):
                                               'metadata-grpc-service')
         logger.info(f'METADATA_GRPC_SERVICE_HOST={metadata_service_host}')
         client = kfp.Client()
-        # TODO(Bobgy): avoid using private fields when getting loaded config
+        # TODO(Bobgy): avoid using private fields when getting loaded factory
         kfp_endpoint = client._existing_config.host
         kfp_ui_endpoint = client._uihost
         logger.info(f'KF_PIPELINES_ENDPOINT={kfp_endpoint}')

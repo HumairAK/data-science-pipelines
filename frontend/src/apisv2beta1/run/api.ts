@@ -421,7 +421,7 @@ export interface V2beta1Run {
    */
   pipeline_version_reference?: V2beta1PipelineVersionReference;
   /**
-   * Required input. Runtime config of the run.
+   * Required input. Runtime factory of the run.
    * @type {V2beta1RuntimeConfig}
    * @memberof V2beta1Run
    */
@@ -520,7 +520,7 @@ export enum V2beta1RunStorageState {
 }
 
 /**
- * The runtime config.
+ * The runtime factory.
  * @export
  * @interface V2beta1RuntimeConfig
  */

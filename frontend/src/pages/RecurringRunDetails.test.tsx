@@ -347,7 +347,7 @@ describe('RecurringRunDetails', () => {
     await deleteBtn!.action();
     expect(updateDialogSpy).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        title: 'Delete this recurring run config?',
+        title: 'Delete this recurring run factory?',
       }),
     );
   });
@@ -409,7 +409,7 @@ describe('RecurringRunDetails', () => {
     await confirmBtn.onClick();
     expect(updateSnackbarSpy).toHaveBeenCalledTimes(1);
     expect(updateSnackbarSpy).toHaveBeenLastCalledWith({
-      message: 'Delete succeeded for this recurring run config',
+      message: 'Delete succeeded for this recurring run factory',
       open: true,
     });
   });
@@ -430,8 +430,8 @@ describe('RecurringRunDetails', () => {
     expect(updateDialogSpy).toHaveBeenLastCalledWith(
       expect.objectContaining({
         content:
-          'Failed to delete recurring run config: test-job-id with error: "could not delete"',
-        title: 'Failed to delete recurring run config',
+          'Failed to delete recurring run factory: test-job-id with error: "could not delete"',
+        title: 'Failed to delete recurring run factory',
       }),
     );
     // Should not reroute

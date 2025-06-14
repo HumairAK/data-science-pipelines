@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for config.py."""
+"""Tests for factory.py."""
 import os
 import unittest
 from unittest import mock
@@ -81,7 +81,7 @@ class TestInitCalls(unittest.TestCase):
         config.LocalExecutionConfig.instance = None
 
     def test_init_more_than_once(self):
-        """Tests config instance attributes with one init() call."""
+        """Tests factory instance attributes with one init() call."""
         local.init(
             pipeline_root='my/local/root',
             runner=local.SubprocessRunner(use_venv=True),
@@ -93,7 +93,7 @@ class TestInitCalls(unittest.TestCase):
         self.assertEqual(instance.runner, local.SubprocessRunner(use_venv=True))
 
     def test_init_more_than_once(self):
-        """Test config instance attributes with multiple init() calls."""
+        """Test factory instance attributes with multiple init() calls."""
         local.init(
             pipeline_root='my/local/root',
             runner=local.SubprocessRunner(),
@@ -113,7 +113,7 @@ class TestInitCalls(unittest.TestCase):
         self.assertFalse(instance.raise_on_error, False)
 
     def test_runner_validation(self):
-        """Test config instance attributes with multiple init() calls."""
+        """Test factory instance attributes with multiple init() calls."""
         with self.assertRaisesRegex(
                 ValueError,
                 r'Got unknown runner foo of type str\. Runner should be one of the following types: SubprocessRunner\.'

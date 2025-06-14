@@ -174,7 +174,7 @@ def _get_default_pipeline_params(
     dataflow_use_public_ips: Specifies whether Dataflow workers use public IP
       addresses.
     encryption_spec_key_name: The KMS key name.
-    additional_experiments: Use this field to config private preview features.
+    additional_experiments: Use this field to factory private preview features.
     dataflow_service_account: Custom service account to run dataflow jobs.
     max_selected_features: number of features to select for training,
     apply_feature_selection_tuning: tuning feature selection rate if true.
@@ -539,7 +539,7 @@ def get_automl_tabular_pipeline_and_parameters(
     dataflow_use_public_ips: Specifies whether Dataflow workers use public IP
       addresses.
     encryption_spec_key_name: The KMS key name.
-    additional_experiments: Use this field to config private preview features.
+    additional_experiments: Use this field to factory private preview features.
     dataflow_service_account: Custom service account to run dataflow jobs.
     run_evaluation: Whether to run evaluation in the training pipeline.
     evaluation_batch_predict_machine_type: The prediction server machine type
@@ -790,7 +790,7 @@ def get_automl_tabular_feature_selection_pipeline_and_parameters(
     dataflow_use_public_ips: Specifies whether Dataflow workers use public IP
       addresses.
     encryption_spec_key_name: The KMS key name.
-    additional_experiments: Use this field to config private preview features.
+    additional_experiments: Use this field to factory private preview features.
     dataflow_service_account: Custom service account to run dataflow jobs.
     run_evaluation: Whether to run evaluation in the training pipeline.
     evaluation_batch_predict_machine_type: The prediction server machine type
@@ -1025,7 +1025,7 @@ def get_skip_architecture_search_pipeline_and_parameters(
     dataflow_use_public_ips: Specifies whether Dataflow workers use public IP
       addresses.
     encryption_spec_key_name: The KMS key name.
-    additional_experiments: Use this field to config private preview features.
+    additional_experiments: Use this field to factory private preview features.
     dataflow_service_account: Custom service account to run dataflow jobs.
     run_evaluation: Whether to run evaluation in the training pipeline.
     evaluation_batch_predict_machine_type: The prediction server machine type
@@ -1277,7 +1277,7 @@ def get_wide_and_deep_trainer_pipeline_and_parameters(
   elif transform_config:
     warnings.warn(
         'transform_config parameter is deprecated. '
-        'Please use the flattened transform config arguments instead.'
+        'Please use the flattened transform factory arguments instead.'
     )
     tf_transformations_path = transform_config
 
@@ -1810,7 +1810,7 @@ def get_tabnet_hyperparameter_tuning_job_pipeline_and_parameters(
   elif transform_config:
     warnings.warn(
         'transform_config parameter is deprecated. '
-        'Please use the flattened transform config arguments instead.'
+        'Please use the flattened transform factory arguments instead.'
     )
     tf_transformations_path = transform_config
 
@@ -2056,7 +2056,7 @@ def get_wide_and_deep_hyperparameter_tuning_job_pipeline_and_parameters(
   elif transform_config:
     warnings.warn(
         'transform_config parameter is deprecated. '
-        'Please use the flattened transform config arguments instead.'
+        'Please use the flattened transform factory arguments instead.'
     )
     tf_transformations_path = transform_config
 
@@ -2336,7 +2336,7 @@ def get_tabnet_trainer_pipeline_and_parameters(
   elif transform_config:
     warnings.warn(
         'transform_config parameter is deprecated. '
-        'Please use the flattened transform config arguments instead.'
+        'Please use the flattened transform factory arguments instead.'
     )
     tf_transformations_path = transform_config
 

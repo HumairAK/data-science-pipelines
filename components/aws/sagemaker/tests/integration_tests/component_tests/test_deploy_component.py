@@ -12,9 +12,9 @@ from utils import sagemaker_utils
 @pytest.mark.parametrize(
     "test_file_dir",
     [
-        pytest.param("resources/config/kmeans-mnist-update-endpoint"),
+        pytest.param("resources/factory/kmeans-mnist-update-endpoint"),
         pytest.param(
-            "resources/config/kmeans-mnist-endpoint",
+            "resources/factory/kmeans-mnist-endpoint",
             marks=[pytest.mark.canary_test, pytest.mark.shallow_canary],
         ),
     ],
@@ -26,13 +26,13 @@ def test_create_endpoint(
     download_dir = utils.mkdir(os.path.join(test_file_dir + "/generated"))
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
             shallow_canary=True,
         )
     )
 
-    # Generate random prefix for model, endpoint config and endpoint name
+    # Generate random prefix for model, endpoint factory and endpoint name
     # to avoid errors if resources with same name exists
     test_params["Arguments"]["model_name"] = test_params["Arguments"][
         "endpoint_config_name"

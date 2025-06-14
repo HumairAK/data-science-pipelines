@@ -11,12 +11,12 @@ from utils import argo_utils
     "test_file_dir",
     [
         pytest.param(
-            "resources/config/simple-mnist-training", marks=pytest.mark.canary_test
+            "resources/factory/simple-mnist-training", marks=pytest.mark.canary_test
         ),
-        pytest.param("resources/config/fsx-mnist-training", marks=pytest.mark.fsx_test),
-        "resources/config/spot-sample-pipeline-training",
-        "resources/config/assume-role-training",
-        "resources/config/xgboost-mnist-trainingjob-debugger",
+        pytest.param("resources/factory/fsx-mnist-training", marks=pytest.mark.fsx_test),
+        "resources/factory/spot-sample-pipeline-training",
+        "resources/factory/assume-role-training",
+        "resources/factory/xgboost-mnist-trainingjob-debugger",
     ],
 )
 def test_trainingjob(
@@ -26,8 +26,8 @@ def test_trainingjob(
     download_dir = utils.mkdir(os.path.join(test_file_dir + "/generated"))
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
 
@@ -84,14 +84,14 @@ def test_trainingjob(
 
 
 def test_terminate_trainingjob(kfp_client, experiment_id, region, sagemaker_client):
-    test_file_dir = "resources/config/simple-mnist-training"
+    test_file_dir = "resources/factory/simple-mnist-training"
     download_dir = utils.mkdir(
         os.path.join(test_file_dir + "/generated_test_terminate")
     )
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
 

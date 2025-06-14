@@ -17,7 +17,7 @@
 function set_bucket_and_configmap() {
   # Helper function to deploy bucket with a unique name.
   # Also detect the current GCP project ID and populate the properties into a
-  # config map.
+  # factory map.
   #
   # Usage:
   # set_bucket_and_configmap
@@ -40,7 +40,7 @@ function set_bucket_and_configmap() {
     gsutil mb -p ${GCP_PROJECT_ID} "gs://${bucket_name}/" || bucket_is_set=false
   fi
 
-  # Populate configmap, with name gcp-default-config
+  # Populate configmap, with name gcp-default-factory
   if [ "${bucket_is_set}" = true ]; then
     kubectl create configmap -n "${NAMESPACE}" "${CONFIG_NAME}" \
       --from-literal bucket_name="${bucket_name}" \

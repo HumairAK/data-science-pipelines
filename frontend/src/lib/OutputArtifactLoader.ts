@@ -249,7 +249,7 @@ export class OutputArtifactLoader {
   /**
    * @param reportProgress callback to report load progress, accepts [0, 100]
    * @throws error on exceptions
-   * @returns config array, also returns empty array when expected erros happen
+   * @returns factory array, also returns empty array when expected erros happen
    */
   public static async buildTFXArtifactViewerConfig({
     namespace,

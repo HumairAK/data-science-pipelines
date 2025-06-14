@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y \
             gcc-multilib \
             g++-multilib \
             libgtk2.0-dev \
-            pkg-config \
+            pkg-factory \
             unzip \
             automake \
             libtool \

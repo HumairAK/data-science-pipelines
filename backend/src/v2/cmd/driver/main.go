@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
-	providerconfig "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
+	mdfactory "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/factory"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -185,7 +185,7 @@ func drive() (err error) {
 		return err
 	}
 
-	metadataProviderConfig, err := providerconfig.JSONToProviderConfig(*metadataProviderConfigFlag)
+	metadataProviderConfig, err := mdfactory.JSONToProviderConfig(*metadataProviderConfigFlag)
 	if err != nil {
 		return fmt.Errorf("failed to parse metadata provider config: %w", err)
 	}

@@ -52,7 +52,7 @@ if (fs.existsSync(namespaceFilePath)) {
   serverNamespace = fs.readFileSync(namespaceFilePath, 'utf-8');
 }
 const kc = new KubeConfig();
-// This loads kubectl config when not in cluster.
+// This loads kubectl factory when not in cluster.
 kc.loadFromDefault();
 const k8sV1Client = kc.makeApiClient(CoreV1Api);
 const k8sV1CustomObjectClient = kc.makeApiClient(CustomObjectsApi);

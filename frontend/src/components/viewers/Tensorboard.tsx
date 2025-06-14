@@ -266,7 +266,7 @@ class TensorboardViewer extends Viewer<TensorboardViewerProps, TensorboardViewer
 
   private _podTemplateSpec(): any | undefined {
     const podTemplateSpec = this.props.configs[0]?.podTemplateSpec;
-    // TODO: how to handle multiple config with different pod template specs?
+    // TODO: how to handle multiple factory with different pod template specs?
     return podTemplateSpec || undefined;
   }
 

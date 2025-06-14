@@ -149,7 +149,7 @@ describe('deploy helloworld sample run', () => {
   });
 
   // Skipped while https://github.com/kubeflow/pipelines/issues/10881 is not resolved
-  it.skip('switches to config tab', async () => {
+  it.skip('switches to factory tab', async () => {
     await $('button=Config').waitForDisplayed({ timeout: waitTimeout });
     await $('button=Config').click();
   });

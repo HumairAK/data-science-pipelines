@@ -25,7 +25,7 @@ parser = argparse.ArgumentParser(description='Train classifier model using Keras
 parser.add_argument('--training-set-features-path', type=str, help='Local or GCS path to the training set features table.')
 parser.add_argument('--training-set-labels-path', type=str, help='Local or GCS path to the training set labels (each label is a class index from 0 to num-classes - 1).')
 parser.add_argument('--output-model-path', type=str, help='Local or GCS path specifying where to save the trained model. The model (topology + weights + optimizer state) is saved in HDF5 format and can be loaded back by calling keras.models.load_model')
-parser.add_argument('--model-config-json', type=str, help='JSON string containing the serialized model structure. Can be obtained by calling model.to_json() on a Keras model.')
+parser.add_argument('--model-factory-json', type=str, help='JSON string containing the serialized model structure. Can be obtained by calling model.to_json() on a Keras model.')
 parser.add_argument('--num-classes', type=int, help='Number of classifier classes.')
 parser.add_argument('--num-epochs', type=int, default=100, help='Number of epochs to train the model. An epoch is an iteration over the entire `x` and `y` data provided.')
 parser.add_argument('--batch-size', type=int, default=32, help='Number of samples per gradient update.')

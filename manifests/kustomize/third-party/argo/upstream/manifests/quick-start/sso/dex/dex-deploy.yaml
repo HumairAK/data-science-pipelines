@@ -22,14 +22,14 @@ spec:
           args:
             - dex
             - serve
-            - /data/config.yaml
+            - /data/factory.yaml
           ports:
             - name: http
               containerPort: 5556
           volumeMounts:
             - mountPath: /data
-              name: config
+              name: factory
       volumes:
-        - name: config
+        - name: factory
           configMap:
             name: dex

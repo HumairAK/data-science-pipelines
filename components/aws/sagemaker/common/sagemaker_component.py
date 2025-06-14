@@ -370,7 +370,7 @@ class SageMakerComponent:
                 request["CheckpointConfig"] = inputs.checkpoint_config
             else:
                 logging.error(
-                    "EnableManagedSpotTraining requires checkpoint config with an S3 uri."
+                    "EnableManagedSpotTraining requires checkpoint factory with an S3 uri."
                 )
                 raise Exception("Could not create job request.")
         else:

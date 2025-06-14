@@ -308,7 +308,7 @@ spec:
     expect(screen.queryByText('/start')).toBeNull();
   });
 
-  it('shows pipeline source code when config tab is clicked', async () => {
+  it('shows pipeline source code when factory tab is clicked', async () => {
     render(<PipelineDetailsV1 {...generateProps(new graphlib.Graph(), new graphlib.Graph())} />);
 
     fireEvent(

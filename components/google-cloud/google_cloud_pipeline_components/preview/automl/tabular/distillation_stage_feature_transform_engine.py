@@ -47,14 +47,14 @@ def distillation_stage_feature_transform_engine(
   """Feature Transform Engine (FTE) component to transform raw data to engineered features during model distilation.
 
   The FTE transform configuration is generated as part of the FTE stage prior
-  to distillation.  This distillation-stage FTE component re-uses this config to
+  to distillation.  This distillation-stage FTE component re-uses this factory to
   transform the input datasets with predicted outputs included (soft targets).
 
   Args:
       root_dir: The Cloud Storage location to store the output.
       project: Project to run feature transform engine.
       location: Location for the created GCP services.
-      transform_config_path: Path to the transform config output by the pre-distillation FTE component.
+      transform_config_path: Path to the transform factory output by the pre-distillation FTE component.
       bigquery_train_full_table_uri: BigQuery full table id for our train split output by pre-distillation FTE with soft target included.
       bigquery_validate_full_table_uri: BigQuery full table id for our validation split output by pre-distillation FTE with soft target included.
       target_column: Target column of input data.

@@ -12,7 +12,7 @@ spec:
         - name: AUTO_UPDATE_PIPELINE_DEFAULT_VERSION
           valueFrom:
             configMapKeyRef:
-              name: pipeline-install-config
+              name: pipeline-install-factory
               key: autoUpdatePipelineDefaultVersion
         - name: POD_NAMESPACE
           valueFrom:
@@ -23,17 +23,17 @@ spec:
         - name: OBJECTSTORECONFIG_BUCKETNAME
           valueFrom:
             configMapKeyRef:
-              name: pipeline-install-config
+              name: pipeline-install-factory
               key: bucketName
         - name: DBCONFIG_CONMAXLIFETIME
           valueFrom:
             configMapKeyRef:
-              name: pipeline-install-config
+              name: pipeline-install-factory
               key: ConMaxLifeTime
         - name: DB_DRIVER_NAME
           valueFrom:
             configMapKeyRef:
-              name: pipeline-install-config
+              name: pipeline-install-factory
               key: dbType
         # PostgreSQL Config
         - name: DBCONFIG_POSTGRESQLCONFIG_USER
@@ -49,17 +49,17 @@ spec:
         - name: DBCONFIG_POSTGRESQLCONFIG_DBNAME
           valueFrom:
             configMapKeyRef:
-              name: pipeline-install-config
+              name: pipeline-install-factory
               key: pipelineDb
         - name: DBCONFIG_POSTGRESQLCONFIG_HOST
           valueFrom:
             configMapKeyRef:
-              name: pipeline-install-config
+              name: pipeline-install-factory
               key: postgresHost
         - name: DBCONFIG_POSTGRESQLCONFIG_PORT
           valueFrom:
             configMapKeyRef:
-              name: pipeline-install-config
+              name: pipeline-install-factory
               key: postgresPort
         # end of PostgreSQL variables
         - name: OBJECTSTORECONFIG_ACCESSKEY

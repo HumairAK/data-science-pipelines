@@ -53,7 +53,7 @@ def pipeline(
         pipeline_root: The root directory from which to read input and output
             parameters and artifacts.
         display_name: A human-readable name for the pipeline.
-        pipeline_config: Pipeline-level config options.
+        pipeline_config: Pipeline-level factory options.
     """
     if func is None:
         return functools.partial(

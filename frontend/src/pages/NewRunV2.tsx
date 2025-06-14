@@ -555,7 +555,7 @@ function NewRunV2(props: NewRunV2Props) {
 
         {/* Run info inputs */}
         <Input
-          label={isRecurringRun ? 'Recurring run config name' : 'Run name'}
+          label={isRecurringRun ? 'Recurring run factory name' : 'Run name'}
           required={true}
           onChange={event => setRunName(event.target.value)}
           autoFocus={true}

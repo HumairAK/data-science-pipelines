@@ -19,7 +19,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	providerconfig "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
+	mdfactory "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/factory"
 	"io"
 	"math"
 	"net"
@@ -95,7 +95,7 @@ func main() {
 
 	wg := sync.WaitGroup{}
 
-	var metadataProviderConfig *providerconfig.ProviderConfig
+	var metadataProviderConfig *mdfactory.ProviderConfig
 	options := &cm.Options{
 		UsePipelineKubernetesStorage: *usePipelinesKubernetesStorage,
 		GlobalKubernetesWebhookMode:  *globalKubernetesWebhookMode,
@@ -109,7 +109,7 @@ func main() {
 			glog.Fatalf("No MetadataProviderConfig found in config/env: %s", metadataProviderConfigEnv)
 		}
 		var err error
-		metadataProviderConfig, err = providerconfig.JSONToProviderConfig(configJSON)
+		metadataProviderConfig, err = mdfactory.JSONToProviderConfig(configJSON)
 		if err != nil {
 			glog.Fatalf("Failed to parse metadata provider config: %v", err)
 		}

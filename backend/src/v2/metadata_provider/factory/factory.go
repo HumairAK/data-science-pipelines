@@ -1,4 +1,4 @@
-package config
+package factory
 
 import (
 	"encoding/json"
@@ -6,16 +6,12 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow"
+	_ "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/import_providers"
 	k8score "k8s.io/api/core/v1"
 )
 
 // MetadataProvider defines the type of metadata provider
 type MetadataProvider string
-
-const (
-	MetadataProviderMLFlow MetadataProvider = "mlflow"
-)
 
 type ProviderConfig struct {
 	MetadataProviderName MetadataProvider        `json:"MetadataProviderName"`
@@ -24,42 +20,27 @@ type ProviderConfig struct {
 }
 
 func (c *ProviderConfig) NewExperimentStore() (storage.ExperimentStoreInterface, error) {
-	switch c.MetadataProviderName {
-	case MetadataProviderMLFlow:
-		store, err := mlflow.NewExperimentStore(c.Config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create mlflow experiment store: %w", err)
-		}
-		return store, nil
-	default:
+	factory, ok := metadata_provider.Lookup(string(c.MetadataProviderName))
+	if !ok {
 		return nil, fmt.Errorf("unsupported metadata provider: %s", c.MetadataProviderName)
 	}
+	return factory.NewExperimentStore(c.Config)
 }
 
 func (c *ProviderConfig) NewRunProvider() (metadata_provider.RunProvider, error) {
-	switch c.MetadataProviderName {
-	case MetadataProviderMLFlow:
-		provider, err := mlflow.NewRunsProvider(c.Config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create mlflow run provider: %w", err)
-		}
-		return provider, nil
-	default:
+	factory, ok := metadata_provider.Lookup(string(c.MetadataProviderName))
+	if !ok {
 		return nil, fmt.Errorf("unsupported metadata provider: %s", c.MetadataProviderName)
 	}
+	return factory.NewRunProvider(c.Config)
 }
 
 func (c *ProviderConfig) NewMetadataArtifactProvider() (metadata_provider.MetadataArtifactProvider, error) {
-	switch c.MetadataProviderName {
-	case MetadataProviderMLFlow:
-		provider, err := mlflow.NewArtifactsProvider(c.Config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create mlflow artifact provider: %w", err)
-		}
-		return provider, nil
-	default:
+	factory, ok := metadata_provider.Lookup(string(c.MetadataProviderName))
+	if !ok {
 		return nil, fmt.Errorf("unsupported metadata provider: %s", c.MetadataProviderName)
 	}
+	return factory.NewMetadataArtifactProvider(c.Config)
 }
 
 func (c *ProviderConfig) ValidateConfig() error {

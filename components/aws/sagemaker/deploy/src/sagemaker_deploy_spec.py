@@ -76,7 +76,7 @@ class SageMakerDeploySpec(
         endpoint_config_name=InputValidator(
             input_type=str,
             required=False,
-            description="The name of the endpoint configuration. If an existing endpoint is being updated, a suffix is automatically added if this config name exists.",
+            description="The name of the endpoint configuration. If an existing endpoint is being updated, a suffix is automatically added if this factory name exists.",
             default="",
         ),
         update_endpoint=InputValidator(

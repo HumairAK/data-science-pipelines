@@ -64,7 +64,7 @@ def feature_attribution_graph_component(  # pylint: disable=dangerous-default-va
     vertex_model: The Vertex model artifact used for batch explanation.
     batch_predict_instances_format: The format in which instances are given,
       must be one of the Model's supportedInputStorageFormats. For more details
-      about this input config, see
+      about this input factory, see
       https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.
     batch_predict_gcs_destination_output_uri: The Google Cloud Storage location
       of the directory where the output is to be written to. In the given
@@ -83,21 +83,21 @@ def feature_attribution_graph_component(  # pylint: disable=dangerous-default-va
       failed predictions). These files contain the failed instances, as per
       their schema, followed by an additional `error` field which as value has
       `google.rpc.Status` containing only `code` and `message` fields. For more
-      details about this output config, see
+      details about this output factory, see
       https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.
     batch_predict_gcs_source_uris: Google Cloud Storage URI(-s) to your
       instances to run batch prediction on. May contain wildcards. For more
       information on wildcards, see
       https://cloud.google.com/storage/docs/gsutil/addlhelp/WildcardNames. For
-        more details about this input config, see
+        more details about this input factory, see
       https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.
     batch_predict_bigquery_source_uri: Google BigQuery URI to your instances to
       run batch prediction on. May contain wildcards. For more details about
-      this input config, see
+      this input factory, see
       https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.
     batch_predict_predictions_format: The format in which Vertex AI gives the
       predictions. Must be one of the Model's supportedOutputStorageFormats. For
-      more details about this output config, see
+      more details about this output factory, see
       https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.
     batch_predict_bigquery_destination_output_uri: The BigQuery project location
       where the output is to be written to. In the given project a new dataset
@@ -113,12 +113,12 @@ def feature_attribution_graph_component(  # pylint: disable=dangerous-default-va
       which the prediction has failed, it has instance columns, as per the
       instance schema, followed by a single "errors" column, which as values has
       `google.rpc.Status` represented as a STRUCT, and containing only `code`
-      and `message`.  For more details about this output config, see
+      and `message`.  For more details about this output factory, see
       https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#OutputConfig.
     batch_predict_machine_type: The type of machine for running batch prediction
       on dedicated resources. If the Model supports DEDICATED_RESOURCES this
-      config may be provided (and the job will use these resources). If the
-      Model doesn't support AUTOMATIC_RESOURCES, this config must be provided.
+      factory may be provided (and the job will use these resources). If the
+      Model doesn't support AUTOMATIC_RESOURCES, this factory must be provided.
       For more details about the BatchDedicatedResources, see
       https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#BatchDedicatedResources.
         For more details about the machine spec, see

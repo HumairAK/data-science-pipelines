@@ -30,7 +30,7 @@ RUN apt-get update -q && apt-get upgrade -y && \
       /etc/apt/sources.list.d/google-cloud-sdk.list && \
     apt-get update -q && \
     apt-get install -y -qq --no-install-recommends google-cloud-sdk && \
-    gcloud config set component_manager/disable_update_check true
+    gcloud factory set component_manager/disable_update_check true
 
 RUN conda install -y opencv && conda clean -a -y
 ADD requirements.txt /deploy/

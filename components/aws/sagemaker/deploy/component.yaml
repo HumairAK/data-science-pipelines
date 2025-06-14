@@ -11,7 +11,7 @@ inputs:
 - {name: endpoint_name, type: String, description: The name of the endpoint., default: ''}
 - {name: endpoint_config_name, type: String, description: 'The name of the endpoint
     configuration. If an existing endpoint is being updated, a suffix is automatically
-    added if this config name exists.', default: ''}
+    added if this factory name exists.', default: ''}
 - {name: endpoint_config_tags, type: JsonObject, description: 'An array of key-value
     pairs, to categorize AWS resources.', default: '{}'}
 - {name: resource_encryption_key, type: String, description: The AWS KMS key that

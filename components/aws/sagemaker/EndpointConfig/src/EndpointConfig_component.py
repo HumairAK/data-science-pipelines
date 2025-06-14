@@ -47,7 +47,7 @@ class SageMakerEndpointConfigComponent(SageMakerComponent):
             spec.inputs.endpoint_config_name
             if spec.inputs.endpoint_config_name
             else SageMakerComponent._generate_unique_timestamped_id(
-                prefix="endpoint-config"
+                prefix="endpoint-factory"
             )
         )
 

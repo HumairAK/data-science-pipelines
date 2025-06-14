@@ -12,10 +12,10 @@ from utils import argo_utils
     "test_file_dir",
     [
         pytest.param(
-            "resources/config/kmeans-algo-mnist-processing",
+            "resources/factory/kmeans-algo-mnist-processing",
             marks=pytest.mark.canary_test,
         ),
-        "resources/config/assume-role-processing",
+        "resources/factory/assume-role-processing",
     ],
 )
 def test_processingjob(
@@ -25,8 +25,8 @@ def test_processingjob(
     download_dir = utils.mkdir(os.path.join(test_file_dir + "/generated"))
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
 
@@ -88,14 +88,14 @@ def test_processingjob(
 
 
 def test_terminate_processingjob(kfp_client, experiment_id, region, sagemaker_client):
-    test_file_dir = "resources/config/kmeans-algo-mnist-processing"
+    test_file_dir = "resources/factory/kmeans-algo-mnist-processing"
     download_dir = utils.mkdir(
         os.path.join(test_file_dir + "/generated_test_terminate")
     )
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
 

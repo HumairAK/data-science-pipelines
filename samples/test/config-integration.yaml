@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# kubeflow-pipelines-samples-v2 test config
+# kubeflow-pipelines-samples-v2 test factory
 # Documentation: https://github.com/kubeflow/pipelines/tree/master/v2/test
 #
-#### config format
+#### factory format
 #
 # Each item in the list corresponds to test for one sample.
 #

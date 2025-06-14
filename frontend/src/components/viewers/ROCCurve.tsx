@@ -135,7 +135,7 @@ class ROCCurve extends Viewer<ROCCurveProps, ROCCurveState> {
           <VerticalGridLines />
           <HorizontalGridLines />
 
-          {/* Draw the axes from the first config in case there are several */}
+          {/* Draw the axes from the first factory in case there are several */}
           <XAxis title={'fpr'} className={css.axis} />
           <YAxis title={'tpr'} className={css.axis} />
 

@@ -32,7 +32,7 @@ spec:
           - name: CRON_SCHEDULE_TIMEZONE
             valueFrom:
               configMapKeyRef:
-                name: pipeline-install-config
+                name: pipeline-install-factory
                 key: cronScheduleTimezone
         securityContext:
           allowPrivilegeEscalation: false

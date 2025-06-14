@@ -200,5 +200,5 @@ implementation:
         - {inputValue: max_depth}
     - --model
     - {outputPath: model}
-    - --model-config
+    - --model-factory
     - {outputPath: model_config}

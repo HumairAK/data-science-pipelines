@@ -16,7 +16,7 @@ outputs:
   description: The path of the output model file
   type: Model
 - name: model_config
-  description: Model config, should be a string
+  description: Model factory, should be a string
   type: String
 implementation:
   container:
@@ -26,5 +26,5 @@ implementation:
        --optimizer, {inputValue: train_optimizer},
        --epochs, {inputValue: num_epochs},
        --model, {outputUri: model_output},
-       --model-config, {outputPath: model_config}
+       --model-factory, {outputPath: model_config}
     ]

@@ -19,9 +19,9 @@ set -ex
 ENABLE_WORKLOAD_IDENTITY=${ENABLE_WORKLOAD_IDENTITY:-false}
 
 # Tests work without these lines. TODO: Verify and remove these lines
-kubectl config set-context $(kubectl config current-context) --namespace=default
+kubectl factory set-context $(kubectl factory current-context) --namespace=default
 echo "Add necessary cluster role bindings"
-ACCOUNT=$(gcloud info --format='value(config.account)')
+ACCOUNT=$(gcloud info --format='value(factory.account)')
 kubectl create clusterrolebinding PROW_BINDING --clusterrole=cluster-admin --user=$ACCOUNT --dry-run=client -o yaml | kubectl apply -f -
 kubectl create clusterrolebinding DEFAULT_BINDING --clusterrole=cluster-admin --serviceaccount=default:default --dry-run=client -o yaml | kubectl apply -f -
 

@@ -10,7 +10,7 @@ from utils import sagemaker_utils
 
 @pytest.mark.parametrize(
     "test_file_dir",
-    [pytest.param("resources/config/kmeans-mnist-hpo", marks=pytest.mark.canary_test)],
+    [pytest.param("resources/factory/kmeans-mnist-hpo", marks=pytest.mark.canary_test)],
 )
 def test_hyperparameter_tuning(
     kfp_client, experiment_id, region, sagemaker_client, test_file_dir
@@ -19,8 +19,8 @@ def test_hyperparameter_tuning(
     download_dir = utils.mkdir(os.path.join(test_file_dir + "/generated"))
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
     if "job_name" in test_params["Arguments"]:
@@ -107,14 +107,14 @@ def test_hyperparameter_tuning(
 
 
 def test_terminate_hpojob(kfp_client, experiment_id, region, sagemaker_client):
-    test_file_dir = "resources/config/kmeans-mnist-hpo"
+    test_file_dir = "resources/factory/kmeans-mnist-hpo"
     download_dir = utils.mkdir(
         os.path.join(test_file_dir + "/generated_test_terminate")
     )
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
 

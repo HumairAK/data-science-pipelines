@@ -26,7 +26,7 @@ from string import Template
 #This example is TF but R and SKLearn flows are similar - see kubeflow/example-seldon
 #push access needed to chosen docker repo - see note below on secret
 #requires seldon v0.3.0 or higher
-def mnist_tf(docker_secret='docker-config',
+def mnist_tf(docker_secret='docker-factory',
              training_repo='https://github.com/kubeflow/example-seldon.git',
              training_branch='master',
              training_files='./example-seldon/models/tf_mnist/train/*',
@@ -39,9 +39,9 @@ def mnist_tf(docker_secret='docker-config',
              docker_tag_serving='0.3'):
 
 #will be pushing image so need docker secret
-#create from local with `kubectl create secret generic docker-config --from-file=config.json=${DOCKERHOME}/config.json --type=kubernetes.io/config`
+#create from local with `kubectl create secret generic docker-factory --from-file=factory.json=${DOCKERHOME}/factory.json --type=kubernetes.io/factory`
     secret = k8s_client.V1Volume(
-        name="docker-config-secret",
+        name="docker-factory-secret",
         secret=k8s_client.V1SecretVolumeSource(secret_name=docker_secret)
     )
 

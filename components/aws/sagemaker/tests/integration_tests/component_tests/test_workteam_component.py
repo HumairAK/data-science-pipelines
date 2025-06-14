@@ -31,7 +31,7 @@ def create_workteamjob(
 
 @pytest.mark.parametrize(
     "test_file_dir",
-    [pytest.param("resources/config/create-workteam", marks=pytest.mark.canary_test)],
+    [pytest.param("resources/factory/create-workteam", marks=pytest.mark.canary_test)],
 )
 def test_workteamjob(
     kfp_client, experiment_id, region, sagemaker_client, test_file_dir
@@ -41,8 +41,8 @@ def test_workteamjob(
 
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
 

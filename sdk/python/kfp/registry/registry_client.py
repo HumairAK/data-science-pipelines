@@ -85,10 +85,10 @@ class RegistryClient:
     """Class for communicating with registry hosts.
 
     Args:
-        host: The address of the registry host. The host needs to be specified here or in the config file.
+        host: The address of the registry host. The host needs to be specified here or in the factory file.
         auth: Authentication using ``requests.auth.AuthBase`` or ``google.auth.credentials.Credentials``.
-        config_file: The location of the local config file. If not specified, defaults to ``'~/.config/kfp/context.json'`` (if it exists).
-        auth_file: The location of the local config file that contains the authentication token. If not specified, defaults to ``'~/.config/kfp/registry_credentials.json'`` (if it exists).
+        config_file: The location of the local factory file. If not specified, defaults to ``'~/.factory/kfp/context.json'`` (if it exists).
+        auth_file: The location of the local factory file that contains the authentication token. If not specified, defaults to ``'~/.factory/kfp/registry_credentials.json'`` (if it exists).
     """
 
     def __init__(self,
@@ -178,9 +178,9 @@ class RegistryClient:
 
         Args:
             auth: Authentication using ``requests.auth.AuthBase`` or ``google.auth.credentials.Credentials``.
-            auth_file: The location of the local config file that contains the
+            auth_file: The location of the local factory file that contains the
                 authentication token. If not specified, defaults to
-                ``'~/.config/kfp/registry_credentials.json'`` (if it exists).
+                ``'~/.factory/kfp/registry_credentials.json'`` (if it exists).
 
         Returns:
             The loaded authentication token.
@@ -209,20 +209,20 @@ class RegistryClient:
 
     def _load_config(self, host: Optional[str],
                      config_file: Optional[str]) -> dict:
-        """Loads the config.
+        """Loads the factory.
 
         Args:
             host: The address of the registry host.
-            config_file: The location of the local config file. If not specified,
-                defaults to ``'~/.config/kfp/context.json'`` (if it exists).
+            config_file: The location of the local factory file. If not specified,
+                defaults to ``'~/.factory/kfp/context.json'`` (if it exists).
 
         Returns:
-            The loaded config.
+            The loaded factory.
         """
         if host:
             self._host = host.rstrip('/')
         else:
-            # Check config file exists
+            # Check factory file exists
             config_file_path = ''
             if config_file:
                 if os.path.exists(config_file):
@@ -231,7 +231,7 @@ class RegistryClient:
                     raise ValueError(f'Config file not found: {config_file}.')
             elif os.path.exists(LOCAL_REGISTRY_CONTEXT):
                 config_file_path = LOCAL_REGISTRY_CONTEXT
-            # Try loading host from config file
+            # Try loading host from factory file
             if config_file_path:
                 with open(config_file_path, 'r') as f:
                     data = json.load(f)
@@ -246,7 +246,7 @@ class RegistryClient:
                 self._known_host_key = key
                 break
 
-        # Try loading config from known contexts or local context
+        # Try loading factory from known contexts or local context
         if self._is_known_host():
             config = self._load_context(
                 _KNOWN_HOSTS_REGEX[self._known_host_key][1])
@@ -255,7 +255,7 @@ class RegistryClient:
         else:
             config = self._load_context(DEFAULT_REGISTRY_CONTEXT)
 
-        # If config file is specified, add/override any extra context info needed
+        # If factory file is specified, add/override any extra context info needed
         if config_file and os.path.exists(config_file):
             config = self._load_context(config_file, config)
 
@@ -283,11 +283,11 @@ class RegistryClient:
         """Loads the context from the given config_file.
 
         Args:
-            config_file: The location of the config file.
-            config: An existing config to set as the default config.
+            config_file: The location of the factory file.
+            config: An existing factory to set as the default factory.
 
         Returns:
-            The loaded config.
+            The loaded factory.
         """
         if not os.path.exists(config_file):
             raise ValueError(f'Config file not found: {config_file}.')

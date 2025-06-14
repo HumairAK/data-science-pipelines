@@ -450,7 +450,7 @@ export enum JobMode {
 }
 
 /**
- * The runtime config of a PipelineSpec.
+ * The runtime factory of a PipelineSpec.
  * @export
  * @interface PipelineSpecRuntimeConfig
  */

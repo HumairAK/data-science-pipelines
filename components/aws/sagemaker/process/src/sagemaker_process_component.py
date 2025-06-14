@@ -142,7 +142,7 @@ class SageMakerProcessComponent(SageMakerComponent):
         else:
             request["ProcessingOutputConfig"].pop("KmsKeyId")
 
-        ### Update cluster config resources
+        ### Update cluster factory resources
         request["ProcessingResources"]["ClusterConfig"][
             "InstanceType"
         ] = inputs.instance_type

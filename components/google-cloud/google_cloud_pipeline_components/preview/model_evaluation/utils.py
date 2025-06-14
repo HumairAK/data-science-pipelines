@@ -87,11 +87,11 @@ def create_bias_configs_list(
     list_of_slice_a_and_slice_b: A list of slice_a_and_slice_b. Each
       slice_a_and_slice_b is a list which contains 1 or two elelments. Each
       element in the list is a dictionary of feature names to values that
-      represents the slice config for 'slice_a' or 'slice_b'. 'slice_b' is
+      represents the slice factory for 'slice_a' or 'slice_b'. 'slice_b' is
       optional. The feature value can be a float, int, or str for
       ModelEvaluationSlice.Slice.SliceSpec.Value; a list for
       ModelEvaluationSlice.Slice.SliceSpec.Range. Following are example inputs:
-      Ex 1. Only provide the config of slice_a: `list_of_slice_a_and_slice_b =
+      Ex 1. Only provide the factory of slice_a: `list_of_slice_a_and_slice_b =
       [[{'education': 'low'}]]`. Ex 2. Provide both configs of slice_a and
       slice_b: `list_of_slice_a_and_slice_b = [[{'education': 'low'},
         {'education': 'high'}]]`.

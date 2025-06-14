@@ -71,7 +71,7 @@ class SageMakerDeployComponent(SageMakerComponent):
             and self._endpoint_name_exists(spec.inputs.endpoint_name)
         )
 
-        # Fetch existing config to delete after creation
+        # Fetch existing factory to delete after creation
         if self._should_update_existing:
             self._existing_endpoint_config_name = self._get_endpoint_config(
                 spec.inputs.endpoint_name
@@ -123,7 +123,7 @@ class SageMakerDeployComponent(SageMakerComponent):
 
         if not inputs.model_name_1:
             logging.error("Must specify at least one model (model name) to host.")
-            raise Exception("Could not create endpoint config.")
+            raise Exception("Could not create endpoint factory.")
 
         request["EndpointConfigName"] = self._endpoint_config_name
 
@@ -220,14 +220,14 @@ class SageMakerDeployComponent(SageMakerComponent):
                 **request.endpoint_request
             )
 
-            # Also delete the existing endpoint config
+            # Also delete the existing endpoint factory
             if self._delete_endpoint_config(self._existing_endpoint_config_name):
                 logging.info(
-                    f"Deleted old endpoint config: {self._existing_endpoint_config_name}"
+                    f"Deleted old endpoint factory: {self._existing_endpoint_config_name}"
                 )
             else:
                 logging.info(
-                    f"Unable to delete old endpoint config: {self._existing_endpoint_config_name}"
+                    f"Unable to delete old endpoint factory: {self._existing_endpoint_config_name}"
                 )
         else:
             endpoint_response = self._sm_client.create_endpoint(
@@ -284,13 +284,13 @@ class SageMakerDeployComponent(SageMakerComponent):
         return False
 
     def _endpoint_config_name_exists(self, endpoint_config_name: str):
-        """Determine whether an endpoint config already exists by a given name.
+        """Determine whether an endpoint factory already exists by a given name.
 
         Args:
-            endpoint_config_name: The name of the endpoint config to check.
+            endpoint_config_name: The name of the endpoint factory to check.
 
         Returns:
-            True if the endpoint config already exists, False otherwise.
+            True if the endpoint factory already exists, False otherwise.
         """
         try:
             config_name = self._sm_client.describe_endpoint_config(
@@ -303,10 +303,10 @@ class SageMakerDeployComponent(SageMakerComponent):
         return False
 
     def _get_endpoint_config(self, endpoint_name: str):
-        """Gets the name of the current config for a given endpoint.
+        """Gets the name of the current factory for a given endpoint.
 
         Args:
-            endpoint_name: The name of the endpoint whose config to reference.
+            endpoint_name: The name of the endpoint whose factory to reference.
 
         Returns:
             The name of an endpoint configuration currently assigned to the given endpoint.
@@ -323,10 +323,10 @@ class SageMakerDeployComponent(SageMakerComponent):
         return endpoint_config_name
 
     def _delete_endpoint_config(self, endpoint_config_name: str):
-        """Deletes an endpoint config.
+        """Deletes an endpoint factory.
 
         Args:
-            endpoint_config_name: The name of the endpoint config to delete.
+            endpoint_config_name: The name of the endpoint factory to delete.
 
         Returns:
             True if the endpoint was deleted, False otherwise.
@@ -338,7 +338,7 @@ class SageMakerDeployComponent(SageMakerComponent):
             return True
         except ClientError as e:
             logging.info(
-                "Endpoint config may not exist to be deleted: "
+                "Endpoint factory may not exist to be deleted: "
                 + e.response["Error"]["Message"]
             )
         return False

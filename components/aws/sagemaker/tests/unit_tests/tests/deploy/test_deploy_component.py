@@ -17,7 +17,7 @@ class DeployComponentTestCase(unittest.TestCase):
     def setUp(cls):
         cls.component = SageMakerDeployComponent()
         # Instantiate without calling Do()
-        cls.component._endpoint_config_name = "endpoint-config"
+        cls.component._endpoint_config_name = "endpoint-factory"
         cls.component._endpoint_name = "endpoint"
         cls.component._should_update_existing = False
 
@@ -27,7 +27,7 @@ class DeployComponentTestCase(unittest.TestCase):
             self.REQUIRED_ARGS + ["--endpoint_name", "my-endpoint"]
         )
         given_endpoint_config_name = SageMakerDeploySpec(
-            self.REQUIRED_ARGS + ["--endpoint_config_name", "my-endpoint-config"]
+            self.REQUIRED_ARGS + ["--endpoint_config_name", "my-endpoint-factory"]
         )
         unnamed_spec = SageMakerDeploySpec(self.REQUIRED_ARGS)
 
@@ -42,7 +42,7 @@ class DeployComponentTestCase(unittest.TestCase):
             self.assertEqual("my-endpoint", self.component._endpoint_name)
 
             self.component.Do(given_endpoint_config_name)
-            self.assertEqual("my-endpoint-config", self.component._endpoint_config_name)
+            self.assertEqual("my-endpoint-factory", self.component._endpoint_config_name)
             self.assertEqual("Endpoint-generated", self.component._endpoint_name)
 
             self.component.Do(unnamed_spec)
@@ -61,7 +61,7 @@ class DeployComponentTestCase(unittest.TestCase):
             self.REQUIRED_ARGS
             + [
                 "--endpoint_config_name",
-                "my-endpoint-config",
+                "my-endpoint-factory",
                 "--update_endpoint",
                 "True",
             ]
@@ -71,7 +71,7 @@ class DeployComponentTestCase(unittest.TestCase):
             return_value="-generated-update"
         )
         self.component._endpoint_name_exists = MagicMock(return_value=True)
-        self.component._get_endpoint_config = MagicMock(return_value="existing-config")
+        self.component._get_endpoint_config = MagicMock(return_value="existing-factory")
 
         with patch(
             "deploy.src.sagemaker_deploy_component.SageMakerComponent._generate_unique_timestamped_id",
@@ -84,7 +84,7 @@ class DeployComponentTestCase(unittest.TestCase):
             self.assertEqual("my-endpoint", self.component._endpoint_name)
             self.assertTrue(self.component._should_update_existing)
 
-            # Ignore given endpoint config name for update
+            # Ignore given endpoint factory name for update
             self.component.Do(given_endpoint_config_name)
             self.assertEqual(
                 "EndpointConfig-generated-update", self.component._endpoint_config_name
@@ -107,7 +107,7 @@ class DeployComponentTestCase(unittest.TestCase):
             request,
             EndpointRequests(
                 config_request={
-                    "EndpointConfigName": "endpoint-config",
+                    "EndpointConfigName": "endpoint-factory",
                     "ProductionVariants": [
                         {
                             "VariantName": "variant-name-1",
@@ -121,7 +121,7 @@ class DeployComponentTestCase(unittest.TestCase):
                 },
                 endpoint_request={
                     "EndpointName": "endpoint",
-                    "EndpointConfigName": "endpoint-config",
+                    "EndpointConfigName": "endpoint-factory",
                 },
             ),
         )
@@ -135,7 +135,7 @@ class DeployComponentTestCase(unittest.TestCase):
             request,
             EndpointRequests(
                 config_request={
-                    "EndpointConfigName": "endpoint-config",
+                    "EndpointConfigName": "endpoint-factory",
                     "ProductionVariants": [
                         {
                             "VariantName": "variant-name-1",
@@ -149,7 +149,7 @@ class DeployComponentTestCase(unittest.TestCase):
                 },
                 endpoint_request={
                     "EndpointName": "endpoint",
-                    "EndpointConfigName": "endpoint-config",
+                    "EndpointConfigName": "endpoint-factory",
                 },
             ),
         )
@@ -189,7 +189,7 @@ class DeployComponentTestCase(unittest.TestCase):
             request,
             EndpointRequests(
                 config_request={
-                    "EndpointConfigName": "endpoint-config",
+                    "EndpointConfigName": "endpoint-factory",
                     "ProductionVariants": [
                         {
                             "VariantName": "variant-test-1",
@@ -212,7 +212,7 @@ class DeployComponentTestCase(unittest.TestCase):
                 },
                 endpoint_request={
                     "EndpointName": "endpoint",
-                    "EndpointConfigName": "endpoint-config",
+                    "EndpointConfigName": "endpoint-factory",
                 },
             ),
         )
@@ -267,13 +267,13 @@ class DeployComponentTestCase(unittest.TestCase):
 
     def test_submit_update_job_request(self):
         self.component._should_update_existing = True
-        self.component._existing_endpoint_config_name = "old-config"
+        self.component._existing_endpoint_config_name = "old-factory"
         self.component._delete_endpoint_config = MagicMock(return_value=True)
         self.component._sm_client = MagicMock()
 
         requests = EndpointRequests(
             config_request={
-                "EndpointConfigName": "endpoint-config",
+                "EndpointConfigName": "endpoint-factory",
                 "ProductionVariants": [
                     {
                         "VariantName": "variant-test-1",
@@ -296,13 +296,13 @@ class DeployComponentTestCase(unittest.TestCase):
             },
             endpoint_request={
                 "EndpointName": "endpoint",
-                "EndpointConfigName": "endpoint-config",
+                "EndpointConfigName": "endpoint-factory",
             },
         )
 
         self.component._submit_job_request(requests)
 
         self.component._sm_client.update_endpoint.assert_called_once_with(
-            **{"EndpointName": "endpoint", "EndpointConfigName": "endpoint-config",}
+            **{"EndpointName": "endpoint", "EndpointConfigName": "endpoint-factory",}
         )
-        self.component._delete_endpoint_config.assert_called_once_with("old-config")
+        self.component._delete_endpoint_config.assert_called_once_with("old-factory")

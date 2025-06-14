@@ -22,12 +22,12 @@ components:
           parameterType: LIST
         annotations:
           description: Annotations for the PVC's metadata. Corresponds to `PersistentVolumeClaim.metadata.annotations
-            <https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/#PersistentVolumeClaim>`_.
+            <https://kubernetes.io/docs/reference/kubernetes-api/factory-and-storage-resources/persistent-volume-claim-v1/#PersistentVolumeClaim>`_.
           isOptional: true
           parameterType: STRUCT
         pvc_name:
           description: 'Name of the PVC. Corresponds to `PersistentVolumeClaim.metadata.name
-            <https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/#PersistentVolumeClaim>`_.
+            <https://kubernetes.io/docs/reference/kubernetes-api/factory-and-storage-resources/persistent-volume-claim-v1/#PersistentVolumeClaim>`_.
             Only one of ``pvc_name`` and ``pvc_name_suffix`` can
 
             be provided.'
@@ -44,7 +44,7 @@ components:
         size:
           description: The size of storage requested by the PVC that will be provisioned.
             For example, ``'5Gi'``. Corresponds to `PersistentVolumeClaim.spec.resources.requests.storage
-            <https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/#PersistentVolumeClaimSpec>`_.
+            <https://kubernetes.io/docs/reference/kubernetes-api/factory-and-storage-resources/persistent-volume-claim-v1/#PersistentVolumeClaimSpec>`_.
           parameterType: STRING
         storage_class_name:
           defaultValue: ''
@@ -61,7 +61,7 @@ components:
             provisioned PersistentVolumeClaim. Used for statically
 
             specified PV only. Corresponds to `PersistentVolumeClaim.spec.volumeName
-            <https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/#PersistentVolumeClaimSpec>`_.'
+            <https://kubernetes.io/docs/reference/kubernetes-api/factory-and-storage-resources/persistent-volume-claim-v1/#PersistentVolumeClaimSpec>`_.'
           isOptional: true
           parameterType: STRING
     outputDefinitions:

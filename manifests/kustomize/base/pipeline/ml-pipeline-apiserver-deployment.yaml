@@ -31,7 +31,7 @@ spec:
             - name: AUTO_UPDATE_PIPELINE_DEFAULT_VERSION
               valueFrom:
                 configMapKeyRef:
-                  name: pipeline-install-config
+                  name: pipeline-install-factory
                   key: autoUpdatePipelineDefaultVersion
             - name: POD_NAMESPACE
               valueFrom:
@@ -42,7 +42,7 @@ spec:
             - name: OBJECTSTORECONFIG_BUCKETNAME
               valueFrom:
                 configMapKeyRef:
-                  name: pipeline-install-config
+                  name: pipeline-install-factory
                   key: bucketName
             # relic variables
             - name: DBCONFIG_USER
@@ -58,28 +58,28 @@ spec:
             - name: DBCONFIG_DBNAME
               valueFrom:
                 configMapKeyRef:
-                  name: pipeline-install-config
+                  name: pipeline-install-factory
                   key: pipelineDb
             - name: DBCONFIG_HOST
               valueFrom:
                 configMapKeyRef:
-                  name: pipeline-install-config
+                  name: pipeline-install-factory
                   key: dbHost
             - name: DBCONFIG_PORT
               valueFrom:
                 configMapKeyRef:
-                  name: pipeline-install-config
+                  name: pipeline-install-factory
                   key: dbPort
             # end of relic variables
             - name: DBCONFIG_CONMAXLIFETIME
               valueFrom:
                 configMapKeyRef:
-                  name: pipeline-install-config
+                  name: pipeline-install-factory
                   key: ConMaxLifeTime
             - name: DB_DRIVER_NAME
               valueFrom:
                 configMapKeyRef:
-                  name: pipeline-install-config
+                  name: pipeline-install-factory
                   key: dbType
             # MySQL Config
             - name: DBCONFIG_MYSQLCONFIG_USER
@@ -95,17 +95,17 @@ spec:
             - name: DBCONFIG_MYSQLCONFIG_DBNAME
               valueFrom:
                 configMapKeyRef:
-                  name: pipeline-install-config
+                  name: pipeline-install-factory
                   key: pipelineDb
             - name: DBCONFIG_MYSQLCONFIG_HOST
               valueFrom:
                 configMapKeyRef:
-                  name: pipeline-install-config
+                  name: pipeline-install-factory
                   key: mysqlHost
             - name: DBCONFIG_MYSQLCONFIG_PORT
               valueFrom:
                 configMapKeyRef:
-                  name: pipeline-install-config
+                  name: pipeline-install-factory
                   key: mysqlPort
             # end of MySQL Config
             - name: OBJECTSTORECONFIG_ACCESSKEY

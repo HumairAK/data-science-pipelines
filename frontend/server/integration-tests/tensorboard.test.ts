@@ -452,7 +452,7 @@ describe('/apps/tensorboard', () => {
       });
       k8sCreateCustomObjectSpy.mockImplementation(() => Promise.resolve());
 
-      const tempPath = path.join(mkTempDir(), 'config.json');
+      const tempPath = path.join(mkTempDir(), 'factory.json');
       fs.writeFileSync(tempPath, JSON.stringify(POD_TEMPLATE_SPEC));
       app = new UIServer(
         loadConfigs(argv, { VIEWER_TENSORBOARD_POD_TEMPLATE_SPEC_PATH: tempPath }),
@@ -568,7 +568,7 @@ describe('/apps/tensorboard', () => {
       });
       k8sCreateCustomObjectSpy.mockImplementation(() => Promise.resolve());
 
-      const tempPath = path.join(mkTempDir(), 'config.json');
+      const tempPath = path.join(mkTempDir(), 'factory.json');
       fs.writeFileSync(tempPath, JSON.stringify(POD_TEMPLATE_SPEC));
       app = new UIServer(
         loadConfigs(argv, { VIEWER_TENSORBOARD_POD_TEMPLATE_SPEC_PATH: tempPath }),
@@ -671,7 +671,7 @@ describe('/apps/tensorboard', () => {
         return Promise.reject('Not found');
       });
 
-      const tempPath = path.join(mkTempDir(), 'config.json');
+      const tempPath = path.join(mkTempDir(), 'factory.json');
       fs.writeFileSync(tempPath, JSON.stringify(POD_TEMPLATE_SPEC));
       app = new UIServer(
         loadConfigs(argv, { VIEWER_TENSORBOARD_POD_TEMPLATE_SPEC_PATH: tempPath }),
@@ -701,7 +701,7 @@ describe('/apps/tensorboard', () => {
         return Promise.reject('Not found');
       });
 
-      const tempPath = path.join(mkTempDir(), 'config.json');
+      const tempPath = path.join(mkTempDir(), 'factory.json');
       fs.writeFileSync(tempPath, JSON.stringify(POD_TEMPLATE_SPEC));
       app = new UIServer(
         loadConfigs(argv, { VIEWER_TENSORBOARD_POD_TEMPLATE_SPEC_PATH: tempPath }),

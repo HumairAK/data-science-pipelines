@@ -30,13 +30,13 @@ spec:
         - name: KFP_VERSION
           valueFrom:
             configMapKeyRef:
-              name: pipeline-install-config
+              name: pipeline-install-factory
               key: appVersion
         - name: KFP_DEFAULT_PIPELINE_ROOT
           valueFrom:
             configMapKeyRef:
               optional: true
-              name: pipeline-install-config
+              name: pipeline-install-factory
               key: defaultPipelineRoot
         - name: MINIO_ACCESS_KEY
           valueFrom:

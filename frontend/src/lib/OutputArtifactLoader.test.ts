@@ -186,7 +186,7 @@ describe('OutputArtifactLoader', () => {
       ],
       source: 'gs://path',
     };
-    it('returns a confusion matrix config with basic metadata', async () => {
+    it('returns a confusion matrix factory with basic metadata', async () => {
       fileToRead = `
       field1,field1,0
       field1,field2,0
@@ -276,7 +276,7 @@ describe('OutputArtifactLoader', () => {
       source: 'gs://path',
     };
 
-    it('returns a paged table config with basic metadata', async () => {
+    it('returns a paged table factory with basic metadata', async () => {
       fileToRead = `
       field1,field1,0
       field1,field2,0
@@ -299,7 +299,7 @@ describe('OutputArtifactLoader', () => {
       } as PagedTableConfig);
     });
 
-    it('returns a paged table config with inline metadata', async () => {
+    it('returns a paged table factory with inline metadata', async () => {
       fileToRead = '';
       const source = `
       field1,field1,1
@@ -334,7 +334,7 @@ describe('OutputArtifactLoader', () => {
       ).rejects.toThrowError('Malformed metadata, property "source" is required.');
     });
 
-    it('returns a tensorboard config with basic metadata', async () => {
+    it('returns a tensorboard factory with basic metadata', async () => {
       const metadata = { source: 'gs://path' };
       expect(await OutputArtifactLoader.buildTensorboardConfig(metadata as any, 'test-ns')).toEqual(
         {
@@ -354,7 +354,7 @@ describe('OutputArtifactLoader', () => {
       ).rejects.toThrowError('Malformed metadata, property "source" is required.');
     });
 
-    it('returns an HTML viewer config with basic metadata', async () => {
+    it('returns an HTML viewer factory with basic metadata', async () => {
       const metadata = { source: 'gs://path' };
       fileToRead = `<html><body>
         Hello World!
@@ -391,7 +391,7 @@ describe('OutputArtifactLoader', () => {
       ).rejects.toThrowError('Malformed metadata, property "source" is required.');
     });
 
-    it('returns a markdown viewer config with basic metadata for inline markdown', async () => {
+    it('returns a markdown viewer factory with basic metadata for inline markdown', async () => {
       const metadata = { source: '# some markdown here', storage: 'inline' };
       expect(
         await OutputArtifactLoader.buildMarkdownViewerConfig(metadata as any, getSourceContent),
@@ -401,7 +401,7 @@ describe('OutputArtifactLoader', () => {
       } as MarkdownViewerConfig);
     });
 
-    it('returns a markdown viewer config with basic metadata for gcs path markdown', async () => {
+    it('returns a markdown viewer factory with basic metadata for gcs path markdown', async () => {
       const metadata = { source: 'gs://path', storage: 'gcs' };
       fileToRead = `<html><body>
         Hello World!
@@ -414,7 +414,7 @@ describe('OutputArtifactLoader', () => {
       } as MarkdownViewerConfig);
     });
 
-    it('assumes remote path by default, and returns a markdown viewer config with basic metadata', async () => {
+    it('assumes remote path by default, and returns a markdown viewer factory with basic metadata', async () => {
       const metadata = { source: 'gs://path' };
       fileToRead = `<html><body>
         Hello World!
@@ -490,7 +490,7 @@ describe('OutputArtifactLoader', () => {
       source: 'gs://path',
     };
 
-    it('returns an ROC viewer config with basic metadata', async () => {
+    it('returns an ROC viewer factory with basic metadata', async () => {
       const metadata = basicMetadata;
       fileToRead = `
         0,1,2
@@ -509,7 +509,7 @@ describe('OutputArtifactLoader', () => {
       } as ROCCurveConfig);
     });
 
-    it('returns an ROC viewer config with basic metadata', async () => {
+    it('returns an ROC viewer factory with basic metadata', async () => {
       const source = `
         9,1,2
         3,4,5
@@ -530,7 +530,7 @@ describe('OutputArtifactLoader', () => {
       ).toEqual(expectedResult);
     });
 
-    it('returns an ROC viewer config with fields out of order', async () => {
+    it('returns an ROC viewer factory with fields out of order', async () => {
       const metadata = {
         schema: [{ name: 'threshold' }, { name: 'tpr' }, { name: 'fpr' }],
         source: 'gs://path',
@@ -552,7 +552,7 @@ describe('OutputArtifactLoader', () => {
       } as ROCCurveConfig);
     });
 
-    it('returns an ROC viewer config with "thresholds" column instead of "threshold', async () => {
+    it('returns an ROC viewer factory with "thresholds" column instead of "threshold', async () => {
       const metadata = {
         schema: [{ name: 'fpr' }, { name: 'tpr' }, { name: 'thresholds' }],
         source: 'gs://path',

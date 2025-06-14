@@ -70,12 +70,12 @@ DEFAULT_HANDLERS = [
 def generate_mar_file(config, save_path):
     """Generates a mar file with proper configs
     Args:
-        config : mar config dict
+        config : mar factory dict
         save_path : mar file save path
     """
     MarGeneration(mar_config=config, mar_save_path=save_path)
     mar_path = os.path.join(save_path, "iris_classification.mar")
-    config_properties = os.path.join(save_path, "config.properties")
+    config_properties = os.path.join(save_path, "factory.properties")
     assert os.path.exists(mar_path)
     assert os.path.exists(config_properties)
 
@@ -112,10 +112,10 @@ def test_invalid_mar_save_parameter_type(mar_config):
 
 
 def test_invalid_mar_config_parameter_value():
-    """Test mar generation failure with empty mar config.
+    """Test mar generation failure with empty mar factory.
 
     Raises:
-        ValueError: If mar config is empty.
+        ValueError: If mar factory is empty.
     """
     mar_config = {}
     tmp_dir = tempfile.mkdtemp()
@@ -132,7 +132,7 @@ def test_mar_generation_mandatory_params_missing(mar_config, mandatory_key):
     """Testing Mar Generation with missing mandatory keys.
 
     Args:
-        mandatory_key : mandatory keys in mar config
+        mandatory_key : mandatory keys in mar factory
     Raises:
         Exception : when mandatory keys are missing.
     """
@@ -141,7 +141,7 @@ def test_mar_generation_mandatory_params_missing(mar_config, mandatory_key):
     tmp_dir = tempfile.mkdtemp()
     excpetion_msg = re.escape(
         f"Following Mandatory keys are "
-        f"missing in the config file ['{mandatory_key}']"
+        f"missing in the factory file ['{mandatory_key}']"
     )
     with pytest.raises(Exception, match=excpetion_msg):
         MarGeneration(mar_config=mar_config, mar_save_path=tmp_dir)
@@ -194,11 +194,11 @@ def test_mar_generation_optional_arguments(mar_config, optional_arg):
 
 
 def test_config_prop_invalid_url(mar_config):
-    """Test mar generation with invalid config.properties url."""
+    """Test mar generation with invalid factory.properties url."""
     config_prop_url = "dummy"
     mar_config["CONFIG_PROPERTIES"] = "dummy"
     exception_msg = (
-        "Unable to download config properties file using url - {}".
+        "Unable to download factory properties file using url - {}".
         format(config_prop_url)
     )
     with pytest.raises(ValueError, match=exception_msg):

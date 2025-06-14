@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This is the schema for sample test config yaml file.
+# This is the schema for sample test factory yaml file.
 test_name: str()
 # Parameters for python samples.
 # If 'output' is specified, values will be dynamically injected

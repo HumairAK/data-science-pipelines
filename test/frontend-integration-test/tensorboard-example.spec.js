@@ -102,7 +102,7 @@ describe('deploy tensorboard example run', () => {
     browser.execute('document.querySelector(".tableRow a").click()');
   });
 
-  it('switches to config tab', () => {
+  it('switches to factory tab', () => {
     $('button=Config').waitForVisible(waitTimeout);
     $('button=Config').click();
   });

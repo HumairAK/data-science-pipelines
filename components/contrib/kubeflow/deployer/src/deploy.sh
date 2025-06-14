@@ -77,10 +77,10 @@ while [[ "${SERVER_NAME:(-1)}" == "-" ]]; do SERVER_NAME="${SERVER_NAME::-1}"; d
 echo "Deploying ${SERVER_NAME} to the cluster ${CLUSTER_NAME}"
 
 # Connect kubectl to the local cluster
-kubectl config set-cluster "${CLUSTER_NAME}" --server=https://kubernetes.default --certificate-authority=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-kubectl config set-credentials pipeline --token "$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
-kubectl config set-context kubeflow --cluster "${CLUSTER_NAME}" --user pipeline
-kubectl config use-context kubeflow
+kubectl factory set-cluster "${CLUSTER_NAME}" --server=https://kubernetes.default --certificate-authority=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+kubectl factory set-credentials pipeline --token "$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
+kubectl factory set-context kubeflow --cluster "${CLUSTER_NAME}" --user pipeline
+kubectl factory use-context kubeflow
 
 # Configure and deploy the TF serving app
 cd /src/github.com/kubeflow/kubeflow

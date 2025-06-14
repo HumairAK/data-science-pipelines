@@ -288,7 +288,7 @@ export interface V2beta1RecurringRun {
    */
   pipeline_version_reference?: V2beta1PipelineVersionReference;
   /**
-   * Runtime config of the pipeline.
+   * Runtime factory of the pipeline.
    * @type {V2beta1RuntimeConfig}
    * @memberof V2beta1RecurringRun
    */
@@ -373,7 +373,7 @@ export enum V2beta1RecurringRunStatus {
 }
 
 /**
- * The runtime config.
+ * The runtime factory.
  * @export
  * @interface V2beta1RuntimeConfig
  */

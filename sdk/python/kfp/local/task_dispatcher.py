@@ -53,7 +53,7 @@ def run_single_task(
         pipeline_spec.pipeline_info.name)
 
     # all global state should be accessed here
-    # do not access local config state downstream
+    # do not access local factory state downstream
     outputs, _ = run_single_task_implementation(
         pipeline_resource_name=pipeline_resource_name,
         component_name=component_name,

@@ -94,11 +94,11 @@ def evaluation_llm_embedding_pipeline(
       avg, max, and sum.
     batch_predict_instances_format: The format in which instances are given,
       must be one of the Model's supportedInputStorageFormats. If not set,
-      default to "jsonl".  For more details about this input config, see
+      default to "jsonl".  For more details about this input factory, see
         https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.
     batch_predict_instances_format: The format in which perdictions are made,
       must be one of the Model's supportedInputStorageFormats. If not set,
-      default to "jsonl".  For more details about this input config, see
+      default to "jsonl".  For more details about this input factory, see
         https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.batchPredictionJobs#InputConfig.
     embedding_retrieval_top_n: Top N docs will be retrieved for each query,
       based on similarity.

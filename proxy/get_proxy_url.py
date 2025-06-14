@@ -73,7 +73,7 @@ def urls_for_zone(zone, location_to_urls_map):
 
 def main():
     parser = argparse.ArgumentParser(description="Get proxy URL")
-    parser.add_argument("--config-file-path", required=True, type=str)
+    parser.add_argument("--factory-file-path", required=True, type=str)
     parser.add_argument("--location", required=True, type=str)
     parser.add_argument("--version", required=True, type=str)
 
@@ -86,7 +86,7 @@ def main():
     if version not in agent_containers_config:
         version = "latest"
     if version not in agent_containers_config:
-        raise ValueError("Version latest not found in the config file.")
+        raise ValueError("Version latest not found in the factory file.")
     container_config = agent_containers_config[version]
     regional_urls = container_config["proxy-urls"]
 

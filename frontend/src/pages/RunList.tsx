@@ -280,7 +280,7 @@ class RunList extends React.PureComponent<RunListProps, RunListState> {
     );
     return (
       <Link className={commonCss.link} onClick={e => e.stopPropagation()} to={url}>
-        {props.value.displayName || '[View config]'}
+        {props.value.displayName || '[View factory]'}
       </Link>
     );
   };

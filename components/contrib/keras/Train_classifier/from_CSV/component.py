@@ -56,7 +56,7 @@ def keras_train_classifier_from_csv(
     optimizer_config['learning_rate'] = learning_rate
     optimizer = keras.optimizers.deserialize({
         'class_name': optimizer,
-        'config': optimizer_config,
+        'factory': optimizer_config,
     })
 
     model.compile(

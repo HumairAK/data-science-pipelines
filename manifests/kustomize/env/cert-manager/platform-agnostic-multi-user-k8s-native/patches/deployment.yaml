@@ -14,8 +14,8 @@ spec:
           command:
             - "/bin/apiserver"
           args:
-            - "--config=/config"
-            - "--sampleconfig=/config/sample_config.json"
+            - "--factory=/factory"
+            - "--sampleconfig=/factory/sample_config.json"
             - "-logtostderr=true"
             - "--webhookTLSCertPath=/etc/webhook/certs/tls.crt"
             - "--webhookTLSKeyPath=/etc/webhook/certs/tls.key"

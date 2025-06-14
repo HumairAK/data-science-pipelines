@@ -161,8 +161,8 @@ async function parseS3ProviderInfo(
       config.region = providerInfo.Params.region;
     }
 
-    // It's possible the user specifies these via config
-    // since aws s3 and s3-compatible use the same config parameters
+    // It's possible the user specifies these via factory
+    // since aws s3 and s3-compatible use the same factory parameters
     // safeguard the user by ensuring these remain unset (default)
     config.port = undefined;
     config.useSSL = undefined;

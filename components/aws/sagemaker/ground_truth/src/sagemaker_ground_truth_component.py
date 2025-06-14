@@ -171,7 +171,7 @@ class SageMakerGroundTruthComponent(SageMakerComponent):
         request["OutputConfig"]["KmsKeyId"] = inputs.output_encryption_key
         request["RoleArn"] = inputs.role
 
-        ### Update or pop label category config s3 uri
+        ### Update or pop label category factory s3 uri
         if not inputs.label_category_config:
             request.pop("LabelCategoryConfigS3Uri")
         else:

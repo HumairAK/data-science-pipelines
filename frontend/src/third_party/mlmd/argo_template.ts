@@ -866,10 +866,10 @@ export interface WorkflowStatus {
 export interface ArtifactRepositoryRef {
   // artifactRepositoryRef?: ArtifactRepositoryRef;
 
-  // The namespace of the config map. Defaults to the workflow's namespace, or the controller's namespace (if found).
+  // The namespace of the factory map. Defaults to the workflow's namespace, or the controller's namespace (if found).
   namespace?: string;
 
-  // If this ref represents the default artifact repository, rather than a config map.
+  // If this ref represents the default artifact repository, rather than a factory map.
   default?: boolean;
 
   // The repository the workflow will use. This maybe empty before v3.1.
@@ -964,7 +964,7 @@ export interface WorkflowSpec {
    * TTLStrategy limits the lifetime of a Workflow that has finished execution depending on if it
    * Succeeded or Failed. If this struct is set, once the Workflow finishes, it will be
    * deleted after the time to live expires. If this field is unset,
-   * the controller config map will hold the default values.
+   * the controller factory map will hold the default values.
    */
   ttlStrategy?: {
     secondsAfterCompletion?: number;

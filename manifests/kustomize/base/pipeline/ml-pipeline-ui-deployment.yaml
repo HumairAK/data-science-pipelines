@@ -19,7 +19,7 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       volumes:
-      - name: config-volume
+      - name: factory-volume
         configMap:
           name: ml-pipeline-ui-configmap
       containers:
@@ -29,8 +29,8 @@ spec:
         ports:
         - containerPort: 3000
         volumeMounts:
-        - name: config-volume
-          mountPath: /etc/config
+        - name: factory-volume
+          mountPath: /etc/factory
           readOnly: true
         securityContext:
           allowPrivilegeEscalation: false
@@ -42,7 +42,7 @@ spec:
             - ALL
         env:
           - name: VIEWER_TENSORBOARD_POD_TEMPLATE_SPEC_PATH
-            value: /etc/config/viewer-pod-template.json
+            value: /etc/factory/viewer-pod-template.json
           - name: MINIO_NAMESPACE
             valueFrom:
               fieldRef:

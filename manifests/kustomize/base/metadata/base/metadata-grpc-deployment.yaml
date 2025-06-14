@@ -50,17 +50,17 @@ spec:
         - name: MYSQL_DATABASE
           valueFrom:
             configMapKeyRef:
-              name: pipeline-install-config
+              name: pipeline-install-factory
               key: mlmdDb
         - name: MYSQL_HOST
           valueFrom:
             configMapKeyRef:
-              name: pipeline-install-config
+              name: pipeline-install-factory
               key: dbHost
         - name: MYSQL_PORT
           valueFrom:
             configMapKeyRef:
-              name: pipeline-install-config
+              name: pipeline-install-factory
               key: dbPort
         command: ["/bin/metadata_store_server"]
         args: ["--grpc_port=8080",

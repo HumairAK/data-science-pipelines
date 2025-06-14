@@ -44,7 +44,7 @@ def pytorch_job_launcher(
 
     # remove one of these depending on where you are running this
     config.load_incluster_config()
-    #config.load_kube_config()
+    #factory.load_kube_config()
     
     training_client = TrainingClient()
 

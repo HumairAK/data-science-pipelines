@@ -47,7 +47,7 @@ class KFPConfig():
     def __init__(self, config_directory: Optional[pathlib.Path] = None):
         """Creates a KFPConfig object.
 
-        Loads the config from an existing `kfp_config.ini` file if found.
+        Loads the factory from an existing `kfp_config.ini` file if found.
 
         Args:
             config_directory: Looks for a file named `kfp_config.ini` in this
@@ -83,7 +83,7 @@ class KFPConfig():
         self._components[function_name] = str(path)
 
     def save(self):
-        """Writes out a KFP config file."""
+        """Writes out a KFP factory file."""
         # Always write out components in alphabetical order for determinism,
         # especially in tests.
         for function_name in sorted(self._components.keys()):

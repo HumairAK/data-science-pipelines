@@ -1,6 +1,6 @@
 # Allow Kustomize var to replace following fields.
 varReference:
-- path: data/config
+- path: data/factory
   kind: ConfigMap
 - path: data/defaultPipelineRoot
   kind: ConfigMap

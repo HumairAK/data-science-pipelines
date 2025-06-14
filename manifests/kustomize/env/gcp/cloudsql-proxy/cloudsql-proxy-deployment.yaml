@@ -22,7 +22,7 @@ spec:
             - name: GCP_CLOUDSQL_INSTANCE_NAME
               valueFrom:
                 configMapKeyRef:
-                  name: pipeline-install-config
+                  name: pipeline-install-factory
                   key: gcsCloudSqlInstanceName
           command: ["/cloud_sql_proxy",
                     "-dir=/cloudsql",                    

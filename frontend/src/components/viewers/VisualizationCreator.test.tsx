@@ -23,12 +23,12 @@ import { ApiVisualizationType } from '../../apis/visualization';
 import { diffHTML } from 'src/TestUtils';
 
 describe('VisualizationCreator', () => {
-  it('does not render component when no config is provided', () => {
+  it('does not render component when no factory is provided', () => {
     const tree = shallow(<VisualizationCreator configs={[]} />);
     expect(tree).toMatchSnapshot();
   });
 
-  it('renders component when empty config is provided', () => {
+  it('renders component when empty factory is provided', () => {
     const config: VisualizationCreatorConfig = {
       type: PlotType.VISUALIZATION_CREATOR,
     };
@@ -54,7 +54,7 @@ describe('VisualizationCreator', () => {
     expect(tree).toMatchSnapshot();
   });
 
-  it('renders component when all parameters in config are provided', () => {
+  it('renders component when all parameters in factory are provided', () => {
     const config: VisualizationCreatorConfig = {
       isBusy: false,
       onGenerate: jest.fn(),

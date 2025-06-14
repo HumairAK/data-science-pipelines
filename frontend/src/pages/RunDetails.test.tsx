@@ -570,7 +570,7 @@ describe('RunDetails', () => {
     expect(tree).toMatchSnapshot();
   });
 
-  it('switches to config tab', async () => {
+  it('switches to factory tab', async () => {
     tree = shallow(<RunDetails {...generateProps()} />);
     await getRunSpy;
     await TestUtils.flushPromises();
@@ -579,7 +579,7 @@ describe('RunDetails', () => {
     expect(tree).toMatchSnapshot();
   });
 
-  it('shows run config fields', async () => {
+  it('shows run factory fields', async () => {
     testRun.pipeline_runtime!.workflow_manifest = JSON.stringify({
       metadata: {
         name: 'wf1',
@@ -613,7 +613,7 @@ describe('RunDetails', () => {
     expect(tree).toMatchSnapshot();
   });
 
-  it('shows run config fields - handles no description', async () => {
+  it('shows run factory fields - handles no description', async () => {
     delete testRun.run!.description;
     testRun.pipeline_runtime!.workflow_manifest = JSON.stringify({
       metadata: {
@@ -633,7 +633,7 @@ describe('RunDetails', () => {
     expect(tree).toMatchSnapshot();
   });
 
-  it('shows run config fields - handles no metadata', async () => {
+  it('shows run factory fields - handles no metadata', async () => {
     testRun.pipeline_runtime!.workflow_manifest = JSON.stringify({
       status: {
         finishedAt: new Date(2018, 6, 6, 5, 4, 3).toISOString(),

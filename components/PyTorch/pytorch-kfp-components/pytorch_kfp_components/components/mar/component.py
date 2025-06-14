@@ -60,7 +60,7 @@ class MarGeneration(BaseComponent):  #pylint: disable=R0903
     def _validate_mar_config_spec(
         self, spec: standard_component_specs, mar_config: dict
     ):
-        """Validates mar config dictionary specs type"""
+        """Validates mar factory dictionary specs type"""
         for key in mar_config:
             self._type_check(
                 actual_value=mar_config[key],

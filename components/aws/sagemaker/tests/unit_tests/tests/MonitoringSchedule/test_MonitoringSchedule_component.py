@@ -155,7 +155,7 @@ class MonitoringScheduleComponentTestCase(unittest.TestCase):
                 mock_get_resource.return_value = {
                     "status": {
                         "monitoringScheduleStatus": "Failed",
-                        "failureReason": "invalid config",
+                        "failureReason": "invalid factory",
                         "conditions": [
                             {"type": "ACK.ResourceSynced", "status": "True"}
                         ],
@@ -169,7 +169,7 @@ class MonitoringScheduleComponentTestCase(unittest.TestCase):
                         is_completed=True,
                         raw_status="Failed",
                         has_error=True,
-                        error_message="invalid config",
+                        error_message="invalid factory",
                     ),
                 )
 

@@ -191,7 +191,7 @@ def deploy_endpoint(sagemaker_client, s3_data_bucket, sagemaker_role_arn, region
     model_name = "model-monitor-" + utils.generate_random_string(5) + "-model"
     endpoint_name = "model-monitor-" + utils.generate_random_string(5) + "-endpoint-v2"
     endpoint_config_name = (
-        "model-monitor-" + utils.generate_random_string(5) + "-endpoint-config"
+        "model-monitor-" + utils.generate_random_string(5) + "-endpoint-factory"
     )
 
     # create sagemaker model
@@ -207,7 +207,7 @@ def deploy_endpoint(sagemaker_client, s3_data_bucket, sagemaker_role_arn, region
         ExecutionRoleArn=sagemaker_role_arn,
     )
 
-    # create sagemaker endpoint config
+    # create sagemaker endpoint factory
     create_endpoint_config_api_response = sagemaker_client.create_endpoint_config(
         EndpointConfigName=endpoint_config_name,
         ProductionVariants=[
@@ -255,7 +255,7 @@ def deploy_endpoint(sagemaker_client, s3_data_bucket, sagemaker_role_arn, region
 
     yield endpoint_name
 
-    # delete model and endpoint config
+    # delete model and endpoint factory
     print("deleting endpoint.................")
     sagemaker_utils.delete_endpoint(sagemaker_client, endpoint_name)
     sagemaker_client.delete_endpoint_config(EndpointConfigName=endpoint_config_name)

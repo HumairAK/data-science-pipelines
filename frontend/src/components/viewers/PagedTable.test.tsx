@@ -20,7 +20,7 @@ import PagedTable from './PagedTable';
 import { PlotType } from './Viewer';
 
 describe('PagedTable', () => {
-  it('does not break on no config', () => {
+  it('does not break on no factory', () => {
     const tree = shallow(<PagedTable configs={[]} />);
     expect(tree).toMatchSnapshot();
   });

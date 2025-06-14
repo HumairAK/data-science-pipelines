@@ -44,4 +44,4 @@ RUN chmod -R 777 $NVM_DIR && \
     chmod -R 777 /usr/local/bin
 
 # Configure npm cache location
-RUN npm config set cache /tmp/.npm --global
+RUN npm factory set cache /tmp/.npm --global

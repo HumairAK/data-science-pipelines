@@ -12,39 +12,39 @@ spec:
           - name: DEFAULT_CACHE_STALENESS
             valueFrom:
               configMapKeyRef:
-                name: pipeline-install-config
+                name: pipeline-install-factory
                 key: DEFAULT_CACHE_STALENESS
           - name: MAXIMUM_CACHE_STALENESS
             valueFrom:
               configMapKeyRef:
-                name: pipeline-install-config
+                name: pipeline-install-factory
                 key:  MAXIMUM_CACHE_STALENESS
           - name: CACHE_IMAGE
             valueFrom:
               configMapKeyRef:
-                name: pipeline-install-config
+                name: pipeline-install-factory
                 key: cacheImage
           - name: CACHE_NODE_RESTRICTIONS
             valueFrom:
               configMapKeyRef:
-                name: pipeline-install-config
+                name: pipeline-install-factory
                 key: cacheNodeRestrictions
           - name: DBCONFIG_DRIVER
             value: pgx
           - name: DBCONFIG_DB_NAME
             valueFrom:
               configMapKeyRef:
-                name: pipeline-install-config
+                name: pipeline-install-factory
                 key: cacheDb
           - name: DBCONFIG_HOST_NAME
             valueFrom:
               configMapKeyRef:
-                name: pipeline-install-config
+                name: pipeline-install-factory
                 key: postgresHost
           - name: DBCONFIG_PORT
             valueFrom:
               configMapKeyRef:
-                name: pipeline-install-config
+                name: pipeline-install-factory
                 key: postgresPort
           - name: DBCONFIG_USER
             valueFrom:

@@ -12,8 +12,8 @@ def create_simulation_app(kfp_client, experiment_id, creat_app_dir, app_name):
     download_dir = utils.mkdir(os.path.join(creat_app_dir + "/generated"))
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(creat_app_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(creat_app_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
 
@@ -53,7 +53,7 @@ def create_robot_app(client):
 
 
 @pytest.mark.parametrize(
-    "test_file_dir", ["resources/config/robomaker-create-simulation-app"],
+    "test_file_dir", ["resources/factory/robomaker-create-simulation-app"],
 )
 def test_create_simulation_app(
     kfp_client, experiment_id, robomaker_client, test_file_dir
@@ -62,8 +62,8 @@ def test_create_simulation_app(
     download_dir = utils.mkdir(os.path.join(test_file_dir + "/generated"))
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
 
@@ -99,7 +99,7 @@ def test_create_simulation_app(
 
 
 @pytest.mark.parametrize(
-    "test_file_dir", ["resources/config/robomaker-delete-simulation-app"],
+    "test_file_dir", ["resources/factory/robomaker-delete-simulation-app"],
 )
 def test_delete_simulation_app(
     kfp_client, experiment_id, robomaker_client, test_file_dir
@@ -108,8 +108,8 @@ def test_delete_simulation_app(
     download_dir = utils.mkdir(os.path.join(test_file_dir + "/generated"))
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
 
@@ -117,7 +117,7 @@ def test_delete_simulation_app(
     workflow_json, sim_app_name = create_simulation_app(
         kfp_client,
         experiment_id,
-        "resources/config/robomaker-create-simulation-app",
+        "resources/factory/robomaker-create-simulation-app",
         "fake-app-name",
     )
 
@@ -154,15 +154,15 @@ def test_delete_simulation_app(
 
 
 @pytest.mark.parametrize(
-    "test_file_dir", ["resources/config/robomaker-simulation-job"],
+    "test_file_dir", ["resources/factory/robomaker-simulation-job"],
 )
 def test_run_simulation_job(kfp_client, experiment_id, robomaker_client, test_file_dir):
 
     download_dir = utils.mkdir(os.path.join(test_file_dir + "/generated"))
     test_params = utils.load_params(
         utils.replace_placeholders(
-            os.path.join(test_file_dir, "config.yaml"),
-            os.path.join(download_dir, "config.yaml"),
+            os.path.join(test_file_dir, "factory.yaml"),
+            os.path.join(download_dir, "factory.yaml"),
         )
     )
 
@@ -170,7 +170,7 @@ def test_run_simulation_job(kfp_client, experiment_id, robomaker_client, test_fi
     sim_app_workflow_json, sim_app_name = create_simulation_app(
         kfp_client,
         experiment_id,
-        "resources/config/robomaker-create-simulation-app",
+        "resources/factory/robomaker-create-simulation-app",
         "random-app-name",
     )
 
