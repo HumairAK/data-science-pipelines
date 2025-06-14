@@ -6,6 +6,10 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 )
 
+func init() {
+	metadata_provider.Register("mlflow", &mlflowFactory{})
+}
+
 type mlflowFactory struct{}
 
 func (f *mlflowFactory) NewValidator(cfg config.GenericProviderConfig) (metadata_provider.Validator, error) {
@@ -38,8 +42,4 @@ func (f *mlflowFactory) NewMetadataArtifactProvider(cfg config.GenericProviderCo
 		return nil, err
 	}
 	return &ArtifactProvider{client: client}, nil
-}
-
-func init() {
-	metadata_provider.Register("mlflow", &mlflowFactory{})
 }

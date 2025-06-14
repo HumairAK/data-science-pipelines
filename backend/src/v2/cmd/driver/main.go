@@ -58,6 +58,7 @@ var (
 	taskSpecJson      = flag.String("task", "", "task spec")
 	runtimeConfigJson = flag.String("runtime_config", "", "jobruntime config")
 	iterationIndex    = flag.Int("iteration_index", -1, "iteration index, -1 means not an interation")
+	experimentID      = flag.String("experiment_id", "", "experiment uid")
 
 	// container inputs
 	dagExecutionID    = flag.Int64("dag_execution_id", 0, "DAG execution ID")
@@ -194,6 +195,19 @@ func drive() (err error) {
 		return fmt.Errorf("failed to create metadata provider: %w", err)
 	}
 
+	devMode := os.Getenv("DEV_MODE")
+	if devMode == "" {
+		devMode = "false"
+	}
+	devExecutionIdSTR := os.Getenv("DEV_EXECUTION_ID")
+	if devExecutionIdSTR == "" {
+		devExecutionIdSTR = "0"
+	}
+	devExecutionId, err := strconv.ParseInt(devExecutionIdSTR, 10, 64)
+	if err != nil {
+		return err
+	}
+
 	options := driver.Options{
 		PipelineName:       *pipelineName,
 		RunID:              *runID,
@@ -208,6 +222,9 @@ func drive() (err error) {
 		PublishLogs:        *publishLogs,
 		CacheDisabled:      *cacheDisabledFlag,
 		MetadatRunProvider: metadatRunProvider,
+		ExperimentId:       *experimentID,
+		DevMode:            devMode == "true",
+		DevExecutionId:     devExecutionId,
 	}
 
 	var execution *driver.Execution

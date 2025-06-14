@@ -67,6 +67,11 @@ type Options struct {
 
 	CacheDisabled      bool
 	MetadatRunProvider metadata_provider.RunProvider
+
+	ExperimentId string
+
+	DevMode        bool
+	DevExecutionId int64
 }
 
 // Identifying information used for error messages

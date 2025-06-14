@@ -113,7 +113,7 @@ func (s *ExperimentStore) GetExperimentByNameNamespace(name string, namespace st
 	if len(experiments) < 1 {
 		return nil, fmt.Errorf("no experiment found with name %s and namespace %s", name, namespace)
 	}
-	experiment := experiments[1]
+	experiment := experiments[0]
 	experimentModel, err := mlflowExperimentToModelExperiment(experiment)
 	if err != nil {
 		return nil, err
