@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	v2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
-	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"time"
@@ -141,30 +140,28 @@ func RootDAG(ctx context.Context, opts Options, cm *client_manager.ClientManager
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	kfpRun, err := cm.RunServiceClient.GetRun(ctx, &v2beta1.GetRunRequest{RunId: opts.RunID})
-	if err != nil {
-		return nil, err
+	if cm.MetadataRunProvider != nil {
+		kfpRun, err := cm.RunServiceClient.GetRun(
+			ctx,
+			&v2beta1.GetRunRequest{
+				RunId: opts.RunID,
+			})
+		if err != nil {
+			return nil, err
+		}
+		run, err := opts.MetadatRunProvider.CreateRun(
+			opts.ExperimentId,
+			kfpRun,
+			metadata_provider.PBParamsToRunParameters(ecfg.InputParameters),
+			"",
+		)
+		if err != nil {
+			return nil, err
+		}
+		ecfg.ProviderRunID = &run.ID
+		ecfg.ExperimentID = &opts.ExperimentId
 	}
 
-	var parameters []metadata_provider.RunParameter
-	for k, p := range ecfg.InputParameters {
-		parameter := metadata_provider.RunParameter{
-			k,
-			p.String(),
-		}
-		parameters = append(parameters, parameter)
-	}
-	run, err := opts.MetadatRunProvider.CreateRun(
-		opts.ExperimentId,
-		kfpRun,
-		parameters,
-		"",
-	)
-	if err != nil {
-		return nil, err
-	}
-	ecfg.ProviderRunID = run.ID
-	ecfg.ExperimentID = opts.ExperimentId
 	var exec *metadata.Execution
 	if opts.DevMode {
 		exec, err = mlmd.GetExecution(ctx, opts.DevExecutionId)

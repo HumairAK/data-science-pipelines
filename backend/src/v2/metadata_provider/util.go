@@ -1,6 +1,9 @@
 package metadata_provider
 
-import "sync"
+import (
+	"google.golang.org/protobuf/types/known/structpb"
+	"sync"
+)
 
 var (
 	registryMu sync.RWMutex
@@ -20,4 +23,12 @@ func Lookup(name string) (ProviderFactory, bool) {
 	defer registryMu.RUnlock()
 	f, ok := registry[name]
 	return f, ok
+}
+
+func PBParamsToRunParameters(inputParams map[string]*structpb.Value) []RunParameter {
+	var parameters []RunParameter
+	for k, v := range inputParams {
+		parameters = append(parameters, RunParameter{Name: k, Value: v.String()})
+	}
+	return parameters
 }

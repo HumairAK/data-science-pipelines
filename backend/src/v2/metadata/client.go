@@ -151,7 +151,7 @@ type ExecutionConfig struct {
 	TotalDagTasks  *int // Number of tasks inside the DAG
 
 	// MetadataProvider custom properties
-	ProviderRunID, ExperimentID string
+	ProviderRunID, ExperimentID *string
 }
 
 // InputArtifact is a wrapper around an MLMD artifact used as component inputs.
@@ -545,6 +545,8 @@ const (
 	keyIterationIndex        = "iteration_index"
 	keyIterationCount        = "iteration_count"
 	keyTotalDagTasks         = "total_dag_tasks"
+	keyProviderRunID         = "ProviderRunID"
+	keyExperimentID          = "ExperimentID"
 )
 
 // CreateExecution creates a new MLMD execution under the specified Pipeline.
@@ -641,6 +643,11 @@ func (c *Client) CreateExecution(ctx context.Context, pipeline *Pipeline, config
 	}
 	if config.TotalDagTasks != nil {
 		e.CustomProperties[keyTotalDagTasks] = intValue(int64(*config.TotalDagTasks))
+	}
+
+	if config.ProviderRunID != nil && config.ExperimentID != nil {
+		e.CustomProperties[keyProviderRunID] = StringValue(*config.ProviderRunID)
+		e.CustomProperties[keyExperimentID] = StringValue(*config.ExperimentID)
 	}
 
 	req := &pb.PutExecutionRequest{
