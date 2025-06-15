@@ -6,6 +6,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
+	"time"
 )
 
 // Ensure RunProvider implements RunProvider
@@ -70,27 +71,35 @@ func (r *RunProvider) CreateRun(
 }
 
 var mapKFPRuntimeStateToMLFlowRuntimeState = map[model.RuntimeState]types.RunStatus{
-	model.RuntimeStatePending:   types.Scheduled,
-	model.RuntimeStateRunning:   types.Running,
-	model.RuntimeStateSucceeded: types.Finished,
-	model.RuntimeStateSkipped:   types.Failed,
-	model.RuntimeStateFailed:    types.Failed,
-	model.RuntimeStateCanceled:  types.Killed,
-	model.RuntimeStatePaused:    types.Running,
+	model.RuntimeStateUnspecified: types.Running,
+	model.RuntimeStatePending:     types.Scheduled,
+	model.RuntimeStateRunning:     types.Running,
+	model.RuntimeStateSucceeded:   types.Finished,
+	model.RuntimeStateSkipped:     types.Failed,
+	model.RuntimeStateFailed:      types.Failed,
+	model.RuntimeStateCancelling:  types.Running,
+	model.RuntimeStateCanceled:    types.Killed,
+	model.RuntimeStatePaused:      types.Running,
 }
 
-func (r *RunProvider) UpdateRunStatus(experimentID string, ProviderRunID string, kfpRunStatus model.RuntimeState) error {
-	glog.Infof("Calling UpdateRunStatus with runID %d", ProviderRunID)
+func ConvertKFPToMLFlowRuntimeState(kfpRunStatus model.RuntimeState) types.RunStatus {
+	if v, ok := mapKFPRuntimeStateToMLFlowRuntimeState[kfpRunStatus]; !ok {
+		return v
+	}
+	glog.Errorf("Unknown kfp run status: %v", kfpRunStatus)
+	return types.Running
+}
 
-	run, err := r.client.getRun(ProviderRunID)
+func (r *RunProvider) UpdateRunStatus(providerRunID string, kfpRunStatus model.RuntimeState) error {
+	glog.Infof("Calling UpdateRunStatus with runID %d", providerRunID)
+
+	run, err := r.client.getRun(providerRunID)
 	if err != nil {
 		return err
 	}
-
 	mlflowRunState := mapKFPRuntimeStateToMLFlowRuntimeState[kfpRunStatus]
-	var endTime *int64
-
-	err = r.client.updateRun(run.Info.RunID, nil, &mlflowRunState, endTime)
+	endTime := time.Now().UnixMilli()
+	err = r.client.updateRun(run.Info.RunID, nil, &mlflowRunState, &endTime)
 	if err != nil {
 		return err
 	}
