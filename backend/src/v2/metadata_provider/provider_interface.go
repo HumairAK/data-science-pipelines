@@ -58,6 +58,10 @@ type RunProvider interface {
 		ProviderRunID string,
 		kfpRunStatus model.RuntimeState,
 	) error
+	// NestedRunsSupported
+	// Enable run nesting by having this function return true
+	// Otherwise all kfp pipeline run tasks are logged flatly
+	NestedRunsSupported() bool
 }
 
 type MetadataArtifactProvider interface {

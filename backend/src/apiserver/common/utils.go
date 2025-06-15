@@ -52,7 +52,7 @@ func ParseResourceIdsFromFullName(p string) map[string]string {
 	p = strings.TrimPrefix(strings.TrimSuffix(p, "/"), "/")
 	results := map[string]string{
 		"Namespace":         "",
-		"ExperimentId":      "",
+		"ExperimentID":      "",
 		"PipelineId":        "",
 		"PipelineVersionId": "",
 		"RunId":             "",
@@ -72,7 +72,7 @@ func ParseResourceIdsFromFullName(p string) map[string]string {
 			case "versions", "version", "pipelineversions", "pipelineversion", "pipeline_versions", "pipeline_version":
 				results["PipelineVersionId"] = names[i+1]
 			case "experiments", "experiment":
-				results["ExperimentId"] = names[i+1]
+				results["ExperimentID"] = names[i+1]
 			case "runs", "run":
 				results["RunId"] = names[i+1]
 			case "jobs", "job", "recurringruns", "recurringrun", "recurring_runs", "recurring_run":

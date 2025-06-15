@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	v2util "github.com/kubeflow/pipelines/backend/src/v2/util"
 	"io"
 	"os"
 	"os/exec"
@@ -53,12 +54,13 @@ type LauncherV2Options struct {
 	RunID string
 	PublishLogs   string
 	CacheDisabled bool
-	ExperimentId  string
+	ExperimentID  string
 }
 
 type LauncherV2 struct {
 	executionID   int64
 	executorInput *pipelinespec.ExecutorInput
+	experimentID  string
 	component     *pipelinespec.ComponentSpec
 	command       string
 	args          []string
@@ -106,6 +108,7 @@ func NewLauncherV2(
 	if err != nil {
 		return nil, err
 	}
+
 	return &LauncherV2{
 		executionID:   executionID,
 		executorInput: executorInput,
@@ -114,6 +117,7 @@ func NewLauncherV2(
 		args:          cmdArgs[1:],
 		options:       *opts,
 		clientManager: clientManager,
+		experimentID:  opts.ExperimentID,
 	}, nil
 }
 
@@ -170,17 +174,10 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	var executorOutput *pipelinespec.ExecutorOutput
 	var outputArtifacts []*metadata.OutputArtifact
 
-	metdataProvider := l.clientManager.MetadataRunProvider()
+	runProvider := l.clientManager.MetadataRunProvider()
 	status := pb.Execution_FAILED
 	defer func() {
 		glog.Infof("prepublishing..., status is: %d", status)
-
-		if metdataProvider != nil {
-			//if err := driver.CreateRunMetadata(ctx, opts.RunDisplayName, l.clientManager, opts, ecfg, ""); err != nil {
-			//	return
-			//}
-		}
-
 		if perr := l.publish(ctx, execution, executorOutput, outputArtifacts, status); perr != nil {
 			if err != nil {
 				err = fmt.Errorf("failed to publish execution with error %s after execution failed: %s", perr.Error(), err.Error())
@@ -188,18 +185,43 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 				err = perr
 			}
 		}
+
+		if runProvider != nil {
+			runID, exists := execution.GetProviderRunID()
+			if !exists {
+				glog.Errorf("Provider run ID is not set for execution %d", execution.GetID())
+			} else {
+				err := runProvider.UpdateRunStatus(l.experimentID, runID, v2util.GetKFPStateFromMLMDState(status))
+				if err != nil {
+					glog.Errorf("Failed to update provider run status for run %s: %v", runID, err.Error())
+				}
+			}
+		}
+
 		glog.Infof("publish success.")
 		// At the end of the current task, we check the statuses of all tasks in
 		// the current DAG and update the DAG's status accordingly.
-		dag, err := l.clientManager.MetadataClient().GetDAG(ctx, execution.GetExecution().CustomProperties["parent_dag_id"].GetIntValue())
+		parentDag, err := l.clientManager.MetadataClient().GetDAG(ctx, execution.GetExecution().CustomProperties["parent_dag_id"].GetIntValue())
 		if err != nil {
 			glog.Errorf("DAG Status Update: failed to get DAG: %s", err.Error())
 		}
 		pipeline, _ := l.clientManager.MetadataClient().GetPipelineFromExecution(ctx, execution.GetID())
-		err = l.clientManager.MetadataClient().UpdateDAGExecutionsState(ctx, dag, pipeline)
+		err = l.clientManager.MetadataClient().UpdateDAGExecutionsState(ctx, parentDag, pipeline)
 		if err != nil {
 			glog.Errorf("failed to update DAG state: %s", err.Error())
 		}
+		if runProvider != nil && runProvider.NestedRunsSupported() {
+			parentDagsProviderRunID, exists := parentDag.Execution.GetProviderRunID()
+			if !exists {
+				glog.Errorf("Provider run ID is not set for execution %d", execution.GetID())
+			} else {
+				err := runProvider.UpdateRunStatus(l.experimentID, parentDagsProviderRunID, v2util.GetKFPStateFromMLMDState(status))
+				if err != nil {
+					glog.Errorf("Failed to update provider run status for run %s: %v", parentDagsProviderRunID, err.Error())
+				}
+			}
+		}
+
 	}()
 	executedStartedTime := time.Now().Unix()
 	execution, err = l.prePublish(ctx)

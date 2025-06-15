@@ -168,7 +168,8 @@ func DAG(ctx context.Context, opts Options, cm *client_manager.ClientManager) (e
 	glog.V(4).Info("ecfg: ", string(b))
 	glog.V(4).Infof("dag: %v", dag)
 
-	if cm.MetadataRunProvider() != nil {
+	runProvider := cm.MetadataRunProvider()
+	if runProvider != nil && runProvider.NestedRunsSupported() {
 		hasIterationIndex := ecfg.IterationIndex != nil && *ecfg.IterationIndex >= 0
 		if hasIterationIndex {
 			// We skip logging a run in the iterationIndex case

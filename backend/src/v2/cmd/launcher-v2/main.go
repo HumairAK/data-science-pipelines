@@ -87,7 +87,7 @@ func run() error {
 		RunID:             *runID,
 		PublishLogs:       *publishLogs,
 		CacheDisabled:     *cacheDisabledFlag,
-		ExperimentId:      *experimentID,
+		ExperimentID:      *experimentID,
 	}
 
 	switch *executorType {

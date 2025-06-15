@@ -151,12 +151,16 @@ func Container(ctx context.Context, opts Options, cm *client_manager.ClientManag
 		ecfg.FingerPrint = fingerPrint
 	}
 
-	if cm.MetadataRunProvider() != nil {
-		parentID, exists := dag.Execution.GetProviderRunID()
-		if !exists {
-			return nil, fmt.Errorf("parent dag id is not set")
+	runProvider := cm.MetadataRunProvider()
+	if runProvider != nil {
+		var parentID string
+		if runProvider.NestedRunsSupported() {
+			var exists bool
+			parentID, exists = dag.Execution.GetProviderRunID()
+			if !exists {
+				return nil, fmt.Errorf("parent dag id is not set")
+			}
 		}
-
 		id, err := v2util.CreateRunMetadata(ctx, opts.RunDisplayName, cm, opts.ExperimentId, opts.RunID, ecfg, parentID)
 		if err != nil {
 			return nil, err

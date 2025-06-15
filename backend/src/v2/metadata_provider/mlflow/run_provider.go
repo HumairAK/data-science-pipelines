@@ -97,3 +97,7 @@ func (r *RunProvider) UpdateRunStatus(experimentID string, ProviderRunID string,
 
 	return nil
 }
+
+func (r *RunProvider) NestedRunsSupported() bool {
+	return true
+}

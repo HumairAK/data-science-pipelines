@@ -139,7 +139,8 @@ func RootDAG(ctx context.Context, opts Options, cm *client_manager.ClientManager
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	if cm.MetadataRunProvider() != nil {
+	runProvider := cm.MetadataRunProvider()
+	if runProvider != nil && runProvider.NestedRunsSupported() {
 		id, err := v2util.CreateRunMetadata(ctx, opts.RunDisplayName, cm, opts.ExperimentId, opts.RunID, ecfg, "")
 		if err != nil {
 			return nil, err
