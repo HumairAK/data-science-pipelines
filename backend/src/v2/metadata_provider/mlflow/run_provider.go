@@ -31,7 +31,7 @@ func (r *RunProvider) GetRun(experimentID string, ProviderRunID string) (*metada
 func (r *RunProvider) CreateRun(
 	experimentID string,
 	kfpRun *apiv2beta1.Run,
-	taskName string,
+	ProviderRunName string,
 	parameters []metadata_provider.RunParameter,
 	parentRunID string,
 ) (*metadata_provider.ProviderRun, error) {
@@ -48,7 +48,7 @@ func (r *RunProvider) CreateRun(
 		})
 	}
 
-	run, err := r.client.createRun(taskName, tags, experimentID)
+	run, err := r.client.createRun(ProviderRunName, tags, experimentID)
 	if err != nil {
 		return nil, err
 	}

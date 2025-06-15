@@ -185,7 +185,7 @@ func DAG(ctx context.Context, opts Options, cm *client_manager.ClientManager) (e
 			if !exists {
 				return nil, fmt.Errorf("parent dag id is not set")
 			}
-			if err := CreateRunMetadata(ctx, cm, opts, ecfg, parentID); err != nil {
+			if err := CreateRunMetadata(ctx, opts.RunDisplayName, cm, opts, ecfg, parentID); err != nil {
 				return nil, err
 			}
 		}

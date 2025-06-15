@@ -139,7 +139,7 @@ func RootDAG(ctx context.Context, opts Options, cm *client_manager.ClientManager
 	defer cancel()
 
 	if cm.MetadataRunProvider != nil {
-		if err := CreateRunMetadata(ctx, cm, opts, ecfg, ""); err != nil {
+		if err := CreateRunMetadata(ctx, opts.RunDisplayName, cm, opts, ecfg, ""); err != nil {
 			return nil, err
 		}
 	}

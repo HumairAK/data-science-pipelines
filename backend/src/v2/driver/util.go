@@ -114,6 +114,7 @@ func getItems(value *structpb.Value) (items []*structpb.Value, err error) {
 
 func CreateRunMetadata(
 	ctx context.Context,
+	providerRunName string,
 	cm *client_manager.ClientManager,
 	opts Options,
 	ecfg *metadata.ExecutionConfig,
@@ -130,6 +131,7 @@ func CreateRunMetadata(
 	run, err := opts.MetadatRunProvider.CreateRun(
 		opts.ExperimentId,
 		kfpRun,
+		providerRunName,
 		metadata_provider.PBParamsToRunParameters(ecfg.InputParameters),
 		parentID,
 	)

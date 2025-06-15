@@ -155,7 +155,7 @@ func Container(ctx context.Context, opts Options, cm *client_manager.ClientManag
 		if !exists {
 			return nil, fmt.Errorf("parent dag id is not set")
 		}
-		if err := CreateRunMetadata(ctx, cm, opts, ecfg, parentID); err != nil {
+		if err := CreateRunMetadata(ctx, ecfg.TaskName, cm, opts, ecfg, parentID); err != nil {
 			return nil, err
 		}
 	}

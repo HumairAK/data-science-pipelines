@@ -49,7 +49,7 @@ type RunProvider interface {
 		experimentID string,
 		// TODO: replace kfprun and taskname with apiv2beta1.TaskDetails
 		kfpRun *apiv2beta1.Run,
-		taskName string,
+		ProviderRunName string,
 		parameters []RunParameter,
 		parentRunID string,
 	) (*ProviderRun, error)
