@@ -188,8 +188,8 @@ func drive() (err error) {
 		MLMDServerPort:            mlmdServerPort,
 		CacheDisabled:             *cacheDisabledFlag,
 		MetadatRunProviderConfig:  *metadataProviderConfigFlag,
-		MLPipelineServiceGRPCPort: os.Getenv("ML_PIPELINE_SERVICE_HOST"),
-		MLPipelineServiceName:     os.Getenv("ML_PIPELINE_SERVICE_PORT_GRPC"),
+		MLPipelineServiceGRPCPort: os.Getenv("ML_PIPELINE_SERVICE_PORT_GRPC"),
+		MLPipelineServiceName:     os.Getenv("ML_PIPELINE_SERVICE_HOST"),
 	}
 	clientManager, err := client_manager.NewClientManager(clientOptions)
 	if err != nil {

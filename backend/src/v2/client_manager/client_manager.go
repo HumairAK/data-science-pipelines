@@ -9,7 +9,6 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/manager"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 type ClientManagerInterface interface {
@@ -106,7 +105,7 @@ func (cm *ClientManager) init(opts *Options) error {
 }
 
 func initK8sClient() (kubernetes.Interface, error) {
-	restConfig, err := rest.InClusterConfig()
+	restConfig, err := util.GetKubernetesConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize kubernetes client: %w", err)
 	}
