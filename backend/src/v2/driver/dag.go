@@ -170,9 +170,8 @@ func DAG(ctx context.Context, opts Options, cm *client_manager.ClientManager) (e
 
 	runProvider := cm.MetadataRunProvider()
 	if runProvider != nil && runProvider.NestedRunsSupported() {
-		hasIterationIndex := ecfg.IterationIndex != nil && *ecfg.IterationIndex >= 0
-		if hasIterationIndex {
-			// We skip logging a run in the iterationIndex case
+		if isIterator {
+			// We skip logging a run in the iterator case
 			// And just propagate the runID to the parent DAG
 			// So that the eventual iteration container driver
 			// will link to this dag's parent instead.
@@ -187,7 +186,7 @@ func DAG(ctx context.Context, opts Options, cm *client_manager.ClientManager) (e
 			if !exists {
 				return nil, fmt.Errorf("parent dag id is not set")
 			}
-			id, err := v2util.CreateRunMetadata(ctx, opts.RunDisplayName, cm, opts.ExperimentId, opts.RunID, ecfg, parentID)
+			id, err := v2util.CreateRunMetadata(ctx, opts.Task.GetTaskInfo().GetName(), cm, opts.ExperimentId, opts.RunID, ecfg, parentID)
 			if err != nil {
 				return nil, err
 			}

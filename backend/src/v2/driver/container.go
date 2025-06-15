@@ -161,7 +161,7 @@ func Container(ctx context.Context, opts Options, cm *client_manager.ClientManag
 				return nil, fmt.Errorf("parent dag id is not set")
 			}
 		}
-		id, err := v2util.CreateRunMetadata(ctx, opts.RunDisplayName, cm, opts.ExperimentId, opts.RunID, ecfg, parentID)
+		id, err := v2util.CreateRunMetadata(ctx, opts.Task.GetTaskInfo().GetName(), cm, opts.ExperimentId, opts.RunID, ecfg, parentID)
 		if err != nil {
 			return nil, err
 		}

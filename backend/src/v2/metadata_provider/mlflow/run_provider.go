@@ -97,7 +97,7 @@ func (r *RunProvider) UpdateRunStatus(providerRunID string, kfpRunStatus model.R
 	if err != nil {
 		return err
 	}
-	mlflowRunState := mapKFPRuntimeStateToMLFlowRuntimeState[kfpRunStatus]
+	mlflowRunState := ConvertKFPToMLFlowRuntimeState(kfpRunStatus)
 	endTime := time.Now().UnixMilli()
 	err = r.client.updateRun(run.Info.RunID, nil, &mlflowRunState, &endTime)
 	if err != nil {
