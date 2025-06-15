@@ -191,7 +191,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 			if !exists {
 				glog.Errorf("Provider run ID is not set for execution %d", execution.GetID())
 			} else {
-				err := runProvider.UpdateRunStatus(l.experimentID, runID, v2util.GetKFPStateFromMLMDState(status))
+				err := runProvider.UpdateRunStatus(runID, v2util.GetKFPStateFromMLMDState(status))
 				if err != nil {
 					glog.Errorf("Failed to update provider run status for run %s: %v", runID, err.Error())
 				}
@@ -215,7 +215,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 			if !exists {
 				glog.Errorf("Provider run ID is not set for execution %d", execution.GetID())
 			} else {
-				err := runProvider.UpdateRunStatus(l.experimentID, parentDagsProviderRunID, v2util.GetKFPStateFromMLMDState(status))
+				err := runProvider.UpdateRunStatus(parentDagsProviderRunID, v2util.GetKFPStateFromMLMDState(status))
 				if err != nil {
 					glog.Errorf("Failed to update provider run status for run %s: %v", parentDagsProviderRunID, err.Error())
 				}
