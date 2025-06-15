@@ -24,8 +24,9 @@ type ProviderRun struct {
 }
 
 type ArtifactResult struct {
-	artifactURI string
-	artifactURL string
+	Name        string
+	ArtifactURI string
+	ArtifactURL string
 }
 
 type RunParameter struct {
@@ -47,7 +48,7 @@ type RunProvider interface {
 	GetRun(experimentID string, ProviderRunID string) (*ProviderRun, error)
 	CreateRun(
 		experimentID string,
-		// TODO: replace kfprun and taskname with apiv2beta1.TaskDetails
+	// TODO: replace kfprun and taskname with apiv2beta1.TaskDetails
 		kfpRun *apiv2beta1.Run,
 		ProviderRunName string,
 		parameters []RunParameter,
@@ -57,18 +58,27 @@ type RunProvider interface {
 		providerRunID string,
 		kfpRunStatus model.RuntimeState,
 	) error
+
 	// NestedRunsSupported
 	// Enable run nesting by having this function return true
 	// Otherwise all kfp pipeline run tasks are logged flatly
+	// TODO(humairak): make this a top level config
 	NestedRunsSupported() bool
 }
 
 type MetadataArtifactProvider interface {
+	// LogOutputArtifact will be called when a KFP artifact is logged.
+	// If the artifact is not supported, return nil runtimeArtifact and no error.
+	// If the artifact is supported, return the artifact result and no error.
 	LogOutputArtifact(
-		experimentID string,
 		runID string,
 		runtimeArtifact *pipelinespec.RuntimeArtifact,
-		defaultArtifactURI string) (ArtifactResult, error)
+	) (*ArtifactResult, error)
+
+	// NestedRunsSupported
+	// If true then the metadata provider will log artifacts for parent runs.
+	// TODO(humairak): make this a top level config
+	NestedRunsSupported() bool
 }
 
 type ProviderFactory interface {

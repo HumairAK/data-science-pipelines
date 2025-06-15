@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	v2util "github.com/kubeflow/pipelines/backend/src/v2/util"
 	"io"
 	"os"
@@ -257,6 +258,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		l.options.Namespace,
 		l.clientManager.K8sClient(),
 		l.options.PublishLogs,
+		execution,
 	)
 	if err != nil {
 		return err
@@ -371,6 +373,7 @@ func executeV2(
 	namespace string,
 	k8sClient kubernetes.Interface,
 	publishLogs string,
+	execution *metadata.Execution,
 ) (*pipelinespec.ExecutorOutput, []*metadata.OutputArtifact, error) {
 
 	// Add parameter default values to executorInput, if there is not already a user input.
@@ -409,7 +412,7 @@ func executeV2(
 		return nil, nil, err
 	}
 	// TODO(Bobgy): should we log metadata per each artifact, or batched after uploading all artifacts.
-	outputArtifacts, err := uploadOutputArtifacts(ctx, executorInput, executorOutput, uploadOutputArtifactsOptions{
+	outputArtifacts, err := uploadOutputArtifacts(ctx, executorInput, executorOutput, execution, uploadOutputArtifactsOptions{
 		bucketConfig:   bucketConfig,
 		bucket:         bucket,
 		metadataClient: metadataClient,
@@ -543,12 +546,17 @@ func execute(
 }
 
 type uploadOutputArtifactsOptions struct {
-	bucketConfig   *objectstore.Config
-	bucket         *blob.Bucket
-	metadataClient metadata.ClientInterface
+	bucketConfig     *objectstore.Config
+	bucket           *blob.Bucket
+	metadataClient   metadata.ClientInterface
+	artifactProvider metadata_provider.MetadataArtifactProvider
+	providerRunID    string
 }
 
-func uploadOutputArtifacts(ctx context.Context, executorInput *pipelinespec.ExecutorInput, executorOutput *pipelinespec.ExecutorOutput, opts uploadOutputArtifactsOptions) ([]*metadata.OutputArtifact, error) {
+func uploadOutputArtifacts(
+	ctx context.Context,
+	executorInput *pipelinespec.ExecutorInput, executorOutput *pipelinespec.ExecutorOutput, execution *metadata.Execution,
+	opts uploadOutputArtifactsOptions) ([]*metadata.OutputArtifact, error) {
 	// Register artifacts with MLMD.
 	outputArtifacts := make([]*metadata.OutputArtifact, 0, len(executorInput.GetOutputs().GetArtifacts()))
 	for name, artifactList := range executorInput.GetOutputs().GetArtifacts() {
@@ -592,6 +600,35 @@ func uploadOutputArtifacts(ctx context.Context, executorInput *pipelinespec.Exec
 			if err != nil {
 				return nil, fmt.Errorf("failed to determine schema for output %q: %w", name, err)
 			}
+
+			if opts.artifactProvider != nil {
+				artifactResult, err := opts.artifactProvider.LogOutputArtifact(opts.providerRunID, outputArtifact)
+				if err != nil {
+					return nil, err
+				}
+				glog.Infof("Logged artifact result: %v", artifactResult.Name)
+				outputArtifact.Uri = artifactResult.ArtifactURL
+			}
+
+			if opts.artifactProvider.NestedRunsSupported() {
+				parentDagID := execution.GetParentDagID()
+				parentDagExecution, err := opts.metadataClient.GetExecution(ctx, parentDagID)
+				if err != nil {
+					return nil, err
+				}
+				parentProviderRunID, exists := parentDagExecution.GetProviderRunID()
+				if !exists {
+					return nil, fmt.Errorf("Parent dag execution does not have a provider run id")
+				}
+				artifactResult, err := opts.artifactProvider.LogOutputArtifact(parentProviderRunID, outputArtifact)
+				if err != nil {
+					return nil, err
+				}
+				outputArtifact.Uri = artifactResult.ArtifactURL
+				glog.Infof("Logged artifact result: (Name=%s, URI=%s, URL=%s)",
+					artifactResult.Name, artifactResult.ArtifactURI, artifactResult.ArtifactURL)
+			}
+
 			mlmdArtifact, err := opts.metadataClient.RecordArtifact(ctx, name, schema, outputArtifact, pb.Artifact_LIVE, opts.bucketConfig)
 			if err != nil {
 				return nil, metadataErr(err)
