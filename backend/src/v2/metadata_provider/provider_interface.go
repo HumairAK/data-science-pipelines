@@ -18,10 +18,9 @@ type ProviderExperiment struct {
 }
 
 type ProviderRun struct {
-	ID          string
-	Name        string
-	Description string
-	Status      string
+	ID     string
+	Name   string
+	Status string
 }
 
 type ArtifactResult struct {
@@ -45,16 +44,18 @@ type Validator interface {
 }
 
 type RunProvider interface {
-	GetRun(experimentID string, kfpRunID string) (*ProviderRun, error)
+	GetRun(experimentID string, ProviderRunID string) (*ProviderRun, error)
 	CreateRun(
 		experimentID string,
+		// TODO: replace kfprun and taskname with apiv2beta1.TaskDetails
 		kfpRun *apiv2beta1.Run,
+		taskName string,
 		parameters []RunParameter,
 		parentRunID string,
 	) (*ProviderRun, error)
 	UpdateRunStatus(
 		experimentID string,
-		kfpRunID string,
+		ProviderRunID string,
 		kfpRunStatus model.RuntimeState,
 	) error
 }

@@ -152,9 +152,9 @@ func (m *Client) updateRun(runID string, runName *string, status *types.RunStatu
 	return nil
 }
 
-func (m *Client) logParam(runID *string, key, value string) error {
+func (m *Client) logParam(runID string, key, value string) error {
 	payload := types.LogParamRequest{
-		RunId: *runID,
+		RunId: runID,
 		Key:   key,
 		Value: value,
 	}
