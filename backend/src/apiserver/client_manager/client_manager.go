@@ -303,34 +303,12 @@ func (c *ClientManager) init(options *Options) error {
 		}
 		c.experimentStore = experimentStore
 		c.metadataProvider = metadataProvider
-		glog.Infof("Custom MetadataRunProvider %s experiment store configured.", metadataProvider.Type)
+		glog.Infof("Custom MetadataProvider %s experiment store configured.", metadataProvider.Type)
 	} else {
 		c.experimentStore = storage.NewExperimentStore(db, c.time, c.uuid)
 		glog.Info("Default experiment store configured.")
 	}
 
-	//switch metadataProvider := options.MetadataRunProvider; metadataProvider {
-	//case metadata_provider.MetadataProviderMLFlow:
-	//	hostEnv := os.Getenv("MLFLOW_HOST")
-	//	portEnv := os.Getenv("MLFLOW_PORT")
-	//	tlsEnabled := os.Getenv("MLFLOW_TLS_ENABLED")
-	//	if hostEnv == "" {
-	//		return fmt.Errorf("Missing environment variable MLFLOW_HOST")
-	//	}
-	//	mlflowConfig := &mlflow.MLFlowServerConfig{
-	//		Host:       hostEnv,
-	//		Port:       portEnv,
-	//		TLSEnabled: tlsEnabled,
-	//	}
-	//	var err error
-	//	c.experimentStore, err = mlflow.NewExperimentStore(mlflowConfig)
-	//	if err != nil {
-	//		return err
-	//	}
-	//default:
-	//	// If no provider
-	//	c.experimentStore = storage.NewExperimentStore(db, c.time, c.uuid)
-	//}
 	c.defaultExperimentStore = storage.NewDefaultExperimentStore(db)
 	c.jobStore = storage.NewJobStore(db, c.time, pipelineStoreForRef, c.experimentStore)
 	c.taskStore = storage.NewTaskStore(db, c.time, c.uuid)

@@ -210,7 +210,7 @@ func Container(ctx context.Context, opts Options, cm *client_manager.ClientManag
 	} else {
 		glog.Info("Cache disabled globally at the server level.")
 	}
-
+	// todo(humair): just pass the entire opts struct to the launcher.
 	podSpec, err := initPodSpecPatch(
 		opts.Container,
 		opts.Component,
@@ -221,6 +221,8 @@ func Container(ctx context.Context, opts Options, cm *client_manager.ClientManag
 		opts.PipelineLogLevel,
 		opts.PublishLogs,
 		strconv.FormatBool(opts.CacheDisabled),
+		opts.ExperimentId,
+		opts.MetdataProviderConfig,
 	)
 	if err != nil {
 		return execution, err

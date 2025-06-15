@@ -65,10 +65,10 @@ type Options struct {
 
 	PublishLogs string
 
-	CacheDisabled      bool
-	MetadatRunProvider metadata_provider.RunProvider
-
-	ExperimentId string
+	CacheDisabled         bool
+	MetadatRunProvider    metadata_provider.RunProvider
+	MetdataProviderConfig string
+	ExperimentId          string
 	// TODO(humairak): remove these
 	DevMode        bool
 	DevExecutionId int64
@@ -152,17 +152,7 @@ func getPodResource(
 // to container base template generated in compiler/container.go. Therefore, only
 // dynamic values are patched here. The volume mounts / configmap mounts are
 // defined in compiler, because they are static.
-func initPodSpecPatch(
-	container *pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec,
-	componentSpec *pipelinespec.ComponentSpec,
-	executorInput *pipelinespec.ExecutorInput,
-	executionID int64,
-	pipelineName string,
-	runID string,
-	pipelineLogLevel string,
-	publishLogs string,
-	cacheDisabled string,
-) (*k8score.PodSpec, error) {
+func initPodSpecPatch(container *pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec, componentSpec *pipelinespec.ComponentSpec, executorInput *pipelinespec.ExecutorInput, executionID int64, pipelineName string, runID string, pipelineLogLevel string, publishLogs string, cacheDisabled string, experimentID string, metdataProviderConfig string) (*k8score.PodSpec, error) {
 	executorInputJSON, err := protojson.Marshal(executorInput)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init podSpecPatch: %w", err)
@@ -200,6 +190,10 @@ func initPodSpecPatch(
 		"--mlmd_server_port",
 		fmt.Sprintf("$(%s)", component.EnvMetadataPort),
 		"--publish_logs", publishLogs,
+		"--experiment_id", experimentID,
+	}
+	if metdataProviderConfig != "" {
+		launcherCmd = append(launcherCmd, "--metadata_provider_config", metdataProviderConfig)
 	}
 	if cacheDisabled == "true" {
 		launcherCmd = append(launcherCmd, "--cache_disabled", cacheDisabled)
@@ -211,6 +205,7 @@ func initPodSpecPatch(
 	if publishLogs == "true" {
 		launcherCmd = append(launcherCmd, "--publish_logs", publishLogs)
 	}
+
 	launcherCmd = append(launcherCmd, "--") // separater before user command and args
 	res := k8score.ResourceRequirements{
 		Limits:   map[k8score.ResourceName]k8sres.Quantity{},
