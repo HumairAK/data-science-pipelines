@@ -18,13 +18,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
-	"strconv"
-	"strings"
-
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
+	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/expression"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -172,37 +168,27 @@ func DAG(ctx context.Context, opts Options, cm *client_manager.ClientManager) (e
 	glog.V(4).Infof("dag: %v", dag)
 
 	if cm.MetadataRunProvider != nil {
-		var run metadata_provider.ProviderRun
-		// In the case of Iterator driver we consider 3 cases:
-		// 1. Dag is an IteratorDag (has iteration_count)
-		// 2. Dag is an IterationDag (has iteration_index)
-		// 3. Container Driver that is the child of (2)
-		// 4. Dag is neither (1) or (2)
-		// We never want to log (2) to avoid bloating the Metadata Provider.
-		// Thus we always want to link (1) -> (3), where (3) is the child of (1). Skipping (2).
-		// We always log (4).
-		hasIterationCount := ecfg.IterationCount != nil && *ecfg.IterationCount > 0
 		hasIterationIndex := ecfg.IterationIndex != nil && *ecfg.IterationIndex >= 0
 		if hasIterationIndex {
-			var exists bool
-			run.ID, exists = dag.Execution.GetProviderRunID()
+			// We skip logging a run in the iterationIndex case
+			// And just propagate the runID to the parent DAG
+			// So that the eventual iteration container driver
+			// will link to this dag's parent instead.
+			runID, exists := dag.Execution.GetProviderRunID()
 			if !exists {
 				return nil, fmt.Errorf("parent dag id is not set")
 			}
+			ecfg.ProviderRunID = &runID
+			ecfg.ExperimentID = &opts.ExperimentId
 		} else {
-			var parentID string
-			runParameters := metadata_provider.PBParamsToRunParameters(ecfg.InputParameters)
-
-			if hasIterationCount {
-
-				parentID = strconv.FormatInt(t, 10)
+			parentID, exists := dag.Execution.GetProviderRunID()
+			if !exists {
+				return nil, fmt.Errorf("parent dag id is not set")
 			}
-
+			if err := CreateRunMetadata(ctx, cm, opts, ecfg, parentID); err != nil {
+				return nil, err
+			}
 		}
-
-		ecfg.ProviderRunID = &run.ID
-		ecfg.ExperimentID = &opts.ExperimentId
-
 	}
 
 	var createdExecution *metadata.Execution

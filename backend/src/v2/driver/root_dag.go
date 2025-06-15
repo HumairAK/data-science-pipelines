@@ -18,9 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	v2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"time"
 
 	"github.com/golang/glog"
@@ -141,25 +139,9 @@ func RootDAG(ctx context.Context, opts Options, cm *client_manager.ClientManager
 	defer cancel()
 
 	if cm.MetadataRunProvider != nil {
-		kfpRun, err := cm.RunServiceClient.GetRun(
-			ctx,
-			&v2beta1.GetRunRequest{
-				RunId: opts.RunID,
-			})
-		if err != nil {
+		if err := CreateRunMetadata(ctx, cm, opts, ecfg, ""); err != nil {
 			return nil, err
 		}
-		run, err := opts.MetadatRunProvider.CreateRun(
-			opts.ExperimentId,
-			kfpRun,
-			metadata_provider.PBParamsToRunParameters(ecfg.InputParameters),
-			"",
-		)
-		if err != nil {
-			return nil, err
-		}
-		ecfg.ProviderRunID = &run.ID
-		ecfg.ExperimentID = &opts.ExperimentId
 	}
 
 	var exec *metadata.Execution
