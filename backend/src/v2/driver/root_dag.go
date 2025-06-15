@@ -27,6 +27,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
+	v2util "github.com/kubeflow/pipelines/backend/src/v2/util"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -138,10 +139,13 @@ func RootDAG(ctx context.Context, opts Options, cm *client_manager.ClientManager
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	if cm.MetadataRunProvider != nil {
-		if err := CreateRunMetadata(ctx, opts.RunDisplayName, cm, opts, ecfg, ""); err != nil {
+	if cm.MetadataRunProvider() != nil {
+		id, err := v2util.CreateRunMetadata(ctx, opts.RunDisplayName, cm, opts.ExperimentId, opts.RunID, ecfg, "")
+		if err != nil {
 			return nil, err
 		}
+		ecfg.ExperimentID = &opts.ExperimentId
+		ecfg.ProviderRunID = &id
 	}
 
 	var exec *metadata.Execution

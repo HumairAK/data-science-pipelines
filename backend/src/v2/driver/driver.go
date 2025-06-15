@@ -69,7 +69,7 @@ type Options struct {
 	MetadatRunProvider metadata_provider.RunProvider
 
 	ExperimentId string
-
+	// TODO(humairak): remove these
 	DevMode        bool
 	DevExecutionId int64
 }

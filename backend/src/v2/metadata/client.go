@@ -150,7 +150,7 @@ type ExecutionConfig struct {
 	IterationCount *int // Number of iterations for an iterator DAG.
 	TotalDagTasks  *int // Number of tasks inside the DAG
 
-	// MetadataProvider custom properties
+	// MetadataRunProvider custom properties
 	ProviderRunID, ExperimentID *string
 }
 

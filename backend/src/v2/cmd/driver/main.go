@@ -51,6 +51,7 @@ const (
 var (
 	// inputs
 	driverType        = flag.String(driverTypeArg, "", "task driver type, one of ROOT_DAG, DAG, CONTAINER")
+	experimentID      = flag.String("experiment_id", "", "experiment uid")
 	pipelineName      = flag.String("pipeline_name", "", "pipeline context name")
 	runID             = flag.String("run_id", "", "pipeline run uid")
 	runName           = flag.String("run_name", "", "pipeline run name (Kubernetes object name)")
@@ -59,7 +60,6 @@ var (
 	taskSpecJson      = flag.String("task", "", "task spec")
 	runtimeConfigJson = flag.String("runtime_config", "", "jobruntime config")
 	iterationIndex    = flag.Int("iteration_index", -1, "iteration index, -1 means not an interation")
-	experimentID      = flag.String("experiment_id", "", "experiment uid")
 
 	// container inputs
 	dagExecutionID    = flag.Int64("dag_execution_id", 0, "DAG execution ID")

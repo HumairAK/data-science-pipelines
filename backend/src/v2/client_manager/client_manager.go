@@ -15,6 +15,8 @@ type ClientManagerInterface interface {
 	K8sClient() kubernetes.Interface
 	MetadataClient() metadata.ClientInterface
 	CacheClient() cacheutils.Client
+	MetadataRunProvider() metadata_provider.RunProvider
+	RunServiceClient() v2beta1.RunServiceClient
 }
 
 // Ensure ClientManager implements ClientManagerInterface
@@ -25,8 +27,8 @@ type ClientManager struct {
 	k8sClient           kubernetes.Interface
 	metadataClient      metadata.ClientInterface
 	cacheClient         cacheutils.Client
-	MetadataRunProvider metadata_provider.RunProvider
-	RunServiceClient    v2beta1.RunServiceClient
+	metadataRunProvider metadata_provider.RunProvider
+	runServiceClient    v2beta1.RunServiceClient
 }
 
 type Options struct {
@@ -61,6 +63,14 @@ func (cm *ClientManager) CacheClient() cacheutils.Client {
 	return cm.cacheClient
 }
 
+func (cm *ClientManager) MetadataRunProvider() metadata_provider.RunProvider {
+	return cm.metadataRunProvider
+}
+
+func (cm *ClientManager) RunServiceClient() v2beta1.RunServiceClient {
+	return cm.runServiceClient
+}
+
 func (cm *ClientManager) init(opts *Options) error {
 	k8sClient, err := initK8sClient()
 	if err != nil {
@@ -87,7 +97,7 @@ func (cm *ClientManager) init(opts *Options) error {
 		return fmt.Errorf("failed to create metadata provider: %w", err)
 	}
 
-	cm.MetadataRunProvider = metadatRunProvider
+	cm.metadataRunProvider = metadatRunProvider
 
 	connection, err := util.GetRpcConnection(
 		fmt.Sprintf(
@@ -99,7 +109,7 @@ func (cm *ClientManager) init(opts *Options) error {
 	if err != nil {
 		return fmt.Errorf("failed to connect to ML Pipeline GRPC server: %w", err)
 	}
-	cm.RunServiceClient = v2beta1.NewRunServiceClient(connection)
+	cm.runServiceClient = v2beta1.NewRunServiceClient(connection)
 
 	return nil
 }

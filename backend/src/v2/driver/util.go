@@ -15,12 +15,7 @@
 package driver
 
 import (
-	"context"
 	"fmt"
-	v2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
-	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"regexp"
 
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
@@ -110,35 +105,4 @@ func getItems(value *structpb.Value) (items []*structpb.Value, err error) {
 	default:
 		return nil, fmt.Errorf("value of type %T cannot be iterated", v)
 	}
-}
-
-func CreateRunMetadata(
-	ctx context.Context,
-	providerRunName string,
-	cm *client_manager.ClientManager,
-	opts Options,
-	ecfg *metadata.ExecutionConfig,
-	parentID string,
-) error {
-	kfpRun, err := cm.RunServiceClient.GetRun(
-		ctx,
-		&v2beta1.GetRunRequest{
-			RunId: opts.RunID,
-		})
-	if err != nil {
-		return err
-	}
-	run, err := opts.MetadatRunProvider.CreateRun(
-		opts.ExperimentId,
-		kfpRun,
-		providerRunName,
-		metadata_provider.PBParamsToRunParameters(ecfg.InputParameters),
-		parentID,
-	)
-	if err != nil {
-		return err
-	}
-	ecfg.ProviderRunID = &run.ID
-	ecfg.ExperimentID = &opts.ExperimentId
-	return nil
 }

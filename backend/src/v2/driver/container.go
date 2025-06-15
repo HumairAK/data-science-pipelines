@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
+	v2util "github.com/kubeflow/pipelines/backend/src/v2/util"
 	"strconv"
 
 	"github.com/golang/glog"
@@ -150,14 +151,18 @@ func Container(ctx context.Context, opts Options, cm *client_manager.ClientManag
 		ecfg.FingerPrint = fingerPrint
 	}
 
-	if cm.MetadataRunProvider != nil {
+	if cm.MetadataRunProvider() != nil {
 		parentID, exists := dag.Execution.GetProviderRunID()
 		if !exists {
 			return nil, fmt.Errorf("parent dag id is not set")
 		}
-		if err := CreateRunMetadata(ctx, ecfg.TaskName, cm, opts, ecfg, parentID); err != nil {
+
+		id, err := v2util.CreateRunMetadata(ctx, opts.RunDisplayName, cm, opts.ExperimentId, opts.RunID, ecfg, parentID)
+		if err != nil {
 			return nil, err
 		}
+		ecfg.ExperimentID = &opts.ExperimentId
+		ecfg.ProviderRunID = &id
 	}
 
 	var createdExecution *metadata.Execution

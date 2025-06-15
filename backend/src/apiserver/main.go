@@ -57,7 +57,7 @@ import (
 const (
 	executionTypeEnv          = "ExecutionType"
 	launcherEnv               = "Launcher"
-	metadataProviderConfigEnv = "MetadataProvider"
+	metadataProviderConfigEnv = "MetadataRunProvider"
 )
 
 var (

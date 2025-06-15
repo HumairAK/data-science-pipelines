@@ -23,6 +23,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/expression"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
+	v2util "github.com/kubeflow/pipelines/backend/src/v2/util"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -167,7 +168,7 @@ func DAG(ctx context.Context, opts Options, cm *client_manager.ClientManager) (e
 	glog.V(4).Info("ecfg: ", string(b))
 	glog.V(4).Infof("dag: %v", dag)
 
-	if cm.MetadataRunProvider != nil {
+	if cm.MetadataRunProvider() != nil {
 		hasIterationIndex := ecfg.IterationIndex != nil && *ecfg.IterationIndex >= 0
 		if hasIterationIndex {
 			// We skip logging a run in the iterationIndex case
@@ -185,9 +186,12 @@ func DAG(ctx context.Context, opts Options, cm *client_manager.ClientManager) (e
 			if !exists {
 				return nil, fmt.Errorf("parent dag id is not set")
 			}
-			if err := CreateRunMetadata(ctx, opts.RunDisplayName, cm, opts, ecfg, parentID); err != nil {
+			id, err := v2util.CreateRunMetadata(ctx, opts.RunDisplayName, cm, opts.ExperimentId, opts.RunID, ecfg, parentID)
+			if err != nil {
 				return nil, err
 			}
+			ecfg.ExperimentID = &opts.ExperimentId
+			ecfg.ProviderRunID = &id
 		}
 	}
 

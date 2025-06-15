@@ -53,6 +53,7 @@ type LauncherV2Options struct {
 	RunID string
 	PublishLogs   string
 	CacheDisabled bool
+	ExperimentId  string
 }
 
 type LauncherV2 struct {
@@ -168,8 +169,18 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	var execution *metadata.Execution
 	var executorOutput *pipelinespec.ExecutorOutput
 	var outputArtifacts []*metadata.OutputArtifact
+
+	metdataProvider := l.clientManager.MetadataRunProvider()
 	status := pb.Execution_FAILED
 	defer func() {
+		glog.Infof("prepublishing..., status is: %d", status)
+
+		if metdataProvider != nil {
+			//if err := driver.CreateRunMetadata(ctx, opts.RunDisplayName, l.clientManager, opts, ecfg, ""); err != nil {
+			//	return
+			//}
+		}
+
 		if perr := l.publish(ctx, execution, executorOutput, outputArtifacts, status); perr != nil {
 			if err != nil {
 				err = fmt.Errorf("failed to publish execution with error %s after execution failed: %s", perr.Error(), err.Error())

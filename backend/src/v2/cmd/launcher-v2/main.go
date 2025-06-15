@@ -28,6 +28,7 @@ import (
 // TODO: use https://github.com/spf13/cobra as a framework to create more complex CLI tools with subcommands.
 var (
 	copy              = flag.String("copy", "", "copy this binary to specified destination path")
+	experimentID      = flag.String("experiment_id", "", "experiment uid")
 	pipelineName      = flag.String("pipeline_name", "", "pipeline context name")
 	runID             = flag.String("run_id", "", "pipeline run uid")
 	parentDagID       = flag.Int64("parent_dag_id", 0, "parent DAG execution ID")
@@ -86,6 +87,7 @@ func run() error {
 		RunID:             *runID,
 		PublishLogs:       *publishLogs,
 		CacheDisabled:     *cacheDisabledFlag,
+		ExperimentId:      *experimentID,
 	}
 
 	switch *executorType {

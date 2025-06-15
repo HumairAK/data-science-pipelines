@@ -303,13 +303,13 @@ func (c *ClientManager) init(options *Options) error {
 		}
 		c.experimentStore = experimentStore
 		c.metadataProvider = metadataProvider
-		glog.Infof("Custom MetadataProvider %s experiment store configured.", metadataProvider.Type)
+		glog.Infof("Custom MetadataRunProvider %s experiment store configured.", metadataProvider.Type)
 	} else {
 		c.experimentStore = storage.NewExperimentStore(db, c.time, c.uuid)
 		glog.Info("Default experiment store configured.")
 	}
 
-	//switch metadataProvider := options.MetadataProvider; metadataProvider {
+	//switch metadataProvider := options.MetadataRunProvider; metadataProvider {
 	//case metadata_provider.MetadataProviderMLFlow:
 	//	hostEnv := os.Getenv("MLFLOW_HOST")
 	//	portEnv := os.Getenv("MLFLOW_PORT")
