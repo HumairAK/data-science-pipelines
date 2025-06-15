@@ -83,7 +83,7 @@ var mapKFPRuntimeStateToMLFlowRuntimeState = map[model.RuntimeState]types.RunSta
 }
 
 func ConvertKFPToMLFlowRuntimeState(kfpRunStatus model.RuntimeState) types.RunStatus {
-	if v, ok := mapKFPRuntimeStateToMLFlowRuntimeState[kfpRunStatus]; !ok {
+	if v, ok := mapKFPRuntimeStateToMLFlowRuntimeState[kfpRunStatus]; ok {
 		return v
 	}
 	glog.Errorf("Unknown kfp run status: %v", kfpRunStatus)
