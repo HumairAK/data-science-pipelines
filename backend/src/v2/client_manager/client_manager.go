@@ -17,6 +17,7 @@ type ClientManagerInterface interface {
 	CacheClient() cacheutils.Client
 	MetadataRunProvider() metadata_provider.RunProvider
 	RunServiceClient() v2beta1.RunServiceClient
+	MetadataArtifactProvider() metadata_provider.MetadataArtifactProvider
 }
 
 // Ensure ClientManager implements ClientManagerInterface
@@ -24,11 +25,12 @@ var _ ClientManagerInterface = (*ClientManager)(nil)
 
 // ClientManager is a container for various service clients.
 type ClientManager struct {
-	k8sClient           kubernetes.Interface
-	metadataClient      metadata.ClientInterface
-	cacheClient         cacheutils.Client
-	metadataRunProvider metadata_provider.RunProvider
-	runServiceClient    v2beta1.RunServiceClient
+	k8sClient                kubernetes.Interface
+	metadataClient           metadata.ClientInterface
+	cacheClient              cacheutils.Client
+	metadataRunProvider      metadata_provider.RunProvider
+	runServiceClient         v2beta1.RunServiceClient
+	metadataArtifactProvider metadata_provider.MetadataArtifactProvider
 }
 
 type Options struct {
@@ -67,6 +69,10 @@ func (cm *ClientManager) MetadataRunProvider() metadata_provider.RunProvider {
 	return cm.metadataRunProvider
 }
 
+func (cm *ClientManager) MetadataArtifactProvider() metadata_provider.MetadataArtifactProvider {
+	return cm.metadataArtifactProvider
+}
+
 func (cm *ClientManager) RunServiceClient() v2beta1.RunServiceClient {
 	return cm.runServiceClient
 }
@@ -88,16 +94,23 @@ func (cm *ClientManager) init(opts *Options) error {
 	cm.metadataClient = metadataClient
 	cm.cacheClient = cacheClient
 
-	metadataProvider, err := md.NewProviderFromJSON(opts.MetadatRunProviderConfig)
-	if err != nil {
-		return fmt.Errorf("failed to parse metadata provider config: %w", err)
-	}
-	metadatRunProvider, err := metadataProvider.NewRunProvider()
-	if err != nil {
-		return fmt.Errorf("failed to create metadata provider: %w", err)
-	}
+	if opts.MetadatRunProviderConfig != "" {
+		metadataProvider, err := md.NewProviderFromJSON(opts.MetadatRunProviderConfig)
+		if err != nil {
+			return fmt.Errorf("failed to parse metadata provider config: %w", err)
+		}
+		metadatRunProvider, err := metadataProvider.NewRunProvider()
+		if err != nil {
+			return fmt.Errorf("failed to create metadata provider: %w", err)
+		}
+		cm.metadataRunProvider = metadatRunProvider
 
-	cm.metadataRunProvider = metadatRunProvider
+		artifactProvider, err := metadataProvider.NewMetadataArtifactProvider()
+		if err != nil {
+			return fmt.Errorf("failed to create metadata artifact provider: %w", err)
+		}
+		cm.metadataArtifactProvider = artifactProvider
+	}
 
 	connection, err := util.GetRpcConnection(
 		fmt.Sprintf(

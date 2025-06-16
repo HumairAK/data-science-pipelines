@@ -59,14 +59,15 @@ type LauncherV2Options struct {
 }
 
 type LauncherV2 struct {
-	executionID   int64
-	executorInput *pipelinespec.ExecutorInput
-	experimentID  string
-	component     *pipelinespec.ComponentSpec
-	command       string
-	args          []string
-	options       LauncherV2Options
-	clientManager client_manager.ClientManagerInterface
+	executionID      int64
+	executorInput    *pipelinespec.ExecutorInput
+	experimentID     string
+	component        *pipelinespec.ComponentSpec
+	command          string
+	args             []string
+	options          LauncherV2Options
+	clientManager    client_manager.ClientManagerInterface
+	artifactProvider metadata_provider.MetadataArtifactProvider
 }
 
 // Client is the struct to hold the Kubernetes Clientset
@@ -259,6 +260,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		l.clientManager.K8sClient(),
 		l.options.PublishLogs,
 		execution,
+		l.artifactProvider,
 	)
 	if err != nil {
 		return err
@@ -374,6 +376,7 @@ func executeV2(
 	k8sClient kubernetes.Interface,
 	publishLogs string,
 	execution *metadata.Execution,
+	artifactProvider metadata_provider.MetadataArtifactProvider,
 ) (*pipelinespec.ExecutorOutput, []*metadata.OutputArtifact, error) {
 
 	// Add parameter default values to executorInput, if there is not already a user input.
@@ -413,9 +416,10 @@ func executeV2(
 	}
 	// TODO(Bobgy): should we log metadata per each artifact, or batched after uploading all artifacts.
 	outputArtifacts, err := uploadOutputArtifacts(ctx, executorInput, executorOutput, execution, uploadOutputArtifactsOptions{
-		bucketConfig:   bucketConfig,
-		bucket:         bucket,
-		metadataClient: metadataClient,
+		bucketConfig:     bucketConfig,
+		bucket:           bucket,
+		metadataClient:   metadataClient,
+		artifactProvider: artifactProvider,
 	})
 	if err != nil {
 		return nil, nil, err
@@ -550,7 +554,6 @@ type uploadOutputArtifactsOptions struct {
 	bucket           *blob.Bucket
 	metadataClient   metadata.ClientInterface
 	artifactProvider metadata_provider.MetadataArtifactProvider
-	providerRunID    string
 }
 
 func uploadOutputArtifacts(
@@ -602,31 +605,34 @@ func uploadOutputArtifacts(
 			}
 
 			if opts.artifactProvider != nil {
-				artifactResult, err := opts.artifactProvider.LogOutputArtifact(opts.providerRunID, outputArtifact)
+				runID, exists := execution.GetProviderRunID()
+				if !exists {
+					return nil, fmt.Errorf("Execution does not have a provider run id")
+				}
+				artifactResult, err := opts.artifactProvider.LogOutputArtifact(runID, outputArtifact)
 				if err != nil {
 					return nil, err
 				}
 				glog.Infof("Logged artifact result: %v", artifactResult.Name)
 				outputArtifact.Uri = artifactResult.ArtifactURL
-			}
-
-			if opts.artifactProvider.NestedRunsSupported() {
-				parentDagID := execution.GetParentDagID()
-				parentDagExecution, err := opts.metadataClient.GetExecution(ctx, parentDagID)
-				if err != nil {
-					return nil, err
+				if opts.artifactProvider.NestedRunsSupported() {
+					parentDagID := execution.GetParentDagID()
+					parentDagExecution, err := opts.metadataClient.GetExecution(ctx, parentDagID)
+					if err != nil {
+						return nil, err
+					}
+					parentProviderRunID, exists := parentDagExecution.GetProviderRunID()
+					if !exists {
+						return nil, fmt.Errorf("Parent dag execution does not have a provider run id")
+					}
+					artifactResult, err := opts.artifactProvider.LogOutputArtifact(parentProviderRunID, outputArtifact)
+					if err != nil {
+						return nil, err
+					}
+					outputArtifact.Uri = artifactResult.ArtifactURL
+					glog.Infof("Logged artifact result: (Name=%s, URI=%s, URL=%s)",
+						artifactResult.Name, artifactResult.ArtifactURI, artifactResult.ArtifactURL)
 				}
-				parentProviderRunID, exists := parentDagExecution.GetProviderRunID()
-				if !exists {
-					return nil, fmt.Errorf("Parent dag execution does not have a provider run id")
-				}
-				artifactResult, err := opts.artifactProvider.LogOutputArtifact(parentProviderRunID, outputArtifact)
-				if err != nil {
-					return nil, err
-				}
-				outputArtifact.Uri = artifactResult.ArtifactURL
-				glog.Infof("Logged artifact result: (Name=%s, URI=%s, URL=%s)",
-					artifactResult.Name, artifactResult.ArtifactURI, artifactResult.ArtifactURL)
 			}
 
 			mlmdArtifact, err := opts.metadataClient.RecordArtifact(ctx, name, schema, outputArtifact, pb.Artifact_LIVE, opts.bucketConfig)
