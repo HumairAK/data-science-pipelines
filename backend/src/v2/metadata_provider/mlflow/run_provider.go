@@ -54,9 +54,16 @@ func (r *RunProvider) CreateRun(
 		return nil, err
 	}
 
-	// TODO: switch to batch update
-	for _, param := range parameters {
-		err = r.client.logParam(run.Info.RunID, param.Name, param.Value)
+	var params []types.Param
+	for _, p := range parameters {
+		param := types.Param{
+			Key:   p.Name,
+			Value: p.Value,
+		}
+		params = append(params, param)
+	}
+	if len(params) > 0 {
+		err = r.client.logBatch(run.Info.RunID, []types.Metric{}, params, []types.RunTag{})
 		if err != nil {
 			return nil, err
 		}

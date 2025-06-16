@@ -192,10 +192,16 @@ func (m *Client) logMetric(runID, runUUID, key string, value float64) error {
 
 func (m *Client) logBatch(runID string, metrics []types.Metric, params []types.Param, tags []types.RunTag) error {
 	payload := types.LogBatchRequest{
-		RunId:   runID,
-		Metrics: metrics,
-		Params:  params,
-		Tags:    tags,
+		RunId: runID,
+	}
+	if metrics != nil && len(metrics) > 0 {
+		payload.Metrics = metrics
+	}
+	if params != nil && len(params) > 0 {
+		payload.Params = params
+	}
+	if tags != nil && len(tags) > 0 {
+		payload.Tags = tags
 	}
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
