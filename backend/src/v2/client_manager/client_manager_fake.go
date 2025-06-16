@@ -9,11 +9,12 @@ import (
 )
 
 type FakeClientManager struct {
-	k8sClient           kubernetes.Interface
-	metadataClient      metadata.ClientInterface
-	cacheClient         cacheutils.Client
-	metadataRunProvider metadata_provider.RunProvider
-	runServiceClient    v2beta1.RunServiceClient
+	k8sClient                kubernetes.Interface
+	metadataClient           metadata.ClientInterface
+	cacheClient              cacheutils.Client
+	metadataRunProvider      metadata_provider.RunProvider
+	runServiceClient         v2beta1.RunServiceClient
+	metadataArtifactProvider metadata_provider.MetadataArtifactProvider
 }
 
 // Ensure FakeClientManager implements ClientManagerInterface
@@ -33,6 +34,10 @@ func (f *FakeClientManager) CacheClient() cacheutils.Client {
 
 func (f *FakeClientManager) MetadataRunProvider() metadata_provider.RunProvider {
 	return f.metadataRunProvider
+}
+
+func (f *FakeClientManager) MetadataArtifactProvider() metadata_provider.MetadataArtifactProvider {
+	return f.metadataArtifactProvider
 }
 
 func (f *FakeClientManager) RunServiceClient() v2beta1.RunServiceClient {
