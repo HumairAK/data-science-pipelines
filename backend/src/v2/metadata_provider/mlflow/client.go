@@ -16,10 +16,9 @@ import (
 )
 
 type Client struct {
-	apiPath     string
-	baseHost    string
-	metricsPath string
-	token       string
+	apiPath  string
+	baseHost string
+	token    string
 }
 
 // NewClient returns a new MLFlow client.
@@ -46,15 +45,12 @@ func NewClient(config config.GenericProviderConfig) (*Client, error) {
 		basePath = fmt.Sprintf("%s://%s", protocol, host)
 	}
 	apiPath := fmt.Sprintf("%s/api/2.0/mlflow", basePath)
-	metricsPath := fmt.Sprintf("%s/#/metric", basePath)
-
 	authToken := os.Getenv("MLFLOW_TRACKING_SERVER_TOKEN")
 
 	return &Client{
-		apiPath:     apiPath,
-		baseHost:    basePath,
-		metricsPath: metricsPath,
-		token:       authToken,
+		apiPath:  apiPath,
+		baseHost: basePath,
+		token:    authToken,
 	}, nil
 }
 
@@ -462,4 +458,8 @@ func DoRequest(method, url string, body []byte, headers map[string]string) (*htt
 	glog.Infof("------------------------------------")
 
 	return resp, respBody, nil
+}
+
+func (m *Client) GetMetricsPath() string {
+	return fmt.Sprintf("%s/#/metric", m.baseHost)
 }

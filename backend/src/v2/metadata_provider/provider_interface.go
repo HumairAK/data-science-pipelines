@@ -72,6 +72,7 @@ type MetadataArtifactProvider interface {
 	// If the artifact is supported, return the artifact result and no error.
 	LogOutputArtifact(
 		runID string,
+		experimentID string,
 		runtimeArtifact *pipelinespec.RuntimeArtifact,
 	) (*ArtifactResult, error)
 

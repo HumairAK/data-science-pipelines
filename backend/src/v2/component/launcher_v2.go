@@ -23,7 +23,6 @@ import (
 	v2util "github.com/kubeflow/pipelines/backend/src/v2/util"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -112,14 +111,15 @@ func NewLauncherV2(
 	}
 
 	return &LauncherV2{
-		executionID:   executionID,
-		executorInput: executorInput,
-		component:     component,
-		command:       cmdArgs[0],
-		args:          cmdArgs[1:],
-		options:       *opts,
-		clientManager: clientManager,
-		experimentID:  opts.ExperimentID,
+		executionID:      executionID,
+		executorInput:    executorInput,
+		component:        component,
+		command:          cmdArgs[0],
+		args:             cmdArgs[1:],
+		options:          *opts,
+		clientManager:    clientManager,
+		experimentID:     opts.ExperimentID,
+		artifactProvider: clientManager.MetadataArtifactProvider(),
 	}, nil
 }
 
@@ -244,9 +244,9 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	if err = prepareOutputFolders(l.executorInput); err != nil {
-		return err
-	}
+	//if err = prepareOutputFolders(l.executorInput); err != nil {
+	//	return err
+	//}
 	executorOutput, outputArtifacts, err = executeV2(
 		ctx,
 		l.executorInput,
@@ -518,33 +518,33 @@ func execute(
 	k8sClient kubernetes.Interface,
 	publishLogs string,
 ) (*pipelinespec.ExecutorOutput, error) {
-	if err := downloadArtifacts(ctx, executorInput, bucket, bucketConfig, namespace, k8sClient); err != nil {
-		return nil, err
-	}
-
-	if err := prepareOutputFolders(executorInput); err != nil {
-		return nil, err
-	}
-
-	var writer io.Writer
-	if publishLogs == "true" {
-		writer = getLogWriter(executorInput.Outputs.GetArtifacts())
-	} else {
-		writer = os.Stdout
-	}
-
-	// Prepare command that will execute end user code.
-	command := exec.Command(cmd, args...)
-	command.Stdin = os.Stdin
-	// Pipe stdout/stderr to the aforementioned multiWriter.
-	command.Stdout = writer
-	command.Stderr = writer
-	defer glog.Flush()
-
-	// Execute end user code.
-	if err := command.Run(); err != nil {
-		return nil, err
-	}
+	//if err := downloadArtifacts(ctx, executorInput, bucket, bucketConfig, namespace, k8sClient); err != nil {
+	//	return nil, err
+	//}
+	//
+	//if err := prepareOutputFolders(executorInput); err != nil {
+	//	return nil, err
+	//}
+	//
+	//var writer io.Writer
+	//if publishLogs == "true" {
+	//	writer = getLogWriter(executorInput.Outputs.GetArtifacts())
+	//} else {
+	//	writer = os.Stdout
+	//}
+	//
+	//// Prepare command that will execute end user code.
+	//command := exec.Command(cmd, args...)
+	//command.Stdin = os.Stdin
+	//// Pipe stdout/stderr to the aforementioned multiWriter.
+	//command.Stdout = writer
+	//command.Stderr = writer
+	//defer glog.Flush()
+	//
+	//// Execute end user code.
+	//if err := command.Run(); err != nil {
+	//	return nil, err
+	//}
 
 	return getExecutorOutputFile(executorInput.GetOutputs().GetOutputFile())
 }
@@ -613,26 +613,32 @@ func uploadOutputArtifacts(
 				if err != nil {
 					return nil, err
 				}
-				glog.Infof("Logged artifact result: %v", artifactResult.Name)
-				outputArtifact.Uri = artifactResult.ArtifactURL
-				if opts.artifactProvider.NestedRunsSupported() {
-					parentDagID := execution.GetParentDagID()
-					parentDagExecution, err := opts.metadataClient.GetExecution(ctx, parentDagID)
-					if err != nil {
-						return nil, err
-					}
-					parentProviderRunID, exists := parentDagExecution.GetProviderRunID()
-					if !exists {
-						return nil, fmt.Errorf("Parent dag execution does not have a provider run id")
-					}
-					artifactResult, err := opts.artifactProvider.LogOutputArtifact(parentProviderRunID, outputArtifact)
-					if err != nil {
-						return nil, err
-					}
+				if artifactResult != nil {
+					glog.Infof("Logged artifact result: %v", artifactResult.Name)
 					outputArtifact.Uri = artifactResult.ArtifactURL
-					glog.Infof("Logged artifact result: (Name=%s, URI=%s, URL=%s)",
-						artifactResult.Name, artifactResult.ArtifactURI, artifactResult.ArtifactURL)
+					if opts.artifactProvider.NestedRunsSupported() {
+						parentDagID := execution.GetParentDagID()
+						parentDagExecution, err1 := opts.metadataClient.GetExecution(ctx, parentDagID)
+						if err1 != nil {
+							return nil, err1
+						}
+						parentProviderRunID, parentRunExists := parentDagExecution.GetProviderRunID()
+						if !parentRunExists {
+							return nil, fmt.Errorf("Parent dag execution does not have a provider run id")
+						}
+						parentArtifactResult, err1 := opts.artifactProvider.LogOutputArtifact(parentProviderRunID, outputArtifact)
+						if err1 != nil {
+							return nil, err1
+						}
+						if parentArtifactResult != nil {
+							outputArtifact.Uri = parentArtifactResult.ArtifactURL
+							glog.Infof("Logged artifact result: (Name=%s, URI=%s, URL=%s)",
+								parentArtifactResult.Name, parentArtifactResult.ArtifactURI, parentArtifactResult.ArtifactURL)
+						}
+
+					}
 				}
+
 			}
 
 			mlmdArtifact, err := opts.metadataClient.RecordArtifact(ctx, name, schema, outputArtifact, pb.Artifact_LIVE, opts.bucketConfig)
