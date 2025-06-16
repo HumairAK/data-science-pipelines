@@ -23,7 +23,7 @@ type LogInputRequest struct {
 
 type LogBatchRequest struct {
 	RunId   string   `json:"run_id"`
-	Metrics []Metric `json:"metrics"`
-	Params  []Param  `json:"params"`
-	Tags    []RunTag `json:"tags"`
+	Metrics []Metric `json:"metrics,omitempty"`
+	Params  []Param  `json:"params,omitempty"`
+	Tags    []RunTag `json:"tags,omitempty"`
 }
