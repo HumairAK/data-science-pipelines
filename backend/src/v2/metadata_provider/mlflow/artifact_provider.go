@@ -5,6 +5,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -34,45 +35,45 @@ func (a *ArtifactProvider) LogOutputArtifact(
 	runtimeArtifact *pipelinespec.RuntimeArtifact,
 ) (*metadata_provider.ArtifactResult, error) {
 	glog.V(4).Infof("LogOutputArtifact: %v", runtimeArtifact.String())
-	var artifactResult *metadata_provider.ArtifactResult
+	var artifactResult metadata_provider.ArtifactResult
+
 	schemaTitle := runtimeArtifact.Type.GetSchemaTitle()
 	switch schemaTitle {
 	case SchemaTitleMetrics:
-		var foundValue *structpb.Value
-		var foundKey *string
+		var metrics []types.Metric
 		for key, value := range runtimeArtifact.Metadata.GetFields() {
 			switch value.Kind.(type) {
 			case *structpb.Value_NumberValue:
-				foundValue = value
-				key = key
+				metric := types.Metric{
+					Key:   key,
+					Value: value.GetNumberValue(),
+				}
+				metrics = append(metrics, metric)
 			}
 		}
-		if foundKey == nil || foundValue == nil {
-			return nil, fmt.Errorf("no number key/value found for metric type")
+		if len(metrics) <= 0 {
+			return nil, fmt.Errorf("Encountered metrics artifact type, but detected no metadata fields defining numbered values.")
 		}
-		err := a.client.logMetric(runID, runID, *foundKey, foundValue.GetNumberValue())
+		err := a.client.logBatch(runID, metrics, []types.Param{}, []types.RunTag{})
 		if err != nil {
 			return nil, err
 		}
-		artifactResult.Name = runtimeArtifact.Name
-		artifactResult.ArtifactURI = metricURI(runID, experimentID, *foundKey, a.client.GetMetricsPath())
-		artifactResult.ArtifactURL = artifactResult.ArtifactURI
-		return artifactResult, nil
+		// Since there are multiple metrics, there is no way to tie multie URIs
+		// to a single KFP artifact, so we just return the Metrics path for MLFlow UI
+		url := a.metricURL(runID, experimentID)
+		artifactResult.ArtifactURI = url
+		artifactResult.ArtifactURL = url
+		return &artifactResult, nil
 	}
-
-	if artifactResult == nil {
-		return nil, fmt.Errorf("artifact result is nil")
-	}
-	return artifactResult, nil
+	glog.Warningf("Encountered unsupported artifact type: %v", schemaTitle)
+	return nil, nil
 }
 
 func (a *ArtifactProvider) NestedRunsSupported() bool {
 	return true
 }
 
-func metricURI(runId, experimentID, metricKey, metricsPath string) string {
-	uri := fmt.Sprintf("%s?runs=%%5B%%22%s%%22%%5D&experiments=%%5B%%22%s%%22%%5D&metric=%%22%s%%22&plot_metric_keys=%%5B%%22%s%%22%%5D",
-		metricsPath, runId, experimentID, metricKey, metricKey)
-	glog.Infof("built uri: %s", uri)
+func (a *ArtifactProvider) metricURL(runId, experimentID string) string {
+	uri := fmt.Sprintf("%s/#/experiments/%s/runs/%s/model-metrics", a.client.baseHost, experimentID, runId)
 	return uri
 }

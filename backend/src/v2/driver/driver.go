@@ -206,6 +206,12 @@ func initPodSpecPatch(container *pipelinespec.PipelineDeploymentConfig_PipelineC
 		launcherCmd = append(launcherCmd, "--publish_logs", publishLogs)
 	}
 
+	//devMode := os.Getenv("DLV_MODE")
+	//debug := []string{"dlv", "--listen=:2345", "--headless=true", "--api-version=2", "--accept-multiclient", "exec"}
+	//if devMode == "true" {
+	//	launcherCmd = append(debug, launcherCmd...)
+	//}
+
 	launcherCmd = append(launcherCmd, "--") // separater before user command and args
 	res := k8score.ResourceRequirements{
 		Limits:   map[k8score.ResourceName]k8sres.Quantity{},

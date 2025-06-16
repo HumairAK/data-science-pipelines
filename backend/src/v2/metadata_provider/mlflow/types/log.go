@@ -20,3 +20,10 @@ type LogInputRequest struct {
 	RunId    string         `json:"run_id"`
 	Datasets []DataSetInput `json:"dataset"`
 }
+
+type LogBatchRequest struct {
+	RunId   string   `json:"run_id"`
+	Metrics []Metric `json:"metrics"`
+	Params  []Param  `json:"params"`
+	Tags    []RunTag `json:"tags"`
+}

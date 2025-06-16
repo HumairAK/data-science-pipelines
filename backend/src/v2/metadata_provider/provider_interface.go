@@ -24,7 +24,6 @@ type ProviderRun struct {
 }
 
 type ArtifactResult struct {
-	Name        string
 	ArtifactURI string
 	ArtifactURL string
 }
@@ -70,6 +69,8 @@ type MetadataArtifactProvider interface {
 	// LogOutputArtifact will be called when a KFP artifact is logged.
 	// If the artifact is not supported, return nil runtimeArtifact and no error.
 	// If the artifact is supported, return the artifact result and no error.
+	// Note that a KFP runtime artifact may map to multiple Provider Artifacts,
+	// thus we return a list or artifact results.
 	LogOutputArtifact(
 		runID string,
 		experimentID string,

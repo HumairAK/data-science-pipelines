@@ -190,6 +190,27 @@ func (m *Client) logMetric(runID, runUUID, key string, value float64) error {
 	return nil
 }
 
+func (m *Client) logBatch(runID string, metrics []types.Metric, params []types.Param, tags []types.RunTag) error {
+	payload := types.LogBatchRequest{
+		RunId:   runID,
+		Metrics: metrics,
+		Params:  params,
+		Tags:    tags,
+	}
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	_, _, err = DoRequest("POST", fmt.Sprintf("%s/runs/log-batch", m.apiPath), jsonPayload, map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": m.token,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (m *Client) getExperiment(id string) (*types.Experiment, error) {
 	payload := types.GetExperimentRequest{
 		ExperimentId: id,
@@ -458,8 +479,4 @@ func DoRequest(method, url string, body []byte, headers map[string]string) (*htt
 	glog.Infof("------------------------------------")
 
 	return resp, respBody, nil
-}
-
-func (m *Client) GetMetricsPath() string {
-	return fmt.Sprintf("%s/#/metric", m.baseHost)
 }

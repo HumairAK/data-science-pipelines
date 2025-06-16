@@ -614,33 +614,32 @@ func uploadOutputArtifacts(
 				if !exists {
 					return nil, fmt.Errorf("Execution does not have a provider run id")
 				}
-				artifactResult, err := opts.artifactProvider.LogOutputArtifact(runID, opts.experimentID, outputArtifact)
-				if err != nil {
-					return nil, err
+				artifactResult, err1 := opts.artifactProvider.LogOutputArtifact(runID, opts.experimentID, outputArtifact)
+				if err1 != nil {
+					return nil, err1
 				}
 				// if artifactResult is nil with no error, we assume it is not supported by the provider
 				// if it is not nil we continue to check for nested runs supportability
 				if artifactResult != nil {
-					glog.Infof("Logged artifact result: %v", artifactResult.Name)
+					glog.Infof("Logged artifact result.")
 					outputArtifact.Uri = artifactResult.ArtifactURL
 					if opts.artifactProvider.NestedRunsSupported() {
 						parentDagID := execution.GetParentDagID()
-						parentDagExecution, err1 := opts.metadataClient.GetExecution(ctx, parentDagID)
-						if err1 != nil {
-							return nil, err1
+						parentDagExecution, err2 := opts.metadataClient.GetExecution(ctx, parentDagID)
+						if err2 != nil {
+							return nil, err2
 						}
 						parentProviderRunID, parentRunExists := parentDagExecution.GetProviderRunID()
 						if !parentRunExists {
 							return nil, fmt.Errorf("Parent dag execution does not have a provider run id")
 						}
-						parentArtifactResult, err1 := opts.artifactProvider.LogOutputArtifact(parentProviderRunID, opts.experimentID, outputArtifact)
-						if err1 != nil {
-							return nil, err1
+						parentArtifactResult, err2 := opts.artifactProvider.LogOutputArtifact(parentProviderRunID, opts.experimentID, outputArtifact)
+						if err2 != nil {
+							return nil, err2
 						}
 						if parentArtifactResult != nil {
-							outputArtifact.Uri = parentArtifactResult.ArtifactURL
-							glog.Infof("Logged artifact result: (Name=%s, URI=%s, URL=%s)",
-								parentArtifactResult.Name, parentArtifactResult.ArtifactURI, parentArtifactResult.ArtifactURL)
+							glog.Infof("Logged artifact result: (RI=%s, URL=%s)",
+								parentArtifactResult.ArtifactURI, parentArtifactResult.ArtifactURL)
 						}
 					}
 				}
