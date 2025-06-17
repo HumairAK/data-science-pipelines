@@ -56,3 +56,15 @@ const (
 	// To disable/enable cache for a single run, this label needs to be added in every step under a run.
 	LabelKeyCacheEnabled = "pipelines.kubeflow.org/cache_enabled"
 )
+
+// Artifact Schema Types
+const (
+	SchemaTitleArtifacts              = "system.Artifact"
+	SchemaTitleModel                  = "system.Model"
+	SchemaTitleMetrics                = "system.Metrics"
+	SchemaTitleDataset                = "system.Dataset"
+	SchemaTitleClassificationMetrics  = "system.ClassificationMetrics"
+	SchemaSlicedClassificationMetrics = "system.SlicedClassificationMetrics"
+	SchemaHTML                        = "system.HTML"
+	SchemaMarkdown                    = "system.Markdown"
+)

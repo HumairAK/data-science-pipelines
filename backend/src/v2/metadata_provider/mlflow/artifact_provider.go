@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
+	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -13,17 +14,6 @@ import (
 var _ metadata_provider.MetadataArtifactProvider = &ArtifactProvider{}
 
 type SchemaTitle string
-
-const (
-	SchemaTitleArtifacts              = "system.Artifact"
-	SchemaTitleModel                  = "system.Model"
-	SchemaTitleMetrics                = "system.Metrics"
-	SchemaTitleDataset                = "system.Dataset"
-	SchemaTitleClassificationMetrics  = "system.ClassificationMetrics"
-	SchemaSlicedClassificationMetrics = "system.SlicedClassificationMetrics"
-	SchemaHTML                        = "system.HTML"
-	SchemaMarkdown                    = "system.Markdown"
-)
 
 type ArtifactProvider struct {
 	client *Client
@@ -39,7 +29,7 @@ func (a *ArtifactProvider) LogOutputArtifact(
 
 	schemaTitle := runtimeArtifact.Type.GetSchemaTitle()
 	switch schemaTitle {
-	case SchemaTitleMetrics:
+	case util.SchemaTitleMetrics:
 		var metrics []types.Metric
 		for key, value := range runtimeArtifact.Metadata.GetFields() {
 			switch value.Kind.(type) {

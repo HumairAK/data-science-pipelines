@@ -573,7 +573,7 @@ func uploadOutputArtifacts(
 		}
 
 		for _, outputArtifact := range artifactList.Artifacts {
-			glog.Infof("outputArtifact in uploadOutputArtifacts call: ", outputArtifact.Name)
+			glog.Infof("outputArtifact in uploadOutputArtifacts call: %s", outputArtifact.String())
 
 			// Merge executor output artifact info with executor input
 			if list, ok := executorOutput.Artifacts[name]; ok && len(list.Artifacts) > 0 {
@@ -704,6 +704,12 @@ func downloadArtifacts(ctx context.Context, executorInput *pipelinespec.Executor
 		for _, artifact := range artifactList.Artifacts {
 			// Iterating through the artifact list allows for collected artifacts to be properly consumed.
 			inputArtifact := artifact
+
+			if isMetricsArtifact(artifact) {
+				// Metrics are not stored in objectstore.
+				continue
+			}
+
 			localPath, err := LocalPathForURI(inputArtifact.Uri)
 			if err != nil {
 				glog.Warningf("Input Artifact %q does not have a recognized storage URI %q. Skipping downloading to local path.", name, inputArtifact.Uri)
@@ -771,6 +777,11 @@ func fetchNonDefaultBuckets(
 
 		// OCI artifacts are accessed via shared storage of a Modelcar
 		if strings.HasPrefix(artifact.Uri, "oci://") {
+			continue
+		}
+
+		if isMetricsArtifact(artifact) {
+			// Metrics are not stored in objectstore.
 			continue
 		}
 
@@ -1036,4 +1047,25 @@ func addDefaultParams(
 		}
 	}
 	return executorInputWithDefault, nil
+}
+
+// Check if the artifact is a metric type
+// Ideally, we would just check a schema type but this is not currently set in the
+// executor input.
+func isMetricsArtifact(artifact *pipelinespec.RuntimeArtifact) bool {
+	if artifact == nil || artifact.Metadata == nil {
+		return false
+	}
+
+	fields := artifact.Metadata.GetFields()
+	if fields == nil {
+		return false
+	}
+
+	displayName, exists := fields["display_name"]
+	if !exists {
+		return false
+	}
+
+	return displayName.GetStringValue() == "metrics"
 }
