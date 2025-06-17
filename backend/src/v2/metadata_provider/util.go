@@ -28,7 +28,7 @@ func Lookup(name string) (ProviderFactory, bool) {
 func PBParamsToRunParameters(inputParams map[string]*structpb.Value) []RunParameter {
 	var parameters []RunParameter
 	for k, v := range inputParams {
-		parameters = append(parameters, RunParameter{Name: k, Value: v.String()})
+		parameters = append(parameters, RunParameter{Name: k, Value: v.GetStringValue()})
 	}
 	return parameters
 }
