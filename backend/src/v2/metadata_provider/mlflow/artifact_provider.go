@@ -8,6 +8,8 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
 	"google.golang.org/protobuf/types/known/structpb"
+	"net/url"
+	"path"
 )
 
 // Ensure ArtifactProvider implements MetadataArtifactsProvider
@@ -29,7 +31,7 @@ func (a *ArtifactProvider) LogOutputArtifact(
 
 	schemaTitle := runtimeArtifact.Type.GetSchemaTitle()
 	switch schemaTitle {
-	case util.SchemaTitleMetrics:
+	case util.SchemaTitleMetric:
 		var metrics []types.Metric
 		for key, value := range runtimeArtifact.Metadata.GetFields() {
 			switch value.Kind.(type) {
@@ -54,6 +56,24 @@ func (a *ArtifactProvider) LogOutputArtifact(
 		artifactResult.ArtifactURI = url
 		artifactResult.ArtifactURL = url
 		return &artifactResult, nil
+	case util.SchemaTitleArtifact:
+		//
+		experiment, err := a.client.getExperiment(experimentID)
+		if err != nil {
+			return nil, err
+		}
+		// TODO: are we setting the default on api server when it's not set when experiment is creation? Confirm.
+		artifact_location := experiment.ArtifactLocation
+
+		parsed, err := url.Parse(runtimeArtifact.Uri)
+		if err != nil {
+			return nil, err
+		}
+		base := path.Base(parsed.Path)
+
+		artifactResult.ArtifactURI = fmt.Sprintf("%s/%s/artifacts/%s", artifact_location, runID, base)
+		artifactResult.ArtifactURL = a.artifactURL(runID, experimentID)
+		return &artifactResult, nil
 	}
 	glog.Warningf("Encountered unsupported artifact type: %v", schemaTitle)
 	return nil, nil
@@ -65,5 +85,10 @@ func (a *ArtifactProvider) NestedRunsSupported() bool {
 
 func (a *ArtifactProvider) metricURL(runId, experimentID string) string {
 	uri := fmt.Sprintf("%s/#/experiments/%s/runs/%s/model-metrics", a.client.baseHost, experimentID, runId)
+	return uri
+}
+
+func (a *ArtifactProvider) artifactURL(runId, experimentID string) string {
+	uri := fmt.Sprintf("%s/#/experiments/%s/runs/%s/artifacts", a.client.baseHost, experimentID, runId)
 	return uri
 }

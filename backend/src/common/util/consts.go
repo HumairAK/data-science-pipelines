@@ -59,12 +59,12 @@ const (
 
 // Artifact Schema Types
 const (
-	SchemaTitleArtifacts              = "system.Artifact"
-	SchemaTitleModel                  = "system.Model"
-	SchemaTitleMetrics                = "system.Metrics"
-	SchemaTitleDataset                = "system.Dataset"
-	SchemaTitleClassificationMetrics  = "system.ClassificationMetrics"
-	SchemaSlicedClassificationMetrics = "system.SlicedClassificationMetrics"
-	SchemaHTML                        = "system.HTML"
-	SchemaMarkdown                    = "system.Markdown"
+	SchemaTitleArtifact              = "system.Artifact"
+	SchemaTitleModel                 = "system.Model"
+	SchemaTitleMetric                = "system.Metrics"
+	SchemaTitleDataset               = "system.Dataset"
+	SchemaTitleClassificationMetric  = "system.ClassificationMetrics"
+	SchemaSlicedClassificationMetric = "system.SlicedClassificationMetrics"
+	SchemaHTML                       = "system.HTML"
+	SchemaMarkdown                   = "system.Markdown"
 )

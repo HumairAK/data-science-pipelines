@@ -622,7 +622,10 @@ func uploadOutputArtifacts(
 				// if it is not nil we continue to check for nested runs supportability
 				if artifactResult != nil {
 					glog.Infof("Logged artifact result.")
-					outputArtifact.Uri = artifactResult.ArtifactURL
+					outputArtifact.Uri = artifactResult.ArtifactURI
+					if artifactResult.ArtifactURL != "" {
+						outputArtifact.Metadata.Fields["url"] = structpb.NewStringValue(artifactResult.ArtifactURL)
+					}
 					// Todo: right now we are only logging on the parent dag run, but we should log to all ancestors.
 					if opts.artifactProvider.NestedRunsSupported() {
 						parentDagID := execution.GetParentDagID()
