@@ -100,6 +100,20 @@ func (b *Config) UriFromKey(blobKey string) string {
 	return b.Scheme + path.Join(b.BucketName, b.Prefix, blobKey)
 }
 
+func (b *Config) UpdateConfigFromArtifactURI(uri string) error {
+	c, err := ParseBucketPathToConfig(uri)
+	if err != nil {
+		return err
+	}
+	b.Scheme = c.Scheme
+	b.BucketName = c.BucketName
+	b.Prefix = removeBaseName(c.Prefix) // remove the artifact name
+	b.QueryString = c.QueryString
+	glog.V(4).Infof("Updated config to new uri: (Scheme=%s, Bucketname=%s, Prefix=%s, QueryString=%s)",
+		b.Scheme, b.BucketName, b.Prefix, b.QueryString)
+	return nil
+}
+
 var bucketPattern = regexp.MustCompile(`(^[a-z][a-z0-9]+:///?)([^/?]+)(/[^?]*)?(\?.+)?$`)
 
 func ParseBucketConfig(path string, sess *SessionInfo) (*Config, error) {
@@ -251,4 +265,18 @@ func StructuredGCSParams(p map[string]string) (*GCSParams, error) {
 		sparams.TokenKey = val
 	}
 	return sparams, nil
+}
+
+func removeBaseName(p string) string {
+	// Clean trailing slashes to avoid confusing path.Dir
+	p = strings.TrimRight(p, "/")
+
+	// This handles "/" properly
+	dir := path.Dir(p)
+
+	// Special case: path.Dir returns "." if there's no slash
+	if dir == "." {
+		return ""
+	}
+	return dir
 }

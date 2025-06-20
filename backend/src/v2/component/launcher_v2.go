@@ -406,6 +406,7 @@ func executeV2(
 		namespace,
 		k8sClient,
 		publishLogs,
+		artifactProvider,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -521,8 +522,9 @@ func execute(
 	namespace string,
 	k8sClient kubernetes.Interface,
 	publishLogs string,
+	artifact_provider metadata_provider.MetadataArtifactProvider,
 ) (*pipelinespec.ExecutorOutput, error) {
-	if err := downloadArtifacts(ctx, executorInput, bucket, bucketConfig, namespace, k8sClient); err != nil {
+	if err := downloadArtifacts(ctx, executorInput, bucket, bucketConfig, namespace, k8sClient, artifact_provider); err != nil {
 		return nil, err
 	}
 
@@ -580,6 +582,50 @@ func uploadOutputArtifacts(
 				mergeRuntimeArtifacts(list.Artifacts[0], outputArtifact)
 			}
 
+			if opts.artifactProvider != nil {
+				runID, exists := execution.GetProviderRunID()
+				if !exists {
+					return nil, fmt.Errorf("Execution does not have a provider run id")
+				}
+				artifactResult, err1 := opts.artifactProvider.LogOutputArtifact(runID, opts.experimentID, outputArtifact)
+				if err1 != nil {
+					return nil, err1
+				}
+				// if artifactResult is nil with no error, we assume it is not supported by the provider
+				// if it is not nil we continue to update to the new URi and check for nested runs supportability
+				if artifactResult != nil {
+					glog.Infof("Logged artifact result.")
+					outputArtifact.Uri = artifactResult.ArtifactURI
+					if artifactResult.ArtifactURL != "" {
+						outputArtifact.Metadata.Fields["url"] = structpb.NewStringValue(artifactResult.ArtifactURL)
+					}
+					err := opts.bucketConfig.UpdateConfigFromArtifactURI(outputArtifact.Uri)
+					if err != nil {
+						return nil, err
+					}
+					// Todo: Only log for loops runs
+					if opts.artifactProvider.NestedRunsSupported() {
+						parentDagID := execution.GetParentDagID()
+						parentDagExecution, err2 := opts.metadataClient.GetExecution(ctx, parentDagID)
+						if err2 != nil {
+							return nil, err2
+						}
+						parentProviderRunID, parentRunExists := parentDagExecution.GetProviderRunID()
+						if !parentRunExists {
+							return nil, fmt.Errorf("Parent dag execution does not have a provider run id")
+						}
+						parentArtifactResult, err2 := opts.artifactProvider.LogOutputArtifact(parentProviderRunID, opts.experimentID, outputArtifact)
+						if err2 != nil {
+							return nil, err2
+						}
+						if parentArtifactResult != nil {
+							glog.Infof("Logged artifact result: (RI=%s, URL=%s)",
+								parentArtifactResult.ArtifactURI, parentArtifactResult.ArtifactURL)
+						}
+					}
+				}
+			}
+
 			// Upload artifacts from local path to remote storages.
 			localDir, err := LocalPathForURI(outputArtifact.Uri)
 			if err != nil {
@@ -607,46 +653,6 @@ func uploadOutputArtifacts(
 			schema, err := getArtifactSchema(outputArtifact.GetType())
 			if err != nil {
 				return nil, fmt.Errorf("failed to determine schema for output %q: %w", name, err)
-			}
-
-			if opts.artifactProvider != nil {
-				runID, exists := execution.GetProviderRunID()
-				if !exists {
-					return nil, fmt.Errorf("Execution does not have a provider run id")
-				}
-				artifactResult, err1 := opts.artifactProvider.LogOutputArtifact(runID, opts.experimentID, outputArtifact)
-				if err1 != nil {
-					return nil, err1
-				}
-				// if artifactResult is nil with no error, we assume it is not supported by the provider
-				// if it is not nil we continue to check for nested runs supportability
-				if artifactResult != nil {
-					glog.Infof("Logged artifact result.")
-					outputArtifact.Uri = artifactResult.ArtifactURI
-					if artifactResult.ArtifactURL != "" {
-						outputArtifact.Metadata.Fields["url"] = structpb.NewStringValue(artifactResult.ArtifactURL)
-					}
-					// Todo: right now we are only logging on the parent dag run, but we should log to all ancestors.
-					if opts.artifactProvider.NestedRunsSupported() {
-						parentDagID := execution.GetParentDagID()
-						parentDagExecution, err2 := opts.metadataClient.GetExecution(ctx, parentDagID)
-						if err2 != nil {
-							return nil, err2
-						}
-						parentProviderRunID, parentRunExists := parentDagExecution.GetProviderRunID()
-						if !parentRunExists {
-							return nil, fmt.Errorf("Parent dag execution does not have a provider run id")
-						}
-						parentArtifactResult, err2 := opts.artifactProvider.LogOutputArtifact(parentProviderRunID, opts.experimentID, outputArtifact)
-						if err2 != nil {
-							return nil, err2
-						}
-						if parentArtifactResult != nil {
-							glog.Infof("Logged artifact result: (RI=%s, URL=%s)",
-								parentArtifactResult.ArtifactURI, parentArtifactResult.ArtifactURL)
-						}
-					}
-				}
 			}
 
 			mlmdArtifact, err := opts.metadataClient.RecordArtifact(ctx, name, schema, outputArtifact, pb.Artifact_LIVE, opts.bucketConfig)
@@ -684,7 +690,15 @@ func waitForModelcar(artifactURI string, localPath string) error {
 	}
 }
 
-func downloadArtifacts(ctx context.Context, executorInput *pipelinespec.ExecutorInput, defaultBucket *blob.Bucket, defaultBucketConfig *objectstore.Config, namespace string, k8sClient kubernetes.Interface) error {
+func downloadArtifacts(
+	ctx context.Context,
+	executorInput *pipelinespec.ExecutorInput,
+	defaultBucket *blob.Bucket,
+	defaultBucketConfig *objectstore.Config,
+	namespace string,
+	k8sClient kubernetes.Interface,
+	provider metadata_provider.MetadataArtifactProvider,
+) error {
 	// Read input artifact metadata.
 	nonDefaultBuckets, err := fetchNonDefaultBuckets(ctx, executorInput.GetInputs().GetArtifacts(), defaultBucketConfig, namespace, k8sClient)
 	closeNonDefaultBuckets := func(buckets map[string]*blob.Bucket) {
@@ -750,10 +764,22 @@ func downloadArtifacts(ctx context.Context, executorInput *pipelinespec.Executor
 				bucket = nonDefaultBucket
 				bucketConfig = nonDefaultBucketConfig
 			}
+
+			// todo: might be better to adjust the bucket config prefix when it's first instantiated
+			// and same with during upload step in driver
+			// executor-logs seems to be a special case where we don't download this in launcher right?
+			if provider != nil {
+				err := bucketConfig.UpdateConfigFromArtifactURI(inputArtifact.Uri)
+				if err != nil {
+					return err
+				}
+			}
+
 			blobKey, err := bucketConfig.KeyFromURI(inputArtifact.Uri)
 			if err != nil {
 				return copyErr(err)
 			}
+
 			if err := objectstore.DownloadBlob(ctx, bucket, localPath, blobKey); err != nil {
 				return copyErr(err)
 			}
