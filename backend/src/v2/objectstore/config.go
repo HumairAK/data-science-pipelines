@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -37,6 +38,11 @@ type Config struct {
 	Prefix      string
 	QueryString string
 	SessionInfo *SessionInfo
+}
+
+// Equal returns true if two Config objects are equal
+func Equal(a, b *Config) bool {
+	return reflect.DeepEqual(a, b)
 }
 
 type SessionInfo struct {
@@ -100,18 +106,19 @@ func (b *Config) UriFromKey(blobKey string) string {
 	return b.Scheme + path.Join(b.BucketName, b.Prefix, blobKey)
 }
 
-func (b *Config) UpdateConfigFromArtifactURI(uri string) error {
+func NewBucketConfigFrom(uri string, oldCfg *Config) (*Config, error) {
 	c, err := ParseBucketPathToConfig(uri)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	b.Scheme = c.Scheme
-	b.BucketName = c.BucketName
-	b.Prefix = removeBaseName(c.Prefix) // remove the artifact name
-	b.QueryString = c.QueryString
-	glog.V(4).Infof("Updated config to new uri: (Scheme=%s, Bucketname=%s, Prefix=%s, QueryString=%s)",
-		b.Scheme, b.BucketName, b.Prefix, b.QueryString)
-	return nil
+	c.Scheme = oldCfg.Scheme
+	c.BucketName = oldCfg.BucketName
+	c.Prefix = oldCfg.Prefix
+	c.QueryString = oldCfg.QueryString
+	c.SessionInfo = oldCfg.SessionInfo
+	glog.V(4).Infof("New BucketConfig from URI: (Scheme=%s, Bucketname=%s, Prefix=%s, QueryString=%s)",
+		c.Scheme, c.BucketName, c.Prefix, c.QueryString)
+	return c, err
 }
 
 var bucketPattern = regexp.MustCompile(`(^[a-z][a-z0-9]+:///?)([^/?]+)(/[^?]*)?(\?.+)?$`)

@@ -63,7 +63,7 @@ func (a *ArtifactProvider) LogOutputArtifact(
 			return nil, err
 		}
 		// TODO: are we setting the default on api server when it's not set when experiment is creation? Confirm.
-		artifact_location := experiment.ArtifactLocation
+		artifactLocation := experiment.ArtifactLocation
 
 		parsed, err := url.Parse(runtimeArtifact.Uri)
 		if err != nil {
@@ -71,7 +71,7 @@ func (a *ArtifactProvider) LogOutputArtifact(
 		}
 		base := path.Base(parsed.Path)
 
-		artifactResult.ArtifactURI = fmt.Sprintf("%s/%s/artifacts/%s", artifact_location, runID, base)
+		artifactResult.ArtifactURI = fmt.Sprintf("%s/%s/artifacts/%s", artifactLocation, runID, base)
 		artifactResult.ArtifactURL = a.artifactURL(runID, experimentID)
 		return &artifactResult, nil
 	}

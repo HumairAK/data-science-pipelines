@@ -23,7 +23,6 @@ import (
 	v2util "github.com/kubeflow/pipelines/backend/src/v2/util"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -425,6 +424,8 @@ func executeV2(
 		metadataClient:   metadataClient,
 		artifactProvider: artifactProvider,
 		experimentID:     experimentID,
+		k8sClient:        k8sClient,
+		namespace:        namespace,
 	})
 	if err != nil {
 		return nil, nil, err
@@ -532,27 +533,27 @@ func execute(
 		return nil, err
 	}
 
-	var writer io.Writer
-	if publishLogs == "true" {
-		writer = getLogWriter(executorInput.Outputs.GetArtifacts())
-	} else {
-		writer = os.Stdout
-	}
+	//var writer io.Writer
+	//if publishLogs == "true" {
+	//	writer = getLogWriter(executorInput.Outputs.GetArtifacts())
+	//} else {
+	//	writer = os.Stdout
+	//}
+	//
+	//// Prepare command that will execute end user code.
+	//command := exec.Command(cmd, args...)
+	//command.Stdin = os.Stdin
+	//// Pipe stdout/stderr to the aforementioned multiWriter.
+	//command.Stdout = writer
+	//command.Stderr = writer
+	//defer glog.Flush()
+	//
+	//// Execute end user code.
+	//if err := command.Run(); err != nil {
+	//	return nil, err
+	//}
 
-	// Prepare command that will execute end user code.
-	command := exec.Command(cmd, args...)
-	command.Stdin = os.Stdin
-	// Pipe stdout/stderr to the aforementioned multiWriter.
-	command.Stdout = writer
-	command.Stderr = writer
-	defer glog.Flush()
-
-	// Execute end user code.
-	if err := command.Run(); err != nil {
-		return nil, err
-	}
-
-	return getExecutorOutputFile(executorInput.GetOutputs().GetOutputFile())
+	return getExecutorOutputFile("/home/hukhan/projects/playground/playground_pycharm/mlmd-tracking/simple-pipeline/data-outputs/artifact-passing-2025-06-21-10-26-47-239469/write-my-data/executor_output.json")
 }
 
 type uploadOutputArtifactsOptions struct {
@@ -561,6 +562,8 @@ type uploadOutputArtifactsOptions struct {
 	metadataClient   metadata.ClientInterface
 	artifactProvider metadata_provider.MetadataArtifactProvider
 	experimentID     string
+	k8sClient        kubernetes.Interface
+	namespace        string
 }
 
 func uploadOutputArtifacts(
@@ -577,16 +580,28 @@ func uploadOutputArtifacts(
 		for _, outputArtifact := range artifactList.Artifacts {
 			glog.Infof("outputArtifact in uploadOutputArtifacts call: %s", outputArtifact.String())
 
+			bucketConfig := opts.bucketConfig
+			bucket := opts.bucket
 			// Merge executor output artifact info with executor input
 			if list, ok := executorOutput.Artifacts[name]; ok && len(list.Artifacts) > 0 {
 				mergeRuntimeArtifacts(list.Artifacts[0], outputArtifact)
 			}
+
+			// Retrieve artifact location in local file system
+			localDir, err := LocalPathForURI(outputArtifact.Uri)
+			if err != nil {
+				glog.Warningf("Output Artifact %q does not have a recognized storage URI %q. Skipping uploading to remote storage.", name, outputArtifact.Uri)
+			}
+
+			// Only upload non oci artifacts
+			shouldUpploadToObjectStore := !strings.HasPrefix(outputArtifact.Uri, "oci://")
 
 			if opts.artifactProvider != nil {
 				runID, exists := execution.GetProviderRunID()
 				if !exists {
 					return nil, fmt.Errorf("Execution does not have a provider run id")
 				}
+
 				artifactResult, err1 := opts.artifactProvider.LogOutputArtifact(runID, opts.experimentID, outputArtifact)
 				if err1 != nil {
 					return nil, err1
@@ -595,13 +610,31 @@ func uploadOutputArtifacts(
 				// if it is not nil we continue to update to the new URi and check for nested runs supportability
 				if artifactResult != nil {
 					glog.Infof("Logged artifact result.")
-					outputArtifact.Uri = artifactResult.ArtifactURI
+					if outputArtifact.Uri != artifactResult.ArtifactURI {
+						outputArtifact.Uri = artifactResult.ArtifactURI
+						// update config and bucket to reflect new URI
+						artifactObjectStoreConfig, err1 := objectstore.NewBucketConfigFrom(outputArtifact.Uri, bucketConfig)
+						if err1 != nil {
+							return nil, err1
+						}
+						// Only update the bucket if the config has changed since creating a new
+						// bucket requires fetching a secret for credentials, it's a costly operation.
+						if objectstore.Equal(bucketConfig, artifactObjectStoreConfig) {
+							bucket, err1 = objectstore.OpenBucket(ctx, opts.k8sClient, opts.namespace, bucketConfig)
+							if err1 != nil {
+								return nil, err1
+							}
+						}
+					}
+
+					if outputArtifact.Metadata == nil {
+						outputArtifact.Metadata = &structpb.Struct{}
+					}
+					if outputArtifact.Metadata.Fields == nil {
+						outputArtifact.Metadata.Fields = make(map[string]*structpb.Value)
+					}
 					if artifactResult.ArtifactURL != "" {
 						outputArtifact.Metadata.Fields["url"] = structpb.NewStringValue(artifactResult.ArtifactURL)
-					}
-					err := opts.bucketConfig.UpdateConfigFromArtifactURI(outputArtifact.Uri)
-					if err != nil {
-						return nil, err
 					}
 					// Todo: Only log for loops runs
 					if opts.artifactProvider.NestedRunsSupported() {
@@ -626,16 +659,12 @@ func uploadOutputArtifacts(
 				}
 			}
 
-			// Upload artifacts from local path to remote storages.
-			localDir, err := LocalPathForURI(outputArtifact.Uri)
-			if err != nil {
-				glog.Warningf("Output Artifact %q does not have a recognized storage URI %q. Skipping uploading to remote storage.", name, outputArtifact.Uri)
-			} else if !strings.HasPrefix(outputArtifact.Uri, "oci://") {
-				blobKey, err := opts.bucketConfig.KeyFromURI(outputArtifact.Uri)
+			if shouldUpploadToObjectStore {
+				blobKey, err := bucketConfig.KeyFromURI(outputArtifact.Uri)
 				if err != nil {
 					return nil, fmt.Errorf("failed to upload output artifact %q: %w", name, err)
 				}
-				if err := objectstore.UploadBlob(ctx, opts.bucket, localDir, blobKey); err != nil {
+				if err := objectstore.UploadBlob(ctx, bucket, localDir, blobKey); err != nil {
 					//  We allow components to not produce output files
 					if errors.Is(err, os.ErrNotExist) {
 						glog.Warningf("Local filepath %q does not exist", localDir)
@@ -769,9 +798,17 @@ func downloadArtifacts(
 			// and same with during upload step in driver
 			// executor-logs seems to be a special case where we don't download this in launcher right?
 			if provider != nil {
-				err := bucketConfig.UpdateConfigFromArtifactURI(inputArtifact.Uri)
-				if err != nil {
-					return err
+				artifactObjectStoreConfig, err1 := objectstore.NewBucketConfigFrom(inputArtifact.Uri, bucketConfig)
+				if err1 != nil {
+					return err1
+				}
+				// Only update the bucket if the config has changed since creating a new
+				// bucket requires fetching a secret for credentials, it's a costly operation.
+				if objectstore.Equal(bucketConfig, artifactObjectStoreConfig) {
+					bucket, err1 = objectstore.OpenBucket(ctx, k8sClient, namespace, bucketConfig)
+					if err1 != nil {
+						return err1
+					}
 				}
 			}
 
@@ -1017,7 +1054,7 @@ func LocalPathForURI(uri string) (string, error) {
 		return "/minio/" + strings.TrimPrefix(uri, "minio://"), nil
 	}
 	if strings.HasPrefix(uri, "s3://") {
-		return "/s3/" + strings.TrimPrefix(uri, "s3://"), nil
+		return "/tmp/s3/" + strings.TrimPrefix(uri, "s3://"), nil
 	}
 	if strings.HasPrefix(uri, "oci://") {
 		return "/oci/" + strings.ReplaceAll(strings.TrimPrefix(uri, "oci://"), "/", "_") + "/models", nil
