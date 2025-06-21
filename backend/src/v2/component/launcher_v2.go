@@ -617,7 +617,13 @@ func uploadOutputArtifacts(
 				// if it is not nil we continue to update to the new URi and check for nested runs supportability
 				if artifactResult != nil {
 					glog.Infof("Logged artifact result.")
-					if outputArtifact.Uri != artifactResult.ArtifactURI {
+					// In special cases like with MLflow Metrics (which KFP doesn't store in object store anyway)
+					// We avoid updating the artifact URI, later logic will ignore uploading it to object store.
+					needToUploadProviderArtifact := artifactResult.ArtifactURI != ""
+					// If the provider has changed the format of the URI then we need to update the opened bucket
+					providerChangedUri := outputArtifact.Uri != artifactResult.ArtifactURI
+
+					if needToUploadProviderArtifact && providerChangedUri {
 						outputArtifact.Uri = artifactResult.ArtifactURI
 						// update config and bucket to reflect new URI
 						newConfig, err := objectstore.ParseBucketConfigForArtifactURIWithPrefix(outputArtifact.Uri)
