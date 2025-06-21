@@ -808,15 +808,13 @@ func downloadArtifacts(
 				bucketConfig = nonDefaultBucketConfig
 			}
 
-			// todo: might be better to adjust the bucket config prefix when it's first instantiated
-			// and same with during upload step in driver
-			// executor-logs seems to be a special case where we don't download this in launcher right?
+			// Provider configs take precedence
 			if provider != nil {
 				newConfig, err := objectstore.ParseBucketConfigForArtifactURIWithPrefix(inputArtifact.Uri)
 				if err != nil {
 					return err
 				}
-				newConfig.SessionInfo = bucketConfig.SessionInfo // Keep the same session info
+				newConfig.SessionInfo = defaultBucketConfig.SessionInfo // Keep the same session info
 				bucketConfig = newConfig
 				if _, ok := buckets[bucketConfig.PrefixedBucket()]; ok {
 					bucket = buckets[bucketConfig.PrefixedBucket()]
