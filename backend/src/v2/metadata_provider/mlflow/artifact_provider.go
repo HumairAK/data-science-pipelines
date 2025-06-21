@@ -53,7 +53,6 @@ func (a *ArtifactProvider) LogOutputArtifact(
 		// Since there are multiple metrics, there is no way to tie multie URIs
 		// to a single KFP artifact, so we just return the Metrics path for MLFlow UI
 		url := a.metricURL(runID, experimentID)
-		artifactResult.ArtifactURI = url
 		artifactResult.ArtifactURL = url
 		return &artifactResult, nil
 	case util.SchemaTitleArtifact:

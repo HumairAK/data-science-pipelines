@@ -47,7 +47,7 @@ type RunProvider interface {
 	GetRun(experimentID string, ProviderRunID string) (*ProviderRun, error)
 	CreateRun(
 		experimentID string,
-		// TODO: replace kfprun and taskname with apiv2beta1.TaskDetail
+	// TODO: replace kfprun and taskname with apiv2beta1.TaskDetail
 		kfpRun *apiv2beta1.Run,
 		ProviderRunName string,
 		parameters []RunParameter,
@@ -67,8 +67,8 @@ type RunProvider interface {
 
 type MetadataArtifactProvider interface {
 	// LogOutputArtifact will be called when a KFP artifact is logged.
-	// If the artifact is not supported, return nil runtimeArtifact and no error.
-	// If the artifact is supported, return the artifact result and no error.
+	// If the artifact is not supported, return nil runtimeArtifact and nil error.
+	// If the artifact is supported, return the artifact result and nil error.
 	LogOutputArtifact(
 		runID string,
 		experimentID string,
