@@ -23,6 +23,7 @@ import (
 	v2util "github.com/kubeflow/pipelines/backend/src/v2/util"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -533,27 +534,27 @@ func execute(
 		return nil, err
 	}
 
-	//var writer io.Writer
-	//if publishLogs == "true" {
-	//	writer = getLogWriter(executorInput.Outputs.GetArtifacts())
-	//} else {
-	//	writer = os.Stdout
-	//}
-	//
-	//// Prepare command that will execute end user code.
-	//command := exec.Command(cmd, args...)
-	//command.Stdin = os.Stdin
-	//// Pipe stdout/stderr to the aforementioned multiWriter.
-	//command.Stdout = writer
-	//command.Stderr = writer
-	//defer glog.Flush()
-	//
-	//// Execute end user code.
-	//if err := command.Run(); err != nil {
-	//	return nil, err
-	//}
+	var writer io.Writer
+	if publishLogs == "true" {
+		writer = getLogWriter(executorInput.Outputs.GetArtifacts())
+	} else {
+		writer = os.Stdout
+	}
 
-	return getExecutorOutputFile("/home/hukhan/projects/playground/playground_pycharm/mlmd-tracking/simple-pipeline/data-outputs/artifact-passing-2025-06-21-10-26-47-239469/write-my-data/executor_output.json")
+	// Prepare command that will execute end user code.
+	command := exec.Command(cmd, args...)
+	command.Stdin = os.Stdin
+	// Pipe stdout/stderr to the aforementioned multiWriter.
+	command.Stdout = writer
+	command.Stderr = writer
+	defer glog.Flush()
+
+	// Execute end user code.
+	if err := command.Run(); err != nil {
+		return nil, err
+	}
+
+	return getExecutorOutputFile(executorInput.GetOutputs().GetOutputFile())
 }
 
 type uploadOutputArtifactsOptions struct {
@@ -576,12 +577,18 @@ func uploadOutputArtifacts(
 		if len(artifactList.Artifacts) == 0 {
 			continue
 		}
+		// Maintain a cache of open buckets so we can re-use them
+		buckets := make(map[string]*blob.Bucket)
+		buckets[opts.bucketConfig.PrefixedBucket()] = opts.bucket
 
 		for _, outputArtifact := range artifactList.Artifacts {
 			glog.Infof("outputArtifact in uploadOutputArtifacts call: %s", outputArtifact.String())
 
+			// Assume we're going to use the default bucket and bucketconfig by default
+			// These may be updated later if a different artifact provider is being leveraged.
 			bucketConfig := opts.bucketConfig
 			bucket := opts.bucket
+
 			// Merge executor output artifact info with executor input
 			if list, ok := executorOutput.Artifacts[name]; ok && len(list.Artifacts) > 0 {
 				mergeRuntimeArtifacts(list.Artifacts[0], outputArtifact)
@@ -613,20 +620,23 @@ func uploadOutputArtifacts(
 					if outputArtifact.Uri != artifactResult.ArtifactURI {
 						outputArtifact.Uri = artifactResult.ArtifactURI
 						// update config and bucket to reflect new URI
-						artifactObjectStoreConfig, err1 := objectstore.NewBucketConfigFrom(outputArtifact.Uri, bucketConfig)
-						if err1 != nil {
-							return nil, err1
+						newConfig, err := objectstore.ParseBucketConfigForArtifactURIWithPrefix(outputArtifact.Uri)
+						if err != nil {
+							return nil, err
 						}
-						// Only update the bucket if the config has changed since creating a new
-						// bucket requires fetching a secret for credentials, it's a costly operation.
-						if objectstore.Equal(bucketConfig, artifactObjectStoreConfig) {
-							bucket, err1 = objectstore.OpenBucket(ctx, opts.k8sClient, opts.namespace, bucketConfig)
-							if err1 != nil {
-								return nil, err1
+						newConfig.SessionInfo = bucketConfig.SessionInfo // Keep the same session info
+						bucketConfig = newConfig
+						if _, ok := buckets[bucketConfig.PrefixedBucket()]; ok {
+							bucket = buckets[bucketConfig.PrefixedBucket()]
+						} else {
+							var err error
+							bucket, err = objectstore.OpenBucket(ctx, opts.k8sClient, opts.namespace, bucketConfig)
+							if err != nil {
+								return nil, err
 							}
+							buckets[bucketConfig.PrefixedBucket()] = bucket
 						}
 					}
-
 					if outputArtifact.Metadata == nil {
 						outputArtifact.Metadata = &structpb.Struct{}
 					}
@@ -742,6 +752,10 @@ func downloadArtifacts(
 		return fmt.Errorf("failed to fetch non default buckets: %w", err)
 	}
 
+	// Maintain a cache of open buckets so we can re-use them
+	buckets := make(map[string]*blob.Bucket)
+	buckets[defaultBucketConfig.PrefixedBucket()] = defaultBucket
+
 	for name, artifactList := range executorInput.GetInputs().GetArtifacts() {
 		// TODO(neuromage): Support concat-based placholders for arguments.
 		if len(artifactList.Artifacts) == 0 {
@@ -798,17 +812,21 @@ func downloadArtifacts(
 			// and same with during upload step in driver
 			// executor-logs seems to be a special case where we don't download this in launcher right?
 			if provider != nil {
-				artifactObjectStoreConfig, err1 := objectstore.NewBucketConfigFrom(inputArtifact.Uri, bucketConfig)
-				if err1 != nil {
-					return err1
+				newConfig, err := objectstore.ParseBucketConfigForArtifactURIWithPrefix(inputArtifact.Uri)
+				if err != nil {
+					return err
 				}
-				// Only update the bucket if the config has changed since creating a new
-				// bucket requires fetching a secret for credentials, it's a costly operation.
-				if objectstore.Equal(bucketConfig, artifactObjectStoreConfig) {
-					bucket, err1 = objectstore.OpenBucket(ctx, k8sClient, namespace, bucketConfig)
-					if err1 != nil {
-						return err1
+				newConfig.SessionInfo = bucketConfig.SessionInfo // Keep the same session info
+				bucketConfig = newConfig
+				if _, ok := buckets[bucketConfig.PrefixedBucket()]; ok {
+					bucket = buckets[bucketConfig.PrefixedBucket()]
+				} else {
+					var err error
+					bucket, err = objectstore.OpenBucket(ctx, k8sClient, namespace, bucketConfig)
+					if err != nil {
+						return err
 					}
+					buckets[bucketConfig.PrefixedBucket()] = bucket
 				}
 			}
 
@@ -1054,7 +1072,7 @@ func LocalPathForURI(uri string) (string, error) {
 		return "/minio/" + strings.TrimPrefix(uri, "minio://"), nil
 	}
 	if strings.HasPrefix(uri, "s3://") {
-		return "/tmp/s3/" + strings.TrimPrefix(uri, "s3://"), nil
+		return "/s3/" + strings.TrimPrefix(uri, "s3://"), nil
 	}
 	if strings.HasPrefix(uri, "oci://") {
 		return "/oci/" + strings.ReplaceAll(strings.TrimPrefix(uri, "oci://"), "/", "_") + "/models", nil

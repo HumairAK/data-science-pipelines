@@ -111,10 +111,6 @@ func NewBucketConfigFrom(uri string, oldCfg *Config) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.Scheme = oldCfg.Scheme
-	c.BucketName = oldCfg.BucketName
-	c.Prefix = oldCfg.Prefix
-	c.QueryString = oldCfg.QueryString
 	c.SessionInfo = oldCfg.SessionInfo
 	glog.V(4).Infof("New BucketConfig from URI: (Scheme=%s, Bucketname=%s, Prefix=%s, QueryString=%s)",
 		c.Scheme, c.BucketName, c.Prefix, c.QueryString)
@@ -172,6 +168,20 @@ func ParseBucketConfigForArtifactURI(uri string) (*Config, error) {
 		Scheme:     ms[1],
 		BucketName: ms[2],
 	}, nil
+}
+
+func ParseBucketConfigForArtifactURIWithPrefix(uri string) (*Config, error) {
+	c, err := ParseBucketPathToConfig(uri)
+	if err != nil {
+		return nil, err
+	}
+	c.Prefix = removeBaseName(c.Prefix) // remove the artifact name
+	if c.Prefix != "" && !strings.HasSuffix(c.Prefix, "/") {
+		c.Prefix += "/"
+	}
+	glog.V(4).Infof("Updated config to new uri: (Scheme=%s, Bucketname=%s, Prefix=%s, QueryString=%s)",
+		c.Scheme, c.BucketName, c.Prefix, c.QueryString)
+	return c, err
 }
 
 // ParseProviderFromPath prases the uri and returns the scheme, which is
