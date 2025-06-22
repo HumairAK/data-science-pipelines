@@ -617,7 +617,7 @@ func uploadOutputArtifacts(
 				// if it is not nil we continue to update to the new URi and check for nested runs supportability
 				if artifactResult != nil {
 					glog.Infof("Logged artifact result.")
-					// In special cases like with MLflow Metrics (which KFP doesn't store in object store anyway)
+					// In special cases like with MLFlow Metrics (which KFP doesn't store in object store anyway)
 					// We avoid updating the artifact URI, later logic will ignore uploading it to object store.
 					needToUploadProviderArtifact := artifactResult.ArtifactURI != ""
 					// If the provider has changed the format of the URI then we need to update the opened bucket
@@ -625,7 +625,7 @@ func uploadOutputArtifacts(
 
 					if needToUploadProviderArtifact && providerChangedUri {
 						outputArtifact.Uri = artifactResult.ArtifactURI
-						// update config and bucket to reflect new URI
+						// update config and bucket to reflect the new URI
 						newConfig, err := objectstore.ParseBucketConfigForArtifactURIWithPrefix(outputArtifact.Uri)
 						if err != nil {
 							return nil, err
@@ -649,28 +649,9 @@ func uploadOutputArtifacts(
 					if outputArtifact.Metadata.Fields == nil {
 						outputArtifact.Metadata.Fields = make(map[string]*structpb.Value)
 					}
+					// For Frontend to use, if this is present, frontend can just display this as a redirect.
 					if artifactResult.ArtifactURL != "" {
 						outputArtifact.Metadata.Fields["url"] = structpb.NewStringValue(artifactResult.ArtifactURL)
-					}
-					// Todo: Only log for loops runs
-					if opts.artifactProvider.NestedRunsSupported() {
-						parentDagID := execution.GetParentDagID()
-						parentDagExecution, err2 := opts.metadataClient.GetExecution(ctx, parentDagID)
-						if err2 != nil {
-							return nil, err2
-						}
-						parentProviderRunID, parentRunExists := parentDagExecution.GetProviderRunID()
-						if !parentRunExists {
-							return nil, fmt.Errorf("Parent dag execution does not have a provider run id")
-						}
-						parentArtifactResult, err2 := opts.artifactProvider.LogOutputArtifact(parentProviderRunID, opts.experimentID, outputArtifact)
-						if err2 != nil {
-							return nil, err2
-						}
-						if parentArtifactResult != nil {
-							glog.Infof("Logged artifact result: (RI=%s, URL=%s)",
-								parentArtifactResult.ArtifactURI, parentArtifactResult.ArtifactURL)
-						}
 					}
 				}
 			}
