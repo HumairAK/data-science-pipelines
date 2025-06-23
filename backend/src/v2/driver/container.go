@@ -222,7 +222,9 @@ func Container(ctx context.Context, opts Options, cm *client_manager.ClientManag
 		opts.PublishLogs,
 		strconv.FormatBool(opts.CacheDisabled),
 		opts.ExperimentId,
-		opts.MetdataProviderConfig,
+		opts.MetadataProviderConfig,
+		opts.MetadatRunProvider,
+		ecfg.ProviderRunID,
 	)
 	if err != nil {
 		return execution, err

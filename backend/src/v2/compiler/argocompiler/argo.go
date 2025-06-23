@@ -148,9 +148,9 @@ func Compile(jobArg *pipelinespec.PipelineJob, kubernetesSpecArg *pipelinespec.S
 		job:             job,
 		spec:            spec,
 		executors:       deploy.GetExecutors(),
-		experimentID:    opts.ExperimentID,
 	}
 	if opts != nil {
+		c.experimentID = opts.ExperimentID
 		c.cacheDisabled = opts.CacheDisabled
 		if opts.DriverImage != "" {
 			c.driverImage = opts.DriverImage
@@ -162,7 +162,6 @@ func Compile(jobArg *pipelinespec.PipelineJob, kubernetesSpecArg *pipelinespec.S
 			job.RuntimeConfig.GcsOutputDirectory = opts.PipelineRoot
 		}
 		if opts.MetadataProvider != nil {
-			c.metadataProviderEnv = opts.MetadataProvider.GetEnvVars()
 			configJson, err1 := opts.MetadataProvider.ProviderConfigToJSON()
 			if err1 != nil {
 				return nil, err1
@@ -195,7 +194,6 @@ type workflowCompiler struct {
 	launcherImage          string
 	launcherCommand        []string
 	cacheDisabled          bool
-	metadataProviderEnv    []k8score.EnvVar
 	metadataProviderConfig string
 	experimentID           string
 }

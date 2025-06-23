@@ -7,7 +7,6 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 	_ "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/import_providers"
-	k8score "k8s.io/api/core/v1"
 )
 
 type Provider struct {
@@ -68,6 +67,9 @@ func (p *Provider) NewValidator() (metadata_provider.Validator, error) {
 	return factory.NewValidator(p.config.AdditionalConfig)
 }
 
+// ValidateConfig validates top level MetadataProviderConfig fields.
+// ValidateConfig will also callback to the metadata provider's validator
+// to validate the provider specific fields.
 func (p *Provider) ValidateConfig() error {
 	if p == nil {
 		return fmt.Errorf("metadata provider config is empty")
@@ -84,7 +86,7 @@ func (p *Provider) ValidateConfig() error {
 		if err != nil {
 			return err
 		}
-		err = validator.ValidateConfig(p.config.AdditionalConfig, p.config.EnvironmentVariables)
+		err = validator.ValidateConfig(p.config.AdditionalConfig)
 		if err != nil {
 			return err
 		}
@@ -98,8 +100,4 @@ func (p *Provider) ProviderConfigToJSON() (string, error) {
 		return "", fmt.Errorf("failed to marshal metadata provider config, error: %w\nmetadataProviderConfig: %v", err, p)
 	}
 	return string(jsonBytes), nil
-}
-
-func (p *Provider) GetEnvVars() []k8score.EnvVar {
-	return p.config.EnvironmentVariables
 }

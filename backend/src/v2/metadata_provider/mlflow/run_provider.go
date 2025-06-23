@@ -6,6 +6,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
+	corev1 "k8s.io/api/core/v1"
 	"time"
 )
 
@@ -112,6 +113,31 @@ func (r *RunProvider) UpdateRunStatus(providerRunID string, kfpRunStatus model.R
 	}
 
 	return nil
+}
+
+func (r *RunProvider) ExecutorPatch(experimentID string, providerRunID string) (*corev1.PodSpec, error) {
+	mlflowEnvVars := []corev1.EnvVar{
+		{
+			Name:  "MLFLOW_RUN_ID",
+			Value: providerRunID,
+		},
+		{
+			Name:  "MLFLOW_TRACKING_URI",
+			Value: r.client.baseHost,
+		},
+		{
+			Name:  "MLFLOW_EXPERIMENT_ID",
+			Value: experimentID,
+		},
+	}
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{{
+			Name: "main",
+			Env:  mlflowEnvVars,
+		}},
+	}
+
+	return podSpec, nil
 }
 
 func (r *RunProvider) NestedRunsSupported() bool {

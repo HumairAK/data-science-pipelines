@@ -18,31 +18,32 @@ type Validator struct {
 	client *Client
 }
 
-func (v *Validator) ValidateConfig(config config.GenericProviderConfig, envvars []corev1.EnvVar) error {
+func (v *Validator) ValidateConfig(config config.GenericProviderConfig) error {
 	var cfg Config
 	bytes, err := json.Marshal(config)
 	if err != nil {
 		return fmt.Errorf("failed to marshal unstructured JSON: %w", err)
 	}
+
 	err = json.Unmarshal(bytes, &cfg)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal into MLFlowConfig: %w", err)
 	}
+
 	if cfg.Host == "" {
 		return fmt.Errorf("MLFlow host is empty")
-	}
-	if err := envVarExists("MLFLOW_TRACKING_URI", envvars); err != nil {
-		return fmt.Errorf("MLFLOW_TRACKING_URI environment variable not found")
 	}
 
 	client, err := NewClient(config)
 	if err != nil {
 		return fmt.Errorf("failed to create MLFlow client: %w", err)
 	}
+
 	err = client.IsHealthy()
 	if err != nil {
 		return fmt.Errorf("failed to connect to MLFlow server using the provided configs: %w", err)
 	}
+
 	v.client = client
 	glog.Info("Successfully connected to MLFlow server using the provided configs")
 	return nil

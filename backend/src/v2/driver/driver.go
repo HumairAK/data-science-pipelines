@@ -16,6 +16,7 @@ package driver
 
 import (
 	"fmt"
+	"github.com/kubeflow/pipelines/backend/src/common/util/mergeutil"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"slices"
 	"strings"
@@ -65,10 +66,11 @@ type Options struct {
 
 	PublishLogs string
 
-	CacheDisabled         bool
-	MetadatRunProvider    metadata_provider.RunProvider
-	MetdataProviderConfig string
-	ExperimentId          string
+	CacheDisabled          bool
+	MetadatRunProvider     metadata_provider.RunProvider
+	MetadataProviderConfig string
+
+	ExperimentId string
 	// TODO(humairak): remove these
 	DevMode        bool
 	DevExecutionId int64
@@ -152,7 +154,21 @@ func getPodResource(
 // to container base template generated in compiler/container.go. Therefore, only
 // dynamic values are patched here. The volume mounts / configmap mounts are
 // defined in compiler, because they are static.
-func initPodSpecPatch(container *pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec, componentSpec *pipelinespec.ComponentSpec, executorInput *pipelinespec.ExecutorInput, executionID int64, pipelineName string, runID string, pipelineLogLevel string, publishLogs string, cacheDisabled string, experimentID string, metdataProviderConfig string) (*k8score.PodSpec, error) {
+func initPodSpecPatch(
+	container *pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec,
+	componentSpec *pipelinespec.ComponentSpec,
+	executorInput *pipelinespec.ExecutorInput,
+	executionID int64,
+	pipelineName string,
+	runID string,
+	pipelineLogLevel string,
+	publishLogs string,
+	cacheDisabled string,
+	experimentID string,
+	metadataProviderConfig string,
+	metadataRunProvider metadata_provider.RunProvider,
+	metadataProviderRunID *string,
+) (*k8score.PodSpec, error) {
 	executorInputJSON, err := protojson.Marshal(executorInput)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init podSpecPatch: %w", err)
@@ -192,8 +208,8 @@ func initPodSpecPatch(container *pipelinespec.PipelineDeploymentConfig_PipelineC
 		"--publish_logs", publishLogs,
 		"--experiment_id", experimentID,
 	}
-	if metdataProviderConfig != "" {
-		launcherCmd = append(launcherCmd, "--metadata_provider_config", metdataProviderConfig)
+	if metadataProviderConfig != "" {
+		launcherCmd = append(launcherCmd, "--metadata_provider_config", metadataProviderConfig)
 	}
 	if cacheDisabled == "true" {
 		launcherCmd = append(launcherCmd, "--cache_disabled", cacheDisabled)
@@ -315,6 +331,15 @@ func initPodSpecPatch(container *pipelinespec.PipelineDeploymentConfig_PipelineC
 
 	addModelcarsToPodSpec(executorInput.GetInputs().GetArtifacts(), userEnvVar, podSpec)
 
+	if metadataRunProvider != nil && metadataProviderRunID != nil {
+		patch, err := metadataRunProvider.ExecutorPatch(experimentID, *metadataProviderRunID)
+		if err != nil {
+			return nil, fmt.Errorf("failed generate metadata provider executor patch: %w", err)
+		}
+		if patch != nil {
+			podSpec = mergeutil.MergePodSpecs(podSpec, patch)
+		}
+	}
 	return podSpec, nil
 }
 

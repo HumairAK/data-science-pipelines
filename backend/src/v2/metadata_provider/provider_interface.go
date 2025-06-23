@@ -39,8 +39,8 @@ type Validator interface {
 	ValidateRun(kfpRun *api.CreateRunRequest) error
 	// ValidateExperiment will be called when an experiment is created
 	ValidateExperiment(experiment *api.CreateExperimentRequest) error
-	// ValidateConfig will be called on KFP start up when the pipeline config.json is parsed.
-	ValidateConfig(config config.GenericProviderConfig, envvars []corev1.EnvVar) error
+	// ValidateConfig will be called on KFP, Driver, & Launcher startup when the pipeline config.json is parsed.
+	ValidateConfig(config config.GenericProviderConfig) error
 }
 
 type RunProvider interface {
@@ -63,6 +63,10 @@ type RunProvider interface {
 	// Otherwise all kfp pipeline run tasks are logged flatly
 	// TODO(humairak): make this a top level config
 	NestedRunsSupported() bool
+
+	// ExecutorPatch returns a Pod Patch that will be merged with the executor pod.
+	// Return nil patch with nil error if no patch is needed.
+	ExecutorPatch(experimentID string, providerRunID string) (*corev1.PodSpec, error)
 }
 
 type MetadataArtifactProvider interface {
