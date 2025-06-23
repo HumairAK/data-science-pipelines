@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
+	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	v2util "github.com/kubeflow/pipelines/backend/src/v2/util"
 	"strconv"
 
@@ -210,6 +211,16 @@ func Container(ctx context.Context, opts Options, cm *client_manager.ClientManag
 	} else {
 		glog.Info("Cache disabled globally at the server level.")
 	}
+
+	cfg, err := config.FromConfigMap(ctx, cm.K8sClient(), opts.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	storeSessionInfo, err := cfg.GetStoreSessionInfo(pipeline.GetPipelineRoot())
+	if err != nil {
+		return nil, err
+	}
+
 	// todo(humair): just pass the entire opts struct to the launcher.
 	podSpec, err := initPodSpecPatch(
 		opts.Container,
@@ -225,6 +236,7 @@ func Container(ctx context.Context, opts Options, cm *client_manager.ClientManag
 		opts.MetadataProviderConfig,
 		opts.MetadatRunProvider,
 		ecfg.ProviderRunID,
+		storeSessionInfo,
 	)
 	if err != nil {
 		return execution, err

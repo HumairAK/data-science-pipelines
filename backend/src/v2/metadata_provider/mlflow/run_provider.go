@@ -1,12 +1,15 @@
 package mlflow
 
 import (
+	"fmt"
 	"github.com/golang/glog"
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
+	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 	corev1 "k8s.io/api/core/v1"
+	"strconv"
 	"time"
 )
 
@@ -115,7 +118,18 @@ func (r *RunProvider) UpdateRunStatus(providerRunID string, kfpRunStatus model.R
 	return nil
 }
 
-func (r *RunProvider) ExecutorPatch(experimentID string, providerRunID string) (*corev1.PodSpec, error) {
+func (r *RunProvider) ExecutorPatch(experimentID string, providerRunID string, storeSession objectstore.SessionInfo) (*corev1.PodSpec, error) {
+	var params *objectstore.S3Params
+	if storeSession.Provider == "minio" || storeSession.Provider == "s3" {
+		var err error
+		params, err = objectstore.StructuredS3Params(storeSession.Params)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, fmt.Errorf("Unsupported object store provider: %s", storeSession.Provider)
+	}
+
 	mlflowEnvVars := []corev1.EnvVar{
 		{
 			Name:  "MLFLOW_RUN_ID",
@@ -129,7 +143,42 @@ func (r *RunProvider) ExecutorPatch(experimentID string, providerRunID string) (
 			Name:  "MLFLOW_EXPERIMENT_ID",
 			Value: experimentID,
 		},
+
+		// ObjectStore Config
+		{
+
+			Name:  "MLFLOW_S3_ENDPOINT_URL",
+			Value: params.Endpoint,
+		},
+		{
+			Name:  "MLFLOW_S3_IGNORE_TLS",
+			Value: strconv.FormatBool(params.DisableSSL),
+		},
+
+		{
+			Name: "AWS_ACCESS_KEY_ID",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: params.SecretName,
+					},
+					Key: params.AccessKeyKey,
+				},
+			},
+		},
+		{
+			Name: "AWS_SECRET_ACCESS_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: params.SecretName,
+					},
+					Key: params.SecretKeyKey,
+				},
+			},
+		},
 	}
+
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{{
 			Name: "main",

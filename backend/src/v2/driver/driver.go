@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"github.com/kubeflow/pipelines/backend/src/common/util/mergeutil"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
+	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 	"slices"
 	"strings"
 
@@ -168,6 +169,7 @@ func initPodSpecPatch(
 	metadataProviderConfig string,
 	metadataRunProvider metadata_provider.RunProvider,
 	metadataProviderRunID *string,
+	sessionInfo objectstore.SessionInfo,
 ) (*k8score.PodSpec, error) {
 	executorInputJSON, err := protojson.Marshal(executorInput)
 	if err != nil {
@@ -332,7 +334,7 @@ func initPodSpecPatch(
 	addModelcarsToPodSpec(executorInput.GetInputs().GetArtifacts(), userEnvVar, podSpec)
 
 	if metadataRunProvider != nil && metadataProviderRunID != nil {
-		patch, err := metadataRunProvider.ExecutorPatch(experimentID, *metadataProviderRunID)
+		patch, err := metadataRunProvider.ExecutorPatch(experimentID, *metadataProviderRunID, sessionInfo)
 		if err != nil {
 			return nil, fmt.Errorf("failed generate metadata provider executor patch: %w", err)
 		}
