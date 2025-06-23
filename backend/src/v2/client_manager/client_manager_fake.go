@@ -17,6 +17,10 @@ type FakeClientManager struct {
 	metadataArtifactProvider metadata_provider.MetadataArtifactProvider
 }
 
+func (f *FakeClientManager) MetadataNestedRunSupport() bool {
+	return true
+}
+
 // Ensure FakeClientManager implements ClientManagerInterface
 var _ ClientManagerInterface = (*FakeClientManager)(nil)
 

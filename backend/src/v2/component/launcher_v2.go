@@ -213,7 +213,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		if err != nil {
 			glog.Errorf("failed to update DAG state: %s", err.Error())
 		}
-		if runProvider != nil && runProvider.NestedRunsSupported() {
+		if runProvider != nil && l.clientManager.MetadataNestedRunSupport() {
 			parentDagsProviderRunID, exists := parentDag.Execution.GetProviderRunID()
 			if !exists {
 				glog.Errorf("Provider run ID is not set for execution %d", execution.GetID())

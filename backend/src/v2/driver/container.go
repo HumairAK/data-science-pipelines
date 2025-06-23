@@ -154,7 +154,7 @@ func Container(ctx context.Context, opts Options, cm *client_manager.ClientManag
 	runProvider := cm.MetadataRunProvider()
 	if runProvider != nil {
 		var parentID string
-		if runProvider.NestedRunsSupported() {
+		if cm.MetadataNestedRunSupport() {
 			var exists bool
 			parentID, exists = dag.Execution.GetProviderRunID()
 			if !exists {

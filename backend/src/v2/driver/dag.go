@@ -169,7 +169,7 @@ func DAG(ctx context.Context, opts Options, cm *client_manager.ClientManager) (e
 	glog.V(4).Infof("dag: %v", dag)
 
 	runProvider := cm.MetadataRunProvider()
-	if runProvider != nil && runProvider.NestedRunsSupported() {
+	if runProvider != nil && cm.MetadataNestedRunSupport() {
 		if isIterator {
 			// We skip logging a run in the iterator case
 			// And just propagate the runID to the parent DAG

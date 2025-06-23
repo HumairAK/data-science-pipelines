@@ -139,7 +139,3 @@ func (r *RunProvider) ExecutorPatch(experimentID string, providerRunID string) (
 
 	return podSpec, nil
 }
-
-func (r *RunProvider) NestedRunsSupported() bool {
-	return true
-}

@@ -58,12 +58,6 @@ type RunProvider interface {
 		kfpRunStatus model.RuntimeState,
 	) error
 
-	// NestedRunsSupported
-	// Enable run nesting by having this function return true
-	// Otherwise all kfp pipeline run tasks are logged flatly
-	// TODO(humairak): make this a top level config
-	NestedRunsSupported() bool
-
 	// ExecutorPatch returns a Pod Patch that will be merged with the executor pod.
 	// Return nil patch with nil error if no patch is needed.
 	ExecutorPatch(experimentID string, providerRunID string) (*corev1.PodSpec, error)
@@ -80,11 +74,6 @@ type MetadataArtifactProvider interface {
 		experimentID string,
 		runtimeArtifact *pipelinespec.RuntimeArtifact,
 	) (*ArtifactResult, error)
-
-	// NestedRunsSupported
-	// If true then the metadata provider will log artifacts for parent runs.
-	// TODO(humairak): make this a top level config
-	NestedRunsSupported() bool
 }
 
 type ProviderFactory interface {

@@ -9,7 +9,7 @@ type MetadataProvider string
 
 type ProviderConfig struct {
 	MetadataProviderName MetadataProvider      `json:"MetadataProviderName"`
-	SupportNestedRuns    bool                  `json:"SupportNestedRuns"`
+	SupportNestedRuns    string                `json:"SupportNestedRuns"`
 	AdditionalConfig     GenericProviderConfig `json:"AdditionalConfig"`
 }
 

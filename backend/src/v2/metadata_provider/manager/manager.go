@@ -10,14 +10,12 @@ import (
 )
 
 type Provider struct {
-	Type   config.MetadataProvider
 	config config.ProviderConfig
 }
 
 func NewProvider(config config.ProviderConfig) (*Provider, error) {
 	provider := &Provider{
 		config: config,
-		Type:   config.MetadataProviderName,
 	}
 	err := provider.ValidateConfig()
 	if err != nil {
@@ -65,6 +63,17 @@ func (p *Provider) NewValidator() (metadata_provider.Validator, error) {
 		return nil, fmt.Errorf("unsupported metadata provider: %s", p.config.MetadataProviderName)
 	}
 	return factory.NewValidator(p.config.AdditionalConfig)
+}
+
+func (p *Provider) SupportNestedRuns() bool {
+	if p.config.SupportNestedRuns == "" {
+		return false
+	}
+	return p.config.SupportNestedRuns == "true"
+}
+
+func (p *Provider) GetProviderName() string {
+	return string(p.config.MetadataProviderName)
 }
 
 // ValidateConfig validates top level MetadataProviderConfig fields.

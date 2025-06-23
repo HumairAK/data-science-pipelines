@@ -78,10 +78,6 @@ func (a *ArtifactProvider) LogOutputArtifact(
 	return nil, nil
 }
 
-func (a *ArtifactProvider) NestedRunsSupported() bool {
-	return true
-}
-
 func (a *ArtifactProvider) metricURL(runId, experimentID string) string {
 	uri := fmt.Sprintf("%s/#/experiments/%s/runs/%s/model-metrics", a.client.baseHost, experimentID, runId)
 	return uri

@@ -18,6 +18,7 @@ type ClientManagerInterface interface {
 	MetadataRunProvider() metadata_provider.RunProvider
 	RunServiceClient() v2beta1.RunServiceClient
 	MetadataArtifactProvider() metadata_provider.MetadataArtifactProvider
+	MetadataNestedRunSupport() bool
 }
 
 // Ensure ClientManager implements ClientManagerInterface
@@ -31,6 +32,7 @@ type ClientManager struct {
 	metadataRunProvider      metadata_provider.RunProvider
 	runServiceClient         v2beta1.RunServiceClient
 	metadataArtifactProvider metadata_provider.MetadataArtifactProvider
+	metadataNestedRunSupport bool
 }
 
 type Options struct {
@@ -73,6 +75,10 @@ func (cm *ClientManager) MetadataArtifactProvider() metadata_provider.MetadataAr
 	return cm.metadataArtifactProvider
 }
 
+func (cm *ClientManager) MetadataNestedRunSupport() bool {
+	return cm.metadataNestedRunSupport
+}
+
 func (cm *ClientManager) RunServiceClient() v2beta1.RunServiceClient {
 	return cm.runServiceClient
 }
@@ -110,6 +116,8 @@ func (cm *ClientManager) init(opts *Options) error {
 			return fmt.Errorf("failed to create metadata artifact provider: %w", err)
 		}
 		cm.metadataArtifactProvider = artifactProvider
+
+		cm.metadataNestedRunSupport = metadataProvider.SupportNestedRuns()
 	}
 
 	connection, err := util.GetRpcConnection(
