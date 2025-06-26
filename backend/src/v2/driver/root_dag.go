@@ -141,7 +141,7 @@ func RootDAG(ctx context.Context, opts Options, cm *client_manager.ClientManager
 
 	runProvider := cm.MetadataRunProvider()
 	if runProvider != nil && cm.MetadataNestedRunSupport() {
-		id, err := v2util.CreateRunMetadata(ctx, opts.RunDisplayName, cm, opts.ExperimentId, opts.RunID, ecfg, "")
+		id, err := v2util.CreateRunMetadata(ctx, opts.RunDisplayName, cm, opts.ExperimentId, opts.RunID, ecfg, "", nil)
 		if err != nil {
 			return nil, err
 		}

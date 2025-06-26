@@ -88,19 +88,7 @@ func Test_executeV2_Parameters(t *testing.T) {
 			assert.Nil(t, err)
 			bucketConfig, err := objectstore.ParseBucketConfig("mem://test-bucket/pipeline-root/", nil)
 			assert.Nil(t, err)
-			_, _, err = executeV2(
-				context.Background(),
-				test.executorInput,
-				addNumbersComponent,
-				"sh",
-				test.executorArgs,
-				bucket,
-				bucketConfig,
-				fakeMetadataClient,
-				"namespace",
-				fakeKubernetesClientset,
-				"false",
-			)
+			_, _, err = executeV2(context.Background(), test.executorInput, addNumbersComponent, "sh", test.executorArgs, bucket, bucketConfig, fakeMetadataClient, "namespace", fakeKubernetesClientset, "false", false)
 
 			if test.wantErr {
 				assert.NotNil(t, err)
@@ -149,19 +137,7 @@ func Test_executeV2_publishLogs(t *testing.T) {
 			assert.Nil(t, err)
 			bucketConfig, err := objectstore.ParseBucketConfig("mem://test-bucket/pipeline-root/", nil)
 			assert.Nil(t, err)
-			_, _, err = executeV2(
-				context.Background(),
-				test.executorInput,
-				addNumbersComponent,
-				"sh",
-				test.executorArgs,
-				bucket,
-				bucketConfig,
-				fakeMetadataClient,
-				"namespace",
-				fakeKubernetesClientset,
-				"false",
-			)
+			_, _, err = executeV2(context.Background(), test.executorInput, addNumbersComponent, "sh", test.executorArgs, bucket, bucketConfig, fakeMetadataClient, "namespace", fakeKubernetesClientset, "false", false)
 
 			if test.wantErr {
 				assert.NotNil(t, err)

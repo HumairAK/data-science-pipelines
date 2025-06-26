@@ -186,7 +186,7 @@ func DAG(ctx context.Context, opts Options, cm *client_manager.ClientManager) (e
 			if !exists {
 				return nil, fmt.Errorf("parent dag id is not set")
 			}
-			id, err := v2util.CreateRunMetadata(ctx, opts.Task.GetTaskInfo().GetName(), cm, opts.ExperimentId, opts.RunID, ecfg, parentID)
+			id, err := v2util.CreateRunMetadata(ctx, opts.Task.GetTaskInfo().Name, cm, opts.ExperimentId, opts.RunID, ecfg, parentID, ecfg.IterationIndex)
 			if err != nil {
 				return nil, err
 			}

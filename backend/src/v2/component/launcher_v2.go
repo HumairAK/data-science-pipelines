@@ -189,6 +189,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 			}
 		}
 
+		// If available, update the status of the run in the metadata provider
 		if runProvider != nil {
 			runID, exists := execution.GetProviderRunID()
 			if !exists {
@@ -213,6 +214,8 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		if err != nil {
 			glog.Errorf("failed to update DAG state: %s", err.Error())
 		}
+
+		// If available, update the status of the parent run in the metadata provider
 		if runProvider != nil && l.clientManager.MetadataNestedRunSupport() {
 			parentDagsProviderRunID, exists := parentDag.Execution.GetProviderRunID()
 			if !exists {
@@ -263,6 +266,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		execution,
 		l.artifactProvider,
 		l.experimentID,
+		l.clientManager.MetadataNestedRunSupport(),
 	)
 	if err != nil {
 		return err
@@ -365,22 +369,7 @@ func (l *LauncherV2) publish(
 
 // executeV2 handles placeholder substitution for inputs, calls execute to
 // execute end user logic, and uploads the resulting output Artifacts.
-func executeV2(
-	ctx context.Context,
-	executorInput *pipelinespec.ExecutorInput,
-	component *pipelinespec.ComponentSpec,
-	cmd string,
-	args []string,
-	bucket *blob.Bucket,
-	bucketConfig *objectstore.Config,
-	metadataClient metadata.ClientInterface,
-	namespace string,
-	k8sClient kubernetes.Interface,
-	publishLogs string,
-	execution *metadata.Execution,
-	artifactProvider metadata_provider.MetadataArtifactProvider,
-	experimentID string,
-) (*pipelinespec.ExecutorOutput, []*metadata.OutputArtifact, error) {
+func executeV2(ctx context.Context, executorInput *pipelinespec.ExecutorInput, component *pipelinespec.ComponentSpec, cmd string, args []string, bucket *blob.Bucket, bucketConfig *objectstore.Config, metadataClient metadata.ClientInterface, namespace string, k8sClient kubernetes.Interface, publishLogs string, execution *metadata.Execution, artifactProvider metadata_provider.MetadataArtifactProvider, experimentID string, metadataProviderNestedSupport bool) (*pipelinespec.ExecutorOutput, []*metadata.OutputArtifact, error) {
 
 	// Add parameter default values to executorInput, if there is not already a user input.
 	// This process is done in the launcher because we let the component resolve default values internally.
@@ -420,13 +409,14 @@ func executeV2(
 	}
 	// TODO(Bobgy): should we log metadata per each artifact, or batched after uploading all artifacts.
 	outputArtifacts, err := uploadOutputArtifacts(ctx, executorInput, executorOutput, execution, uploadOutputArtifactsOptions{
-		bucketConfig:     bucketConfig,
-		bucket:           bucket,
-		metadataClient:   metadataClient,
-		artifactProvider: artifactProvider,
-		experimentID:     experimentID,
-		k8sClient:        k8sClient,
-		namespace:        namespace,
+		bucketConfig:                  bucketConfig,
+		bucket:                        bucket,
+		metadataClient:                metadataClient,
+		artifactProvider:              artifactProvider,
+		experimentID:                  experimentID,
+		k8sClient:                     k8sClient,
+		namespace:                     namespace,
+		metadataProviderNestedSupport: metadataProviderNestedSupport,
 	})
 	if err != nil {
 		return nil, nil, err
@@ -558,13 +548,14 @@ func execute(
 }
 
 type uploadOutputArtifactsOptions struct {
-	bucketConfig     *objectstore.Config
-	bucket           *blob.Bucket
-	metadataClient   metadata.ClientInterface
-	artifactProvider metadata_provider.MetadataArtifactProvider
-	experimentID     string
-	k8sClient        kubernetes.Interface
-	namespace        string
+	bucketConfig                  *objectstore.Config
+	bucket                        *blob.Bucket
+	metadataClient                metadata.ClientInterface
+	artifactProvider              metadata_provider.MetadataArtifactProvider
+	experimentID                  string
+	k8sClient                     kubernetes.Interface
+	namespace                     string
+	metadataProviderNestedSupport bool
 }
 
 func uploadOutputArtifacts(
@@ -652,6 +643,36 @@ func uploadOutputArtifacts(
 					// For Frontend to use, if this is present, frontend can just display this as a redirect.
 					if artifactResult.ArtifactURL != "" {
 						outputArtifact.Metadata.Fields["url"] = structpb.NewStringValue(artifactResult.ArtifactURL)
+					}
+
+					// Only log artifacts for a parent run when part of a loop iteration, the parent run in this case
+					// will be the dag run for which this run is a part of. We avoid logging in other cases to
+					// avoid encountering too many name collisions. It is useful for logging this to the loop iteration
+					// (parent) run, to allow users to compare their loop inputs with the artifacts (like metrics) that were logged
+					// in this run. Though collisions could result here as well, the onus is on the user to not
+					// log the same metric with the same name multiple times in a given iteration.
+					if opts.metadataProviderNestedSupport {
+						parentDagID := execution.GetParentDagID()
+						parentDagExecution, err2 := opts.metadataClient.GetExecution(ctx, parentDagID)
+						if err2 != nil {
+							return nil, err2
+						}
+						// only log for loop iteration parents
+						_, isInALoopIteration := parentDagExecution.GetIterationIndex()
+						if isInALoopIteration {
+							parentProviderRunID, parentRunExists := parentDagExecution.GetProviderRunID()
+							if !parentRunExists {
+								return nil, fmt.Errorf("Parent dag execution does not have a provider run id")
+							}
+							parentArtifactResult, err2 := opts.artifactProvider.LogOutputArtifact(parentProviderRunID, opts.experimentID, outputArtifact)
+							if err2 != nil {
+								return nil, err2
+							}
+							if parentArtifactResult != nil {
+								glog.Infof("Logged artifact result: (RI=%s, URL=%s)",
+									parentArtifactResult.ArtifactURI, parentArtifactResult.ArtifactURL)
+							}
+						}
 					}
 				}
 			}

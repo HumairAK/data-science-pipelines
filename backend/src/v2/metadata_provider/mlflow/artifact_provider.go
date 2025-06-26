@@ -15,8 +15,6 @@ import (
 // Ensure ArtifactProvider implements MetadataArtifactsProvider
 var _ metadata_provider.MetadataArtifactProvider = &ArtifactProvider{}
 
-type SchemaTitle string
-
 type ArtifactProvider struct {
 	client *Client
 }
@@ -52,8 +50,8 @@ func (a *ArtifactProvider) LogOutputArtifact(
 		}
 		// Since there are multiple metrics, there is no way to tie multie URIs
 		// to a single KFP artifact, so we just return the Metrics path for MLFlow UI
-		url := a.metricURL(runID, experimentID)
-		artifactResult.ArtifactURL = url
+		metricURL := a.metricURL(runID, experimentID)
+		artifactResult.ArtifactURL = metricURL
 		return &artifactResult, nil
 	case util.SchemaTitleArtifact:
 		//

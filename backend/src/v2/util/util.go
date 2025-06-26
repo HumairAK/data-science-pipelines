@@ -10,6 +10,9 @@ import (
 	pb "github.com/kubeflow/pipelines/third_party/ml-metadata/go/ml_metadata"
 )
 
+// CreateRunMetadata creates a run in the metadata provider.
+// If iterationCount is nil, it is ignored, otherwise it is added
+// as a suffix to the run name.
 func CreateRunMetadata(
 	ctx context.Context,
 	providerRunName string,
@@ -18,6 +21,7 @@ func CreateRunMetadata(
 	runID string,
 	ecfg *metadata.ExecutionConfig,
 	parentID string,
+	iterationIndex *int,
 ) (ProviderRunId string, err error) {
 	rsc := cm.RunServiceClient()
 	kfpRun, err := rsc.GetRun(
@@ -28,11 +32,14 @@ func CreateRunMetadata(
 	if err != nil {
 		return "", err
 	}
+
+	inputParameters := metadata_provider.PBParamsToRunParameters(ecfg.InputParameters)
+	providerRunName = metadata_provider.SanitizeTaskName(providerRunName, iterationIndex)
 	run, err := cm.MetadataRunProvider().CreateRun(
 		experimentID,
 		kfpRun,
 		providerRunName,
-		metadata_provider.PBParamsToRunParameters(ecfg.InputParameters),
+		inputParameters,
 		parentID,
 	)
 	if err != nil {
