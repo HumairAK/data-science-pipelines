@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golang/glog"
+	"github.com/kubeflow/model-registry/pkg/openapi"
 	api "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
+	fdsafds "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -73,17 +74,7 @@ func (v *Validator) ValidateExperiment(experiment *api.CreateExperimentRequest) 
 	return nil
 }
 
-func validateMLFlowExperiment(experiment types.Experiment, namespace string) error {
-	// if namespace is set, then we expect the experiment to:
-	// have a namespace tag with the same value as the namespace
-	if namespace != "" {
-		if GetExperimentTag(&experiment, NamespaceTag) != namespace {
-			return fmt.Errorf("namespace tag in experiment %s does not match namespace %s", experiment.ExperimentID, namespace)
-		}
-		kfpName := GetExperimentTag(&experiment, NameTag)
-		if experiment.Name != BuildExperimentNamespaceName(kfpName, namespace) {
-			return fmt.Errorf("experiment name %s with namespace %s, does not match the format <namespace>/<kfp_experiment_name>", experiment.Name, namespace)
-		}
-	}
+func validateModelRegistryExperiment(experiment *openapi.Experiment, namespace string) error {
+	// todo
 	return nil
 }

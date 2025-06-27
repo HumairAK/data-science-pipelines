@@ -25,11 +25,6 @@ type ExperimentStore struct {
 	client *Client
 }
 
-// CreateExperiment accepts a providerConfig which is used for
-// provider-specific creation options.
-// For example, MLFlow allows you to set the artifact_location for all artifacts
-// uploaded in any run for a given experiment. The user should be able to configure this.
-// If the provider config is not provided, we would use the default bucket path
 func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, providerConfig config.GenericProviderConfig) (*model.Experiment, error) {
 	experimentTags := []types.ExperimentTag{
 		{
@@ -98,8 +93,6 @@ func (s *ExperimentStore) GetExperiment(uuid string) (*model.Experiment, error) 
 	return experimentModel, nil
 }
 
-// GetExperimentByNameNamespace returns the experiment with the given name and namespace.
-// If no experiment is found, it returns an error.
 func (s *ExperimentStore) GetExperimentByNameNamespace(name string, namespace string) (*model.Experiment, error) {
 	filter := fmt.Sprintf("name='%s'", name)
 	// In multi-user mode namespace is set, in which case we only list experiments in the given namespace

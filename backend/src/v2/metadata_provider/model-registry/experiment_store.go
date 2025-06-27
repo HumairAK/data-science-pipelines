@@ -3,6 +3,7 @@ package mlflow
 import (
 	"fmt"
 	"github.com/golang/glog"
+	"github.com/kubeflow/model-registry/pkg/openapi"
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/filter"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
@@ -10,7 +11,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
 	commonutils "github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
+	fdsafd "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
 )
 
 // Ensure MLFlowExperimentProvider implements MetadataExperimentProvider
@@ -18,68 +19,47 @@ var _ storage.ExperimentStoreInterface = &ExperimentStore{}
 
 // ExperimentStore
 // Used by api server creates/manages experiments
-// Experiment store will need to check to see if the artifact_location (e.g. in mlflow case)
-// is using a bucket in s3 (or something else entirely) that is not configured or supported
-// by this kfp deployment.
 type ExperimentStore struct {
 	client *Client
 }
 
-// CreateExperiment accepts a providerConfig which is used for
-// provider-specific creation options.
-// For example, MLFlow allows you to set the artifact_location for all artifacts
-// uploaded in any run for a given experiment. The user should be able to configure this.
-// If the provider config is not provided, we would use the default bucket path
+func addTag(tags *map[string]openapi.MetadataValue, key string, value string) {
+	mv := openapi.NewMetadataStringValueWithDefaults()
+	mv.SetStringValue(value)
+	(*tags)[key] = openapi.MetadataStringValueAsMetadataValue(mv)
+}
+
 func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, providerConfig config.GenericProviderConfig) (*model.Experiment, error) {
-	experimentTags := []types.ExperimentTag{
-		{
-			Key:   ExperimentDescriptionTag,
-			Value: baseExperiment.Description,
-		},
-	}
+
+	mv := openapi.NewMetadataStringValueWithDefaults()
+	mv.SetStringValue(baseExperiment.Description)
+	var tags *map[string]openapi.MetadataValue
+
 	namespace := baseExperiment.Namespace
 	// Experiments in MLFlow have no notion of namespaces
 	// So we label experiments using tags, but tags are not
 	// unique, thus we must also include the namespace in the name
 	if namespace != "" {
-		experimentTags = append(experimentTags,
-			// For easy searching and future parsing, we keep the canonical name as a tag
-			types.ExperimentTag{
-				Key:   NameTag,
-				Value: baseExperiment.Name,
-			},
-			types.ExperimentTag{
-				Key:   NamespaceTag,
-				Value: baseExperiment.Namespace,
-			},
-		)
+		addTag(tags, NameTag, baseExperiment.Name)
+		addTag(tags, NamespaceTag, baseExperiment.Namespace)
 		baseExperiment.Name = BuildExperimentNamespaceName(baseExperiment.Name, namespace)
 	}
 
 	var artifactLocation string
 	if providerConfig != nil {
-		creationConfig, err := ConvertToExperimentCreationConfig(providerConfig)
-		if err != nil {
-			return nil, err
-		}
-		artifactLocation = creationConfig.ArtifactLocation
+		// todo: see if MR has (or should have) their own experiment creation specific settings
 	}
 
-	mlflowExperimentID, err := s.client.createExperiment(
+	experiment, err := s.client.createExperiment(
 		baseExperiment.Name,
 		artifactLocation,
-		experimentTags,
+		tags,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	experiment, err := s.client.getExperiment(mlflowExperimentID)
-	if err != nil {
-		return nil, err
-	}
-
-	modelExperiment, err := mlflowExperimentToModelExperiment(*experiment)
+	modelExperiment, err := mrExperimentToModelExperiment(*experiment)
 	if err != nil {
 		return nil, err
 	}
@@ -91,34 +71,22 @@ func (s *ExperimentStore) GetExperiment(uuid string) (*model.Experiment, error) 
 	if err != nil {
 		return nil, err
 	}
-	experimentModel, err := mlflowExperimentToModelExperiment(*experiment)
+	experimentModel, err := mrExperimentToModelExperiment(*experiment)
 	if err != nil {
 		return nil, err
 	}
 	return experimentModel, nil
 }
 
-// GetExperimentByNameNamespace returns the experiment with the given name and namespace.
-// If no experiment is found, it returns an error.
+// GetExperimentByNameNamespace
+// ToDO: handle namespace case for multi user mode when model registry
+// adds support for searching by custom properties, or via namespace field
 func (s *ExperimentStore) GetExperimentByNameNamespace(name string, namespace string) (*model.Experiment, error) {
-	filter := fmt.Sprintf("name='%s'", name)
-	// In multi-user mode namespace is set, in which case we only list experiments in the given namespace
-	if namespace != "" {
-		filter = fmt.Sprintf("%s' AND tag.%s='%s'", filter, NamespaceTag, namespace)
-	}
-	experiments, _, err := s.client.searchExperiments(1, "", filter, []string{}, "")
+	experiment, err := s.client.getExperimentByName(name)
 	if err != nil {
 		return nil, err
 	}
-	if len(experiments) < 1 {
-		return nil, fmt.Errorf("no experiment found with name %s and namespace %s", name, namespace)
-	}
-	experiment := experiments[0]
-	experimentModel, err := mlflowExperimentToModelExperiment(experiment)
-	if err != nil {
-		return nil, err
-	}
-	return experimentModel, nil
+	return mrExperimentToModelExperiment(*experiment)
 }
 
 func (s *ExperimentStore) ListExperiments(filterContext *model.FilterContext, opts *list.Options) ([]*model.Experiment, int, string, error) {
@@ -133,27 +101,32 @@ func (s *ExperimentStore) ListExperiments(filterContext *model.FilterContext, op
 		namespace = filterContext.ReferenceKey.ID
 	}
 
-	var filter string
 	// TODO add sorting logic, sorting info is in opts.token and opts.sortby
 	if namespace != "" {
-		filter = fmt.Sprintf("tag.%s='%s'", NamespaceTag, namespace)
+		// ToDO: handle namespace case for multi user mode when model registry
+		// adds support for searching by custom properties, or via namespace field
 	}
 
 	viewType := determineStorageState(opts.Filter)
-	experiments, nextPageToken, err := s.client.searchExperiments(int64(opts.PageSize), opts.PageToken, filter, []string{}, types.ViewType(viewType))
+	experiments, nextPageToken, err := s.client.getExperiments(
+		int64(opts.PageSize),
+		opts.PageToken,
+		"",
+		"",
+		openapi.ExperimentState(viewType),
+	)
 	if err != nil {
 		return errorF(err)
 	}
 	for _, experiment := range experiments {
-		// if experiment is valid convert to model.Experiment and append to experimentModels
-		err1 := validateMLFlowExperiment(experiment, namespace)
-		if err1 == nil {
-			experimentModel, err2 := mlflowExperimentToModelExperiment(experiment)
-			if err2 != nil {
-				return errorF(err2)
-			}
-			experimentModels = append(experimentModels, experimentModel)
+		if experiment == nil {
+			return errorF(fmt.Errorf("experiment is nil"))
 		}
+		experimentModel, err2 := mrExperimentToModelExperiment(*experiment)
+		if err2 != nil {
+			return errorF(err2)
+		}
+		experimentModels = append(experimentModels, experimentModel)
 	}
 	return experimentModels, len(experimentModels), nextPageToken, nil
 }
@@ -190,16 +163,16 @@ func determineStorageState(f *filter.Filter) string {
 		return ""
 	}
 	if match := f.FilterOn("experiments.StorageState", string(model.StorageStateAvailable), apiv2beta1.Predicate_EQUALS); match != nil && *match {
-		return "ACTIVE_ONLY"
+		return string(openapi.EXPERIMENTSTATE_LIVE)
 	}
 	if match := f.FilterOn("experiments.StorageState", string(model.StorageStateAvailable), apiv2beta1.Predicate_NOT_EQUALS); match != nil && *match {
-		return "DELETED_ONLY"
+		return string(openapi.EXPERIMENTSTATE_ARCHIVED)
 	}
 	if match := f.FilterOn("experiments.StorageState", string(model.StorageStateArchived), apiv2beta1.Predicate_EQUALS); match != nil && *match {
-		return "DELETED_ONLY"
+		return string(openapi.EXPERIMENTSTATE_ARCHIVED)
 	}
 	if match := f.FilterOn("experiments.StorageState", string(model.StorageStateArchived), apiv2beta1.Predicate_NOT_EQUALS); match != nil && *match {
-		return "ACTIVE_ONLY"
+		return string(openapi.EXPERIMENTSTATE_LIVE)
 	}
 	return ""
 }

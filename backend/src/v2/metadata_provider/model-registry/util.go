@@ -2,29 +2,41 @@ package mlflow
 
 import (
 	"fmt"
+	"github.com/kubeflow/model-registry/pkg/openapi"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
+	"strconv"
 )
 
-func mlflowExperimentToModelExperiment(experiment types.Experiment) (*model.Experiment, error) {
+func mrExperimentToModelExperiment(experiment openapi.Experiment) (*model.Experiment, error) {
+	nsValue := experiment.GetCustomProperties()["namespace"]
+	ns := nsValue.MetadataStringValue.GetStringValue()
+	createdAtInSec, err := strconv.ParseInt(experiment.GetCreateTimeSinceEpoch(), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	lastRunCreatedAtInSec, err := strconv.ParseInt(experiment.GetLastUpdateTimeSinceEpoch(), 10, 64)
+	if err != nil {
+		return nil, err
+	}
 	experimentModel := &model.Experiment{
-		UUID:        experiment.ExperimentID,
+		UUID:        *experiment.Id,
 		Name:        experiment.Name,
-		Description: GetExperimentTag(&experiment, ExperimentDescriptionTag),
+		Description: *experiment.Description,
 		// Unix time value (used by MLFlow) is in milliseconds,
 		// but the google.protobuf.Timestamp struct expects seconds in its Seconds field.
-		CreatedAtInSec: experiment.CreationTime / 1000,
+		CreatedAtInSec: createdAtInSec / 1000,
 		// TODO: This is not an exact mapping and can be misleading
 		// last update makes more sense and model.experiment should support that
 		// lastrun is used to sort kfp ui experiments by last run
-		LastRunCreatedAtInSec: experiment.LastUpdateTime / 1000,
-		Namespace:             GetExperimentTag(&experiment, NamespaceTag),
+		LastRunCreatedAtInSec: lastRunCreatedAtInSec / 1000,
+		Namespace:             ns,
 	}
 
-	switch experiment.LifecycleStage {
-	case "active":
+	switch experiment.GetState() {
+	case openapi.EXPERIMENTSTATE_LIVE:
 		experimentModel.StorageState = model.StorageStateAvailable
-	case "deleted":
+	case openapi.EXPERIMENTSTATE_ARCHIVED:
 		experimentModel.StorageState = model.StorageStateArchived
 	default:
 		experimentModel.StorageState = model.StorageStateUnspecified

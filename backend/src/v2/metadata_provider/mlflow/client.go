@@ -148,48 +148,6 @@ func (m *Client) updateRun(runID string, runName *string, status *types.RunStatu
 	return nil
 }
 
-func (m *Client) logParam(runID string, key, value string) error {
-	payload := types.LogParamRequest{
-		RunId: runID,
-		Key:   key,
-		Value: value,
-	}
-	jsonPayload, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-	_, _, err = DoRequest("POST", fmt.Sprintf("%s/runs/log-parameter", m.apiPath), jsonPayload, map[string]string{
-		"Content-Type":  "application/json",
-		"Authorization": m.token,
-	})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m *Client) logMetric(runID, runUUID, key string, value float64) error {
-	payload := types.LogMetricRequest{
-		RunId:     runID,
-		RunUUID:   runUUID,
-		Key:       key,
-		Value:     value,
-		Timestamp: time.Now().UnixMilli(),
-	}
-	jsonPayload, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-	_, _, err = DoRequest("POST", fmt.Sprintf("%s/runs/log-metric", m.apiPath), jsonPayload, map[string]string{
-		"Content-Type":  "application/json",
-		"Authorization": m.token,
-	})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (m *Client) logBatch(runID string, metrics []types.Metric, params []types.Param, tags []types.RunTag) error {
 	payload := types.LogBatchRequest{
 		RunId: runID,
@@ -302,45 +260,6 @@ func (m *Client) searchExperiments(maxResults int64, pageToken string, filter st
 		return nil, "", err
 	}
 	return experimentResponse.Experiments, experimentResponse.NextPageToken, nil
-}
-
-func (m *Client) searchRuns(
-	experimentIds []string,
-	maxResults int64,
-	pageToken string,
-	filter string,
-	orderBy []string,
-	viewType types.ViewType) ([]types.Run, error) {
-	payload := types.SearchRunRequest{
-		ExperimentIds: experimentIds,
-		Filter:        filter,
-		RunViewType:   viewType,
-		MaxResults:    maxResults,
-		PageToken:     pageToken,
-		OrderBy:       orderBy,
-	}
-
-	// Marshal to JSON
-	jsonPayload, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
-	}
-
-	_, body, err := DoRequest("POST", fmt.Sprintf("%s/runs/search", m.apiPath), jsonPayload, map[string]string{
-		"Content-Type":  "application/json",
-		"Authorization": m.token,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	runResponse := &types.SearchRunResponse{}
-	err = json.Unmarshal(body, runResponse)
-	if err != nil {
-		glog.Errorf("Failed to unmarshal: %v", err)
-		return nil, err
-	}
-	return runResponse.Runs, nil
 }
 
 // createExperiment creates experiment

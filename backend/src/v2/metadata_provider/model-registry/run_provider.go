@@ -3,10 +3,10 @@ package mlflow
 import (
 	"fmt"
 	"github.com/golang/glog"
+	"github.com/kubeflow/model-registry/pkg/openapi"
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 	corev1 "k8s.io/api/core/v1"
 	"strconv"
@@ -26,9 +26,9 @@ func (r *RunProvider) GetRun(experimentID string, ProviderRunID string) (*metada
 		return nil, err
 	}
 	providerRun := &metadata_provider.ProviderRun{
-		ID:     run.Info.RunID,
-		Name:   run.Info.RunName,
-		Status: string(run.Info.Status),
+		ID:     *run.Id,
+		Name:   *run.Name,
+		Status: string(*run.Status),
 	}
 	return providerRun, nil
 }
@@ -40,65 +40,53 @@ func (r *RunProvider) CreateRun(
 	parameters []metadata_provider.RunParameter,
 	parentRunID string,
 ) (*metadata_provider.ProviderRun, error) {
-	tags := []types.RunTag{
-		{
-			Key:   "kfpPipelineRunID",
-			Value: kfpRun.RunId,
-		},
-	}
-	if parentRunID != "" {
-		tags = append(tags, types.RunTag{
-			Key:   "mlflow.parentRunId",
-			Value: parentRunID,
-		})
+	tags := make(map[string]openapi.MetadataValue)
+	for _, param := range parameters {
+		mv := openapi.NewMetadataStringValueWithDefaults()
+		mv.SetStringValue(param.Value)
+		tags[param.Name] = openapi.MetadataValue{
+			MetadataStringValue: mv,
+		}
 	}
 
-	run, err := r.client.createRun(ProviderRunName, tags, experimentID)
+	run, err := r.client.createRun(
+		ProviderRunName,
+		&tags,
+		kfpRun.Description,
+		experimentID,
+		parentRunID,
+	)
+
 	if err != nil {
 		return nil, err
 	}
-
-	var params []types.Param
-	for _, p := range parameters {
-		param := types.Param{
-			Key:   p.Name,
-			Value: p.Value,
-		}
-		params = append(params, param)
-	}
-	if len(params) > 0 {
-		err = r.client.logBatch(run.Info.RunID, []types.Metric{}, params, []types.RunTag{})
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	providerRun := &metadata_provider.ProviderRun{
-		ID:     run.Info.RunID,
-		Name:   run.Info.RunName,
-		Status: string(run.Info.Status),
+		ID:     *run.Id,
+		Name:   *run.Name,
+		Status: string(*run.Status),
 	}
 	return providerRun, nil
 }
 
-var mapKFPRuntimeStateToMLFlowRuntimeState = map[model.RuntimeState]types.RunStatus{
-	model.RuntimeStateUnspecified: types.Running,
-	model.RuntimeStatePending:     types.Scheduled,
-	model.RuntimeStateRunning:     types.Running,
-	model.RuntimeStateSucceeded:   types.Finished,
-	model.RuntimeStateSkipped:     types.Failed,
-	model.RuntimeStateFailed:      types.Failed,
-	model.RuntimeStateCancelling:  types.Running,
-	model.RuntimeStateCanceled:    types.Killed,
-	model.RuntimeStatePaused:      types.Running,
+// TODO can model registry support more states?
+var mapKFPRuntimeStateToMLFlowRuntimeState = map[model.RuntimeState]openapi.ExperimentRunStatus{
+	model.RuntimeStateUnspecified: openapi.EXPERIMENTRUNSTATUS_SCHEDULED,
+	model.RuntimeStatePending:     openapi.EXPERIMENTRUNSTATUS_SCHEDULED,
+	model.RuntimeStateRunning:     openapi.EXPERIMENTRUNSTATUS_RUNNING,
+	model.RuntimeStateSucceeded:   openapi.EXPERIMENTRUNSTATUS_FINISHED,
+	model.RuntimeStateSkipped:     openapi.EXPERIMENTRUNSTATUS_FINISHED,
+	model.RuntimeStateFailed:      openapi.EXPERIMENTRUNSTATUS_FAILED,
+	model.RuntimeStateCancelling:  openapi.EXPERIMENTRUNSTATUS_RUNNING,
+	model.RuntimeStateCanceled:    openapi.EXPERIMENTRUNSTATUS_KILLED,
+	model.RuntimeStatePaused:      openapi.EXPERIMENTRUNSTATUS_SCHEDULED,
 }
 
-func ConvertKFPToMLFlowRuntimeState(kfpRunStatus model.RuntimeState) types.RunStatus {
+func ConvertKFPToMRRuntimeState(kfpRunStatus model.RuntimeState) openapi.ExperimentRunStatus {
 	if v, ok := mapKFPRuntimeStateToMLFlowRuntimeState[kfpRunStatus]; ok {
 		return v
 	}
 	glog.Errorf("Unknown kfp run status: %v", kfpRunStatus)
-	return types.Running
+	return openapi.EXPERIMENTRUNSTATUS_RUNNING
 }
 
 func (r *RunProvider) UpdateRunStatus(providerRunID string, kfpRunStatus model.RuntimeState) error {
@@ -108,13 +96,12 @@ func (r *RunProvider) UpdateRunStatus(providerRunID string, kfpRunStatus model.R
 	if err != nil {
 		return err
 	}
-	mlflowRunState := ConvertKFPToMLFlowRuntimeState(kfpRunStatus)
+	mlflowRunState := ConvertKFPToMRRuntimeState(kfpRunStatus)
 	endTime := time.Now().UnixMilli()
-	err = r.client.updateRun(run.Info.RunID, nil, &mlflowRunState, &endTime)
+	err = r.client.updateRun(*run.Id, nil, &mlflowRunState, &endTime)
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -131,22 +118,22 @@ func (r *RunProvider) ExecutorPatch(experimentID string, providerRunID string, s
 	}
 
 	mlflowEnvVars := []corev1.EnvVar{
+		// Support MLFlow Env vars for end users
+		// This allows easy integration options with MR plugin with MLFlow
 		{
 			Name:  "MLFLOW_RUN_ID",
 			Value: providerRunID,
 		},
+
 		{
 			Name:  "MLFLOW_TRACKING_URI",
-			Value: r.client.baseHost,
+			Value: r.client.Host,
 		},
 		{
 			Name:  "MLFLOW_EXPERIMENT_ID",
 			Value: experimentID,
 		},
-
-		// ObjectStore Config
 		{
-
 			Name:  "MLFLOW_S3_ENDPOINT_URL",
 			Value: params.Endpoint,
 		},
@@ -154,7 +141,19 @@ func (r *RunProvider) ExecutorPatch(experimentID string, providerRunID string, s
 			Name:  "MLFLOW_S3_IGNORE_TLS",
 			Value: strconv.FormatBool(params.DisableSSL),
 		},
-
+		// Support Model Registry Env vars for end users
+		{
+			Name:  "MODEL_REGISTRY_TRACKING_URI",
+			Value: r.client.Host,
+		},
+		{
+			Name:  "MODEL_REGISTRY_RUN_ID",
+			Value: providerRunID,
+		},
+		{
+			Name:  "MODEL_REGISTRY_EXPERIMENT_ID",
+			Value: experimentID,
+		},
 		{
 			Name: "AWS_ACCESS_KEY_ID",
 			ValueFrom: &corev1.EnvVarSource{

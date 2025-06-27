@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"github.com/kubeflow/model-registry/pkg/openapi"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
 	"os"
 	"strconv"
 	"time"
 )
 
 type Client struct {
-	*openapi.ModelRegistryServiceAPIService
+	APIService *openapi.ModelRegistryServiceAPIService
+	Host       string
 }
 
 // NewClient returns a new MLFlow client.
@@ -40,7 +40,8 @@ func NewClient(config config.GenericProviderConfig) (*Client, error) {
 	apiConfig.Debug = registryConfig.Debug
 	apiclient := openapi.NewAPIClient(apiConfig)
 	return &Client{
-		apiclient.ModelRegistryServiceAPI,
+		APIService: apiclient.ModelRegistryServiceAPI,
+		Host:       host,
 	}, nil
 }
 
@@ -48,7 +49,8 @@ func (m *Client) createRun(
 	runName string,
 	tags *map[string]openapi.MetadataValue,
 	description,
-	experimentID string) (*openapi.ExperimentRun, error) {
+	experimentID,
+	parentID string) (*openapi.ExperimentRun, error) {
 	ctx := context.Background()
 
 	nowDate := strconv.FormatInt(time.Now().UnixMilli(), 10)
@@ -65,7 +67,7 @@ func (m *Client) createRun(
 		StartTimeSinceEpoch: &nowDate,
 	}
 
-	run, resp, err := m.ModelRegistryServiceAPIService.CreateExperimentRun(ctx).ExperimentRunCreate(payload).Execute()
+	run, resp, err := m.APIService.CreateExperimentRun(ctx).ExperimentRunCreate(payload).Execute()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create run: %w", err)
 	}
@@ -93,7 +95,12 @@ func (m *Client) logMetric(runID, runUUID, key string, value float64) error {
 	return nil
 }
 
-func (m *Client) logBatch(runID string, metrics []types.Metric, params []types.Param, tags []types.RunTag) error {
+func (m *Client) logBatch(
+	runID string,
+	metrics []openapi.Metric,
+	params *map[string]openapi.MetadataValue,
+	tags *map[string]openapi.MetadataValue,
+) error {
 
 	return nil
 }
@@ -107,12 +114,18 @@ func (m *Client) getExperimentByName(name string) (*openapi.Experiment, error) {
 	return nil, nil
 }
 
-// If status is nil, it defaults to LIVE
-func (m *Client) getExperimentByNameNamespace(name, namespace string, status *openapi.ExperimentState) (*openapi.Experiment, error) {
-	return nil, nil
+// If status is nil, it lists all experiments
+func (m *Client) getExperiments(
+	pageSize int64,
+	nextPageToken string,
+	orderBy string,
+	sortOrder string,
+	status openapi.ExperimentState,
+) ([]*openapi.Experiment, string, error) {
+	return nil, "", nil
 }
 
-func (m *Client) createExperiment(name, artifactLocation string, tags []types.ExperimentTag) (*string, error) {
+func (m *Client) createExperiment(name, artifactLocation string, tags *map[string]openapi.MetadataValue) (*openapi.Experiment, error) {
 	return nil, nil
 }
 
@@ -127,5 +140,14 @@ func (m *Client) restoreExperiment(id string) error {
 }
 
 func (m *Client) IsHealthy() error {
+	ctx := context.Background()
+	_, resp, err := m.APIService.GetExperiments(ctx).Execute()
+	if err != nil {
+		return fmt.Errorf("failed to check health: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("unhealthy response code: %d", resp.StatusCode)
+	}
 	return nil
 }

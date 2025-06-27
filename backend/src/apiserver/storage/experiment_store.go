@@ -26,8 +26,15 @@ import (
 )
 
 type ExperimentStoreInterface interface {
+	// CreateExperiment accepts a providerConfig which is used for
+	// provider-specific creation options.
+	// For example, MLFlow allows you to set the artifact_location for all artifacts
+	// uploaded in any run for a given experiment. The user should be able to configure this.
+	// If the provider config is not provided, we would use the default bucket path
 	CreateExperiment(*model.Experiment, providerconfig.GenericProviderConfig) (*model.Experiment, error)
 	GetExperiment(uuid string) (*model.Experiment, error)
+	// GetExperimentByNameNamespace returns the experiment with the given name and namespace.
+	// If no experiment is found, it returns an error.
 	GetExperimentByNameNamespace(name string, namespace string) (*model.Experiment, error)
 	ListExperiments(filterContext *model.FilterContext, opts *list.Options) ([]*model.Experiment, int, string, error)
 	ArchiveExperiment(expId string) error
