@@ -96,7 +96,20 @@ func (m *Client) createRun(
 }
 
 func (m *Client) getRun(runID string) (*openapi.ExperimentRun, error) {
-	return nil, nil
+	ctx := context.Background()
+
+	run, resp, err := m.APIService.GetExperimentRun(ctx, runID).Execute()
+	if err != nil {
+		return nil, fmt.Errorf("failed to update run: %w", err)
+	}
+	defer resp.Body.Close()
+
+	err = checkExecuteStatus(resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return run, nil
 }
 
 func (m *Client) updateRun(
