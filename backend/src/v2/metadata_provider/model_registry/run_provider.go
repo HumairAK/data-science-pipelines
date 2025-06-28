@@ -1,4 +1,4 @@
-package mlflow
+package model_registry
 
 import (
 	"fmt"
@@ -69,7 +69,7 @@ func (r *RunProvider) CreateRun(
 }
 
 // TODO can model registry support more states?
-var mapKFPRuntimeStateToMLFlowRuntimeState = map[model.RuntimeState]openapi.ExperimentRunStatus{
+var mapKFPRuntimeStateToMRRuntimeState = map[model.RuntimeState]openapi.ExperimentRunStatus{
 	model.RuntimeStateUnspecified: openapi.EXPERIMENTRUNSTATUS_SCHEDULED,
 	model.RuntimeStatePending:     openapi.EXPERIMENTRUNSTATUS_SCHEDULED,
 	model.RuntimeStateRunning:     openapi.EXPERIMENTRUNSTATUS_RUNNING,
@@ -82,7 +82,7 @@ var mapKFPRuntimeStateToMLFlowRuntimeState = map[model.RuntimeState]openapi.Expe
 }
 
 func ConvertKFPToMRRuntimeState(kfpRunStatus model.RuntimeState) openapi.ExperimentRunStatus {
-	if v, ok := mapKFPRuntimeStateToMLFlowRuntimeState[kfpRunStatus]; ok {
+	if v, ok := mapKFPRuntimeStateToMRRuntimeState[kfpRunStatus]; ok {
 		return v
 	}
 	glog.Errorf("Unknown kfp run status: %v", kfpRunStatus)
@@ -96,9 +96,9 @@ func (r *RunProvider) UpdateRunStatus(providerRunID string, kfpRunStatus model.R
 	if err != nil {
 		return err
 	}
-	mlflowRunState := ConvertKFPToMRRuntimeState(kfpRunStatus)
+	mrRunState := ConvertKFPToMRRuntimeState(kfpRunStatus)
 	endTime := time.Now().UnixMilli()
-	err = r.client.updateRun(*run.Id, &mlflowRunState, &endTime, nil, nil)
+	err = r.client.updateRun(*run.Id, &mrRunState, &endTime, nil, nil)
 	if err != nil {
 		return err
 	}

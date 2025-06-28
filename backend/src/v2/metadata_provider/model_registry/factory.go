@@ -1,4 +1,4 @@
-package mlflow
+package model_registry
 
 import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
@@ -7,12 +7,12 @@ import (
 )
 
 func init() {
-	metadata_provider.Register("mlflow", &mlflowFactory{})
+	metadata_provider.Register("model-registry", &Factory{})
 }
 
-type mlflowFactory struct{}
+type Factory struct{}
 
-func (f *mlflowFactory) NewValidator(cfg config.GenericProviderConfig) (metadata_provider.Validator, error) {
+func (f *Factory) NewValidator(cfg config.GenericProviderConfig) (metadata_provider.Validator, error) {
 	client, err := NewClient(cfg)
 	if err != nil {
 		return nil, err
@@ -20,7 +20,7 @@ func (f *mlflowFactory) NewValidator(cfg config.GenericProviderConfig) (metadata
 	return &Validator{client: client}, nil
 }
 
-func (f *mlflowFactory) NewExperimentStore(cfg config.GenericProviderConfig) (storage.ExperimentStoreInterface, error) {
+func (f *Factory) NewExperimentStore(cfg config.GenericProviderConfig) (storage.ExperimentStoreInterface, error) {
 	client, err := NewClient(cfg)
 	if err != nil {
 		return nil, err
@@ -28,7 +28,7 @@ func (f *mlflowFactory) NewExperimentStore(cfg config.GenericProviderConfig) (st
 	return &ExperimentStore{client: client}, nil
 }
 
-func (f *mlflowFactory) NewRunProvider(cfg config.GenericProviderConfig) (metadata_provider.RunProvider, error) {
+func (f *Factory) NewRunProvider(cfg config.GenericProviderConfig) (metadata_provider.RunProvider, error) {
 	client, err := NewClient(cfg)
 	if err != nil {
 		return nil, err
@@ -36,7 +36,7 @@ func (f *mlflowFactory) NewRunProvider(cfg config.GenericProviderConfig) (metada
 	return &RunProvider{client: client}, nil
 }
 
-func (f *mlflowFactory) NewMetadataArtifactProvider(cfg config.GenericProviderConfig) (metadata_provider.MetadataArtifactProvider, error) {
+func (f *Factory) NewMetadataArtifactProvider(cfg config.GenericProviderConfig) (metadata_provider.MetadataArtifactProvider, error) {
 	client, err := NewClient(cfg)
 	if err != nil {
 		return nil, err

@@ -1,7 +1,8 @@
-package mlflow
+package model_registry
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,9 +24,7 @@ type Client struct {
 	Host                       string
 }
 
-// NewClient returns a new MLFlow client.
-// Assumes Env vars:
-// MLFLOW_TRACKING_SERVER_TOKEN
+// NewClient returns a new MR client.
 func NewClient(config config.GenericProviderConfig) (*Client, error) {
 	registryConfig, err := ConvertToModelRegistryConfig(config)
 	if err != nil {
@@ -34,18 +33,27 @@ func NewClient(config config.GenericProviderConfig) (*Client, error) {
 	host := registryConfig.Host
 	tlsEnabled := registryConfig.TLSEnabled
 	var protocol string
-	if tlsEnabled == "true" {
+	if tlsEnabled {
 		protocol = "https"
 	} else {
 		protocol = "http"
 	}
-	authToken := os.Getenv("MODEL_REGISTRY_TOKEN")
+	authToken := os.Getenv(registryConfig.TokenEnvVarName)
+	if authToken == "" {
+		return nil, errors.New(fmt.Sprintf("Model Registry config env var: %s is not set", registryConfig.TokenEnvVarName))
+	}
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: registryConfig.InsecureSkipVerify},
+	}
+	httpClient := &http.Client{Transport: tr}
 
 	apiConfig := openapi.NewConfiguration()
 	apiConfig.Host = host
-	apiConfig.DefaultHeader["Authorization"] = authToken
+	apiConfig.DefaultHeader["Authorization"] = fmt.Sprintf("Bearer %s", authToken)
 	apiConfig.Scheme = protocol
 	apiConfig.Debug = registryConfig.Debug
+	apiConfig.HTTPClient = httpClient
 	apiclient := openapi.NewAPIClient(apiConfig)
 
 	return &Client{

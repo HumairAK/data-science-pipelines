@@ -1,4 +1,4 @@
-package mlflow
+package model_registry
 
 import (
 	"encoding/json"
@@ -11,7 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// Ensure MLFlowValidator implements Validator
+// Ensure MRValidator implements Validator
 var _ metadata_provider.Validator = &Validator{}
 
 type Validator struct {
@@ -27,25 +27,25 @@ func (v *Validator) ValidateConfig(config config.GenericProviderConfig) error {
 
 	err = json.Unmarshal(bytes, &cfg)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal into MLFlowConfig: %w", err)
+		return fmt.Errorf("failed to unmarshal into MRConfig: %w", err)
 	}
 
 	if cfg.Host == "" {
-		return fmt.Errorf("MLFlow host is empty")
+		return fmt.Errorf("MR host is empty")
 	}
 
 	client, err := NewClient(config)
 	if err != nil {
-		return fmt.Errorf("failed to create MLFlow client: %w", err)
+		return fmt.Errorf("failed to create MR client: %w", err)
 	}
 
 	err = client.IsHealthy()
 	if err != nil {
-		return fmt.Errorf("failed to connect to MLFlow server using the provided configs: %w", err)
+		return fmt.Errorf("failed to connect to MR server using the provided configs: %w", err)
 	}
 
 	v.client = client
-	glog.Info("Successfully connected to MLFlow server using the provided configs")
+	glog.Info("Successfully connected to MR server using the provided configs")
 	return nil
 }
 

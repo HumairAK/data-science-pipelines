@@ -1,4 +1,4 @@
-package mlflow
+package model_registry
 
 import (
 	"bytes"
@@ -63,7 +63,7 @@ func BuildExperimentNamespaceName(name, namespace string) string {
 	return fmt.Sprintf("%s/%s", namespace, name)
 }
 
-// TODO: this isthe same as the MLFlow provider code, move this to a general utility
+// TODO: this is the same as the MLFlow provider code, move this to a general utility
 func DoRequest(method, url string, body []byte, headers map[string]string, client *http.Client) (*http.Response, []byte, error) {
 	glog.Infof("------------------------------------")
 	glog.Infof("Sending %s request to %s", method, url)

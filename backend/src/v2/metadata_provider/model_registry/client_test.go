@@ -1,4 +1,4 @@
-package mlflow
+package model_registry
 
 import (
 	"testing"

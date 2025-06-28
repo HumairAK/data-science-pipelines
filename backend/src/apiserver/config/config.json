@@ -26,12 +26,16 @@
   "CACHE_IMAGE": "registry.k8s.io/busybox",
   "CACHE_NODE_RESTRICTIONS": "false",
   "MetadataProvider": {
-    "MetadataProviderName": "mlflow",
+    "MetadataProviderName": "model-registry",
     "SupportNestedRuns": "true",
     "AdditionalConfig": {
-      "Host": "mlflow-server-mlflow.apps.hukhan-10.dev.datahub.redhat.com",
+      "Host": "test1-rest.apps.hukhan-10.dev.datahub.redhat.com:443",
       "Port": "",
-      "TLSEnabled": "false"
+      "Debug": true,
+      "DefaultArtifactURI": "s3://mlflow-bucket/my-stuff",
+      "TLSEnabled": true,
+      "InsecureSkipVerify": true,
+      "TokenEnvVarName": "MODEL_REGISTRY_TOKEN"
     }
   }
 }

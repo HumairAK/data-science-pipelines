@@ -1,4 +1,4 @@
-package mlflow
+package model_registry
 
 import (
 	"encoding/json"
@@ -9,9 +9,11 @@ import (
 type Config struct {
 	Host               string `json:"Host"`
 	Port               string `json:"Port"`
-	TLSEnabled         string `json:"TLSEnabled"`
+	TLSEnabled         bool   `json:"TLSEnabled"`
 	Debug              bool   `json:"Debug"`
 	DefaultArtifactURI string `json:"DefaultArtifactURI"`
+	TokenEnvVarName    string `json:"TokenEnvVarName"`
+	InsecureSkipVerify bool   `json:"InsecureSkipVerify"`
 	// TODO: Add tls cert handling
 }
 
@@ -43,7 +45,7 @@ func ConvertToModelRegistryConfig(data config.GenericProviderConfig) (*Config, e
 	}
 	var cfg Config
 	if err := json.Unmarshal(raw, &cfg); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal into MLFlowConfig: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal into Model Registry Config: %w", err)
 	}
 
 	return &cfg, nil
