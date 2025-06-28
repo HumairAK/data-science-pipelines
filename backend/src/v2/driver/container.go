@@ -237,6 +237,7 @@ func Container(ctx context.Context, opts Options, cm *client_manager.ClientManag
 		opts.MetadatRunProvider,
 		ecfg.ProviderRunID,
 		storeSessionInfo,
+		pipeline.GetPipelineRoot(),
 	)
 	if err != nil {
 		return execution, err

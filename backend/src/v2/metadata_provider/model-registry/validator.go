@@ -8,7 +8,6 @@ import (
 	api "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
-	fdsafds "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
 	corev1 "k8s.io/api/core/v1"
 )
 

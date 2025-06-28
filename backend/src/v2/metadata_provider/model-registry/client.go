@@ -2,11 +2,13 @@ package mlflow
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/golang/glog"
 	"github.com/kubeflow/model-registry/pkg/openapi"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
 	"io"
 	"net/http"
 	"os"
@@ -15,8 +17,10 @@ import (
 )
 
 type Client struct {
-	APIService *openapi.ModelRegistryServiceAPIService
-	Host       string
+	APIService                 *openapi.ModelRegistryServiceAPIService
+	APIConfig                  *openapi.Configuration
+	DefaultArtifactTrackingURI string
+	Host                       string
 }
 
 // NewClient returns a new MLFlow client.
@@ -43,9 +47,12 @@ func NewClient(config config.GenericProviderConfig) (*Client, error) {
 	apiConfig.Scheme = protocol
 	apiConfig.Debug = registryConfig.Debug
 	apiclient := openapi.NewAPIClient(apiConfig)
+
 	return &Client{
-		APIService: apiclient.ModelRegistryServiceAPI,
-		Host:       host,
+		APIService:                 apiclient.ModelRegistryServiceAPI,
+		Host:                       host,
+		APIConfig:                  apiConfig,
+		DefaultArtifactTrackingURI: registryConfig.DefaultArtifactURI,
 	}, nil
 }
 
@@ -84,18 +91,122 @@ func (m *Client) getRun(runID string) (*openapi.ExperimentRun, error) {
 	return nil, nil
 }
 
-func (m *Client) updateRun(runID string, runName *string, status *openapi.ExperimentRunStatus, endTime *int64) error {
+func (m *Client) updateRun(
+	runID string,
+	status *openapi.ExperimentRunStatus,
+	endTime *int64,
+	params *map[string]openapi.MetadataValue,
+	tags *map[string]openapi.MetadataValue,
+) error {
+	ctx := context.Background()
+	if status == nil && endTime == nil && params == nil && tags == nil {
+		return fmt.Errorf("no update fields provided")
+	}
+	payload := openapi.ExperimentRunUpdate{}
+	if status != nil {
+		payload.Status = status
+	}
+	if endTime != nil {
+		endTimeConverted := strconv.FormatInt(*endTime, 10)
+		payload.EndTimeSinceEpoch = &endTimeConverted
+	}
+	if params != nil {
+		payload.CustomProperties = params
+	}
+	if tags != nil {
+		payload.CustomProperties = tags
+	}
+	_, resp, err := m.APIService.UpdateExperimentRun(ctx, runID).ExperimentRunUpdate(payload).Execute()
+	if err != nil {
+		return fmt.Errorf("failed to update run: %w", err)
+	}
+	defer resp.Body.Close()
+
+	err = checkExecuteStatus(resp)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
+func (m *Client) logParam(runID, key, value string) (*openapi.Artifact, error) {
+	artifactType := "parameter"
+	parameterType := openapi.PARAMETERTYPE_STRING
+	return m.logArtifact(runID, openapi.ArtifactCreate{
+		ParameterCreate: &openapi.ParameterCreate{
+			ArtifactType:  &artifactType,
+			Name:          &key,
+			Value:         &value,
+			ParameterType: &parameterType,
+		},
+	})
+}
+
+func (m *Client) logMetric(runID, key string, value float64, step int64) (*openapi.Artifact, error) {
+	artifactType := "metric"
+	payload := openapi.ArtifactCreate{
+		MetricCreate: &openapi.MetricCreate{
+			ArtifactType: &artifactType,
+			Name:         &key,
+			Value:        &value,
+			Step:         &step,
+		},
+	}
+	return m.logArtifact(runID, payload)
+}
+
+func (m *Client) logArtifact(runID string, payload openapi.ArtifactCreate) (*openapi.Artifact, error) {
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	_, body, err := DoRequest(
+		"POST",
+		fmt.Sprintf("%s/experiment_runs/%s/artifacts", m.Host, runID),
+		jsonPayload,
+		map[string]string{
+			"Content-Type": "application/json",
+		},
+		m.APIConfig.HTTPClient,
+	)
+	if err != nil {
+		return nil, err
+	}
+	artifact := &openapi.Artifact{}
+	err = json.Unmarshal(body, artifact)
+	if err != nil {
+		glog.Errorf("Failed to unmarshal: %v", err)
+		return nil, err
+	}
+	return artifact, nil
+}
+
 func (m *Client) logBatch(
 	runID string,
-	metrics []openapi.Metric,
-	params *map[string]openapi.MetadataValue,
+	metrics []types.Metric,
+	params []types.Param,
 	tags *map[string]openapi.MetadataValue,
 ) error {
+	// Todo: Update to batching when MR supports it
 
+	err := m.updateRun(runID, nil, nil, nil, tags)
+	if err != nil {
+		return err
+	}
+
+	for _, metric := range metrics {
+		_, err := m.logMetric(runID, metric.Key, metric.Value, metric.Step)
+		if err != nil {
+			return err
+		}
+	}
+	for _, param := range params {
+		_, err := m.logParam(runID, param.Key, param.Value)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -184,13 +295,11 @@ func (m *Client) getExperiments(
 
 func (m *Client) createExperiment(name, description string, tags *map[string]openapi.MetadataValue) (*openapi.Experiment, error) {
 	ctx := context.Background()
-
 	payload := openapi.ExperimentCreate{
 		Name:             name,
 		Description:      &description,
 		CustomProperties: tags,
 	}
-
 	experiment, resp, err := m.APIService.CreateExperiment(ctx).ExperimentCreate(payload).Execute()
 	if err != nil {
 		return nil, fmt.Errorf("failed to check health: %w", err)
@@ -200,7 +309,6 @@ func (m *Client) createExperiment(name, description string, tags *map[string]ope
 	if err != nil {
 		return nil, err
 	}
-
 	return experiment, nil
 }
 

@@ -118,7 +118,7 @@ func (r *RunProvider) UpdateRunStatus(providerRunID string, kfpRunStatus model.R
 	return nil
 }
 
-func (r *RunProvider) ExecutorPatch(experimentID string, providerRunID string, storeSession objectstore.SessionInfo) (*corev1.PodSpec, error) {
+func (r *RunProvider) ExecutorPatch(experimentID string, providerRunID string, storeSession objectstore.SessionInfo, pipelineRoot string) (*corev1.PodSpec, error) {
 	var params *objectstore.S3Params
 	if storeSession.Provider == "minio" || storeSession.Provider == "s3" {
 		var err error

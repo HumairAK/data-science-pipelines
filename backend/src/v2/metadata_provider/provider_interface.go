@@ -61,7 +61,7 @@ type RunProvider interface {
 
 	// ExecutorPatch returns a Pod Patch that will be merged with the executor pod.
 	// Return nil patch with nil error if no patch is needed.
-	ExecutorPatch(experimentID string, providerRunID string, storeSession objectstore.SessionInfo) (*corev1.PodSpec, error)
+	ExecutorPatch(experimentID string, providerRunID string, storeSession objectstore.SessionInfo, pipelineRoot string) (*corev1.PodSpec, error)
 }
 
 type MetadataArtifactProvider interface {

@@ -98,14 +98,14 @@ func (r *RunProvider) UpdateRunStatus(providerRunID string, kfpRunStatus model.R
 	}
 	mlflowRunState := ConvertKFPToMRRuntimeState(kfpRunStatus)
 	endTime := time.Now().UnixMilli()
-	err = r.client.updateRun(*run.Id, nil, &mlflowRunState, &endTime)
+	err = r.client.updateRun(*run.Id, &mlflowRunState, &endTime, nil, nil)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *RunProvider) ExecutorPatch(experimentID string, providerRunID string, storeSession objectstore.SessionInfo) (*corev1.PodSpec, error) {
+func (r *RunProvider) ExecutorPatch(experimentID string, providerRunID string, storeSession objectstore.SessionInfo, pipelineRoot string) (*corev1.PodSpec, error) {
 	var params *objectstore.S3Params
 	if storeSession.Provider == "minio" || storeSession.Provider == "s3" {
 		var err error
@@ -117,7 +117,8 @@ func (r *RunProvider) ExecutorPatch(experimentID string, providerRunID string, s
 		return nil, fmt.Errorf("Unsupported object store provider: %s", storeSession.Provider)
 	}
 
-	mlflowEnvVars := []corev1.EnvVar{
+	envVars := []corev1.EnvVar{
+
 		// Support MLFlow Env vars for end users
 		// This allows easy integration options with MR plugin with MLFlow
 		{
@@ -141,10 +142,15 @@ func (r *RunProvider) ExecutorPatch(experimentID string, providerRunID string, s
 			Name:  "MLFLOW_S3_IGNORE_TLS",
 			Value: strconv.FormatBool(params.DisableSSL),
 		},
+
 		// Support Model Registry Env vars for end users
 		{
 			Name:  "MODEL_REGISTRY_TRACKING_URI",
 			Value: r.client.Host,
+		},
+		{
+			Name:  "MODEL_REGISTRY_ARTIFACT_URI",
+			Value: pipelineRoot,
 		},
 		{
 			Name:  "MODEL_REGISTRY_RUN_ID",
@@ -154,6 +160,8 @@ func (r *RunProvider) ExecutorPatch(experimentID string, providerRunID string, s
 			Name:  "MODEL_REGISTRY_EXPERIMENT_ID",
 			Value: experimentID,
 		},
+
+		// ObjectStore URI
 		{
 			Name: "AWS_ACCESS_KEY_ID",
 			ValueFrom: &corev1.EnvVarSource{
@@ -181,7 +189,7 @@ func (r *RunProvider) ExecutorPatch(experimentID string, providerRunID string, s
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{{
 			Name: "main",
-			Env:  mlflowEnvVars,
+			Env:  envVars,
 		}},
 	}
 

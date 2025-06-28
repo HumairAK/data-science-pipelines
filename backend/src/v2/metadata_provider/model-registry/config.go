@@ -7,15 +7,16 @@ import (
 )
 
 type Config struct {
-	Host       string `json:"Host"`
-	Port       string `json:"Port"`
-	TLSEnabled string `json:"TLSEnabled"`
-	Debug      bool   `json:"Debug"`
+	Host               string `json:"Host"`
+	Port               string `json:"Port"`
+	TLSEnabled         string `json:"TLSEnabled"`
+	Debug              bool   `json:"Debug"`
+	DefaultArtifactURI string `json:"DefaultArtifactURI"`
 	// TODO: Add tls cert handling
 }
 
 type ExperimentCreationConfig struct {
-	// not implemented
+	ArtifactLocation string `json:"artifact_location"`
 }
 
 func ConvertToExperimentCreationConfig(config config.GenericProviderConfig) (*ExperimentCreationConfig, error) {

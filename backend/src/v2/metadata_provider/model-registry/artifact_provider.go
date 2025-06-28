@@ -44,7 +44,7 @@ func (a *ArtifactProvider) LogOutputArtifact(
 		if len(metrics) <= 0 {
 			return nil, fmt.Errorf("Encountered metrics artifact type, but detected no metadata fields defining numbered values.")
 		}
-		err := a.client.logBatch(runID, metrics, []types.Param{}, []types.RunTag{})
+		err := a.client.logBatch(runID, metrics, []types.Param{}, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -54,20 +54,23 @@ func (a *ArtifactProvider) LogOutputArtifact(
 		artifactResult.ArtifactURL = metricURL
 		return &artifactResult, nil
 	case util.SchemaTitleArtifact:
-		//
-		experiment, err := a.client.getExperiment(experimentID)
-		if err != nil {
-			return nil, err
-		}
-		// TODO: are we setting the default on api server when it's not set when experiment is creation? Confirm.
-		artifactLocation := experiment.ArtifactLocation
+		artifactLocation := a.client.DefaultArtifactTrackingURI
+
+		// TODO: Not sure if this will work with MR plugin, see sibling code in CreateExperiment()
+		//experiment, err := a.client.getExperiment(experimentID)
+		//if err != nil {
+		//	return nil, err
+		//}
+		//defaultURI := experiment.GetCustomProperties()[ExperimentArtifactURI]
+		//if defaultURI.MetadataStringValue != nil && defaultURI.MetadataStringValue.GetStringValue() != "" {
+		//	artifactLocation = defaultURI.MetadataStringValue.GetStringValue()
+		//}
 
 		parsed, err := url.Parse(runtimeArtifact.Uri)
 		if err != nil {
 			return nil, err
 		}
 		base := path.Base(parsed.Path)
-
 		artifactResult.ArtifactURI = fmt.Sprintf("%s/%s/artifacts/%s", artifactLocation, runID, base)
 		artifactResult.ArtifactURL = a.artifactURL(runID, experimentID)
 		return &artifactResult, nil
@@ -77,11 +80,11 @@ func (a *ArtifactProvider) LogOutputArtifact(
 }
 
 func (a *ArtifactProvider) metricURL(runId, experimentID string) string {
-	uri := fmt.Sprintf("%s/#/experiments/%s/runs/%s/model-metrics", a.client.baseHost, experimentID, runId)
+	uri := fmt.Sprintf("%s/#/experiments/%s/runs/%s/model-metrics", a.client.Host, experimentID, runId)
 	return uri
 }
 
 func (a *ArtifactProvider) artifactURL(runId, experimentID string) string {
-	uri := fmt.Sprintf("%s/#/experiments/%s/runs/%s/artifacts", a.client.baseHost, experimentID, runId)
+	uri := fmt.Sprintf("%s/#/experiments/%s/runs/%s/artifacts", a.client.Host, experimentID, runId)
 	return uri
 }

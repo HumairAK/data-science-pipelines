@@ -1,10 +1,15 @@
 package mlflow
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"github.com/golang/glog"
 	"github.com/kubeflow/model-registry/pkg/openapi"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
+	"io"
+	"net/http"
 	"strconv"
 )
 
@@ -56,4 +61,43 @@ func GetExperimentTag(experiment *types.Experiment, tagKey string) string {
 
 func BuildExperimentNamespaceName(name, namespace string) string {
 	return fmt.Sprintf("%s/%s", namespace, name)
+}
+
+// TODO: this isthe same as the MLFlow provider code, move this to a general utility
+func DoRequest(method, url string, body []byte, headers map[string]string, client *http.Client) (*http.Response, []byte, error) {
+	glog.Infof("------------------------------------")
+	glog.Infof("Sending %s request to %s", method, url)
+	glog.Infof("With Payload: %s", string(body))
+
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add headers if provided
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return resp, nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		glog.Errorf("Request failed with status code %d: %s", resp.StatusCode, string(respBody))
+		return nil, []byte{}, errors.New(string(respBody))
+	}
+
+	glog.Infof("Request successfully sent. With Status received: %s", resp.Status)
+	glog.Infof("Response Body: %s", string(body))
+	glog.Infof("------------------------------------")
+
+	return resp, respBody, nil
 }

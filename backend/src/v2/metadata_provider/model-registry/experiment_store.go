@@ -44,14 +44,18 @@ func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, pro
 		baseExperiment.Name = BuildExperimentNamespaceName(baseExperiment.Name, namespace)
 	}
 
-	var artifactLocation string
-	if providerConfig != nil {
-		// todo: see if MR has (or should have) their own experiment creation specific settings
-	}
+	// TODO: Not sure if this will work with MR plugin, see sibling code in LogOutputArtifact
+	//if providerConfig != nil {
+	//	creationConfig, err := ConvertToExperimentCreationConfig(providerConfig)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	addTag(tags, ExperimentArtifactURI, creationConfig.ArtifactLocation)
+	//}
 
 	experiment, err := s.client.createExperiment(
 		baseExperiment.Name,
-		artifactLocation,
+		baseExperiment.Description,
 		tags,
 	)
 	if err != nil {
