@@ -571,6 +571,7 @@ func (c *workflowCompiler) addDAGDriverTemplate() string {
 		args = append(args, "--metadata_provider_config", c.metadataProviderConfig)
 	}
 
+	envvars := append(proxy.GetConfig().GetEnvVars(), c.metadataProviderEnv...)
 	t := &wfapi.Template{
 		Name: name,
 		Inputs: wfapi.Inputs{
@@ -595,7 +596,7 @@ func (c *workflowCompiler) addDAGDriverTemplate() string {
 			Command:   c.driverCommand,
 			Args:      args,
 			Resources: driverResources,
-			Env:       proxy.GetConfig().GetEnvVars(),
+			Env:       envvars,
 		},
 	}
 	c.templates[name] = t

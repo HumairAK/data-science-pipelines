@@ -155,7 +155,24 @@ func getPodResource(
 // to container base template generated in compiler/container.go. Therefore, only
 // dynamic values are patched here. The volume mounts / configmap mounts are
 // defined in compiler, because they are static.
-func initPodSpecPatch(container *pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec, componentSpec *pipelinespec.ComponentSpec, executorInput *pipelinespec.ExecutorInput, executionID int64, pipelineName string, runID string, pipelineLogLevel string, publishLogs string, cacheDisabled string, experimentID string, metadataProviderConfig string, metadataRunProvider metadata_provider.RunProvider, metadataProviderRunID *string, sessionInfo objectstore.SessionInfo, pipelineRoot string) (*k8score.PodSpec, error) {
+func initPodSpecPatch(
+	container *pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec,
+	componentSpec *pipelinespec.ComponentSpec,
+	executorInput *pipelinespec.ExecutorInput,
+	executionID int64,
+	pipelineName string,
+	runID string,
+	pipelineLogLevel string,
+	publishLogs string,
+	cacheDisabled string,
+	experimentID string,
+	metadataProviderConfig string,
+	metadataRunProvider metadata_provider.RunProvider,
+	metadataProviderRunID *string,
+	metadataEnv []k8score.EnvVar,
+	sessionInfo objectstore.SessionInfo,
+	pipelineRoot string,
+) (*k8score.PodSpec, error) {
 	executorInputJSON, err := protojson.Marshal(executorInput)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init podSpecPatch: %w", err)
@@ -319,11 +336,13 @@ func initPodSpecPatch(container *pipelinespec.PipelineDeploymentConfig_PipelineC
 	addModelcarsToPodSpec(executorInput.GetInputs().GetArtifacts(), userEnvVar, podSpec)
 
 	if metadataRunProvider != nil && metadataProviderRunID != nil {
+
 		patch, err := metadataRunProvider.ExecutorPatch(
 			experimentID,
 			*metadataProviderRunID,
 			sessionInfo,
 			pipelineRoot,
+			metadataEnv,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed generate metadata provider executor patch: %w", err)

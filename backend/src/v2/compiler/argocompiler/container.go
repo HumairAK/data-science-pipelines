@@ -216,6 +216,8 @@ func (c *workflowCompiler) addContainerDriverTemplate() string {
 		args = append(args, "--metadata_provider_config", c.metadataProviderConfig)
 	}
 
+	envvars := append(proxy.GetConfig().GetEnvVars(), c.metadataProviderEnv...)
+
 	t := &wfapi.Template{
 		Name: name,
 		Inputs: wfapi.Inputs{
@@ -240,7 +242,7 @@ func (c *workflowCompiler) addContainerDriverTemplate() string {
 			Command:   c.driverCommand,
 			Args:      args,
 			Resources: driverResources,
-			Env:       proxy.GetConfig().GetEnvVars(),
+			Env:       envvars,
 		},
 	}
 	c.templates[name] = t
@@ -357,6 +359,8 @@ func (c *workflowCompiler) addContainerExecutorTemplate(task *pipelinespec.Pipel
 	if value, ok := os.LookupEnv(PublishLogsEnvVar); ok {
 		args = append(args, "--publish_logs", value)
 	}
+
+	envvars := append(commonEnvs, c.metadataProviderEnv...)
 	executor := &wfapi.Template{
 		Name: nameContainerImpl,
 		Inputs: wfapi.Inputs{
@@ -468,7 +472,7 @@ func (c *workflowCompiler) addContainerExecutorTemplate(task *pipelinespec.Pipel
 				},
 			},
 			EnvFrom: []k8score.EnvFromSource{metadataEnvFrom},
-			Env:     commonEnvs,
+			Env:     envvars,
 		},
 	}
 	// If retry policy is set, add retryStrategy to executor

@@ -8,6 +8,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/manager"
+	k8score "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -33,6 +34,7 @@ type ClientManager struct {
 	runServiceClient         v2beta1.RunServiceClient
 	metadataArtifactProvider metadata_provider.MetadataArtifactProvider
 	metadataNestedRunSupport bool
+	metadataEnv              []k8score.EnvVar
 }
 
 type Options struct {
@@ -79,6 +81,10 @@ func (cm *ClientManager) MetadataNestedRunSupport() bool {
 	return cm.metadataNestedRunSupport
 }
 
+func (cm *ClientManager) MetadataEnv() []k8score.EnvVar {
+	return cm.metadataEnv
+}
+
 func (cm *ClientManager) RunServiceClient() v2beta1.RunServiceClient {
 	return cm.runServiceClient
 }
@@ -100,6 +106,7 @@ func (cm *ClientManager) init(opts *Options) error {
 	cm.metadataClient = metadataClient
 	cm.cacheClient = cacheClient
 
+	// TODO(humair): just have CM hold the metadata manager, instead of a million of these field
 	if opts.MetadatRunProviderConfig != "" {
 		metadataProvider, err := md.NewProviderFromJSON(opts.MetadatRunProviderConfig)
 		if err != nil {
@@ -116,8 +123,8 @@ func (cm *ClientManager) init(opts *Options) error {
 			return fmt.Errorf("failed to create metadata artifact provider: %w", err)
 		}
 		cm.metadataArtifactProvider = artifactProvider
-
 		cm.metadataNestedRunSupport = metadataProvider.SupportNestedRuns()
+		cm.metadataEnv = metadataProvider.GetEnv()
 	}
 
 	connection, err := util.GetRpcConnection(

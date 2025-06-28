@@ -28,6 +28,17 @@
   "MetadataProvider": {
     "MetadataProviderName": "model-registry",
     "SupportNestedRuns": "true",
+    "PipelineEnv": [
+      {
+        "name": "MODEL_REGISTRY_TOKEN",
+        "valueFrom": {
+          "secretKeyRef": {
+            "key": "token",
+            "name": "model-registry-creds"
+          }
+        }
+      }
+    ],
     "AdditionalConfig": {
       "Host": "my-model-registry-rest.apps.hukhan-10.dev.datahub.redhat.com:443",
       "Port": "",

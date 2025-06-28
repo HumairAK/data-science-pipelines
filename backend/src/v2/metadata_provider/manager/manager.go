@@ -7,6 +7,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 	_ "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/import_providers"
+	k8score "k8s.io/api/core/v1"
 )
 
 type Provider struct {
@@ -70,6 +71,10 @@ func (p *Provider) SupportNestedRuns() bool {
 		return false
 	}
 	return p.config.SupportNestedRuns == "true"
+}
+
+func (p *Provider) GetEnv() []k8score.EnvVar {
+	return p.config.PipelineEnv
 }
 
 func (p *Provider) GetProviderName() string {

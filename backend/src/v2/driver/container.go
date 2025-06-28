@@ -222,6 +222,7 @@ func Container(ctx context.Context, opts Options, cm *client_manager.ClientManag
 	}
 
 	// todo(humair): just pass the entire opts struct to the launcher.
+	// or make init/container/etc. a member of driver struct and share global opts
 	podSpec, err := initPodSpecPatch(
 		opts.Container,
 		opts.Component,
@@ -236,6 +237,7 @@ func Container(ctx context.Context, opts Options, cm *client_manager.ClientManag
 		opts.MetadataProviderConfig,
 		opts.MetadatRunProvider,
 		ecfg.ProviderRunID,
+		cm.MetadataEnv(),
 		storeSessionInfo,
 		pipeline.GetPipelineRoot(),
 	)

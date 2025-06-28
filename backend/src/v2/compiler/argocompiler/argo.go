@@ -167,6 +167,7 @@ func Compile(jobArg *pipelinespec.PipelineJob, kubernetesSpecArg *pipelinespec.S
 				return nil, err1
 			}
 			c.metadataProviderConfig = configJson
+			c.metadataProviderEnv = opts.MetadataProvider.GetEnv()
 		}
 	}
 
@@ -196,6 +197,7 @@ type workflowCompiler struct {
 	cacheDisabled          bool
 	metadataProviderConfig string
 	experimentID           string
+	metadataProviderEnv    []k8score.EnvVar
 }
 
 func (c *workflowCompiler) Resolver(name string, component *pipelinespec.ComponentSpec, resolver *pipelinespec.PipelineDeploymentConfig_ResolverSpec) error {
