@@ -11,10 +11,9 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
 	commonutils "github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
-	fdsafd "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow/types"
 )
 
-// Ensure MLFlowExperimentProvider implements MetadataExperimentProvider
+// Ensure ModelRegistryExperimentProvider implements MetadataExperimentProvider
 var _ storage.ExperimentStoreInterface = &ExperimentStore{}
 
 // ExperimentStore
@@ -36,7 +35,7 @@ func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, pro
 	var tags *map[string]openapi.MetadataValue
 
 	namespace := baseExperiment.Namespace
-	// Experiments in MLFlow have no notion of namespaces
+	// Experiments in ModelRegistry have no notion of namespaces
 	// So we label experiments using tags, but tags are not
 	// unique, thus we must also include the namespace in the name
 	if namespace != "" {
@@ -107,24 +106,21 @@ func (s *ExperimentStore) ListExperiments(filterContext *model.FilterContext, op
 		// adds support for searching by custom properties, or via namespace field
 	}
 
-	viewType := determineStorageState(opts.Filter)
+	viewType := openapi.ExperimentState(determineStorageState(opts.Filter))
 	experiments, nextPageToken, err := s.client.getExperiments(
 		int64(opts.PageSize),
 		opts.PageToken,
 		"",
 		"",
-		openapi.ExperimentState(viewType),
+		&viewType,
 	)
 	if err != nil {
 		return errorF(err)
 	}
 	for _, experiment := range experiments {
-		if experiment == nil {
-			return errorF(fmt.Errorf("experiment is nil"))
-		}
-		experimentModel, err2 := mrExperimentToModelExperiment(*experiment)
-		if err2 != nil {
-			return errorF(err2)
+		experimentModel, conversionErr := mrExperimentToModelExperiment(experiment)
+		if conversionErr != nil {
+			return errorF(conversionErr)
 		}
 		experimentModels = append(experimentModels, experimentModel)
 	}
@@ -148,13 +144,13 @@ func (s *ExperimentStore) UnarchiveExperiment(expId string) error {
 }
 
 func (s *ExperimentStore) DeleteExperiment(expId string) error {
-	return fmt.Errorf("Permanently deleting experiments is not supported in MLFlow. Please use the archive API instead.")
+	return fmt.Errorf("Permanently deleting experiments is not supported in ModelRegistry. Please use the archive API instead.")
 }
 
 // SetLastRunTimestamp
 // Don't fail to avoid blocking pipeline creation
 func (s *ExperimentStore) SetLastRunTimestamp(run *model.Run) error {
-	glog.Warning("SetLastRunTimestamp is not implemented for MLFlow.")
+	glog.Warning("SetLastRunTimestamp is not implemented for ModelRegistry.")
 	return nil
 }
 
