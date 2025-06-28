@@ -21,7 +21,9 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/golang/glog"
 	"math"
 	"reflect"
 	"strings"
@@ -68,15 +70,27 @@ func (t *token) unmarshal(pageToken string) error {
 	errorF := func(err error) error {
 		return util.NewInvalidInputErrorWithDetails(err, "Invalid package token")
 	}
-	b, err := base64.StdEncoding.DecodeString(pageToken)
+
+	// First try base64 decoding
+	decoded, err := base64.StdEncoding.DecodeString(pageToken)
 	if err != nil {
+		// Not base64 → this is a genuine error
+		var corruptInputError base64.CorruptInputError
+		if errors.As(err, &corruptInputError) {
+			glog.V(4).Info("Encountered invalid base64 token, treating as not for me")
+			return nil // not base64, skip
+		}
 		return errorF(err)
 	}
 
-	if err = json.Unmarshal(b, t); err != nil {
-		return errorF(err)
+	// Base64 succeeded, now try to unmarshal
+	if err := json.Unmarshal(decoded, t); err != nil {
+		// It's valid base64 but not meant for this token → treat as "not for me"
+		glog.V(4).Info("Encountered invalid base64 token, treating as not for me")
+		return nil
 	}
 
+	// Successfully unmarshaled
 	return nil
 }
 

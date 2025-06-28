@@ -29,7 +29,7 @@
     "MetadataProviderName": "model-registry",
     "SupportNestedRuns": "true",
     "AdditionalConfig": {
-      "Host": "test1-rest.apps.hukhan-10.dev.datahub.redhat.com:443",
+      "Host": "my-model-registry-rest.apps.hukhan-10.dev.datahub.redhat.com:443",
       "Port": "",
       "Debug": true,
       "DefaultArtifactURI": "s3://mlflow-bucket/my-stuff",

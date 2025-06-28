@@ -233,7 +233,8 @@ func checkExecuteStatus(resp *http.Response) error {
 
 func (m *Client) getExperiment(id string) (*openapi.Experiment, error) {
 	ctx := context.Background()
-	experiment, resp, err := m.APIService.FindExperiment(ctx).ExternalId(id).Execute()
+
+	experiment, resp, err := m.APIService.GetExperiment(ctx, id).Execute()
 	if err != nil {
 		return nil, fmt.Errorf("failed to check health: %w", err)
 	}
@@ -288,10 +289,10 @@ func (m *Client) getExperiments(
 	// TODO: filtering is not supported in the API yet. So we just filter on the api server side
 	// this is not great because some pages might not be equal in length and ship the pageSize
 	// for poc it's enough for now
-	if status != nil {
+	if status != nil && *status != "" {
 		var experimentsListFiltered []openapi.Experiment
 		for _, experiment := range experimentsList.Items {
-			if experiment.State != nil && experiment.State == status {
+			if experiment.State != nil && *experiment.State == *status {
 				experimentsListFiltered = append(experimentsListFiltered, experiment)
 			}
 		}
