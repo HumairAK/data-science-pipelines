@@ -48,7 +48,7 @@ func (r *RunProvider) CreateRun(
 	}
 	if parentRunID != "" {
 		tags = append(tags, types.RunTag{
-			Key:   "mlflow.parentRunId",
+			Key:   ParentTag,
 			Value: parentRunID,
 		})
 	}

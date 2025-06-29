@@ -7,6 +7,7 @@ import (
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/mlflow"
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 	corev1 "k8s.io/api/core/v1"
 	"strconv"
@@ -48,7 +49,10 @@ func (r *RunProvider) CreateRun(
 			MetadataStringValue: mv,
 		}
 	}
-
+	if parentRunID != "" {
+		addTag(&tags, mlflow.ParentTag, parentRunID)
+	}
+	addTag(&tags, RunID, kfpRun.RunId)
 	run, err := r.client.createRun(
 		ProviderRunName,
 		&tags,
@@ -56,7 +60,6 @@ func (r *RunProvider) CreateRun(
 		experimentID,
 		parentRunID,
 	)
-
 	if err != nil {
 		return nil, err
 	}

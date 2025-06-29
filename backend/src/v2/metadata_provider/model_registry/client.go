@@ -68,8 +68,7 @@ func (m *Client) createRun(
 	runName string,
 	tags *map[string]openapi.MetadataValue,
 	description,
-	experimentID,
-	parentID string) (*openapi.ExperimentRun, error) {
+	experimentID, parentRunID string) (*openapi.ExperimentRun, error) {
 	ctx := context.Background()
 
 	nowDate := strconv.FormatInt(time.Now().UnixMilli(), 10)
@@ -84,6 +83,10 @@ func (m *Client) createRun(
 		Owner:               nil,
 		ExperimentId:        experimentID,
 		StartTimeSinceEpoch: &nowDate,
+	}
+
+	if parentRunID != "" {
+		payload.Owner = &parentRunID
 	}
 
 	run, resp, err := m.APIService.CreateExperimentRun(ctx).ExperimentRunCreate(payload).Execute()
