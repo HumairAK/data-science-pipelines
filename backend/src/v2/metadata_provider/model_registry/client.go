@@ -214,9 +214,11 @@ func (m *Client) logBatch(
 ) error {
 	// Todo: Update to batching when MR supports it
 
-	err := m.updateRun(runID, nil, nil, nil, tags)
-	if err != nil {
-		return err
+	if tags != nil && len(*tags) > 0 {
+		err := m.updateRun(runID, nil, nil, nil, tags)
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, metric := range metrics {
