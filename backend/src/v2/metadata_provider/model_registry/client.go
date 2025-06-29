@@ -17,11 +17,25 @@ import (
 	"time"
 )
 
+const ApiVersion = "v1alpha3"
+
 type Client struct {
 	APIService                 *openapi.ModelRegistryServiceAPIService
 	APIConfig                  *openapi.Configuration
 	DefaultArtifactTrackingURI string
 	Host                       string
+}
+
+type headerTransport struct {
+	base    http.RoundTripper
+	headers map[string]string
+}
+
+func (t *headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	for key, value := range t.headers {
+		req.Header.Set(key, value)
+	}
+	return t.base.RoundTrip(req)
 }
 
 // NewClient returns a new MR client.
@@ -43,22 +57,26 @@ func NewClient(config config.GenericProviderConfig) (*Client, error) {
 		return nil, errors.New(fmt.Sprintf("Model Registry config env var: %s is not set", registryConfig.TokenEnvVarName))
 	}
 
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: registryConfig.InsecureSkipVerify},
-	}
-	httpClient := &http.Client{Transport: tr}
-
 	apiConfig := openapi.NewConfiguration()
 	apiConfig.Host = host
 	apiConfig.DefaultHeader["Authorization"] = fmt.Sprintf("Bearer %s", authToken)
 	apiConfig.Scheme = protocol
 	apiConfig.Debug = registryConfig.Debug
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: registryConfig.InsecureSkipVerify},
+	}
+	httpClient := &http.Client{Transport: &headerTransport{
+		base:    tr,
+		headers: apiConfig.DefaultHeader,
+	},
+	}
 	apiConfig.HTTPClient = httpClient
 	apiclient := openapi.NewAPIClient(apiConfig)
 
 	return &Client{
 		APIService:                 apiclient.ModelRegistryServiceAPI,
-		Host:                       host,
+		Host:                       fmt.Sprintf("%s://%s/api/model_registry/%s", protocol, host, ApiVersion),
 		APIConfig:                  apiConfig,
 		DefaultArtifactTrackingURI: registryConfig.DefaultArtifactURI,
 	}, nil

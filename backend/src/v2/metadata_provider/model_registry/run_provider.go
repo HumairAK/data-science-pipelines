@@ -42,13 +42,6 @@ func (r *RunProvider) CreateRun(
 	parentRunID string,
 ) (*metadata_provider.ProviderRun, error) {
 	tags := make(map[string]openapi.MetadataValue)
-	for _, param := range parameters {
-		mv := openapi.NewMetadataStringValueWithDefaults()
-		mv.SetStringValue(param.Value)
-		tags[param.Name] = openapi.MetadataValue{
-			MetadataStringValue: mv,
-		}
-	}
 	if parentRunID != "" {
 		addTag(&tags, mlflow.ParentTag, parentRunID)
 	}
@@ -63,6 +56,15 @@ func (r *RunProvider) CreateRun(
 	if err != nil {
 		return nil, err
 	}
+
+	// Todo, do batch once implemented in MR
+	for _, param := range parameters {
+		_, err := r.client.logParam(*run.Id, param.Name, param.Value)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	providerRun := &metadata_provider.ProviderRun{
 		ID:     *run.Id,
 		Name:   *run.Name,
