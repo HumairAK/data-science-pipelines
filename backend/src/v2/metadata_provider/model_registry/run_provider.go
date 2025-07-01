@@ -1,6 +1,7 @@
 package model_registry
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"github.com/golang/glog"
 	"github.com/kubeflow/model-registry/pkg/openapi"
@@ -45,6 +46,11 @@ func (r *RunProvider) CreateRun(
 	if parentRunID != "" {
 		addTag(&tags, mlflow.ParentTag, parentRunID)
 	}
+	// Add unique timestamp suffix to run name
+
+	hash := sha256.Sum256([]byte(fmt.Sprintf("%s-%d", ProviderRunName, time.Now().UnixNano())))
+	ProviderRunName = fmt.Sprintf("%s-%x", ProviderRunName, hash[:4])
+
 	addTag(&tags, RunID, kfpRun.RunId)
 	run, err := r.client.createRun(
 		ProviderRunName,
@@ -64,7 +70,6 @@ func (r *RunProvider) CreateRun(
 			return nil, err
 		}
 	}
-
 	providerRun := &metadata_provider.ProviderRun{
 		ID:     *run.Id,
 		Name:   *run.Name,
