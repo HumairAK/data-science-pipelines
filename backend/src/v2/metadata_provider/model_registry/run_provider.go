@@ -131,6 +131,7 @@ func (r *RunProvider) ExecutorPatch(
 		return nil, fmt.Errorf("Unsupported object store provider: %s", storeSession.Provider)
 	}
 
+	trackingURI := fmt.Sprintf("modelregistry+%s", r.client.Host)
 	envVars := []corev1.EnvVar{
 
 		// Support MLFlow Env vars for end users
@@ -142,7 +143,7 @@ func (r *RunProvider) ExecutorPatch(
 
 		{
 			Name:  "MLFLOW_TRACKING_URI",
-			Value: r.client.Host,
+			Value: trackingURI,
 		},
 		{
 			Name:  "MLFLOW_EXPERIMENT_ID",
@@ -160,7 +161,7 @@ func (r *RunProvider) ExecutorPatch(
 		// Support Model Registry Env vars for end users
 		{
 			Name:  "MODEL_REGISTRY_TRACKING_URI",
-			Value: r.client.Host,
+			Value: trackingURI,
 		},
 		{
 			Name:  "MODEL_REGISTRY_ARTIFACT_URI",
@@ -174,7 +175,6 @@ func (r *RunProvider) ExecutorPatch(
 			Name:  "MODEL_REGISTRY_EXPERIMENT_ID",
 			Value: experimentID,
 		},
-
 		// ObjectStore URI
 		{
 			Name: "AWS_ACCESS_KEY_ID",
