@@ -27,11 +27,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
+	v2util "github.com/kubeflow/pipelines/backend/src/v2/util"
+
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	api "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
-	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
+	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
@@ -41,7 +44,6 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 type LauncherV2Options struct {
@@ -59,20 +61,19 @@ type LauncherV2Options struct {
 	// set to true if metadata server is serving over tls
 	MetadataTLSEnabled bool
 	CaCertPath         string
+	ExperimentID       string
 }
 
 type LauncherV2 struct {
-	executionID   int64
-	executorInput *pipelinespec.ExecutorInput
-	component     *pipelinespec.ComponentSpec
-	command       string
-	args          []string
-	options       LauncherV2Options
-
-	// clients
-	metadataClient metadata.ClientInterface
-	k8sClient      kubernetes.Interface
-	cacheClient    cacheutils.Client
+	executionID      int64
+	executorInput    *pipelinespec.ExecutorInput
+	experimentID     string
+	component        *pipelinespec.ComponentSpec
+	command          string
+	args             []string
+	options          LauncherV2Options
+	clientManager    client_manager.ClientManagerInterface
+	artifactProvider metadata_provider.MetadataArtifactProvider
 }
 
 // Client is the struct to hold the Kubernetes Clientset
@@ -81,7 +82,15 @@ type kubernetesClient struct {
 }
 
 // NewLauncherV2 is a factory function that returns an instance of LauncherV2.
-func NewLauncherV2(ctx context.Context, executionID int64, executorInputJSON, componentSpecJSON string, cmdArgs []string, opts *LauncherV2Options) (l *LauncherV2, err error) {
+func NewLauncherV2(
+	ctx context.Context,
+	executionID int64,
+	executorInputJSON,
+	componentSpecJSON string,
+	cmdArgs []string,
+	opts *LauncherV2Options,
+	clientManager client_manager.ClientManagerInterface,
+) (l *LauncherV2, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("failed to create component launcher v2: %w", err)
@@ -107,32 +116,35 @@ func NewLauncherV2(ctx context.Context, executionID int64, executorInputJSON, co
 	if err != nil {
 		return nil, err
 	}
-	restConfig, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize kubernetes client: %w", err)
-	}
-	k8sClient, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize kubernetes client set: %w", err)
-	}
-	metadataClient, err := metadata.NewClient(opts.MLMDServerAddress, opts.MLMDServerPort, opts.MetadataTLSEnabled, opts.CaCertPath)
-	if err != nil {
-		return nil, err
-	}
-	cacheClient, err := cacheutils.NewClient(opts.CacheDisabled, opts.MLPipelineTLSEnabled)
-	if err != nil {
-		return nil, err
-	}
+
+	// TODO(gfrasca): unused?
+	// restConfig, err := rest.InClusterConfig()
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to initialize kubernetes client: %w", err)
+	// }
+
+	// k8sClient, err := kubernetes.NewForConfig(restConfig)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to initialize kubernetes client set: %w", err)
+	// }
+	// metadataClient, err := metadata.NewClient(opts.MLMDServerAddress, opts.MLMDServerPort, opts.MetadataTLSEnabled, opts.CaCertPath)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// cacheClient, err := cacheutils.NewClient(opts.CacheDisabled, opts.MLPipelineTLSEnabled)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	return &LauncherV2{
-		executionID:    executionID,
-		executorInput:  executorInput,
-		component:      component,
-		command:        cmdArgs[0],
-		args:           cmdArgs[1:],
-		options:        *opts,
-		metadataClient: metadataClient,
-		k8sClient:      k8sClient,
-		cacheClient:    cacheClient,
+		executionID:      executionID,
+		executorInput:    executorInput,
+		component:        component,
+		command:          cmdArgs[0],
+		args:             cmdArgs[1:],
+		options:          *opts,
+		clientManager:    clientManager,
+		experimentID:     opts.ExperimentID,
+		artifactProvider: clientManager.MetadataArtifactProvider(),
 	}, nil
 }
 
@@ -188,8 +200,11 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	var execution *metadata.Execution
 	var executorOutput *pipelinespec.ExecutorOutput
 	var outputArtifacts []*metadata.OutputArtifact
+
+	runProvider := l.clientManager.MetadataRunProvider()
 	status := pb.Execution_FAILED
 	defer func() {
+		glog.Infof("prepublishing..., status is: %d", status)
 		if perr := l.publish(ctx, execution, executorOutput, outputArtifacts, status); perr != nil {
 			if err != nil {
 				err = fmt.Errorf("failed to publish execution with error %s after execution failed: %s", perr.Error(), err.Error())
@@ -197,18 +212,46 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 				err = perr
 			}
 		}
+
+		// If available, update the status of the run in the metadata provider
+		if runProvider != nil {
+			runID, exists := execution.GetProviderRunID()
+			if !exists {
+				glog.Errorf("Provider run ID is not set for execution %d", execution.GetID())
+			} else {
+				err := runProvider.UpdateRunStatus(runID, v2util.GetKFPStateFromMLMDState(status))
+				if err != nil {
+					glog.Errorf("Failed to update provider run status for run %s: %v", runID, err.Error())
+				}
+			}
+		}
+
 		glog.Infof("publish success.")
 		// At the end of the current task, we check the statuses of all tasks in
 		// the current DAG and update the DAG's status accordingly.
-		dag, err := l.metadataClient.GetDAG(ctx, execution.GetExecution().CustomProperties["parent_dag_id"].GetIntValue())
+		parentDag, err := l.clientManager.MetadataClient().GetDAG(ctx, execution.GetExecution().CustomProperties["parent_dag_id"].GetIntValue())
 		if err != nil {
 			glog.Errorf("DAG Status Update: failed to get DAG: %s", err.Error())
 		}
-		pipeline, _ := l.metadataClient.GetPipelineFromExecution(ctx, execution.GetID())
-		err = l.metadataClient.UpdateDAGExecutionsState(ctx, dag, pipeline)
+		pipeline, _ := l.clientManager.MetadataClient().GetPipelineFromExecution(ctx, execution.GetID())
+		err = l.clientManager.MetadataClient().UpdateDAGExecutionsState(ctx, parentDag, pipeline)
 		if err != nil {
 			glog.Errorf("failed to update DAG state: %s", err.Error())
 		}
+
+		// If available, update the status of the parent run in the metadata provider
+		if runProvider != nil && l.clientManager.MetadataNestedRunSupport() {
+			parentDagsProviderRunID, exists := parentDag.Execution.GetProviderRunID()
+			if !exists {
+				glog.Errorf("Provider run ID is not set for execution %d", execution.GetID())
+			} else {
+				err := runProvider.UpdateRunStatus(parentDagsProviderRunID, v2util.GetKFPStateFromMLMDState(status))
+				if err != nil {
+					glog.Errorf("Failed to update provider run status for run %s: %v", parentDagsProviderRunID, err.Error())
+				}
+			}
+		}
+
 	}()
 	executedStartedTime := time.Now().Unix()
 	execution, err = l.prePublish(ctx)
@@ -225,7 +268,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	bucket, err := objectstore.OpenBucket(ctx, l.k8sClient, l.options.Namespace, bucketConfig)
+	bucket, err := objectstore.OpenBucket(ctx, l.clientManager.K8sClient(), l.options.Namespace, bucketConfig)
 	if err != nil {
 		return err
 	}
@@ -240,10 +283,14 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		l.args,
 		bucket,
 		bucketConfig,
-		l.metadataClient,
+		l.clientManager.MetadataClient(),
 		l.options.Namespace,
-		l.k8sClient,
+		l.clientManager.K8sClient(),
 		l.options.PublishLogs,
+		execution,
+		l.artifactProvider,
+		l.experimentID,
+		l.clientManager.MetadataNestedRunSupport(),
 	)
 	if err != nil {
 		return err
@@ -265,7 +312,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 			FinishedAt:      &timestamp.Timestamp{Seconds: time.Now().Unix()},
 			Fingerprint:     fingerPrint,
 		}
-		return l.cacheClient.CreateExecutionCache(ctx, task)
+		return l.clientManager.CacheClient().CreateExecutionCache(ctx, task)
 	}
 
 	return nil
@@ -311,7 +358,7 @@ func (l *LauncherV2) prePublish(ctx context.Context) (execution *metadata.Execut
 			err = fmt.Errorf("failed to pre-publish Pod info to ML Metadata: %w", err)
 		}
 	}()
-	execution, err = l.metadataClient.GetExecution(ctx, l.executionID)
+	execution, err = l.clientManager.MetadataClient().GetExecution(ctx, l.executionID)
 	if err != nil {
 		return nil, err
 	}
@@ -320,7 +367,7 @@ func (l *LauncherV2) prePublish(ctx context.Context) (execution *metadata.Execut
 		PodUID:    l.options.PodUID,
 		Namespace: l.options.Namespace,
 	}
-	return l.metadataClient.PrePublishExecution(ctx, execution, ecfg)
+	return l.clientManager.MetadataClient().PrePublishExecution(ctx, execution, ecfg)
 }
 
 // TODO(Bobgy): consider passing output artifacts info from executor output.
@@ -341,24 +388,12 @@ func (l *LauncherV2) publish(
 	// TODO(Bobgy): when adding artifacts, we will need execution.pipeline to be non-nil, because we need
 	// to publish output artifacts to the context too.
 	// return l.metadataClient.PublishExecution(ctx, execution, outputParameters, outputArtifacts, pb.Execution_COMPLETE)
-	return l.metadataClient.PublishExecution(ctx, execution, outputParameters, outputArtifacts, status)
+	return l.clientManager.MetadataClient().PublishExecution(ctx, execution, outputParameters, outputArtifacts, status)
 }
 
 // executeV2 handles placeholder substitution for inputs, calls execute to
 // execute end user logic, and uploads the resulting output Artifacts.
-func executeV2(
-	ctx context.Context,
-	executorInput *pipelinespec.ExecutorInput,
-	component *pipelinespec.ComponentSpec,
-	cmd string,
-	args []string,
-	bucket *blob.Bucket,
-	bucketConfig *objectstore.Config,
-	metadataClient metadata.ClientInterface,
-	namespace string,
-	k8sClient kubernetes.Interface,
-	publishLogs string,
-) (*pipelinespec.ExecutorOutput, []*metadata.OutputArtifact, error) {
+func executeV2(ctx context.Context, executorInput *pipelinespec.ExecutorInput, component *pipelinespec.ComponentSpec, cmd string, args []string, bucket *blob.Bucket, bucketConfig *objectstore.Config, metadataClient metadata.ClientInterface, namespace string, k8sClient kubernetes.Interface, publishLogs string, execution *metadata.Execution, artifactProvider metadata_provider.MetadataArtifactProvider, experimentID string, metadataProviderNestedSupport bool) (*pipelinespec.ExecutorOutput, []*metadata.OutputArtifact, error) {
 
 	// Add parameter default values to executorInput, if there is not already a user input.
 	// This process is done in the launcher because we let the component resolve default values internally.
@@ -384,6 +419,7 @@ func executeV2(
 		namespace,
 		k8sClient,
 		publishLogs,
+		artifactProvider,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -396,10 +432,15 @@ func executeV2(
 		return nil, nil, err
 	}
 	// TODO(Bobgy): should we log metadata per each artifact, or batched after uploading all artifacts.
-	outputArtifacts, err := uploadOutputArtifacts(ctx, executorInput, executorOutput, uploadOutputArtifactsOptions{
-		bucketConfig:   bucketConfig,
-		bucket:         bucket,
-		metadataClient: metadataClient,
+	outputArtifacts, err := uploadOutputArtifacts(ctx, executorInput, executorOutput, execution, uploadOutputArtifactsOptions{
+		bucketConfig:                  bucketConfig,
+		bucket:                        bucket,
+		metadataClient:                metadataClient,
+		artifactProvider:              artifactProvider,
+		experimentID:                  experimentID,
+		k8sClient:                     k8sClient,
+		namespace:                     namespace,
+		metadataProviderNestedSupport: metadataProviderNestedSupport,
 	})
 	if err != nil {
 		return nil, nil, err
@@ -497,8 +538,9 @@ func execute(
 	namespace string,
 	k8sClient kubernetes.Interface,
 	publishLogs string,
+	artifact_provider metadata_provider.MetadataArtifactProvider,
 ) (*pipelinespec.ExecutorOutput, error) {
-	if err := downloadArtifacts(ctx, executorInput, bucket, bucketConfig, namespace, k8sClient); err != nil {
+	if err := downloadArtifacts(ctx, executorInput, bucket, bucketConfig, namespace, k8sClient, artifact_provider); err != nil {
 		return nil, err
 	}
 
@@ -530,37 +572,141 @@ func execute(
 }
 
 type uploadOutputArtifactsOptions struct {
-	bucketConfig   *objectstore.Config
-	bucket         *blob.Bucket
-	metadataClient metadata.ClientInterface
+	bucketConfig                  *objectstore.Config
+	bucket                        *blob.Bucket
+	metadataClient                metadata.ClientInterface
+	artifactProvider              metadata_provider.MetadataArtifactProvider
+	experimentID                  string
+	k8sClient                     kubernetes.Interface
+	namespace                     string
+	metadataProviderNestedSupport bool
 }
 
-func uploadOutputArtifacts(ctx context.Context, executorInput *pipelinespec.ExecutorInput, executorOutput *pipelinespec.ExecutorOutput, opts uploadOutputArtifactsOptions) ([]*metadata.OutputArtifact, error) {
+func uploadOutputArtifacts(
+	ctx context.Context,
+	executorInput *pipelinespec.ExecutorInput, executorOutput *pipelinespec.ExecutorOutput, execution *metadata.Execution,
+	opts uploadOutputArtifactsOptions) ([]*metadata.OutputArtifact, error) {
 	// Register artifacts with MLMD.
 	outputArtifacts := make([]*metadata.OutputArtifact, 0, len(executorInput.GetOutputs().GetArtifacts()))
 	for name, artifactList := range executorInput.GetOutputs().GetArtifacts() {
 		if len(artifactList.Artifacts) == 0 {
 			continue
 		}
+		// Maintain a cache of open buckets so we can re-use them
+		buckets := make(map[string]*blob.Bucket)
+		buckets[opts.bucketConfig.PrefixedBucket()] = opts.bucket
 
 		for _, outputArtifact := range artifactList.Artifacts {
-			glog.Infof("outputArtifact in uploadOutputArtifacts call: ", outputArtifact.Name)
+			glog.Infof("outputArtifact in uploadOutputArtifacts call: %s", outputArtifact.String())
+
+			// Assume we're going to use the default bucket and bucketconfig by default
+			// These may be updated later if a different artifact provider is being leveraged.
+			bucketConfig := opts.bucketConfig
+			bucket := opts.bucket
 
 			// Merge executor output artifact info with executor input
 			if list, ok := executorOutput.Artifacts[name]; ok && len(list.Artifacts) > 0 {
 				mergeRuntimeArtifacts(list.Artifacts[0], outputArtifact)
 			}
 
-			// Upload artifacts from local path to remote storages.
+			// Retrieve artifact location in local file system
 			localDir, err := LocalPathForURI(outputArtifact.Uri)
 			if err != nil {
 				glog.Warningf("Output Artifact %q does not have a recognized storage URI %q. Skipping uploading to remote storage.", name, outputArtifact.Uri)
-			} else if !strings.HasPrefix(outputArtifact.Uri, "oci://") {
-				blobKey, err := opts.bucketConfig.KeyFromURI(outputArtifact.Uri)
+			}
+
+			// Only upload non oci artifacts
+			shouldUpploadToObjectStore := !strings.HasPrefix(outputArtifact.Uri, "oci://")
+
+			if opts.artifactProvider != nil {
+				runID, exists := execution.GetProviderRunID()
+				if !exists {
+					return nil, fmt.Errorf("Execution does not have a provider run id")
+				}
+
+				artifactResult, err1 := opts.artifactProvider.LogOutputArtifact(runID, opts.experimentID, outputArtifact)
+				if err1 != nil {
+					return nil, err1
+				}
+				// if artifactResult is nil with no error, we assume it is not supported by the provider
+				// if it is not nil we continue to update to the new URi and check for nested runs supportability
+				if artifactResult != nil {
+					glog.Infof("Logged artifact result.")
+					// In special cases like with MLFlow Metrics (which KFP doesn't store in object store anyway)
+					// We avoid updating the artifact URI, later logic will ignore uploading it to object store.
+					needToUploadProviderArtifact := artifactResult.ArtifactURI != ""
+					// If the provider has changed the format of the URI then we need to update the opened bucket
+					providerChangedUri := outputArtifact.Uri != artifactResult.ArtifactURI
+
+					if needToUploadProviderArtifact && providerChangedUri {
+						outputArtifact.Uri = artifactResult.ArtifactURI
+						// update config and bucket to reflect the new URI
+						newConfig, err := objectstore.ParseBucketConfigForArtifactURIWithPrefix(outputArtifact.Uri)
+						if err != nil {
+							return nil, err
+						}
+						newConfig.SessionInfo = bucketConfig.SessionInfo // Keep the same session info
+						bucketConfig = newConfig
+						if _, ok := buckets[bucketConfig.PrefixedBucket()]; ok {
+							bucket = buckets[bucketConfig.PrefixedBucket()]
+						} else {
+							var err error
+							bucket, err = objectstore.OpenBucket(ctx, opts.k8sClient, opts.namespace, bucketConfig)
+							if err != nil {
+								return nil, err
+							}
+							buckets[bucketConfig.PrefixedBucket()] = bucket
+						}
+					}
+					if outputArtifact.Metadata == nil {
+						outputArtifact.Metadata = &structpb.Struct{}
+					}
+					if outputArtifact.Metadata.Fields == nil {
+						outputArtifact.Metadata.Fields = make(map[string]*structpb.Value)
+					}
+					// For Frontend to use, if this is present, frontend can just display this as a redirect.
+					if artifactResult.ArtifactURL != "" {
+						outputArtifact.Metadata.Fields["url"] = structpb.NewStringValue(artifactResult.ArtifactURL)
+					}
+
+					// Only log artifacts for a parent run when part of a loop iteration, the parent run in this case
+					// will be the dag run for which this run is a part of. We avoid logging in other cases to
+					// avoid encountering too many name collisions. It is useful for logging this to the loop iteration
+					// (parent) run, to allow users to compare their loop inputs with the artifacts (like metrics) that were logged
+					// in this run. Though collisions could result here as well, the onus is on the user to not
+					// log the same metric with the same name multiple times in a given iteration.
+					if opts.metadataProviderNestedSupport {
+						parentDagID := execution.GetParentDagID()
+						parentDagExecution, err2 := opts.metadataClient.GetExecution(ctx, parentDagID)
+						if err2 != nil {
+							return nil, err2
+						}
+						// only log for loop iteration parents
+						_, isInALoopIteration := parentDagExecution.GetIterationIndex()
+						if isInALoopIteration {
+							parentProviderRunID, parentRunExists := parentDagExecution.GetProviderRunID()
+							if !parentRunExists {
+								return nil, fmt.Errorf("Parent dag execution does not have a provider run id")
+							}
+							parentArtifactResult, err2 := opts.artifactProvider.LogOutputArtifact(parentProviderRunID, opts.experimentID, outputArtifact)
+							if err2 != nil {
+								return nil, err2
+							}
+							if parentArtifactResult != nil {
+								glog.Infof("Logged artifact result: (RI=%s, URL=%s)",
+									parentArtifactResult.ArtifactURI, parentArtifactResult.ArtifactURL)
+							}
+						}
+					}
+				}
+			}
+
+			if shouldUpploadToObjectStore {
+				blobKey, err := bucketConfig.KeyFromURI(outputArtifact.Uri)
 				if err != nil {
 					return nil, fmt.Errorf("failed to upload output artifact %q: %w", name, err)
 				}
-				if err := objectstore.UploadBlob(ctx, opts.bucket, localDir, blobKey); err != nil {
+				if err := objectstore.UploadBlob(ctx, bucket, localDir, blobKey); err != nil {
 					//  We allow components to not produce output files
 					if errors.Is(err, os.ErrNotExist) {
 						glog.Warningf("Local filepath %q does not exist", localDir)
@@ -579,6 +725,7 @@ func uploadOutputArtifacts(ctx context.Context, executorInput *pipelinespec.Exec
 			if err != nil {
 				return nil, fmt.Errorf("failed to determine schema for output %q: %w", name, err)
 			}
+
 			mlmdArtifact, err := opts.metadataClient.RecordArtifact(ctx, name, schema, outputArtifact, pb.Artifact_LIVE, opts.bucketConfig)
 			if err != nil {
 				return nil, metadataErr(err)
@@ -614,7 +761,15 @@ func waitForModelcar(artifactURI string, localPath string) error {
 	}
 }
 
-func downloadArtifacts(ctx context.Context, executorInput *pipelinespec.ExecutorInput, defaultBucket *blob.Bucket, defaultBucketConfig *objectstore.Config, namespace string, k8sClient kubernetes.Interface) error {
+func downloadArtifacts(
+	ctx context.Context,
+	executorInput *pipelinespec.ExecutorInput,
+	defaultBucket *blob.Bucket,
+	defaultBucketConfig *objectstore.Config,
+	namespace string,
+	k8sClient kubernetes.Interface,
+	provider metadata_provider.MetadataArtifactProvider,
+) error {
 	// Read input artifact metadata.
 	nonDefaultBuckets, err := fetchNonDefaultBuckets(ctx, executorInput.GetInputs().GetArtifacts(), defaultBucketConfig, namespace, k8sClient)
 	closeNonDefaultBuckets := func(buckets map[string]*blob.Bucket) {
@@ -629,6 +784,10 @@ func downloadArtifacts(ctx context.Context, executorInput *pipelinespec.Executor
 		return fmt.Errorf("failed to fetch non default buckets: %w", err)
 	}
 
+	// Maintain a cache of open buckets so we can re-use them
+	buckets := make(map[string]*blob.Bucket)
+	buckets[defaultBucketConfig.PrefixedBucket()] = defaultBucket
+
 	for name, artifactList := range executorInput.GetInputs().GetArtifacts() {
 		// TODO(neuromage): Support concat-based placholders for arguments.
 		if len(artifactList.Artifacts) == 0 {
@@ -637,6 +796,12 @@ func downloadArtifacts(ctx context.Context, executorInput *pipelinespec.Executor
 		for _, artifact := range artifactList.Artifacts {
 			// Iterating through the artifact list allows for collected artifacts to be properly consumed.
 			inputArtifact := artifact
+
+			if isMetricsArtifact(artifact) {
+				// Metrics are not stored in objectstore.
+				continue
+			}
+
 			localPath, err := LocalPathForURI(inputArtifact.Uri)
 			if err != nil {
 				glog.Warningf("Input Artifact %q does not have a recognized storage URI %q. Skipping downloading to local path.", name, inputArtifact.Uri)
@@ -674,10 +839,32 @@ func downloadArtifacts(ctx context.Context, executorInput *pipelinespec.Executor
 				bucket = nonDefaultBucket
 				bucketConfig = nonDefaultBucketConfig
 			}
+
+			// Provider configs take precedence
+			if provider != nil {
+				newConfig, err := objectstore.ParseBucketConfigForArtifactURIWithPrefix(inputArtifact.Uri)
+				if err != nil {
+					return err
+				}
+				newConfig.SessionInfo = defaultBucketConfig.SessionInfo // Keep the same session info
+				bucketConfig = newConfig
+				if _, ok := buckets[bucketConfig.PrefixedBucket()]; ok {
+					bucket = buckets[bucketConfig.PrefixedBucket()]
+				} else {
+					var err error
+					bucket, err = objectstore.OpenBucket(ctx, k8sClient, namespace, bucketConfig)
+					if err != nil {
+						return err
+					}
+					buckets[bucketConfig.PrefixedBucket()] = bucket
+				}
+			}
+
 			blobKey, err := bucketConfig.KeyFromURI(inputArtifact.Uri)
 			if err != nil {
 				return copyErr(err)
 			}
+
 			if err := objectstore.DownloadBlob(ctx, bucket, localPath, blobKey); err != nil {
 				return copyErr(err)
 			}
@@ -704,6 +891,11 @@ func fetchNonDefaultBuckets(
 
 		// OCI artifacts are accessed via shared storage of a Modelcar
 		if strings.HasPrefix(artifact.Uri, "oci://") {
+			continue
+		}
+
+		if isMetricsArtifact(artifact) {
+			// Metrics are not stored in objectstore.
 			continue
 		}
 
@@ -969,4 +1161,25 @@ func addDefaultParams(
 		}
 	}
 	return executorInputWithDefault, nil
+}
+
+// Check if the artifact is a metric type
+// Ideally, we would just check a schema type but this is not currently set in the
+// executor input.
+func isMetricsArtifact(artifact *pipelinespec.RuntimeArtifact) bool {
+	if artifact == nil || artifact.Metadata == nil {
+		return false
+	}
+
+	fields := artifact.Metadata.GetFields()
+	if fields == nil {
+		return false
+	}
+
+	displayName, exists := fields["display_name"]
+	if !exists {
+		return false
+	}
+
+	return displayName.GetStringValue() == "metrics"
 }

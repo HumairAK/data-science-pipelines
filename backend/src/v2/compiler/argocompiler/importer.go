@@ -75,6 +75,7 @@ func (c *workflowCompiler) addImporterTemplate() string {
 		"--pipeline_name", c.spec.PipelineInfo.GetName(),
 		"--run_id", runID(),
 		"--parent_dag_id", inputValue(paramParentDagID),
+		"--experiment_id", c.experimentID,
 		"--pod_name",
 		fmt.Sprintf("$(%s)", component.EnvPodName),
 		"--pod_uid",
@@ -93,6 +94,10 @@ func (c *workflowCompiler) addImporterTemplate() string {
 	if value, ok := os.LookupEnv(PublishLogsEnvVar); ok {
 		args = append(args, "--publish_logs", value)
 	}
+	if c.metadataProviderConfig != "" {
+		args = append(args, "--metadata_provider_config", c.metadataProviderConfig)
+	}
+	envvars := append(commonEnvs, c.metadataProviderEnv...)
 	importerTemplate := &wfapi.Template{
 		Name: name,
 		Inputs: wfapi.Inputs{
@@ -108,7 +113,7 @@ func (c *workflowCompiler) addImporterTemplate() string {
 			Command:   c.launcherCommand,
 			Args:      args,
 			EnvFrom:   []k8score.EnvFromSource{metadataEnvFrom},
-			Env:       commonEnvs,
+			Env:       envvars,
 			Resources: driverResources,
 		},
 	}

@@ -547,6 +547,7 @@ func (c *workflowCompiler) addDAGDriverTemplate() string {
 		"--run_id", runID(),
 		"--run_name", runResourceName(),
 		"--run_display_name", c.job.DisplayName,
+		"--experiment_id", c.experimentID,
 		"--dag_execution_id", inputValue(paramParentDagID),
 		"--component", inputValue(paramComponent),
 		"--task", inputValue(paramTask),
@@ -573,7 +574,11 @@ func (c *workflowCompiler) addDAGDriverTemplate() string {
 	if value, ok := os.LookupEnv(PublishLogsEnvVar); ok {
 		args = append(args, "--publish_logs", value)
 	}
+	if c.metadataProviderConfig != "" {
+		args = append(args, "--metadata_provider_config", c.metadataProviderConfig)
+	}
 
+	envvars := append(proxy.GetConfig().GetEnvVars(), c.metadataProviderEnv...)
 	t := &wfapi.Template{
 		Name: name,
 		Inputs: wfapi.Inputs{
@@ -598,7 +603,7 @@ func (c *workflowCompiler) addDAGDriverTemplate() string {
 			Command:   c.driverCommand,
 			Args:      args,
 			Resources: driverResources,
-			Env:       append(proxy.GetConfig().GetEnvVars(), MLPipelineServiceEnv...),
+			Env:       envvars,
 		},
 	}
 	ConfigureCABundle(t)
@@ -638,8 +643,6 @@ func addImplicitDependencies(dagSpec *pipelinespec.DagSpec) error {
 				if err := addDep(input.GetTaskOutputParameter().GetProducerTask()); err != nil {
 					return wrap(err)
 				}
-			case *pipelinespec.TaskInputsSpec_InputParameterSpec_TaskFinalStatus_:
-				return wrap(fmt.Errorf("task final status not supported yet"))
 			default:
 				// other parameter input types do not introduce implicit dependencies
 			}

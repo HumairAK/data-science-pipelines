@@ -22,6 +22,7 @@ import (
 	"strconv"
 
 	"github.com/golang/glog"
+	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/component"
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
 )
@@ -29,6 +30,7 @@ import (
 // TODO: use https://github.com/spf13/cobra as a framework to create more complex CLI tools with subcommands.
 var (
 	copy                           = flag.String("copy", "", "copy this binary to specified destination path")
+	experimentID                   = flag.String("experiment_id", "", "experiment uid")
 	pipelineName                   = flag.String("pipeline_name", "", "pipeline context name")
 	runID                          = flag.String("run_id", "", "pipeline run uid")
 	parentDagID                    = flag.Int64("parent_dag_id", 0, "parent DAG execution ID")
@@ -48,6 +50,8 @@ var (
 	mlPipelineServiceTLSEnabledStr = flag.String("mlPipelineServiceTLSEnabled", "false", "Set to 'true' if mlpipeline api server serves over TLS (default: 'false').")
 	metadataTLSEnabledStr          = flag.String("metadataTLSEnabled", "false", "Set to 'true' if metadata server serves over TLS (default: 'false').")
 	caCertPath                     = flag.String("ca_cert_path", "", "The path to the CA certificate.")
+	// metadata provider config
+	metadataProviderConfigFlag = flag.String("metadata_provider_config", "", "Metadata provider config, must be a valid JSON string.")
 )
 
 func main() {
@@ -101,6 +105,7 @@ func run() error {
 		MLPipelineTLSEnabled: mlPipelineServiceTLSEnabled,
 		MetadataTLSEnabled:   metadataServiceTLSEnabled,
 		CaCertPath:           *caCertPath,
+		ExperimentID:         *experimentID,
 	}
 
 	switch *executorType {
@@ -119,7 +124,17 @@ func run() error {
 		}
 		return nil
 	case "container":
-		launcher, err := component.NewLauncherV2(ctx, *executionID, *executorInputJSON, *componentSpecJSON, flag.Args(), launcherV2Opts)
+		clientOptions := &client_manager.Options{
+			MLMDServerAddress:        launcherV2Opts.MLMDServerAddress,
+			MLMDServerPort:           launcherV2Opts.MLMDServerPort,
+			CacheDisabled:            launcherV2Opts.CacheDisabled,
+			MetadatRunProviderConfig: *metadataProviderConfigFlag,
+		}
+		clientManager, err := client_manager.NewClientManager(clientOptions)
+		if err != nil {
+			return err
+		}
+		launcher, err := component.NewLauncherV2(ctx, *executionID, *executorInputJSON, *componentSpecJSON, flag.Args(), launcherV2Opts, clientManager)
 		if err != nil {
 			return err
 		}

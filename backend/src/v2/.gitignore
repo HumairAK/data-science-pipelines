@@ -1,4 +1,4 @@
-# optional Makefile env config
+# optional Makefile env factory
 .env
 
 # build directory

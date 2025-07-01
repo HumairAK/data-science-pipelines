@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/manager"
+
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
 
 	"github.com/cenkalti/backoff"
@@ -115,6 +117,7 @@ type ClientManager struct {
 	authenticators            []auth.Authenticator
 	controllerClient          ctrlclient.Client
 	controllerClientNoCache   ctrlclient.Client
+	metadataProvider          *md.Provider
 }
 
 // Options to pass to Client Manager initialization
@@ -123,6 +126,11 @@ type Options struct {
 	GlobalKubernetesWebhookMode  bool
 	Context                      context.Context
 	WaitGroup                    *sync.WaitGroup
+	MetadataProviderConfig       string
+}
+
+func (c *ClientManager) GetMetadataProvider() *md.Provider {
+	return c.metadataProvider
 }
 
 func (c *ClientManager) TaskStore() storage.TaskStoreInterface {
@@ -285,15 +293,38 @@ func (c *ClientManager) init(options *Options) error {
 	if !options.UsePipelineKubernetesStorage {
 		c.pipelineStore = storage.NewPipelineStore(db, c.time, c.uuid)
 	}
-	c.experimentStore = storage.NewExperimentStore(db, c.time, c.uuid)
-	c.jobStore = storage.NewJobStore(db, c.time, pipelineStoreForRef)
-	c.taskStore = storage.NewTaskStore(db, c.time, c.uuid)
-	c.resourceReferenceStore = storage.NewResourceReferenceStore(db, pipelineStoreForRef)
-	c.dBStatusStore = storage.NewDBStatusStore(db)
+
+	var metadataProvider *md.Provider
+	if options.MetadataProviderConfig != "" {
+		var err error
+		metadataProvider, err = md.NewProviderFromJSON(options.MetadataProviderConfig)
+		if err != nil {
+			return fmt.Errorf("Failed to parse metadata provider config: %v", err)
+		}
+		err = metadataProvider.ValidateConfig()
+		if err != nil {
+			return fmt.Errorf("Invalid metadata provider config: %v", err)
+		}
+		experimentStore, err := metadataProvider.NewExperimentStore()
+		if err != nil {
+			return err
+		}
+		c.experimentStore = experimentStore
+		c.metadataProvider = metadataProvider
+		glog.Infof("Custom MetadataProvider %s experiment store configured.", metadataProvider.GetProviderName())
+	} else {
+		c.experimentStore = storage.NewExperimentStore(db, c.time, c.uuid)
+		glog.Info("Default experiment store configured.")
+	}
+
 	c.defaultExperimentStore = storage.NewDefaultExperimentStore(db)
-	glog.Info("Initializing Minio client...")
+	c.jobStore = storage.NewJobStore(db, c.time, pipelineStoreForRef, c.experimentStore)
+	c.taskStore = storage.NewTaskStore(db, c.time, c.uuid)
+	c.resourceReferenceStore = storage.NewResourceReferenceStore(db, pipelineStoreForRef, c.experimentStore)
+	c.dBStatusStore = storage.NewDBStatusStore(db)
+	glog.Info("Initializing Object store client...")
 	c.objectStore = initMinioClient(options.Context, common.GetDurationConfig(initConnectionTimeout))
-	glog.Info("Minio client initialized successfully")
+	glog.Info("Object store client initialized successfully")
 	// Use default value of client QPS (5) & burst (10) defined in
 	// k8s.io/client-go/rest/config.go#RESTClientFor
 	clientParams := util.ClientParameters{
@@ -307,14 +338,7 @@ func (c *ClientManager) init(options *Options) error {
 
 	c.k8sCoreClient = client.CreateKubernetesCoreOrFatal(common.GetDurationConfig(initConnectionTimeout), clientParams)
 
-	newClient, err := metadata.NewClient(common.GetMetadataGrpcServiceServiceHost(), common.GetMetadataGrpcServiceServicePort(), common.GetMetadataTLSEnabled(), common.GetCaCertPath())
-
-	if err != nil {
-		glog.Fatalf("Failed to create metadata client. Error: %v", err)
-	}
-	c.metadataClient = newClient
-
-	runStore := storage.NewRunStore(db, c.time)
+	runStore := storage.NewRunStore(db, c.time, c.experimentStore)
 	c.runStore = runStore
 
 	// Log archive

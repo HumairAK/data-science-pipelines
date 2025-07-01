@@ -1255,7 +1255,7 @@ func toModelRun(r interface{}) (*model.Run, error) {
 					namespace = resources["Namespace"]
 				}
 				if experimentId == "" {
-					experimentId = resources["ExperimentId"]
+					experimentId = resources["ExperimentID"]
 				}
 				if pipelineId == "" {
 					pipelineId = resources["PipelineId"]

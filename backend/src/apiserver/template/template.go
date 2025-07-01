@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/manager"
+
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
@@ -128,15 +130,19 @@ type Template interface {
 	// Get workflow
 	RunWorkflow(modelRun *model.Run, options RunWorkflowOptions) (util.ExecutionSpec, error)
 
-	ScheduledWorkflow(modelJob *model.Job, ownerReferences []metav1.OwnerReference) (*scheduledworkflow.ScheduledWorkflow, error)
+	ScheduledWorkflow(modelJob *model.Job, ownerReferences []metav1.OwnerReference, options ScheduledWorkflowOptions) (*scheduledworkflow.ScheduledWorkflow, error)
 
 	IsCacheDisabled() bool
 }
 
 type RunWorkflowOptions struct {
-	RunId         string
-	RunAt         int64
-	CacheDisabled bool
+	RunId            string
+	RunAt            int64
+	CacheDisabled    bool
+	MetadataProvider *md.Provider
+}
+type ScheduledWorkflowOptions struct {
+	MetadataProvider *md.Provider
 }
 
 func New(bytes []byte, cacheDisabled bool) (Template, error) {

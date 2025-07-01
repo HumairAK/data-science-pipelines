@@ -18,11 +18,12 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
+	"modernc.org/sqlite"
 	"strings"
 
 	"github.com/VividCortex/mysqlerr"
 	"github.com/go-sql-driver/mysql"
-	sqlite3 "github.com/mattn/go-sqlite3"
+	"modernc.org/sqlite/lib"
 )
 
 // DB a struct wrapping plain sql library with SQL dialect, to solve any feature
@@ -134,8 +135,8 @@ func (d SQLiteDialect) Upsert(query string, key string, overwrite bool, columns 
 }
 
 func (d SQLiteDialect) IsDuplicateError(err error) bool {
-	sqlError, ok := err.(sqlite3.Error)
-	return ok && sqlError.Code == sqlite3.ErrConstraint
+	sqliteErr, ok := err.(*sqlite.Error)
+	return ok && sqliteErr.Code() == sqlite3.SQLITE_CONSTRAINT
 }
 
 func (d SQLiteDialect) UpdateWithJointOrFrom(targetTable, joinTable, setClause, joinClause, whereClause string) string {

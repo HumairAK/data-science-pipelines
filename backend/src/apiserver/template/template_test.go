@@ -231,7 +231,7 @@ func TestScheduledWorkflow(t *testing.T) {
 		},
 	}
 
-	actualScheduledWorkflow, err := v2Template.ScheduledWorkflow(modelJob, []metav1.OwnerReference{})
+	actualScheduledWorkflow, err := v2Template.ScheduledWorkflow(modelJob, []metav1.OwnerReference{}, ScheduledWorkflowOptions{})
 	assert.Nil(t, err)
 
 	// We don't compare this field because it changes with every driver/launcher image release.

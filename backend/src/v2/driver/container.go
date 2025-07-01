@@ -20,10 +20,13 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
+	"github.com/kubeflow/pipelines/backend/src/v2/config"
+	v2util "github.com/kubeflow/pipelines/backend/src/v2/util"
+
 	"github.com/golang/glog"
 	"github.com/google/uuid"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
-	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
 	"github.com/kubeflow/pipelines/backend/src/v2/expression"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
 	pb "github.com/kubeflow/pipelines/third_party/ml-metadata/go/ml_metadata"
@@ -41,7 +44,14 @@ func validateContainer(opts Options) (err error) {
 	return validateNonRoot(opts)
 }
 
-func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheClient cacheutils.Client) (execution *Execution, err error) {
+func Container(ctx context.Context, opts Options, cm *client_manager.ClientManager) (execution *Execution, err error) {
+	mlmdInterface := cm.MetadataClient()
+	mlmd, ok := mlmdInterface.(*metadata.Client)
+	if !ok {
+		return nil, fmt.Errorf("invalid metadata client")
+	}
+	cacheClient := cm.CacheClient()
+
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("driver.Container(%s) failed: %w", opts.info(), err)
@@ -143,12 +153,34 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 		ecfg.FingerPrint = fingerPrint
 	}
 
-	// TODO(Bobgy): change execution state to pending, because this is driver, execution hasn't started.
-	createdExecution, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
-
-	if err != nil {
-		return execution, err
+	runProvider := cm.MetadataRunProvider()
+	if runProvider != nil {
+		var parentID string
+		if cm.MetadataNestedRunSupport() {
+			var exists bool
+			parentID, exists = dag.Execution.GetProviderRunID()
+			if !exists {
+				return nil, fmt.Errorf("parent dag id is not set")
+			}
+		}
+		id, err := v2util.CreateRunMetadata(ctx, opts.Task.GetTaskInfo().GetName(), cm, opts.ExperimentId, opts.RunID, ecfg, parentID, nil)
+		if err != nil {
+			return nil, err
+		}
+		ecfg.ExperimentID = &opts.ExperimentId
+		ecfg.ProviderRunID = &id
 	}
+
+	var createdExecution *metadata.Execution
+	if opts.DevMode {
+		createdExecution, err = mlmd.GetExecution(ctx, opts.DevExecutionId)
+	} else {
+		createdExecution, err = mlmd.CreateExecution(ctx, pipeline, ecfg)
+	}
+	if err != nil {
+		return nil, err
+	}
+
 	glog.Infof("Created execution: %s", createdExecution)
 	execution.ID = createdExecution.GetID()
 	if !execution.WillTrigger() {
@@ -181,6 +213,17 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 		glog.Info("Cache disabled globally at the server level.")
 	}
 
+	cfg, err := config.FromConfigMap(ctx, cm.K8sClient(), opts.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	storeSessionInfo, err := cfg.GetStoreSessionInfo(pipeline.GetPipelineRoot())
+	if err != nil {
+		return nil, err
+	}
+
+	// todo(humair): just pass the entire opts struct to the launcher.
+	// or make init/container/etc. a member of driver struct and share global opts
 	podSpec, err := initPodSpecPatch(
 		opts.Container,
 		opts.Component,
@@ -196,6 +239,13 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 		opts.MLMDServerPort,
 		opts.MLMDTLSEnabled,
 		opts.CaCertPath,
+		opts.ExperimentId,
+		opts.MetadataProviderConfig,
+		opts.MetadatRunProvider,
+		ecfg.ProviderRunID,
+		cm.MetadataEnv(),
+		storeSessionInfo,
+		pipeline.GetPipelineRoot(),
 	)
 	if err != nil {
 		return execution, err

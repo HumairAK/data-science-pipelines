@@ -189,6 +189,7 @@ func (c *workflowCompiler) addContainerDriverTemplate() string {
 		"--run_id", runID(),
 		"--run_name", runResourceName(),
 		"--run_display_name", c.job.DisplayName,
+		"--experiment_id", c.experimentID,
 		"--dag_execution_id", inputValue(paramParentDagID),
 		"--component", inputValue(paramComponent),
 		"--task", inputValue(paramTask),
@@ -217,6 +218,12 @@ func (c *workflowCompiler) addContainerDriverTemplate() string {
 		args = append(args, "--publish_logs", value)
 	}
 
+	if c.metadataProviderConfig != "" {
+		args = append(args, "--metadata_provider_config", c.metadataProviderConfig)
+	}
+
+	envvars := append(proxy.GetConfig().GetEnvVars(), c.metadataProviderEnv...)
+
 	t := &wfapi.Template{
 		Name: name,
 		Inputs: wfapi.Inputs{
@@ -241,7 +248,7 @@ func (c *workflowCompiler) addContainerDriverTemplate() string {
 			Command:   c.driverCommand,
 			Args:      args,
 			Resources: driverResources,
-			Env:       append(proxy.GetConfig().GetEnvVars(), MLPipelineServiceEnv...),
+			Env:       envvars,
 		},
 	}
 
@@ -350,6 +357,7 @@ func (c *workflowCompiler) addContainerExecutorTemplate(task *pipelinespec.Pipel
 
 	args := []string{
 		"--copy", component.KFPLauncherPath,
+		"--experiment_id", c.experimentID,
 	}
 	if c.cacheDisabled {
 		args = append(args, "--cache_disabled")
@@ -360,6 +368,8 @@ func (c *workflowCompiler) addContainerExecutorTemplate(task *pipelinespec.Pipel
 	if value, ok := os.LookupEnv(PublishLogsEnvVar); ok {
 		args = append(args, "--publish_logs", value)
 	}
+
+	envvars := append(commonEnvs, c.metadataProviderEnv...)
 	executor := &wfapi.Template{
 		Name: nameContainerImpl,
 		Inputs: wfapi.Inputs{
@@ -471,7 +481,7 @@ func (c *workflowCompiler) addContainerExecutorTemplate(task *pipelinespec.Pipel
 				},
 			},
 			EnvFrom: []k8score.EnvFromSource{metadataEnvFrom},
-			Env:     append(commonEnvs, MLPipelineServiceEnv...),
+			Env:     envvars,
 		},
 	}
 	ConfigureCABundle(executor)

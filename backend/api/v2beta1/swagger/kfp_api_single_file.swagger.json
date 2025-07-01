@@ -1855,6 +1855,10 @@
           "type": "string",
           "format": "date-time",
           "description": "Output. The creation time of the last run in this experiment."
+        },
+        "provider_config": {
+          "type": "object",
+          "title": "Optional Input. Pass through JSON object to be handled by\nmetadata providers. This is useful for when\nproviders have provider specific config options\n(e.g. MLFlow experiments can take artifact_location)"
         }
       }
     },

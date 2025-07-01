@@ -35,7 +35,7 @@ func TestParseResourceIdsFromFullName(t *testing.T) {
 			args{"namespaces/default/experiments/Default/runs/run-one"},
 			map[string]string{
 				"Namespace":         "default",
-				"ExperimentId":      "Default",
+				"ExperimentID":      "Default",
 				"PipelineId":        "",
 				"PipelineVersionId": "",
 				"RunId":             "run-one",
@@ -49,7 +49,7 @@ func TestParseResourceIdsFromFullName(t *testing.T) {
 			args{"namespaces/default/experiments/Default/jobs/j1/runs/run-one"},
 			map[string]string{
 				"Namespace":         "default",
-				"ExperimentId":      "Default",
+				"ExperimentID":      "Default",
 				"PipelineId":        "",
 				"PipelineVersionId": "",
 				"RunId":             "run-one",
@@ -63,7 +63,7 @@ func TestParseResourceIdsFromFullName(t *testing.T) {
 			args{"namespaces//experiments/Default/runs/run-one"},
 			map[string]string{
 				"Namespace":         "",
-				"ExperimentId":      "Default",
+				"ExperimentID":      "Default",
 				"PipelineId":        "",
 				"PipelineVersionId": "",
 				"RunId":             "run-one",
@@ -77,7 +77,7 @@ func TestParseResourceIdsFromFullName(t *testing.T) {
 			args{"experiments/Default/runs/run-one"},
 			map[string]string{
 				"Namespace":         "",
-				"ExperimentId":      "Default",
+				"ExperimentID":      "Default",
 				"PipelineId":        "",
 				"PipelineVersionId": "",
 				"RunId":             "run-one",
@@ -91,7 +91,7 @@ func TestParseResourceIdsFromFullName(t *testing.T) {
 			args{"namespaces/default/pipelines/p1/versions/pv1"},
 			map[string]string{
 				"Namespace":         "default",
-				"ExperimentId":      "",
+				"ExperimentID":      "",
 				"PipelineId":        "p1",
 				"PipelineVersionId": "pv1",
 				"RunId":             "",
@@ -105,7 +105,7 @@ func TestParseResourceIdsFromFullName(t *testing.T) {
 			args{"namespaces/default/experiments/Default/jobs/j2/executions/e1/artifacts/a1"},
 			map[string]string{
 				"Namespace":         "default",
-				"ExperimentId":      "Default",
+				"ExperimentID":      "Default",
 				"PipelineId":        "",
 				"PipelineVersionId": "",
 				"RunId":             "",
@@ -119,7 +119,7 @@ func TestParseResourceIdsFromFullName(t *testing.T) {
 			args{"namespaces/default/experiments/Default/pipelines/p1/versions/pv1/jobs/j2/runs/r1/executions/e1/artifacts/a1"},
 			map[string]string{
 				"Namespace":         "default",
-				"ExperimentId":      "Default",
+				"ExperimentID":      "Default",
 				"PipelineId":        "p1",
 				"PipelineVersionId": "pv1",
 				"RunId":             "r1",
@@ -133,7 +133,7 @@ func TestParseResourceIdsFromFullName(t *testing.T) {
 			args{""},
 			map[string]string{
 				"Namespace":         "",
-				"ExperimentId":      "",
+				"ExperimentID":      "",
 				"PipelineId":        "",
 				"PipelineVersionId": "",
 				"RunId":             "",
@@ -147,7 +147,7 @@ func TestParseResourceIdsFromFullName(t *testing.T) {
 			args{"///namespaces/default/experiments/Default/pipelines/p1/versions/pv1/jobs/j2/runs/r1/executions/e1/artifacts/a1//"},
 			map[string]string{
 				"Namespace":         "default",
-				"ExperimentId":      "Default",
+				"ExperimentID":      "Default",
 				"PipelineId":        "p1",
 				"PipelineVersionId": "pv1",
 				"RunId":             "r1",
@@ -161,7 +161,7 @@ func TestParseResourceIdsFromFullName(t *testing.T) {
 			args{"///foo/bar/fiat/lux"},
 			map[string]string{
 				"Namespace":         "",
-				"ExperimentId":      "",
+				"ExperimentID":      "",
 				"PipelineId":        "",
 				"PipelineVersionId": "",
 				"RunId":             "",

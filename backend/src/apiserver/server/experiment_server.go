@@ -16,7 +16,6 @@ package server
 
 import (
 	"context"
-
 	"github.com/golang/protobuf/ptypes/empty"
 	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
@@ -25,6 +24,8 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/resource"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	providerconfig "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/manager"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -73,7 +74,8 @@ var (
 )
 
 type ExperimentServerOptions struct {
-	CollectMetrics bool
+	CollectMetrics   bool
+	MetadataProvider *md.Provider
 }
 
 type ExperimentServer struct {
@@ -81,7 +83,7 @@ type ExperimentServer struct {
 	options         *ExperimentServerOptions
 }
 
-func (s *ExperimentServer) createExperiment(ctx context.Context, experiment *model.Experiment) (*model.Experiment, error) {
+func (s *ExperimentServer) createExperiment(ctx context.Context, experiment *model.Experiment, config providerconfig.GenericProviderConfig) (*model.Experiment, error) {
 	experiment.Namespace = s.resourceManager.ReplaceNamespace(experiment.Namespace)
 	resourceAttributes := &authorizationv1.ResourceAttributes{
 		Namespace: experiment.Namespace,
@@ -92,7 +94,7 @@ func (s *ExperimentServer) createExperiment(ctx context.Context, experiment *mod
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to authorize the request")
 	}
-	return s.resourceManager.CreateExperiment(experiment)
+	return s.resourceManager.CreateExperiment(experiment, config)
 }
 
 func (s *ExperimentServer) CreateExperimentV1(ctx context.Context, request *apiv1beta1.CreateExperimentRequest) (
@@ -107,7 +109,7 @@ func (s *ExperimentServer) CreateExperimentV1(ctx context.Context, request *apiv
 		return nil, util.Wrap(err, "[ExperimentServer]: Failed to create a v1beta1 experiment due to conversion error")
 	}
 
-	newExperiment, err := s.createExperiment(ctx, modelExperiment)
+	newExperiment, err := s.createExperiment(ctx, modelExperiment, nil)
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to create a v1beta1 experiment")
 	}
@@ -135,7 +137,19 @@ func (s *ExperimentServer) CreateExperiment(ctx context.Context, request *apiv2b
 		return nil, util.Wrap(err, "[ExperimentServer]: Failed to create a experiment due to conversion error")
 	}
 
-	newExperiment, err := s.createExperiment(ctx, modelExperiment)
+	if s.options.MetadataProvider != nil {
+		validator, err := s.options.MetadataProvider.NewValidator()
+		if err != nil {
+			return nil, err
+		}
+		err = validator.ValidateExperiment(request)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	newExperiment, err := s.createExperiment(ctx, modelExperiment, request.Experiment.GetProviderConfig().AsMap())
+
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to create a experiment")
 	}
@@ -197,7 +211,7 @@ func (s *ExperimentServer) GetExperiment(ctx context.Context, request *apiv2beta
 	return apiExperiment, nil
 }
 
-func (s *ExperimentServer) listExperiments(ctx context.Context, pageToken string, pageSize int32, sortBy string, opts *list.Options, namespace string) ([]*model.Experiment, int32, string, error) {
+func (s *ExperimentServer) listExperiments(ctx context.Context, opts *list.Options, namespace string) ([]*model.Experiment, int32, string, error) {
 	namespace = s.resourceManager.ReplaceNamespace(namespace)
 	resourceAttributes := &authorizationv1.ResourceAttributes{
 		Namespace: namespace,
@@ -245,9 +259,6 @@ func (s *ExperimentServer) ListExperimentsV1(ctx context.Context, request *apiv1
 
 	experiments, totalSize, nextPageToken, err := s.listExperiments(
 		ctx,
-		request.GetPageToken(),
-		request.GetPageSize(),
-		request.GetSortBy(),
 		opts,
 		namespace,
 	)
@@ -273,7 +284,7 @@ func (s *ExperimentServer) ListExperiments(ctx context.Context, request *apiv2be
 		return nil, util.Wrap(err, "Failed to create list options")
 	}
 
-	experiments, totalSize, nextPageToken, err := s.listExperiments(ctx, request.GetPageToken(), request.GetPageSize(), request.GetSortBy(), opts, request.GetNamespace())
+	experiments, totalSize, nextPageToken, err := s.listExperiments(ctx, opts, request.GetNamespace())
 	if err != nil {
 		return nil, util.Wrap(err, "List experiments failed")
 	}

@@ -15,6 +15,7 @@ package main
 
 import (
 	"bytes"
+
 	"context"
 	"encoding/json"
 	"flag"
@@ -25,13 +26,13 @@ import (
 	"strconv"
 
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
-
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/manager"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
-	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
@@ -52,6 +53,7 @@ const (
 var (
 	// inputs
 	driverType        = flag.String(driverTypeArg, "", "task driver type, one of ROOT_DAG, DAG, CONTAINER")
+	experimentID      = flag.String("experiment_id", "", "experiment uid")
 	pipelineName      = flag.String("pipeline_name", "", "pipeline context name")
 	runID             = flag.String("run_id", "", "pipeline run uid")
 	runName           = flag.String("run_name", "", "pipeline run name (Kubernetes object name)")
@@ -67,8 +69,8 @@ var (
 	k8sExecConfigJson = flag.String("kubernetes_config", "{}", "kubernetes executor config")
 
 	// config
-	mlmdServerAddress = flag.String("mlmd_server_address", "", "MLMD server address")
-	mlmdServerPort    = flag.String("mlmd_server_port", "", "MLMD server port")
+	mlmdServerAddressFlag = flag.String("mlmd_server_address", "", "MLMD server address")
+	mlmdServerPortFlag    = flag.String("mlmd_server_port", "", "MLMD server port")
 
 	// output paths
 	executionIDPath    = flag.String("execution_id_path", "", "Exeucution ID output path")
@@ -89,6 +91,8 @@ var (
 	mlPipelineServiceTLSEnabledStr = flag.String("mlPipelineServiceTLSEnabled", "false", "Set to 'true' if mlpipeline api server serves over TLS (default: 'false').")
 	metadataTLSEnabledStr          = flag.String("metadataTLSEnabled", "false", "Set to 'true' if metadata server serves over TLS (default: 'false').")
 	caCertPath                     = flag.String("ca_cert_path", "", "The path to the CA certificate.")
+	// metadata provider conf
+	metadataProviderConfigFlag = flag.String("metadata_provider_config", "", "Metadata provider config, must be a valid JSON string.")
 )
 
 // func RootDAG(pipelineName string, runID string, component *pipelinespec.ComponentSpec, task *pipelinespec.PipelineTaskSpec, mlmd *metadata.Client) (*Execution, error) {
@@ -179,7 +183,7 @@ func drive() (err error) {
 	if err != nil {
 		return err
 	}
-	client, err := newMlmdClient()
+	mlmdServerAddress, mlmdServerPort := newMlmdClient()
 	if err != nil {
 		return err
 	}
@@ -192,41 +196,82 @@ func drive() (err error) {
 	if err != nil {
 		return err
 	}
-	cacheClient, err := cacheutils.NewClient(*cacheDisabledFlag, mlPipelineServiceTLSEnabled)
+	// cacheClient, err := cacheutils.NewClient(*cacheDisabledFlag, mlPipelineServiceTLSEnabled)
+
+	clientOptions := &client_manager.Options{
+		MLMDServerAddress:         mlmdServerAddress,
+		MLMDServerPort:            mlmdServerPort,
+		CacheDisabled:             *cacheDisabledFlag,
+		MetadatRunProviderConfig:  *metadataProviderConfigFlag,
+		MLPipelineServiceGRPCPort: os.Getenv("ML_PIPELINE_SERVICE_PORT_GRPC"),
+		MLPipelineServiceName:     os.Getenv("ML_PIPELINE_SERVICE_HOST"),
+		MLPipelineTLSEnabled:      mlPipelineServiceTLSEnabled,
+		CaCertPath:                *caCertPath,
+	}
+	clientManager, err := client_manager.NewClientManager(clientOptions)
 	if err != nil {
 		return err
 	}
-	options := driver.Options{
-		PipelineName:         *pipelineName,
-		RunID:                *runID,
-		RunName:              *runName,
-		RunDisplayName:       *runDisplayName,
-		Namespace:            namespace,
-		Component:            componentSpec,
-		Task:                 taskSpec,
-		DAGExecutionID:       *dagExecutionID,
-		IterationIndex:       *iterationIndex,
-		PipelineLogLevel:     *logLevel,
-		PublishLogs:          *publishLogs,
-		CacheDisabled:        *cacheDisabledFlag,
-		MLPipelineTLSEnabled: mlPipelineServiceTLSEnabled,
-		MLMDServerAddress:    *mlmdServerAddress,
-		MLMDServerPort:       *mlmdServerPort,
-		MLMDTLSEnabled:       metadataTLSEnabled,
-		CaCertPath:           *caCertPath,
+
+	metadataProvider, err := md.NewProviderFromJSON(*metadataProviderConfigFlag)
+	if err != nil {
+		return fmt.Errorf("failed to parse metadata provider config: %w", err)
 	}
+	metadatRunProvider, err := metadataProvider.NewRunProvider()
+	if err != nil {
+		return fmt.Errorf("failed to create metadata provider: %w", err)
+	}
+
+	devMode := os.Getenv("DEV_MODE")
+	if devMode == "" {
+		devMode = "false"
+	}
+	devExecutionIdSTR := os.Getenv("DEV_EXECUTION_ID")
+	if devExecutionIdSTR == "" {
+		devExecutionIdSTR = "0"
+	}
+	devExecutionId, err := strconv.ParseInt(devExecutionIdSTR, 10, 64)
+	if err != nil {
+		return err
+	}
+
+	options := driver.Options{
+		PipelineName:           *pipelineName,
+		RunID:                  *runID,
+		RunName:                *runName,
+		RunDisplayName:         *runDisplayName,
+		Namespace:              namespace,
+		Component:              componentSpec,
+		Task:                   taskSpec,
+		DAGExecutionID:         *dagExecutionID,
+		IterationIndex:         *iterationIndex,
+		PipelineLogLevel:       *logLevel,
+		PublishLogs:            *publishLogs,
+		CacheDisabled:          *cacheDisabledFlag,
+		MLPipelineTLSEnabled:   mlPipelineServiceTLSEnabled,
+		MLMDServerAddress:      mlmdServerAddress,
+		MLMDServerPort:         mlmdServerPort,
+		MLMDTLSEnabled:         metadataTLSEnabled,
+		CaCertPath:             *caCertPath,
+		MetadatRunProvider:     metadatRunProvider,
+		MetadataProviderConfig: *metadataProviderConfigFlag,
+		ExperimentId:           *experimentID,
+		DevMode:                devMode == "true",
+		DevExecutionId:         devExecutionId,
+	}
+
 	var execution *driver.Execution
 	var driverErr error
 	switch *driverType {
 	case ROOT_DAG:
 		options.RuntimeConfig = runtimeConfig
-		execution, driverErr = driver.RootDAG(ctx, options, client)
+		execution, driverErr = driver.RootDAG(ctx, options, clientManager)
 	case DAG:
-		execution, driverErr = driver.DAG(ctx, options, client)
+		execution, driverErr = driver.DAG(ctx, options, clientManager)
 	case CONTAINER:
 		options.Container = containerSpec
 		options.KubernetesExecutorConfig = k8sExecCfg
-		execution, driverErr = driver.Container(ctx, options, client, cacheClient)
+		execution, driverErr = driver.Container(ctx, options, clientManager)
 	default:
 		err = fmt.Errorf("unknown driverType %s", *driverType)
 	}
@@ -346,17 +391,11 @@ func writeFile(path string, data []byte) (err error) {
 	return os.WriteFile(path, data, 0o644)
 }
 
-func newMlmdClient() (*metadata.Client, error) {
+func newMlmdClient() (string string, port string) {
 	mlmdConfig := metadata.DefaultConfig()
-	if *mlmdServerAddress != "" && *mlmdServerPort != "" {
-		mlmdConfig.Address = *mlmdServerAddress
-		mlmdConfig.Port = *mlmdServerPort
+	if *mlmdServerAddressFlag != "" && *mlmdServerPortFlag != "" {
+		mlmdConfig.Address = *mlmdServerAddressFlag
+		mlmdConfig.Port = *mlmdServerPortFlag
 	}
-
-	tlsEnabled, err := strconv.ParseBool(*metadataTLSEnabledStr)
-	if err != nil {
-		return nil, err
-	}
-
-	return metadata.NewClient(mlmdConfig.Address, mlmdConfig.Port, tlsEnabled, *caCertPath)
+	return mlmdConfig.Address, mlmdConfig.Port
 }

@@ -24,5 +24,29 @@
   "CacheEnabled": "true",
   "CRON_SCHEDULE_TIMEZONE": "UTC",
   "CACHE_IMAGE": "registry.k8s.io/busybox",
-  "CACHE_NODE_RESTRICTIONS": "false"
+  "CACHE_NODE_RESTRICTIONS": "false",
+  "MetadataProvider": {
+    "MetadataProviderName": "model-registry",
+    "SupportNestedRuns": "true",
+    "PipelineEnv": [
+      {
+        "name": "MODEL_REGISTRY_TOKEN",
+        "valueFrom": {
+          "secretKeyRef": {
+            "key": "token",
+            "name": "model-registry-creds"
+          }
+        }
+      }
+    ],
+    "AdditionalConfig": {
+      "Host": "my-model-registry-rest.apps.hukhan-10.dev.datahub.redhat.com:443",
+      "Port": "",
+      "Debug": true,
+      "DefaultArtifactURI": "s3://mlflow-bucket/my-stuff",
+      "TLSEnabled": true,
+      "InsecureSkipVerify": true,
+      "TokenEnvVarName": "MODEL_REGISTRY_TOKEN"
+    }
+  }
 }

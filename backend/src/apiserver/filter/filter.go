@@ -553,3 +553,36 @@ func toValue(v interface{}) (interface{}, error) {
 		return nil, util.NewUnknownApiVersionError("Filter.Predicate.Value", v)
 	}
 }
+
+// FilterOn will return true if the filter matches the given resource and field
+// and value. Return nil if no match is found.
+// resource maps to the table name
+// field maps to the column name
+// value maps to the value of the column
+// op maps to the operation to be performed on the column
+// Currently only EQ and NEQ supported
+func (f *Filter) FilterOn(resourceField, value string, op apiv2beta1.Predicate_Operation) *bool {
+	if f == nil {
+		return nil
+	}
+	switch op {
+	case apiv2beta1.Predicate_NOT_EQUALS:
+		for k := range f.neq {
+			for _, v := range f.neq[k] {
+				res := resourceField == k && v == value
+				return &res
+			}
+		}
+		return nil
+	case apiv2beta1.Predicate_EQUALS:
+		for k := range f.eq {
+			for _, v := range f.eq[k] {
+				res := resourceField == k && v == value
+				return &res
+			}
+		}
+		return nil
+	}
+
+	return nil
+}

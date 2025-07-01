@@ -526,7 +526,7 @@ deploymentSpec:
         - '{"IfPresent": {"InputName": "max_depth", "Then": ["--max-depth", "{{$.inputs.parameters[''max_depth'']}}"]}}'
         - --model
         - '{{$.outputs.artifacts[''model''].path}}'
-        - --model-config
+        - --model-factory
         - '{{$.outputs.artifacts[''model_config''].path}}'
         command:
         - sh
@@ -616,7 +616,7 @@ deploymentSpec:
           \ required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--max-depth\"\
           , dest=\"max_depth\", type=int, required=False, default=argparse.SUPPRESS)\n\
           _parser.add_argument(\"--model\", dest=\"model_path\", type=_make_parent_dirs_and_return_path,\
-          \ required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--model-config\"\
+          \ required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--model-factory\"\
           , dest=\"model_config_path\", type=_make_parent_dirs_and_return_path, required=True,\
           \ default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\
           \n_outputs = xgboost_train(**_parsed_args)\n"
@@ -643,7 +643,7 @@ deploymentSpec:
         - '{"IfPresent": {"InputName": "max_depth", "Then": ["--max-depth", "{{$.inputs.parameters[''max_depth'']}}"]}}'
         - --model
         - '{{$.outputs.artifacts[''model''].path}}'
-        - --model-config
+        - --model-factory
         - '{{$.outputs.artifacts[''model_config''].path}}'
         command:
         - sh
@@ -733,7 +733,7 @@ deploymentSpec:
           \ required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--max-depth\"\
           , dest=\"max_depth\", type=int, required=False, default=argparse.SUPPRESS)\n\
           _parser.add_argument(\"--model\", dest=\"model_path\", type=_make_parent_dirs_and_return_path,\
-          \ required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--model-config\"\
+          \ required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--model-factory\"\
           , dest=\"model_config_path\", type=_make_parent_dirs_and_return_path, required=True,\
           \ default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\
           \n_outputs = xgboost_train(**_parsed_args)\n"

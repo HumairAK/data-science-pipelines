@@ -19,6 +19,10 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/kubeflow/pipelines/backend/src/common/util/mergeutil"
+	"github.com/kubeflow/pipelines/backend/src/v2/metadata_provider"
+	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
+
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
@@ -76,7 +80,14 @@ type Options struct {
 	// set to true if MLMD server is serving over tls
 	MLMDTLSEnabled bool
 
-	CaCertPath string
+	CaCertPath             string
+	MetadatRunProvider     metadata_provider.RunProvider
+	MetadataProviderConfig string
+
+	ExperimentId string
+	// TODO(humairak): remove these
+	DevMode        bool
+	DevExecutionId int64
 }
 
 // Identifying information used for error messages
@@ -172,6 +183,13 @@ func initPodSpecPatch(
 	mlmdServerPort string,
 	mlmdTLSEnabled bool,
 	caCertPath string,
+	experimentID string,
+	metadataProviderConfig string,
+	metadataRunProvider metadata_provider.RunProvider,
+	metadataProviderRunID *string,
+	metadataEnv []k8score.EnvVar,
+	sessionInfo objectstore.SessionInfo,
+	pipelineRoot string,
 ) (*k8score.PodSpec, error) {
 	executorInputJSON, err := protojson.Marshal(executorInput)
 	if err != nil {
@@ -214,6 +232,10 @@ func initPodSpecPatch(
 		"--mlPipelineServiceTLSEnabled",
 		fmt.Sprintf("%v", mlPipelineTLSEnabled),
 		"--ca_cert_path", caCertPath,
+		"--experiment_id", experimentID,
+	}
+	if metadataProviderConfig != "" {
+		launcherCmd = append(launcherCmd, "--metadata_provider_config", metadataProviderConfig)
 	}
 	if cacheDisabled == "true" {
 		launcherCmd = append(launcherCmd, "--cache_disabled")
@@ -225,6 +247,7 @@ func initPodSpecPatch(
 	if publishLogs == "true" {
 		launcherCmd = append(launcherCmd, "--publish_logs", publishLogs)
 	}
+
 	launcherCmd = append(launcherCmd, "--") // separater before user command and args
 	res := k8score.ResourceRequirements{
 		Limits:   map[k8score.ResourceName]k8sres.Quantity{},
@@ -334,6 +357,22 @@ func initPodSpecPatch(
 
 	addModelcarsToPodSpec(executorInput.GetInputs().GetArtifacts(), userEnvVar, podSpec)
 
+	if metadataRunProvider != nil && metadataProviderRunID != nil {
+
+		patch, err := metadataRunProvider.ExecutorPatch(
+			experimentID,
+			*metadataProviderRunID,
+			sessionInfo,
+			pipelineRoot,
+			metadataEnv,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed generate metadata provider executor patch: %w", err)
+		}
+		if patch != nil {
+			podSpec = mergeutil.MergePodSpecs(podSpec, patch)
+		}
+	}
 	return podSpec, nil
 }
 

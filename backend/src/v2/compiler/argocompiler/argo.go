@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/manager"
+
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 
 	wfapi "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
@@ -42,7 +44,10 @@ type Options struct {
 	// optional
 	PipelineRoot string
 	// optional
-	CacheDisabled bool
+	CacheDisabled    bool
+	MetadataProvider *md.Provider
+	ExperimentID     string
+
 	// TODO(Bobgy): add an option -- dev mode, ImagePullPolicy should only be Always in dev mode.
 }
 
@@ -153,6 +158,7 @@ func Compile(jobArg *pipelinespec.PipelineJob, kubernetesSpecArg *pipelinespec.S
 	c.mlPipelineServiceTLSEnabled = mlPipelineTLSEnabled
 
 	if opts != nil {
+		c.experimentID = opts.ExperimentID
 		c.cacheDisabled = opts.CacheDisabled
 		if opts.DriverImage != "" {
 			c.driverImage = opts.DriverImage
@@ -162,6 +168,14 @@ func Compile(jobArg *pipelinespec.PipelineJob, kubernetesSpecArg *pipelinespec.S
 		}
 		if opts.PipelineRoot != "" {
 			job.RuntimeConfig.GcsOutputDirectory = opts.PipelineRoot
+		}
+		if opts.MetadataProvider != nil {
+			configJson, err1 := opts.MetadataProvider.ProviderConfigToJSON()
+			if err1 != nil {
+				return nil, err1
+			}
+			c.metadataProviderConfig = configJson
+			c.metadataProviderEnv = opts.MetadataProvider.GetEnv()
 		}
 	}
 
@@ -190,6 +204,9 @@ type workflowCompiler struct {
 	launcherCommand             []string
 	cacheDisabled               bool
 	mlPipelineServiceTLSEnabled bool
+	metadataProviderConfig      string
+	experimentID                string
+	metadataProviderEnv         []k8score.EnvVar
 }
 
 func (c *workflowCompiler) Resolver(name string, component *pipelinespec.ComponentSpec, resolver *pipelinespec.PipelineDeploymentConfig_ResolverSpec) error {

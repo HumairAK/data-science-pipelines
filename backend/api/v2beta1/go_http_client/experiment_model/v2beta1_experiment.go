@@ -37,6 +37,12 @@ type V2beta1Experiment struct {
 	// Optional input field. Specify the namespace this experiment belongs to.
 	Namespace string `json:"namespace,omitempty"`
 
+	// Optional Input. Pass through JSON object to be handled by
+	// metadata providers. This is useful for when
+	// providers have provider specific config options
+	// (e.g. MLFlow experiments can take artifact_location)
+	ProviderConfig interface{} `json:"provider_config,omitempty"`
+
 	// Output. Specifies whether this experiment is in archived or available state.
 	StorageState V2beta1ExperimentStorageState `json:"storage_state,omitempty"`
 }

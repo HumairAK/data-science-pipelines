@@ -101,7 +101,7 @@ func (t *Argo) IsCacheDisabled() bool {
 
 var _ Template = &Argo{}
 
-func (t *Argo) ScheduledWorkflow(modelJob *model.Job, ownerReferences []metav1.OwnerReference) (*scheduledworkflow.ScheduledWorkflow, error) {
+func (t *Argo) ScheduledWorkflow(modelJob *model.Job, ownerReferences []metav1.OwnerReference, options ScheduledWorkflowOptions) (*scheduledworkflow.ScheduledWorkflow, error) {
 	workflow := util.NewWorkflow(t.wf.Workflow.DeepCopy())
 	// Overwrite namespace from the job object
 	if modelJob.Namespace != "" {

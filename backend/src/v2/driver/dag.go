@@ -18,11 +18,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
+	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/expression"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
+	v2util "github.com/kubeflow/pipelines/backend/src/v2/util"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -38,7 +39,15 @@ func validateDAG(opts Options) (err error) {
 	return validateNonRoot(opts)
 }
 
-func DAG(ctx context.Context, opts Options, mlmd *metadata.Client) (execution *Execution, err error) {
+func DAG(ctx context.Context, opts Options, cm *client_manager.ClientManager) (execution *Execution, err error) {
+	// Todo: this should remain as the interface but we have leaking abstractions
+	// so we expose underlying mlmd client to the driver.
+	mlmdInterface := cm.MetadataClient()
+	mlmd, ok := mlmdInterface.(*metadata.Client)
+	if !ok {
+		return nil, fmt.Errorf("invalid metadata client")
+	}
+
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("driver.DAG(%s) failed: %w", opts.info(), err)
@@ -159,11 +168,43 @@ func DAG(ctx context.Context, opts Options, mlmd *metadata.Client) (execution *E
 	glog.V(4).Info("ecfg: ", string(b))
 	glog.V(4).Infof("dag: %v", dag)
 
-	// TODO(Bobgy): change execution state to pending, because this is driver, execution hasn't started.
-	createdExecution, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
-	if err != nil {
-		return execution, err
+	runProvider := cm.MetadataRunProvider()
+	if runProvider != nil && cm.MetadataNestedRunSupport() {
+		if isIterator {
+			// We skip logging a run in the iterator case
+			// And just propagate the runID to the parent DAG
+			// So that the eventual iteration container driver
+			// will link to this dag's parent instead.
+			runID, exists := dag.Execution.GetProviderRunID()
+			if !exists {
+				return nil, fmt.Errorf("parent dag id is not set")
+			}
+			ecfg.ProviderRunID = &runID
+			ecfg.ExperimentID = &opts.ExperimentId
+		} else {
+			parentID, exists := dag.Execution.GetProviderRunID()
+			if !exists {
+				return nil, fmt.Errorf("parent dag id is not set")
+			}
+			id, err := v2util.CreateRunMetadata(ctx, opts.Task.GetTaskInfo().Name, cm, opts.ExperimentId, opts.RunID, ecfg, parentID, ecfg.IterationIndex)
+			if err != nil {
+				return nil, err
+			}
+			ecfg.ExperimentID = &opts.ExperimentId
+			ecfg.ProviderRunID = &id
+		}
 	}
+
+	var createdExecution *metadata.Execution
+	if opts.DevMode {
+		createdExecution, err = mlmd.GetExecution(ctx, opts.DevExecutionId)
+	} else {
+		createdExecution, err = mlmd.CreateExecution(ctx, pipeline, ecfg)
+	}
+	if err != nil {
+		return nil, err
+	}
+
 	glog.Infof("Created execution: %s", createdExecution)
 	execution.ID = createdExecution.GetID()
 	return execution, nil

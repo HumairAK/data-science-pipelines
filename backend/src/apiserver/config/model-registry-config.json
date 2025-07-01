@@ -1,0 +1,14 @@
+{
+  "MetadataProvider": {
+    "MetadataProviderName": "model-registry",
+    "SupportNestedRuns": "true",
+    "AdditionalConfig": {
+      "Host": "https://test1-rest.apps.hukhan-10.dev.datahub.redhat.com",
+      "Port": "",
+      "Debug": true,
+      "DefaultArtifactURI": "s3://mlflow-bucket/my-stuff",
+      "TLSEnabled": "false",
+      "TokenEnvVarName": "MODEL_REGISTRY_TOKEN"
+    }
+  }
+}

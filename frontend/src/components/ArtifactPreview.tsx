@@ -25,6 +25,7 @@ import Banner from './Banner';
 import { ValueComponentProps } from './DetailsTable';
 import { logger } from 'src/lib/Utils';
 import { URIToSessionInfo } from './tabs/InputOutputTab';
+import {Artifact} from "../third_party/mlmd";
 
 const css = stylesheet({
   root: {
@@ -54,6 +55,7 @@ export interface ArtifactPreviewProps extends ValueComponentProps<string> {
   sessionMap?: URIToSessionInfo;
   maxbytes?: number;
   maxlines?: number;
+  artifact?: Artifact;
 }
 
 /**
@@ -65,9 +67,11 @@ const ArtifactPreview: React.FC<ArtifactPreviewProps> = ({
   sessionMap,
   maxbytes = 255,
   maxlines = 20,
+  artifact,
 }) => {
   let storage: StoragePath | undefined;
   let providerInfo: string | undefined;
+
 
   if (value) {
     try {
@@ -83,6 +87,25 @@ const ArtifactPreview: React.FC<ArtifactPreviewProps> = ({
     () => getPreview(storage, providerInfo, namespace, maxbytes, maxlines),
     { staleTime: Infinity },
   );
+
+
+  if (artifact) {
+    let customProperties = artifact.getCustomPropertiesMap()
+
+    let value = customProperties.get("url");
+    const url = value?.getStringValue?.();
+    value = customProperties.get("uri");
+    const uri = value?.getStringValue?.();
+
+    return <div className={css.root}>
+      <div className={css.topDiv}>
+        {url &&
+            <ExternalLink download href={url} title={artifact.getName()}>{"Link to external provider"}</ExternalLink>}
+        {!url && uri && <ExternalLink href={uri} title={artifact.getName()}>{"Link to artifact"}</ExternalLink>}
+        {!url && !uri && <Banner message={'No URL or URI path was provided for the artifact'} mode='error'/>}
+      </div>
+    </div>
+  }
 
   if (!storage) {
     return (

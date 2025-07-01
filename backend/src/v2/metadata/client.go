@@ -178,6 +178,9 @@ type ExecutionConfig struct {
 	// DAGExecution custom properties
 	IterationCount *int // Number of iterations for an iterator DAG.
 	TotalDagTasks  *int // Number of tasks inside the DAG
+
+	// MetadataRunProvider custom properties
+	ProviderRunID, ExperimentID *string
 }
 
 // InputArtifact is a wrapper around an MLMD artifact used as component inputs.
@@ -308,6 +311,34 @@ func (e *Execution) FingerPrint() string {
 		return ""
 	}
 	return e.execution.GetCustomProperties()[keyCacheFingerPrint].GetStringValue()
+}
+
+func (e *Execution) GetParentDagID() int64 {
+	return e.execution.GetCustomProperties()[keyParentDagID].GetIntValue()
+}
+
+func (e *Execution) GetProviderRunID() (val string, exists bool) {
+	v, exists := e.execution.GetCustomProperties()[keyProviderRunID]
+	if !exists {
+		return "", false
+	}
+	return v.GetStringValue(), true
+}
+
+func (e *Execution) GetIterationIndex() (val int64, exists bool) {
+	v, exists := e.execution.GetCustomProperties()[keyIterationIndex]
+	if !exists {
+		return -1, false
+	}
+	return v.GetIntValue(), true
+}
+
+func (e *Execution) GetIterationCount() (val int64, exists bool) {
+	v, exists := e.execution.GetCustomProperties()[keyIterationCount]
+	if !exists {
+		return -1, false
+	}
+	return v.GetIntValue(), true
 }
 
 // GetTaskNameWithDagID appends the taskName with its parent dag id. This is
@@ -571,6 +602,8 @@ const (
 	keyIterationIndex        = "iteration_index"
 	keyIterationCount        = "iteration_count"
 	keyTotalDagTasks         = "total_dag_tasks"
+	keyProviderRunID         = "ProviderRunID"
+	keyExperimentID          = "ExperimentID"
 )
 
 // CreateExecution creates a new MLMD execution under the specified Pipeline.
@@ -667,6 +700,11 @@ func (c *Client) CreateExecution(ctx context.Context, pipeline *Pipeline, config
 	}
 	if config.TotalDagTasks != nil {
 		e.CustomProperties[keyTotalDagTasks] = intValue(int64(*config.TotalDagTasks))
+	}
+
+	if config.ProviderRunID != nil && config.ExperimentID != nil {
+		e.CustomProperties[keyProviderRunID] = StringValue(*config.ProviderRunID)
+		e.CustomProperties[keyExperimentID] = StringValue(*config.ExperimentID)
 	}
 
 	req := &pb.PutExecutionRequest{

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -37,6 +38,11 @@ type Config struct {
 	Prefix      string
 	QueryString string
 	SessionInfo *SessionInfo
+}
+
+// Equal returns true if two Config objects are equal
+func Equal(a, b *Config) bool {
+	return reflect.DeepEqual(a, b)
 }
 
 type SessionInfo struct {
@@ -100,6 +106,17 @@ func (b *Config) UriFromKey(blobKey string) string {
 	return b.Scheme + path.Join(b.BucketName, b.Prefix, blobKey)
 }
 
+func NewBucketConfigFrom(uri string, oldCfg *Config) (*Config, error) {
+	c, err := ParseBucketPathToConfig(uri)
+	if err != nil {
+		return nil, err
+	}
+	c.SessionInfo = oldCfg.SessionInfo
+	glog.V(4).Infof("New BucketConfig from URI: (Scheme=%s, Bucketname=%s, Prefix=%s, QueryString=%s)",
+		c.Scheme, c.BucketName, c.Prefix, c.QueryString)
+	return c, err
+}
+
 var bucketPattern = regexp.MustCompile(`(^[a-z][a-z0-9]+:///?)([^/?]+)(/[^?]*)?(\?.+)?$`)
 
 func ParseBucketConfig(path string, sess *SessionInfo) (*Config, error) {
@@ -151,6 +168,20 @@ func ParseBucketConfigForArtifactURI(uri string) (*Config, error) {
 		Scheme:     ms[1],
 		BucketName: ms[2],
 	}, nil
+}
+
+func ParseBucketConfigForArtifactURIWithPrefix(uri string) (*Config, error) {
+	c, err := ParseBucketPathToConfig(uri)
+	if err != nil {
+		return nil, err
+	}
+	c.Prefix = removeBaseName(c.Prefix) // remove the artifact name
+	if c.Prefix != "" && !strings.HasSuffix(c.Prefix, "/") {
+		c.Prefix += "/"
+	}
+	glog.V(4).Infof("Updated config to new uri: (Scheme=%s, Bucketname=%s, Prefix=%s, QueryString=%s)",
+		c.Scheme, c.BucketName, c.Prefix, c.QueryString)
+	return c, err
 }
 
 // ParseProviderFromPath prases the uri and returns the scheme, which is
@@ -251,4 +282,18 @@ func StructuredGCSParams(p map[string]string) (*GCSParams, error) {
 		sparams.TokenKey = val
 	}
 	return sparams, nil
+}
+
+func removeBaseName(p string) string {
+	// Clean trailing slashes to avoid confusing path.Dir
+	p = strings.TrimRight(p, "/")
+
+	// This handles "/" properly
+	dir := path.Dir(p)
+
+	// Special case: path.Dir returns "." if there's no slash
+	if dir == "." {
+		return ""
+	}
+	return dir
 }

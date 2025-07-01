@@ -14,3 +14,7 @@ backend/Dockerfile.viewercontroller
 backend/Dockerfile.visualization
 frontend/Dockerfile
 v2/build
+.venv*
+venv
+node_modules/**
+playground/

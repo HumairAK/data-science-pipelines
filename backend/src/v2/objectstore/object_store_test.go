@@ -211,6 +211,36 @@ func Test_bucketConfig_KeyFromURI(t *testing.T) {
 	}
 }
 
+func Test_bucketConfig_UpdateConfigToNewURI(t *testing.T) {
+	tests := []struct {
+		name         string
+		bucketConfig *Config
+		uri          string
+		want         string
+		wantErr      bool
+	}{
+		{
+			name:         "Bucket with empty prefix",
+			bucketConfig: &Config{Scheme: "gs://", BucketName: "my-bucket", Prefix: "shouldbeoverridden"},
+			uri:          "s3://mlflow-bucket/my-stuff/428628968727451778/bf559e7e6e194989ad7bb6140fff0476/artifacts/executor-logs",
+			want:         "executor-logs",
+			wantErr:      false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.bucketConfig.UpdateConfigFromArtifactURI(tt.uri)
+			if tt.wantErr {
+				assert.Error(t, err)
+			}
+			key, err := tt.bucketConfig.KeyFromURI(tt.uri)
+			if key != tt.want {
+				t.Errorf("bucketConfig.keyFromURI() = %v, want %v", key, tt.want)
+			}
+		})
+	}
+}
+
 func Test_GetMinioDefaultEndpoint(t *testing.T) {
 	defer func() {
 		os.Unsetenv("MINIO_SERVICE_SERVICE_HOST")

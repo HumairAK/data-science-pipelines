@@ -25,6 +25,8 @@ import (
 	"strconv"
 	"time"
 
+	md "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/manager"
+
 	scheduledworkflow "github.com/kubeflow/pipelines/backend/src/crd/pkg/apis/scheduledworkflow/v1beta1"
 
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
@@ -44,6 +46,7 @@ import (
 	exec "github.com/kubeflow/pipelines/backend/src/common"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	scheduledworkflowclient "github.com/kubeflow/pipelines/backend/src/crd/pkg/client/clientset/versioned/typed/scheduledworkflow/v1beta1"
+	providerconfig "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -108,8 +111,9 @@ type ClientManagerInterface interface {
 }
 
 type ResourceManagerOptions struct {
-	CollectMetrics bool `json:"collect_metrics,omitempty"`
-	CacheDisabled  bool `json:"cache_disabled,omitempty"`
+	CollectMetrics   bool `json:"collect_metrics,omitempty"`
+	CacheDisabled    bool `json:"cache_disabled,omitempty"`
+	MetadataProvider *md.Provider
 }
 
 type ResourceManager struct {
@@ -169,13 +173,13 @@ func (r *ResourceManager) getScheduledWorkflowClient(namespace string) scheduled
 }
 
 // Creates a new experiment.
-func (r *ResourceManager) CreateExperiment(experiment *model.Experiment) (*model.Experiment, error) {
+func (r *ResourceManager) CreateExperiment(experiment *model.Experiment, config providerconfig.GenericProviderConfig) (*model.Experiment, error) {
 	if common.IsMultiUserMode() {
 		if experiment.Namespace == "" {
 			return nil, util.NewInvalidInputError("Namespace cannot be empty")
 		}
 	}
-	return r.experimentStore.CreateExperiment(experiment)
+	return r.experimentStore.CreateExperiment(experiment, config)
 }
 
 // Fetches an experiment with the given id.
@@ -517,9 +521,10 @@ func (r *ResourceManager) CreateRun(ctx context.Context, run *model.Run) (*model
 	}
 	run.RunDetails.CreatedAtInSec = r.time.Now().Unix()
 	runWorkflowOptions := template.RunWorkflowOptions{
-		RunId:         run.UUID,
-		RunAt:         run.RunDetails.CreatedAtInSec,
-		CacheDisabled: r.options.CacheDisabled,
+		RunId:            run.UUID,
+		RunAt:            run.RunDetails.CreatedAtInSec,
+		CacheDisabled:    r.options.CacheDisabled,
+		MetadataProvider: r.options.MetadataProvider,
 	}
 	executionSpec, err := tmpl.RunWorkflow(run, runWorkflowOptions)
 	if err != nil {
@@ -627,7 +632,11 @@ func (r *ResourceManager) ReconcileSwfCrs(ctx context.Context) error {
 			return failedToReconcileSwfCrsError(err)
 		}
 
-		newScheduledWorkflow, err := tmpl.ScheduledWorkflow(jobs[i], r.getOwnerReferences())
+		newScheduledWorkflow, err := tmpl.ScheduledWorkflow(
+			jobs[i],
+			r.getOwnerReferences(),
+			template.ScheduledWorkflowOptions{MetadataProvider: r.options.MetadataProvider},
+		)
 		if err != nil {
 			return failedToReconcileSwfCrsError(err)
 		}
@@ -1101,7 +1110,11 @@ func (r *ResourceManager) CreateJob(ctx context.Context, job *model.Job) (*model
 
 		// TODO(gkcalat): consider changing the flow. Other resource UUIDs are assigned by their respective stores (DB).
 		// Convert modelJob into scheduledWorkflow.
-		scheduledWorkflow, err = tmpl.ScheduledWorkflow(job, r.getOwnerReferences())
+		scheduledWorkflow, err = tmpl.ScheduledWorkflow(
+			job,
+			r.getOwnerReferences(),
+			template.ScheduledWorkflowOptions{MetadataProvider: r.options.MetadataProvider},
+		)
 		if err != nil {
 			return nil, util.Wrap(err, "Failed to create a recurring run during scheduled workflow creation")
 		}
@@ -1121,7 +1134,11 @@ func (r *ResourceManager) CreateJob(ctx context.Context, job *model.Job) (*model
 			return nil, util.Wrap(err, "Failed to fetch a template with an invalid pipeline spec manifest")
 		}
 
-		_, err = tmpl.ScheduledWorkflow(job, r.getOwnerReferences())
+		_, err = tmpl.ScheduledWorkflow(
+			job,
+			r.getOwnerReferences(),
+			template.ScheduledWorkflowOptions{MetadataProvider: r.options.MetadataProvider},
+		)
 		if err != nil {
 			return nil, util.Wrap(err, "Failed to validate the input parameters on the latest pipeline version")
 		}
@@ -1591,7 +1608,8 @@ func (r *ResourceManager) CreateDefaultExperiment(namespace string) (string, err
 			Namespace:    namespace,
 			StorageState: model.StorageStateAvailable,
 		}
-		defaultExperiment, err = r.CreateExperiment(defaultExperiment)
+		// todo: provide passthrough config provided at kfp deployment time with pipeline config.json
+		defaultExperiment, err = r.CreateExperiment(defaultExperiment, nil)
 		if err != nil {
 			return "", util.Wrap(err, "Failed to create the default experiment")
 		}
@@ -2174,4 +2192,8 @@ func (r *ResourceManager) GetObjectSize(ctx context.Context, bucketConfig *objec
 		return 0, err
 	}
 	return size, nil
+}
+
+func (r *ResourceManager) GetMetadataProvider() *md.Provider {
+	return r.options.MetadataProvider
 }

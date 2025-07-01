@@ -1,0 +1,11 @@
+{
+  "MetadataProvider": {
+    "MetadataProviderName": "mlflow",
+    "SupportNestedRuns": "true",
+    "AdditionalConfig": {
+      "Host": "mlflow-server-mlflow.apps.hukhan-10.dev.datahub.redhat.com",
+      "Port": "",
+      "TLSEnabled": "false"
+    }
+  }
+}

@@ -15,6 +15,7 @@
 package common
 
 import (
+	"encoding/json"
 	"strconv"
 	"time"
 
@@ -97,6 +98,18 @@ func GetDurationConfig(configName string) time.Duration {
 		glog.Fatalf("Please specify flag %s", configName)
 	}
 	return viper.GetDuration(configName)
+}
+
+func GetSubConfigJSON(configName string) string {
+	if !viper.IsSet(configName) {
+		glog.Fatalf("Please specify flag %s", configName)
+	}
+	sub := viper.Get(configName) // this is map[string]interface{}
+	b, err := json.Marshal(sub)
+	if err != nil {
+		glog.Fatalf("Failed to re-marshal sub-config: %v", err)
+	}
+	return string(b)
 }
 
 func IsMultiUserMode() bool {

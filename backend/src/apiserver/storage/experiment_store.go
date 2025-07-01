@@ -17,17 +17,24 @@ package storage
 import (
 	"database/sql"
 	"fmt"
-
 	sq "github.com/Masterminds/squirrel"
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	providerconfig "github.com/kubeflow/pipelines/backend/src/v2/metadata_provider/config"
 )
 
 type ExperimentStoreInterface interface {
-	CreateExperiment(*model.Experiment) (*model.Experiment, error)
+	// CreateExperiment accepts a providerConfig which is used for
+	// provider-specific creation options.
+	// For example, MLFlow allows you to set the artifact_location for all artifacts
+	// uploaded in any run for a given experiment. The user should be able to configure this.
+	// If the provider config is not provided, we would use the default bucket path
+	CreateExperiment(*model.Experiment, providerconfig.GenericProviderConfig) (*model.Experiment, error)
 	GetExperiment(uuid string) (*model.Experiment, error)
+	// GetExperimentByNameNamespace returns the experiment with the given name and namespace.
+	// If no experiment is found, it returns an error.
 	GetExperimentByNameNamespace(name string, namespace string) (*model.Experiment, error)
 	ListExperiments(filterContext *model.FilterContext, opts *list.Options) ([]*model.Experiment, int, string, error)
 	ArchiveExperiment(expId string) error
@@ -220,7 +227,7 @@ func (s *ExperimentStore) scanRows(rows *sql.Rows) ([]*model.Experiment, error) 
 	return experiments, nil
 }
 
-func (s *ExperimentStore) CreateExperiment(experiment *model.Experiment) (*model.Experiment, error) {
+func (s *ExperimentStore) CreateExperiment(experiment *model.Experiment, _ providerconfig.GenericProviderConfig) (*model.Experiment, error) {
 	newExperiment := *experiment
 	now := s.time.Now().Unix()
 	newExperiment.CreatedAtInSec = now
@@ -447,7 +454,7 @@ func NewExperimentStore(db *DB, time util.TimeInterface, uuid util.UUIDGenerator
 		db:                     db,
 		time:                   time,
 		uuid:                   uuid,
-		resourceReferenceStore: NewResourceReferenceStore(db, nil),
+		resourceReferenceStore: NewResourceReferenceStore(db, nil, nil),
 		defaultExperimentStore: NewDefaultExperimentStore(db),
 	}
 }
