@@ -44,20 +44,20 @@ func (s *ExperimentStore) CreateExperiment(baseExperiment *model.Experiment, pro
 		baseExperiment.Name = BuildExperimentNamespaceName(baseExperiment.Name, namespace)
 	}
 
-	// TODO: Not sure if this will work with MR plugin, see sibling code in LogOutputArtifact
-	//if providerConfig != nil {
-	//	creationConfig, err := ConvertToExperimentCreationConfig(providerConfig)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	addTag(tags, ExperimentArtifactURI, creationConfig.ArtifactLocation)
-	//}
+	var artifactLocation *string
+	if providerConfig != nil {
+		creationConfig, err := ConvertToExperimentCreationConfig(providerConfig)
+		if err != nil {
+			return nil, err
+		}
+		artifactLocation = &creationConfig.ArtifactLocation
+	}
 
 	experiment, err := s.client.createExperiment(
 		baseExperiment.Name,
 		baseExperiment.Description,
 		tags,
-	)
+		artifactLocation)
 	if err != nil {
 		return nil, err
 	}

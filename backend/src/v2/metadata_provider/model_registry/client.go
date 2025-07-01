@@ -338,12 +338,15 @@ func (m *Client) getExperiments(
 	return experimentsList.Items, experimentsList.NextPageToken, nil
 }
 
-func (m *Client) createExperiment(name, description string, tags *map[string]openapi.MetadataValue) (*openapi.Experiment, error) {
+func (m *Client) createExperiment(name, description string, tags *map[string]openapi.MetadataValue, artifactLocation *string) (*openapi.Experiment, error) {
 	ctx := context.Background()
 	payload := openapi.ExperimentCreate{
 		Name:             name,
 		Description:      &description,
 		CustomProperties: tags,
+	}
+	if artifactLocation != nil && *artifactLocation != "" {
+		payload.ExternalId = artifactLocation
 	}
 	experiment, resp, err := m.APIService.CreateExperiment(ctx).ExperimentCreate(payload).Execute()
 	if err != nil {
