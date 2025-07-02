@@ -25,9 +25,8 @@ func mrExperimentToModelExperiment(experiment openapi.Experiment) (*model.Experi
 		return nil, err
 	}
 	experimentModel := &model.Experiment{
-		UUID:        *experiment.Id,
-		Name:        experiment.Name,
-		Description: *experiment.Description,
+		UUID: *experiment.Id,
+		Name: experiment.Name,
 		// Unix time value (used by MLFlow) is in milliseconds,
 		// but the google.protobuf.Timestamp struct expects seconds in its Seconds field.
 		CreatedAtInSec: createdAtInSec / 1000,
@@ -36,6 +35,9 @@ func mrExperimentToModelExperiment(experiment openapi.Experiment) (*model.Experi
 		// lastrun is used to sort kfp ui experiments by last run
 		LastRunCreatedAtInSec: lastRunCreatedAtInSec / 1000,
 		Namespace:             ns,
+	}
+	if experiment.Description != nil {
+		experimentModel.Description = *experiment.Description
 	}
 
 	switch experiment.GetState() {
