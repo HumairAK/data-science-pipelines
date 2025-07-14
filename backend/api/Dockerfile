@@ -14,17 +14,17 @@
 
 # Generate client code (go & json) from API protocol buffers
 FROM golang:1.23 as generator
-ENV GRPC_GATEWAY_VERSION v1.9.6
-ENV GO_SWAGGER_VERSION v0.18.0
-ENV GOLANG_PROTOBUF_VERSION v1.5.1
-ENV GRPC_VERSION v1.23.0
-ENV PROTOC_VERSION 3.20.3
+ENV GRPC_GATEWAY_VERSION v2.27.1
+ENV GO_SWAGGER_VERSION v0.32.3
+ENV GOLANG_PROTOBUF_VERSION v1.5.4
+ENV GRPC_VERSION v1.73.0
+ENV PROTOC_VERSION 31.1
 ENV GOBIN=/go/bin
 
 # Install protoc.
 RUN apt-get update -y && apt-get install -y jq sed unzip
 RUN curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip
-RUN unzip -o protoc.zip -d /usr/ bin/protoc
+RUN unzip -o protoc.zip -d /usr/bin/protoc
 RUN unzip -o protoc.zip -d /usr/ 'include/*'
 RUN rm -f protoc.zip
 ENV PROTOCCOMPILER /usr/bin/protoc
