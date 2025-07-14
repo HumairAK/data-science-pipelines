@@ -24,8 +24,11 @@ ENV GOBIN=/go/bin
 # Install protoc.
 RUN apt-get update -y && apt-get install -y jq sed unzip
 RUN curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip
-RUN unzip -o protoc.zip -d /usr/bin/protoc
-RUN unzip -o protoc.zip -d /usr/ 'include/*'
+RUN unzip -o protoc.zip -d /tmp/protoc && \
+    mv /tmp/protoc/bin/protoc /usr/bin/protoc && \
+    chmod +x /usr/bin/protoc
+RUN unzip -o protoc.zip 'include/*' -d /tmp/protoc && \
+    mv /tmp/protoc/include/* /usr/include
 RUN rm -f protoc.zip
 ENV PROTOCCOMPILER /usr/bin/protoc
 ENV PROTOCINCLUDE /usr/include/google/protobuf
@@ -48,7 +51,7 @@ RUN chmod +x swagger_linux_amd64 && mv swagger_linux_amd64 /usr/bin/swagger
 RUN mkdir golang && cd golang && git clone --depth 1 --branch $GOLANG_PROTOBUF_VERSION https://github.com/golang/protobuf.git
 # Install protoc-gen-go.
 RUN cd golang/protobuf && GO111MODULE=on go mod vendor
-RUN go install github.com/golang/protobuf/protoc-gen-go@latest
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 
 # WORKAROUND: https://github.com/docker-library/golang/issues/225#issuecomment-403170792
 ENV XDG_CACHE_HOME /tmp/.cache
