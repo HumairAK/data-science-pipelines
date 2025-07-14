@@ -5,6 +5,7 @@ on:
     branches: [master]
   pull_request:
     paths:
+      - 'api/**'
       - 'sdk/**'
       - 'test/presubmit-tests-sdk.sh'
       - '.github/workflows/kfp-sdk-tests.yml'
@@ -27,19 +28,10 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install protobuf-compiler
-      run: sudo apt update && sudo apt install -y protobuf-compiler
-
-    - name: Install Wheel & setuptools
-      run: pip3 install wheel==0.42.0 setuptools
-
-    - name: Generate API proto files
-      working-directory: ./api
-      run: make clean python
-
-    - name: Install kfp-pipeline-spec from source
-      run: |
-        python3 -m pip install -I api/v2alpha1/python
+    - name: Install protobuf dependencies & kfp-pipeline-spec
+      if: ${{ steps.forward-api-port.outcome == 'success' }}
+      id: install-protobuf-deps
+      uses: ./.github/actions/protobuf
 
     - name: Run SDK Tests
       run: |

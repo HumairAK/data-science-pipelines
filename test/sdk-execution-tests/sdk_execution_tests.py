@@ -25,9 +25,6 @@ import pytest
 import yaml
 from typing import Any, Dict, List, Tuple
 from minio import S3Error
-from ml_metadata import metadata_store
-from ml_metadata.proto import metadata_store_pb2
-from ml_metadata.metadata_store.metadata_store import ListOptions
 from minio import Minio
 from kfp import client
 from kfp import dsl
@@ -125,34 +122,8 @@ def run(test_case: TestCase) -> Tuple[str, client.client.RunPipelineResult]:
     return run_url, run_result
 
 
-def get_run_artifacts(run_id: str):
-    mlmd_connection_config = metadata_store_pb2.MetadataStoreClientConfig(
-        host=METADATA_HOST,
-        port=METADATA_PORT,
-    )
-    mlmd_store = metadata_store.MetadataStore(mlmd_connection_config)
-    contexts = mlmd_store.get_contexts(list_options=ListOptions(filter_query=f"name = '{run_id}'"))
-    if len(contexts) != 1:
-        print("ERROR: Unable to find pipelinerun context in MLMD", file=sys.stderr)
-        return []
-
-    context = contexts[0]
-    return [a for a in mlmd_store.get_artifacts_by_context(context.id)]
-
-
 def cleanup_run_resources(run_id: str):
     print(f"Cleaning up resources for run {run_id}")
-
-    artifacts = get_run_artifacts(run_id)
-    print(f"Found {len(artifacts)} artifacts for run {run_id}")
-    # Clean up any Artifacts from object store
-    for artifact in artifacts:
-        try:
-            object_key = artifact.uri.removeprefix(f"minio://{BUCKET_NAME}")
-            print(f"Deleting artifact {object_key} for run {run_id}")
-            minio_client.remove_object(BUCKET_NAME, object_key)
-        except S3Error as err:
-            print(f"MinIO error: {err} for run {run_id}")
 
     # Clean up Argo Workflow
     try:

@@ -19,8 +19,9 @@ WORKDIR /go/src/github.com/kubeflow/pipelines
 
 COPY ./go.mod ./
 COPY ./go.sum ./
-COPY ./kubernetes_platform/go.mod ./kubernetes_platform/go.mod
-COPY ./api/go.mod ./api/go.mod
+# Only copy the replaced modules so `go mod download` can resolve them
+COPY ./api ./api
+COPY ./kubernetes_platform ./kubernetes_platform
 
 RUN GO111MODULE=on go mod download
 

@@ -14,6 +14,7 @@
 import dataclasses
 import inspect
 import itertools
+import os
 import pathlib
 import re
 import textwrap
@@ -143,6 +144,7 @@ python3 -m venv "$tmp/venv" --system-site-packages
 . "$tmp/venv/bin/activate"
 '''
 
+_KFP_PIPELINE_SPEC_PACKAGE_PATH = "KFP_PIPELINE_SPEC_PACKAGE_PATH"
 
 def _get_packages_to_install_command(
     kfp_package_path: Optional[str] = None,
@@ -164,6 +166,20 @@ def _get_packages_to_install_command(
     pip_install_strings = []
     index_url_options = make_index_url_options(pip_index_urls,
                                                pip_trusted_hosts)
+
+    # Setting pipeline spec path is not intended to be public api and
+    # is largely intended for testing and development purposes to
+    # allow pipeline runtime execution to install pipeline spec from
+    # development branches and pull request CIs.
+    pipeline_spec_path = os.getenv(_KFP_PIPELINE_SPEC_PACKAGE_PATH)
+    if pipeline_spec_path:
+        kfp_pipeline_spec_install_command = make_pip_install_command(
+            install_parts=[pipeline_spec_path],
+            index_url_options=index_url_options
+        )
+        pip_install_strings.append(kfp_pipeline_spec_install_command)
+        if inject_kfp_install:
+            pip_install_strings.append(' && ')
 
     if inject_kfp_install:
         if use_venv:
