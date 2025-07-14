@@ -17,11 +17,11 @@ package driver
 import (
 	"context"
 	"fmt"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"strconv"
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	api "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
@@ -127,8 +127,8 @@ func createCache(
 		Namespace:       opts.Namespace,
 		RunId:           opts.RunID,
 		MlmdExecutionID: strconv.FormatInt(id, 10),
-		CreatedAt:       &timestamp.Timestamp{Seconds: taskStartedTime},
-		FinishedAt:      &timestamp.Timestamp{Seconds: time.Now().Unix()},
+		CreatedAt:       timestamppb.New(time.Unix(taskStartedTime, 0)),
+		FinishedAt:      timestamppb.New(time.Unix(time.Now().Unix(), 0)),
 		Fingerprint:     fingerPrint,
 	}
 	err := cacheClient.CreateExecutionCache(ctx, task)

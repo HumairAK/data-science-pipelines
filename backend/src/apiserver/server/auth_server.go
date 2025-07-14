@@ -16,13 +16,14 @@ package server
 
 import (
 	"context"
+	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
 	"strings"
 
-	"github.com/golang/protobuf/ptypes/empty"
 	api "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/resource"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	"google.golang.org/protobuf/types/known/emptypb"
 	authorizationv1 "k8s.io/api/authorization/v1"
 )
 
@@ -37,10 +38,11 @@ var rbacResourceTypeToGroup = map[string]string{
 
 type AuthServer struct {
 	resourceManager *resource.ResourceManager
+	apiv1beta1.UnimplementedAuthServiceServer
 }
 
 func (s *AuthServer) AuthorizeV1(ctx context.Context, request *api.AuthorizeRequest) (
-	*empty.Empty, error,
+	*emptypb.Empty, error,
 ) {
 	err := ValidateAuthorizeRequest(request)
 	if err != nil {
@@ -64,7 +66,7 @@ func (s *AuthServer) AuthorizeV1(ctx context.Context, request *api.AuthorizeRequ
 		return nil, util.Wrap(err, "Failed to authorize the request")
 	}
 
-	return &empty.Empty{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func ValidateAuthorizeRequest(request *api.AuthorizeRequest) error {

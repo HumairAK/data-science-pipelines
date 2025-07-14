@@ -57,7 +57,7 @@ oauthlib==3.2.2
     #   requests-oauthlib
 proto-plus==1.26.1
     # via google-api-core
-protobuf==4.25.8
+protobuf>=5.26.0,<=6.31.1
     # via
     #   -r requirements.in
     #   google-api-core

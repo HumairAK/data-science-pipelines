@@ -19,11 +19,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"google.golang.org/protobuf/types/known/structpb"
 	"io"
 	"regexp"
 	"strings"
 
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
