@@ -59,3 +59,7 @@ ENV XDG_CACHE_HOME /tmp/.cache
 RUN chmod -R 777 /usr/bin/
 RUN chmod -R 777 /usr/include/google
 RUN chmod -R 777 /go
+
+RUN apt-get update && apt-get install -y python3-pip
+RUN pip3 install --upgrade pip setuptools wheel --break-system-packages
+

@@ -15,7 +15,7 @@
 import setuptools
 
 NAME = 'kfp-pipeline-spec'
-VERSION = '0.7.0'
+VERSION = '0.8.0'
 
 setuptools.setup(
     name=NAME,
@@ -26,7 +26,7 @@ setuptools.setup(
     url='https://github.com/kubeflow/pipelines',
     packages=setuptools.find_namespace_packages(include=['kfp.*']),
     python_requires='>=3.9.0',
-    install_requires=['protobuf>=4.21.1,<5'],
+    install_requires=['protobuf>=5.26.0,<=6.31'],
     include_package_data=True,
     license='Apache 2.0',
 )
