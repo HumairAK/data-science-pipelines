@@ -20,6 +20,22 @@ ENV GOLANG_PROTOBUF_VERSION v1.5.4
 ENV GRPC_VERSION v1.73.0
 ENV PROTOC_VERSION 31.1
 ENV GOBIN=/go/bin
+# The googleapis repo doesn't use GitHub releases or version tags,
+# so we pin a specific commit to make the clone reproducible.
+ENV GOOGLEAPIS_COMMIT 68d5196a529174df97c28c70622ffc1c3721815f
+# Note that protoc-gen-go-grpc is packaged with grpc-go but is versioned
+# separately. You can find the releases for protoc-gen-go-grpc here:
+# https://github.com/grpc/grpc-go/releases
+# Note that these also include releases for grpc-go which is the grpc Go
+# runtime package. protoc-gen-go-grpc is the package used for generating
+# Go GRPC code from .proto files.
+# to list recent protoc-gen-go-grpc versions you can also do:
+# go list -m -versions google.golang.org/grpc/cmd/protoc-gen-go-grpc
+# The versions should match reasonably close to each other. You can
+# Check the protobuf in the go.mod for protoc-gen-go-grpc, like here:
+# https://github.com/grpc/grpc-go/blob/cmd/protoc-gen-go-grpc/v1.5.1/cmd/protoc-gen-go-grpc/go.mod#L7
+ENV PROTOC_GEN_GO_GRPC v1.5.1
+ENV PROTOBUF_GO=v1.36.6
 
 # Install protoc.
 RUN apt-get update -y && apt-get install -y jq sed unzip
@@ -34,24 +50,31 @@ ENV PROTOCCOMPILER /usr/bin/protoc
 ENV PROTOCINCLUDE /usr/include/google/protobuf
 
 # Need grpc-gateway source code for -I in protoc command.
-WORKDIR /go/src/github.com
-RUN mkdir grpc-ecosystem && cd grpc-ecosystem && git clone --depth 1 --branch $GRPC_GATEWAY_VERSION https://github.com/grpc-ecosystem/grpc-gateway.git
-RUN mkdir grpc && git clone --depth 1 --branch $GRPC_VERSION https://github.com/grpc/grpc-go
-
 # Install protoc-gen-rpc-gateway && protoc-gen-swagger.
-RUN cd grpc-ecosystem/grpc-gateway && GO111MODULE=on go mod vendor
-RUN go install github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway@latest
-RUN go install github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger@latest
+RUN go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@${GRPC_GATEWAY_VERSION}
+RUN go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@${GRPC_GATEWAY_VERSION}
+
+# Need to explicitly provide the googleapis protos and the OpenAPI options that were previously present in the grpc-gateway repo.
+RUN git init /googleapis && \
+    cd /googleapis && \
+    git remote add origin https://github.com/googleapis/googleapis.git && \
+    git fetch --depth 1 origin ${GOOGLEAPIS_COMMIT} && \
+    git checkout FETCH_HEAD
+RUN mkdir -p /protoc-gen-openapiv2 && \
+    cp -r /go/pkg/mod/github.com/grpc-ecosystem/grpc-gateway/v2@${GRPC_GATEWAY_VERSION}/protoc-gen-openapiv2/options /protoc-gen-openapiv2/options
 
 # Download go-swagger binary.
 RUN curl -LO "https://github.com/go-swagger/go-swagger/releases/download/${GO_SWAGGER_VERSION}/swagger_linux_amd64"
 RUN chmod +x swagger_linux_amd64 && mv swagger_linux_amd64 /usr/bin/swagger
 
 # Need protobuf source code for -I in protoc command.
-RUN mkdir golang && cd golang && git clone --depth 1 --branch $GOLANG_PROTOBUF_VERSION https://github.com/golang/protobuf.git
 # Install protoc-gen-go.
-RUN cd golang/protobuf && GO111MODULE=on go mod vendor
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOBUF_GO}
+RUN go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@${PROTOC_GEN_GO_GRPC}
+
+# Needed for buildling python packages requiring protoc
+RUN apt-get update && apt-get install -y python3-pip
+RUN pip3 install --upgrade pip setuptools wheel --break-system-packages
 
 # WORKAROUND: https://github.com/docker-library/golang/issues/225#issuecomment-403170792
 ENV XDG_CACHE_HOME /tmp/.cache
@@ -59,7 +82,3 @@ ENV XDG_CACHE_HOME /tmp/.cache
 RUN chmod -R 777 /usr/bin/
 RUN chmod -R 777 /usr/include/google
 RUN chmod -R 777 /go
-
-RUN apt-get update && apt-get install -y python3-pip
-RUN pip3 install --upgrade pip setuptools wheel --break-system-packages
-

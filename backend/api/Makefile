@@ -21,7 +21,7 @@ REMOTE_IMAGE=ghcr.io/kubeflow/kfp-api-generator
 API_VERSION ?= v2beta1
 
 # Keep in sync with the version used in test/release/Dockerfile.release
-PREBUILT_REMOTE_IMAGE=quay.io/hukhan/kfp-api-generator:1.4
+PREBUILT_REMOTE_IMAGE=quay.io/hukhan/kfp-api-generator:1.8
 
 CONTAINER_ENGINE ?= docker
 
@@ -38,7 +38,6 @@ generate: fetch-dependencies hack/generator.sh $(API_VERSION)/*.proto
 .PHONY: fetch-dependencies
 fetch-dependencies: v2beta1/google/rpc/status.proto
 
-# TODO(gkcalat): add this as a submodule?
 v2beta1/google/rpc/status.proto:
 	mkdir -p v2beta1/google/rpc
 	wget -O v2beta1/google/rpc/status.proto https://raw.githubusercontent.com/googleapis/googleapis/047d3a8ac7f75383855df0166144f891d7af08d9/google/rpc/status.proto
