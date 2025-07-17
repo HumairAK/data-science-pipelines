@@ -18,10 +18,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
+	`strings`
 
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
@@ -40,6 +41,7 @@ const (
 type VisualizationServer struct {
 	resourceManager *resource.ResourceManager
 	serviceURL      string
+	apiv1beta1.UnimplementedVisualizationServiceServer
 }
 
 func (s *VisualizationServer) CreateVisualizationV1(ctx context.Context, request *go_client.CreateVisualizationRequest) (*go_client.Visualization, error) {

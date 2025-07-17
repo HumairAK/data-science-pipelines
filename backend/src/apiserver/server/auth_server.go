@@ -16,6 +16,7 @@ package server
 
 import (
 	"context"
+	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
 	"strings"
 
 	"github.com/golang/protobuf/ptypes/empty"
@@ -37,6 +38,7 @@ var rbacResourceTypeToGroup = map[string]string{
 
 type AuthServer struct {
 	resourceManager *resource.ResourceManager
+	apiv1beta1.UnimplementedAuthServiceServer
 }
 
 func (s *AuthServer) AuthorizeV1(ctx context.Context, request *api.AuthorizeRequest) (
