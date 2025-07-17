@@ -210,7 +210,10 @@ func startRpcServer(resourceManager *resource.ResourceManager) {
 	}
 	s := grpc.NewServer(grpc.UnaryInterceptor(apiServerInterceptor), grpc.MaxRecvMsgSize(math.MaxInt32))
 
-	sharedExperimentServer := server.NewExperimentServer(resourceManager, &server.ExperimentServerOptions{CollectMetrics: *collectMetricsFlag})
+	baseExperimentServer := server.NewBaseExperimentServer(resourceManager, &server.ExperimentServerOptions{CollectMetrics: *collectMetricsFlag})
+	ExperimentServerV1 := server.NewExperimentServerV1(baseExperimentServer)
+	ExperimentServer := server.NewExperimentServer(baseExperimentServer)
+
 	sharedPipelineServer := server.NewPipelineServer(
 		resourceManager,
 		&server.PipelineServerOptions{
@@ -221,7 +224,7 @@ func startRpcServer(resourceManager *resource.ResourceManager) {
 	sharedRunServer := server.NewRunServer(resourceManager, &server.RunServerOptions{CollectMetrics: *collectMetricsFlag})
 	sharedReportServer := server.NewReportServer(resourceManager)
 
-	apiv1beta1.RegisterExperimentServiceServer(s, sharedExperimentServer)
+	apiv1beta1.RegisterExperimentServiceServer(s, ExperimentServerV1)
 	apiv1beta1.RegisterPipelineServiceServer(s, sharedPipelineServer)
 	apiv1beta1.RegisterJobServiceServer(s, sharedJobServer)
 	apiv1beta1.RegisterRunServiceServer(s, sharedRunServer)
@@ -237,7 +240,7 @@ func startRpcServer(resourceManager *resource.ResourceManager) {
 		))
 	apiv1beta1.RegisterAuthServiceServer(s, server.NewAuthServer(resourceManager))
 
-	apiv2beta1.RegisterExperimentServiceServer(s, sharedExperimentServer)
+	apiv2beta1.RegisterExperimentServiceServer(s, ExperimentServer)
 	apiv2beta1.RegisterPipelineServiceServer(s, sharedPipelineServer)
 	apiv2beta1.RegisterRecurringRunServiceServer(s, sharedJobServer)
 	apiv2beta1.RegisterRunServiceServer(s, sharedRunServer)

@@ -18,7 +18,6 @@ import (
 	"context"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
@@ -76,52 +75,17 @@ type ExperimentServerOptions struct {
 	CollectMetrics bool
 }
 
-type ExperimentServer struct {
+// BaseExperimentServer wraps ExperimentServer and ExperimentServerV1
+// to enable method sharing. It can be removed once ExperimentServerV1
+// is removed.
+type BaseExperimentServer struct {
 	resourceManager *resource.ResourceManager
 	options         *ExperimentServerOptions
+}
+
+type ExperimentServer struct {
+	*BaseExperimentServer
 	apiv2beta1.UnimplementedExperimentServiceServer
-}
-
-func (s *ExperimentServer) createExperiment(ctx context.Context, experiment *model.Experiment) (*model.Experiment, error) {
-	experiment.Namespace = s.resourceManager.ReplaceNamespace(experiment.Namespace)
-	resourceAttributes := &authorizationv1.ResourceAttributes{
-		Namespace: experiment.Namespace,
-		Verb:      common.RbacResourceVerbCreate,
-		Name:      experiment.Name,
-	}
-	err := s.canAccessExperiment(ctx, "", resourceAttributes)
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to authorize the request")
-	}
-	return s.resourceManager.CreateExperiment(experiment)
-}
-
-func (s *ExperimentServer) CreateExperimentV1(ctx context.Context, request *apiv1beta1.CreateExperimentRequest) (
-	*apiv1beta1.Experiment, error,
-) {
-	if s.options.CollectMetrics {
-		createExperimentRequests.Inc()
-	}
-
-	modelExperiment, err := toModelExperiment(request.GetExperiment())
-	if err != nil {
-		return nil, util.Wrap(err, "[ExperimentServer]: Failed to create a v1beta1 experiment due to conversion error")
-	}
-
-	newExperiment, err := s.createExperiment(ctx, modelExperiment)
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to create a v1beta1 experiment")
-	}
-
-	if s.options.CollectMetrics {
-		experimentCount.Inc()
-	}
-
-	apiExperiment := toApiExperimentV1(newExperiment)
-	if apiExperiment == nil {
-		return nil, util.NewInternalServerError(errors.New("Failed to convert internal experiment representation to its API counterpart"), "Failed to create v1beta1 experiment")
-	}
-	return apiExperiment, nil
 }
 
 func (s *ExperimentServer) CreateExperiment(ctx context.Context, request *apiv2beta1.CreateExperimentRequest) (
@@ -152,33 +116,6 @@ func (s *ExperimentServer) CreateExperiment(ctx context.Context, request *apiv2b
 	return apiExperiment, nil
 }
 
-func (s *ExperimentServer) getExperiment(ctx context.Context, experimentId string) (*model.Experiment, error) {
-	err := s.canAccessExperiment(ctx, experimentId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbGet})
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to authorize the request")
-	}
-	return s.resourceManager.GetExperiment(experimentId)
-}
-
-func (s *ExperimentServer) GetExperimentV1(ctx context.Context, request *apiv1beta1.GetExperimentRequest) (
-	*apiv1beta1.Experiment, error,
-) {
-	if s.options.CollectMetrics {
-		getExperimentRequests.Inc()
-	}
-
-	experiment, err := s.getExperiment(ctx, request.GetId())
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to fetch v1beta1 experiment")
-	}
-
-	apiExperiment := toApiExperimentV1(experiment)
-	if apiExperiment == nil {
-		return nil, util.NewInternalServerError(errors.New("Failed to convert internal experiment representation to its v1beta1 API counterpart"), "Failed to fetch v1beta1 experiment")
-	}
-	return apiExperiment, nil
-}
-
 func (s *ExperimentServer) GetExperiment(ctx context.Context, request *apiv2beta1.GetExperimentRequest) (
 	*apiv2beta1.Experiment, error,
 ) {
@@ -196,70 +133,6 @@ func (s *ExperimentServer) GetExperiment(ctx context.Context, request *apiv2beta
 		return nil, util.NewInternalServerError(errors.New("Failed to convert internal experiment representation to its API counterpart"), "Failed to fetch experiment")
 	}
 	return apiExperiment, nil
-}
-
-func (s *ExperimentServer) listExperiments(ctx context.Context, pageToken string, pageSize int32, sortBy string, opts *list.Options, namespace string) ([]*model.Experiment, int32, string, error) {
-	namespace = s.resourceManager.ReplaceNamespace(namespace)
-	resourceAttributes := &authorizationv1.ResourceAttributes{
-		Namespace: namespace,
-		Verb:      common.RbacResourceVerbList,
-	}
-	err := s.canAccessExperiment(ctx, "", resourceAttributes)
-	if err != nil {
-		return nil, 0, "", util.Wrap(err, "Failed to authorize with API")
-	}
-	filterContext := &model.FilterContext{
-		ReferenceKey: &model.ReferenceKey{Type: model.NamespaceResourceType, ID: namespace},
-	}
-
-	experiments, totalSize, nextPageToken, err := s.resourceManager.ListExperiments(filterContext, opts)
-	if err != nil {
-		return nil, 0, "", util.Wrap(err, "List experiments failed")
-	}
-	return experiments, int32(totalSize), nextPageToken, nil
-}
-
-func (s *ExperimentServer) ListExperimentsV1(ctx context.Context, request *apiv1beta1.ListExperimentsRequest) (
-	*apiv1beta1.ListExperimentsResponse, error,
-) {
-	if s.options.CollectMetrics {
-		listExperimentsV1Requests.Inc()
-	}
-
-	filterContext, err := validateFilterV1(request.ResourceReferenceKey)
-	if err != nil {
-		return nil, util.Wrap(err, "Validating v1beta1 filter failed")
-	}
-	namespace := ""
-	if filterContext.ReferenceKey != nil {
-		if filterContext.ReferenceKey.Type == model.NamespaceResourceType {
-			namespace = filterContext.ReferenceKey.ID
-		} else {
-			return nil, util.NewInvalidInputError("Failed to list v1beta1 experiment due to invalid resource reference key. It must be of type 'Namespace' and contain an existing or empty namespace, but you provided %v of type %v", filterContext.ReferenceKey.ID, filterContext.ReferenceKey.Type)
-		}
-	}
-
-	opts, err := validatedListOptions(&model.Experiment{}, request.GetPageToken(), int(request.GetPageSize()), request.GetSortBy(), request.GetFilter(), "v1beta1")
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to create list options")
-	}
-
-	experiments, totalSize, nextPageToken, err := s.listExperiments(
-		ctx,
-		request.GetPageToken(),
-		request.GetPageSize(),
-		request.GetSortBy(),
-		opts,
-		namespace,
-	)
-	if err != nil {
-		return nil, util.Wrap(err, "List v1beta1 experiments failed")
-	}
-	return &apiv1beta1.ListExperimentsResponse{
-		Experiments:   toApiExperimentsV1(experiments),
-		TotalSize:     totalSize,
-		NextPageToken: nextPageToken,
-	}, nil
 }
 
 func (s *ExperimentServer) ListExperiments(ctx context.Context, request *apiv2beta1.ListExperimentsRequest) (
@@ -285,29 +158,6 @@ func (s *ExperimentServer) ListExperiments(ctx context.Context, request *apiv2be
 	}, nil
 }
 
-func (s *ExperimentServer) deleteExperiment(ctx context.Context, experimentId string) error {
-	err := s.canAccessExperiment(ctx, experimentId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbDelete})
-	if err != nil {
-		return util.Wrap(err, "Failed to authorize the request")
-	}
-	return s.resourceManager.DeleteExperiment(experimentId)
-}
-
-func (s *ExperimentServer) DeleteExperimentV1(ctx context.Context, request *apiv1beta1.DeleteExperimentRequest) (*empty.Empty, error) {
-	if s.options.CollectMetrics {
-		deleteExperimentRequests.Inc()
-	}
-
-	if err := s.deleteExperiment(ctx, request.GetId()); err != nil {
-		return nil, util.Wrap(err, "Failed to delete v1beta1 experiment")
-	}
-
-	if s.options.CollectMetrics {
-		experimentCount.Dec()
-	}
-	return &empty.Empty{}, nil
-}
-
 func (s *ExperimentServer) DeleteExperiment(ctx context.Context, request *apiv2beta1.DeleteExperimentRequest) (*empty.Empty, error) {
 	if s.options.CollectMetrics {
 		deleteExperimentRequests.Inc()
@@ -323,8 +173,81 @@ func (s *ExperimentServer) DeleteExperiment(ctx context.Context, request *apiv2b
 	return &empty.Empty{}, nil
 }
 
+func (s *ExperimentServer) ArchiveExperiment(ctx context.Context, request *apiv2beta1.ArchiveExperimentRequest) (*empty.Empty, error) {
+	if s.options.CollectMetrics {
+		archiveExperimentRequests.Inc()
+	}
+
+	if err := s.archiveExperiment(ctx, request.GetExperimentId()); err != nil {
+		return nil, util.Wrap(err, "Failed to archive experiment")
+	}
+	return &empty.Empty{}, nil
+}
+
+func (s *ExperimentServer) UnarchiveExperiment(ctx context.Context, request *apiv2beta1.UnarchiveExperimentRequest) (*empty.Empty, error) {
+	if s.options.CollectMetrics {
+		unarchiveExperimentRequests.Inc()
+	}
+
+	if err := s.unarchiveExperiment(ctx, request.GetExperimentId()); err != nil {
+		return nil, util.Wrap(err, "Failed to unarchive experiment")
+	}
+	return &empty.Empty{}, nil
+}
+
+func (s *BaseExperimentServer) createExperiment(ctx context.Context, experiment *model.Experiment) (*model.Experiment, error) {
+	experiment.Namespace = s.resourceManager.ReplaceNamespace(experiment.Namespace)
+	resourceAttributes := &authorizationv1.ResourceAttributes{
+		Namespace: experiment.Namespace,
+		Verb:      common.RbacResourceVerbCreate,
+		Name:      experiment.Name,
+	}
+	err := s.canAccessExperiment(ctx, "", resourceAttributes)
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to authorize the request")
+	}
+	return s.resourceManager.CreateExperiment(experiment)
+}
+
+func (s *BaseExperimentServer) getExperiment(ctx context.Context, experimentId string) (*model.Experiment, error) {
+	err := s.canAccessExperiment(ctx, experimentId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbGet})
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to authorize the request")
+	}
+	return s.resourceManager.GetExperiment(experimentId)
+}
+
+func (s *BaseExperimentServer) listExperiments(ctx context.Context, pageToken string, pageSize int32, sortBy string, opts *list.Options, namespace string) ([]*model.Experiment, int32, string, error) {
+	namespace = s.resourceManager.ReplaceNamespace(namespace)
+	resourceAttributes := &authorizationv1.ResourceAttributes{
+		Namespace: namespace,
+		Verb:      common.RbacResourceVerbList,
+	}
+	err := s.canAccessExperiment(ctx, "", resourceAttributes)
+	if err != nil {
+		return nil, 0, "", util.Wrap(err, "Failed to authorize with API")
+	}
+	filterContext := &model.FilterContext{
+		ReferenceKey: &model.ReferenceKey{Type: model.NamespaceResourceType, ID: namespace},
+	}
+
+	experiments, totalSize, nextPageToken, err := s.resourceManager.ListExperiments(filterContext, opts)
+	if err != nil {
+		return nil, 0, "", util.Wrap(err, "List experiments failed")
+	}
+	return experiments, int32(totalSize), nextPageToken, nil
+}
+
+func (s *BaseExperimentServer) deleteExperiment(ctx context.Context, experimentId string) error {
+	err := s.canAccessExperiment(ctx, experimentId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbDelete})
+	if err != nil {
+		return util.Wrap(err, "Failed to authorize the request")
+	}
+	return s.resourceManager.DeleteExperiment(experimentId)
+}
+
 // TODO(chensun): consider refactoring the code to get rid of double-query of experiment.
-func (s *ExperimentServer) canAccessExperiment(ctx context.Context, experimentID string, resourceAttributes *authorizationv1.ResourceAttributes) error {
+func (s *BaseExperimentServer) canAccessExperiment(ctx context.Context, experimentID string, resourceAttributes *authorizationv1.ResourceAttributes) error {
 	if !common.IsMultiUserMode() {
 		// Skip authorization if not multi-user mode.
 		return nil
@@ -353,7 +276,7 @@ func (s *ExperimentServer) canAccessExperiment(ctx context.Context, experimentID
 	return nil
 }
 
-func (s *ExperimentServer) archiveExperiment(ctx context.Context, experimentId string) error {
+func (s *BaseExperimentServer) archiveExperiment(ctx context.Context, experimentId string) error {
 	err := s.canAccessExperiment(ctx, experimentId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbArchive})
 	if err != nil {
 		return util.Wrap(err, "Failed to authorize the request")
@@ -361,28 +284,7 @@ func (s *ExperimentServer) archiveExperiment(ctx context.Context, experimentId s
 	return s.resourceManager.ArchiveExperiment(ctx, experimentId)
 }
 
-func (s *ExperimentServer) ArchiveExperimentV1(ctx context.Context, request *apiv1beta1.ArchiveExperimentRequest) (*empty.Empty, error) {
-	if s.options.CollectMetrics {
-		archiveExperimentRequests.Inc()
-	}
-	if err := s.archiveExperiment(ctx, request.GetId()); err != nil {
-		return nil, util.Wrap(err, "Failed to archive v1beta1 experiment")
-	}
-	return &empty.Empty{}, nil
-}
-
-func (s *ExperimentServer) ArchiveExperiment(ctx context.Context, request *apiv2beta1.ArchiveExperimentRequest) (*empty.Empty, error) {
-	if s.options.CollectMetrics {
-		archiveExperimentRequests.Inc()
-	}
-
-	if err := s.archiveExperiment(ctx, request.GetExperimentId()); err != nil {
-		return nil, util.Wrap(err, "Failed to archive experiment")
-	}
-	return &empty.Empty{}, nil
-}
-
-func (s *ExperimentServer) unarchiveExperiment(ctx context.Context, experimentId string) error {
+func (s *BaseExperimentServer) unarchiveExperiment(ctx context.Context, experimentId string) error {
 	err := s.canAccessExperiment(ctx, experimentId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbUnarchive})
 	if err != nil {
 		return util.Wrap(err, "Failed to authorize the request")
@@ -390,28 +292,15 @@ func (s *ExperimentServer) unarchiveExperiment(ctx context.Context, experimentId
 	return s.resourceManager.UnarchiveExperiment(experimentId)
 }
 
-func (s *ExperimentServer) UnarchiveExperimentV1(ctx context.Context, request *apiv1beta1.UnarchiveExperimentRequest) (*empty.Empty, error) {
-	if s.options.CollectMetrics {
-		unarchiveExperimentRequests.Inc()
+func NewBaseExperimentServer(resourceManager *resource.ResourceManager, options *ExperimentServerOptions) *BaseExperimentServer {
+	return &BaseExperimentServer{
+		resourceManager: resourceManager,
+		options:         options,
 	}
-
-	if err := s.unarchiveExperiment(ctx, request.GetId()); err != nil {
-		return nil, util.Wrap(err, "Failed to unarchive v1beta1 experiment")
-	}
-	return &empty.Empty{}, nil
 }
 
-func (s *ExperimentServer) UnarchiveExperiment(ctx context.Context, request *apiv2beta1.UnarchiveExperimentRequest) (*empty.Empty, error) {
-	if s.options.CollectMetrics {
-		unarchiveExperimentRequests.Inc()
+func NewExperimentServer(base *BaseExperimentServer) *ExperimentServer {
+	return &ExperimentServer{
+		BaseExperimentServer: base,
 	}
-
-	if err := s.unarchiveExperiment(ctx, request.GetExperimentId()); err != nil {
-		return nil, util.Wrap(err, "Failed to unarchive experiment")
-	}
-	return &empty.Empty{}, nil
-}
-
-func NewExperimentServer(resourceManager *resource.ResourceManager, options *ExperimentServerOptions) *ExperimentServer {
-	return &ExperimentServer{resourceManager: resourceManager, options: options}
 }
