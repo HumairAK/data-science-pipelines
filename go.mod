@@ -27,6 +27,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0
 	github.com/jackc/pgx/v5 v5.5.4
 	github.com/jinzhu/gorm v1.9.1
 	github.com/kubeflow/pipelines/api v0.0.0-20250102152816-873e9dedd766
