@@ -22,7 +22,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	`strings`
+	"strings"
 
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
