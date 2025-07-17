@@ -79,6 +79,7 @@ type ExperimentServerOptions struct {
 type ExperimentServer struct {
 	resourceManager *resource.ResourceManager
 	options         *ExperimentServerOptions
+	apiv2beta1.UnimplementedExperimentServiceServer
 }
 
 func (s *ExperimentServer) createExperiment(ctx context.Context, experiment *model.Experiment) (*model.Experiment, error) {

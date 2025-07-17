@@ -98,6 +98,7 @@ type RunServerOptions struct {
 type RunServer struct {
 	resourceManager *resource.ResourceManager
 	options         *RunServerOptions
+	apiv2beta1.UnimplementedRunServiceServer
 }
 
 func NewRunServer(resourceManager *resource.ResourceManager, options *RunServerOptions) *RunServer {

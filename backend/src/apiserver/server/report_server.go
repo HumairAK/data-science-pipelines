@@ -32,6 +32,7 @@ import (
 
 type ReportServer struct {
 	resourceManager *resource.ResourceManager
+	apiv2beta1.UnimplementedReportServiceServer
 }
 
 // Extracts task details from an execution spec and reports them to storage.

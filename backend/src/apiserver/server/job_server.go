@@ -78,6 +78,7 @@ type JobServerOptions struct {
 type JobServer struct {
 	resourceManager *resource.ResourceManager
 	options         *JobServerOptions
+	apiv2beta1.UnimplementedRecurringRunServiceServer
 }
 
 func (s *JobServer) createJob(ctx context.Context, job *model.Job) (*model.Job, error) {

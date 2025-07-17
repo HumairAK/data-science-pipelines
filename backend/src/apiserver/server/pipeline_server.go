@@ -101,6 +101,7 @@ type PipelineServer struct {
 	resourceManager *resource.ResourceManager
 	httpClient      *http.Client
 	options         *PipelineServerOptions
+	apiv2beta1.UnimplementedPipelineServiceServer
 }
 
 // Creates a pipeline. Not exported.
