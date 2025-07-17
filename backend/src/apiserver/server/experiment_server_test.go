@@ -1070,7 +1070,7 @@ func TestArchiveAndUnarchiveExperimentV1(t *testing.T) {
 	// Create experiment and runs/jobs under it.
 	clients, manager, experiment, _ := initWithExperimentAndPipelineVersion(t)
 	defer clients.Close()
-	runServer := NewRunServer(manager, &RunServerOptions{CollectMetrics: false})
+	runServer := createRunServerV1(manager)
 	run1 := &apiv1beta1.Run{
 		Name:               "run1",
 		ResourceReferences: validReferencesOfExperimentAndPipelineVersion,
@@ -1079,7 +1079,7 @@ func TestArchiveAndUnarchiveExperimentV1(t *testing.T) {
 	assert.Nil(t, err)
 	clients.UpdateUUID(util.NewFakeUUIDGeneratorOrFatal(FakeUUIDOne, nil))
 	manager = resource.NewResourceManager(clients, &resource.ResourceManagerOptions{CollectMetrics: false})
-	runServer = NewRunServer(manager, &RunServerOptions{CollectMetrics: false})
+	runServer = createRunServerV1(manager)
 	run2 := &apiv1beta1.Run{
 		Name:               "run2",
 		ResourceReferences: validReferencesOfExperimentAndPipelineVersion,
@@ -1088,7 +1088,7 @@ func TestArchiveAndUnarchiveExperimentV1(t *testing.T) {
 	assert.Nil(t, err)
 	clients.UpdateUUID(util.NewFakeUUIDGeneratorOrFatal(DefaultFakeUUID, nil))
 	manager = resource.NewResourceManager(clients, &resource.ResourceManagerOptions{CollectMetrics: false})
-	jobServer := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
+	jobServer := createJobServerV1(manager)
 	job1 := &apiv1beta1.Job{
 		Name:           "name1",
 		Enabled:        true,
@@ -1146,7 +1146,7 @@ func TestArchiveAndUnarchiveExperiment(t *testing.T) {
 	// Create experiment and runs/jobs under it.
 	clients, manager, experiment, _ := initWithExperimentAndPipelineVersion(t)
 	defer clients.Close()
-	runServer := NewRunServer(manager, &RunServerOptions{CollectMetrics: false})
+	runServer := createRunServerV1(manager)
 	run1 := &apiv1beta1.Run{
 		Name:               "run1",
 		ResourceReferences: validReferencesOfExperimentAndPipelineVersion,
@@ -1155,7 +1155,7 @@ func TestArchiveAndUnarchiveExperiment(t *testing.T) {
 	assert.Nil(t, err)
 	clients.UpdateUUID(util.NewFakeUUIDGeneratorOrFatal(FakeUUIDOne, nil))
 	manager = resource.NewResourceManager(clients, &resource.ResourceManagerOptions{CollectMetrics: false})
-	runServer = NewRunServer(manager, &RunServerOptions{CollectMetrics: false})
+	runServer = createRunServerV1(manager)
 	run2 := &apiv1beta1.Run{
 		Name:               "run2",
 		ResourceReferences: validReferencesOfExperimentAndPipelineVersion,
@@ -1164,7 +1164,7 @@ func TestArchiveAndUnarchiveExperiment(t *testing.T) {
 	assert.Nil(t, err)
 	clients.UpdateUUID(util.NewFakeUUIDGeneratorOrFatal(DefaultFakeUUID, nil))
 	manager = resource.NewResourceManager(clients, &resource.ResourceManagerOptions{CollectMetrics: false})
-	jobServer := NewJobServer(manager, &JobServerOptions{CollectMetrics: false})
+	jobServer := createJobServerV1(manager)
 	job1 := &apiv1beta1.Job{
 		Name:           "name1",
 		Enabled:        true,

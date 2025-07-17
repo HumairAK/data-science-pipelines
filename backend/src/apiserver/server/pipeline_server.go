@@ -351,7 +351,7 @@ func (s *BasePipelineServer) getPipelineByName(ctx context.Context, name string,
 
 // Returns a pipeline with the default (latest) pipeline version given a name and a namespace.
 // Supports v1beta behavior.
-func (s *PipelineServer) GetPipelineByNameV1(ctx context.Context, request *apiv1beta1.GetPipelineByNameRequest) (*apiv1beta1.Pipeline, error) {
+func (s *PipelineServerV1) GetPipelineByNameV1(ctx context.Context, request *apiv1beta1.GetPipelineByNameRequest) (*apiv1beta1.Pipeline, error) {
 	if s.options.CollectMetrics {
 		getPipelineRequests.Inc()
 	}
@@ -651,7 +651,7 @@ func (s *PipelineServer) CreatePipelineAndVersion(ctx context.Context, request *
 
 // Creates a pipeline version from. Not exported.
 // Applies common logic on v1beta1 and v2beta1 API.
-func (s *PipelineServer) createPipelineVersion(ctx context.Context, pv *model.PipelineVersion) (*model.PipelineVersion, error) {
+func (s *BasePipelineServer) createPipelineVersion(ctx context.Context, pv *model.PipelineVersion) (*model.PipelineVersion, error) {
 	// Fail if pipeline URL is missing
 	if pv.PipelineSpecURI == "" {
 		return nil, util.NewInvalidInputError("Failed to create a pipeline version due to missing pipeline URL")
@@ -709,7 +709,7 @@ func (s *PipelineServer) createPipelineVersion(ctx context.Context, pv *model.Pi
 
 // Creates a pipeline version.
 // Supports v1beta behavior.
-func (s *PipelineServer) CreatePipelineVersionV1(ctx context.Context, request *apiv1beta1.CreatePipelineVersionRequest) (*apiv1beta1.PipelineVersion, error) {
+func (s *PipelineServerV1) CreatePipelineVersionV1(ctx context.Context, request *apiv1beta1.CreatePipelineVersionRequest) (*apiv1beta1.PipelineVersion, error) {
 	if s.options.CollectMetrics {
 		createPipelineVersionRequests.Inc()
 	}
@@ -801,7 +801,7 @@ func (s *PipelineServer) CreatePipelineVersion(ctx context.Context, request *api
 
 // Fetches a pipeline version for given pipeline id.
 // Applies common logic on v1beta1 and v2beta1 API.
-func (s *PipelineServer) getPipelineVersion(ctx context.Context, pipelineVersionId string) (*model.PipelineVersion, error) {
+func (s *BasePipelineServer) getPipelineVersion(ctx context.Context, pipelineVersionId string) (*model.PipelineVersion, error) {
 	// Check authorization
 	resourceAttributes := &authorizationv1.ResourceAttributes{
 		Verb: common.RbacResourceVerbGet,
@@ -815,7 +815,7 @@ func (s *PipelineServer) getPipelineVersion(ctx context.Context, pipelineVersion
 
 // Returns a pipeline version.
 // Supports v1beta behavior.
-func (s *PipelineServer) GetPipelineVersionV1(ctx context.Context, request *apiv1beta1.GetPipelineVersionRequest) (*apiv1beta1.PipelineVersion, error) {
+func (s *PipelineServerV1) GetPipelineVersionV1(ctx context.Context, request *apiv1beta1.GetPipelineVersionRequest) (*apiv1beta1.PipelineVersion, error) {
 	if s.options.CollectMetrics {
 		getPipelineVersionRequests.Inc()
 	}
@@ -847,7 +847,7 @@ func (s *PipelineServer) GetPipelineVersion(ctx context.Context, request *apiv2b
 
 // Fetches an array of pipeline versions for given search query parameters.
 // Applies common logic on v1beta1 and v2beta1 API.
-func (s *PipelineServer) listPipelineVersions(ctx context.Context, pipelineId string, pageToken string, pageSize int32, sortBy string, opts *list.Options) ([]*model.PipelineVersion, int, string, error) {
+func (s *BasePipelineServer) listPipelineVersions(ctx context.Context, pipelineId string, pageToken string, pageSize int32, sortBy string, opts *list.Options) ([]*model.PipelineVersion, int, string, error) {
 	// Fail fast of pipeline id or namespace are missing
 	if pipelineId == "" {
 		return nil, 0, "", util.NewInvalidInputError("Failed to list pipeline versions. Pipeline id cannot be empty")
@@ -872,7 +872,7 @@ func (s *PipelineServer) listPipelineVersions(ctx context.Context, pipelineId st
 
 // Returns an array of pipeline versions for a given query.
 // Supports v1beta1 behavior.
-func (s *PipelineServer) ListPipelineVersionsV1(ctx context.Context, request *apiv1beta1.ListPipelineVersionsRequest) (*apiv1beta1.ListPipelineVersionsResponse, error) {
+func (s *PipelineServerV1) ListPipelineVersionsV1(ctx context.Context, request *apiv1beta1.ListPipelineVersionsRequest) (*apiv1beta1.ListPipelineVersionsResponse, error) {
 	if s.options.CollectMetrics {
 		listPipelineVersionRequests.Inc()
 	}
@@ -941,7 +941,7 @@ func (s *PipelineServer) ListPipelineVersions(ctx context.Context, request *apiv
 
 // Removes a pipeline version.
 // Applies common logic on v1beta1 and v2beta1 API.
-func (s *PipelineServer) deletePipelineVersion(ctx context.Context, pipelineId string, pipelineVersionId string) error {
+func (s *BasePipelineServer) deletePipelineVersion(ctx context.Context, pipelineId string, pipelineVersionId string) error {
 	// Fail fast
 	if pipelineId == "" {
 		return util.NewInvalidInputError("Failed to delete a pipeline version id %v due missing pipeline id", pipelineVersionId)
@@ -964,7 +964,7 @@ func (s *PipelineServer) deletePipelineVersion(ctx context.Context, pipelineId s
 
 // Deletes a pipeline version.
 // Supports v1beta1 behavior.
-func (s *PipelineServer) DeletePipelineVersionV1(ctx context.Context, request *apiv1beta1.DeletePipelineVersionRequest) (*empty.Empty, error) {
+func (s *PipelineServerV1) DeletePipelineVersionV1(ctx context.Context, request *apiv1beta1.DeletePipelineVersionRequest) (*empty.Empty, error) {
 	if s.options.CollectMetrics {
 		deletePipelineVersionRequests.Inc()
 	}
@@ -1041,7 +1041,7 @@ func (s *PipelineServer) GetPipelineVersionTemplate(ctx context.Context, request
 // Checks if a user can access a pipeline version.
 // Adds namespace of the parent pipeline if version id is not empty,
 // API group, version, and resource type.
-func (s *PipelineServer) canAccessPipelineVersion(ctx context.Context, versionId string, resourceAttributes *authorizationv1.ResourceAttributes) error {
+func (s *BasePipelineServer) canAccessPipelineVersion(ctx context.Context, versionId string, resourceAttributes *authorizationv1.ResourceAttributes) error {
 	if !common.IsMultiUserMode() {
 		// Skip authorization if not multi-user mode.
 		return nil
