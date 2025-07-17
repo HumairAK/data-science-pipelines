@@ -75,13 +75,25 @@ type JobServerOptions struct {
 	CollectMetrics bool
 }
 
-type JobServer struct {
+// BaseJobServer wraps JobServer and JobServerV1
+// to enable method sharing. It can be removed once JobServerV1
+// is removed.
+type BaseJobServer struct {
 	resourceManager *resource.ResourceManager
 	options         *JobServerOptions
+}
+
+type JobServer struct {
+	*BaseJobServer
 	apiv2beta1.UnimplementedRecurringRunServiceServer
 }
 
-func (s *JobServer) createJob(ctx context.Context, job *model.Job) (*model.Job, error) {
+type JobServerV1 struct {
+	*BaseJobServer
+	apiv1beta1.UnimplementedJobServiceServer
+}
+
+func (s *BaseJobServer) createJob(ctx context.Context, job *model.Job) (*model.Job, error) {
 	// Validate user inputs
 	if job.DisplayName == "" {
 		return nil, util.NewInvalidInputError("Recurring run name is empty. Please specify a valid name")
@@ -107,7 +119,7 @@ func (s *JobServer) createJob(ctx context.Context, job *model.Job) (*model.Job, 
 	return s.resourceManager.CreateJob(ctx, job)
 }
 
-func (s *JobServer) CreateJob(ctx context.Context, request *apiv1beta1.CreateJobRequest) (*apiv1beta1.Job, error) {
+func (s *JobServerV1) CreateJob(ctx context.Context, request *apiv1beta1.CreateJobRequest) (*apiv1beta1.Job, error) {
 	if s.options.CollectMetrics {
 		createJobRequests.Inc()
 	}
@@ -140,7 +152,7 @@ func (s *JobServer) CreateJob(ctx context.Context, request *apiv1beta1.CreateJob
 	return toApiJobV1(newJob), nil
 }
 
-func (s *JobServer) getJob(ctx context.Context, jobId string) (*model.Job, error) {
+func (s *BaseJobServer) getJob(ctx context.Context, jobId string) (*model.Job, error) {
 	err := s.canAccessJob(ctx, jobId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbGet})
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to authorize the request")
@@ -148,7 +160,7 @@ func (s *JobServer) getJob(ctx context.Context, jobId string) (*model.Job, error
 	return s.resourceManager.GetJob(jobId)
 }
 
-func (s *JobServer) GetJob(ctx context.Context, request *apiv1beta1.GetJobRequest) (*apiv1beta1.Job, error) {
+func (s *JobServerV1) GetJob(ctx context.Context, request *apiv1beta1.GetJobRequest) (*apiv1beta1.Job, error) {
 	if s.options.CollectMetrics {
 		getJobRequests.Inc()
 	}
@@ -165,7 +177,7 @@ func (s *JobServer) GetJob(ctx context.Context, request *apiv1beta1.GetJobReques
 	return apiJob, nil
 }
 
-func (s *JobServer) listJobs(ctx context.Context, pageToken string, pageSize int, sortBy string, opts *list.Options, namespace string, experimentId string) ([]*model.Job, int, string, error) {
+func (s *BaseJobServer) listJobs(ctx context.Context, pageToken string, pageSize int, sortBy string, opts *list.Options, namespace string, experimentId string) ([]*model.Job, int, string, error) {
 	namespace = s.resourceManager.ReplaceNamespace(namespace)
 	if experimentId != "" {
 		ns, err := s.resourceManager.GetNamespaceFromExperimentId(experimentId)
@@ -201,7 +213,7 @@ func (s *JobServer) listJobs(ctx context.Context, pageToken string, pageSize int
 	return jobs, totalSize, token, nil
 }
 
-func (s *JobServer) ListJobs(ctx context.Context, r *apiv1beta1.ListJobsRequest) (*apiv1beta1.ListJobsResponse, error) {
+func (s *JobServerV1) ListJobs(ctx context.Context, r *apiv1beta1.ListJobsRequest) (*apiv1beta1.ListJobsResponse, error) {
 	if s.options.CollectMetrics {
 		listJobRequests.Inc()
 	}
@@ -242,7 +254,7 @@ func (s *JobServer) ListJobs(ctx context.Context, r *apiv1beta1.ListJobsRequest)
 	}, nil
 }
 
-func (s *JobServer) EnableJob(ctx context.Context, request *apiv1beta1.EnableJobRequest) (*empty.Empty, error) {
+func (s *JobServerV1) EnableJob(ctx context.Context, request *apiv1beta1.EnableJobRequest) (*empty.Empty, error) {
 	if s.options.CollectMetrics {
 		enableJobRequests.Inc()
 	}
@@ -253,7 +265,7 @@ func (s *JobServer) EnableJob(ctx context.Context, request *apiv1beta1.EnableJob
 	return &empty.Empty{}, nil
 }
 
-func (s *JobServer) disableJob(ctx context.Context, jobId string) error {
+func (s *BaseJobServer) disableJob(ctx context.Context, jobId string) error {
 	err := s.canAccessJob(ctx, jobId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbDisable})
 	if err != nil {
 		return util.Wrap(err, "Failed to authorize the request")
@@ -261,7 +273,7 @@ func (s *JobServer) disableJob(ctx context.Context, jobId string) error {
 	return s.resourceManager.ChangeJobMode(ctx, jobId, false)
 }
 
-func (s *JobServer) DisableJob(ctx context.Context, request *apiv1beta1.DisableJobRequest) (*empty.Empty, error) {
+func (s *JobServerV1) DisableJob(ctx context.Context, request *apiv1beta1.DisableJobRequest) (*empty.Empty, error) {
 	if s.options.CollectMetrics {
 		disableJobRequests.Inc()
 	}
@@ -273,7 +285,7 @@ func (s *JobServer) DisableJob(ctx context.Context, request *apiv1beta1.DisableJ
 	return &empty.Empty{}, nil
 }
 
-func (s *JobServer) deleteJob(ctx context.Context, jobId string) error {
+func (s *BaseJobServer) deleteJob(ctx context.Context, jobId string) error {
 	err := s.canAccessJob(ctx, jobId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbDelete})
 	if err != nil {
 		return util.Wrap(err, "Failed to authorize the request")
@@ -282,7 +294,7 @@ func (s *JobServer) deleteJob(ctx context.Context, jobId string) error {
 	return s.resourceManager.DeleteJob(ctx, jobId)
 }
 
-func (s *JobServer) DeleteJob(ctx context.Context, request *apiv1beta1.DeleteJobRequest) (*empty.Empty, error) {
+func (s *JobServerV1) DeleteJob(ctx context.Context, request *apiv1beta1.DeleteJobRequest) (*empty.Empty, error) {
 	if s.options.CollectMetrics {
 		deleteJobRequests.Inc()
 	}
@@ -296,7 +308,7 @@ func (s *JobServer) DeleteJob(ctx context.Context, request *apiv1beta1.DeleteJob
 	return &empty.Empty{}, nil
 }
 
-func (s *JobServer) enableJob(ctx context.Context, jobId string) error {
+func (s *BaseJobServer) enableJob(ctx context.Context, jobId string) error {
 	err := s.canAccessJob(ctx, jobId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbEnable})
 	if err != nil {
 		return util.Wrap(err, "Failed to authorize the request")
@@ -408,7 +420,7 @@ func (s *JobServer) DeleteRecurringRun(ctx context.Context, request *apiv2beta1.
 	return &empty.Empty{}, nil
 }
 
-func (s *JobServer) canAccessJob(ctx context.Context, jobID string, resourceAttributes *authorizationv1.ResourceAttributes) error {
+func (s *BaseJobServer) canAccessJob(ctx context.Context, jobID string, resourceAttributes *authorizationv1.ResourceAttributes) error {
 	if !common.IsMultiUserMode() {
 		// Skip authorization if not multi-user mode.
 		return nil
@@ -446,5 +458,19 @@ func (s *JobServer) canAccessJob(ctx context.Context, jobID string, resourceAttr
 }
 
 func NewJobServer(resourceManager *resource.ResourceManager, options *JobServerOptions) *JobServer {
-	return &JobServer{resourceManager: resourceManager, options: options}
+	return &JobServer{
+		BaseJobServer: &BaseJobServer{
+			resourceManager: resourceManager,
+			options:         options,
+		},
+	}
+}
+
+func NewJobServerV1(resourceManager *resource.ResourceManager, options *JobServerOptions) *JobServerV1 {
+	return &JobServerV1{
+		BaseJobServer: &BaseJobServer{
+			resourceManager: resourceManager,
+			options:         options,
+		},
+	}
 }

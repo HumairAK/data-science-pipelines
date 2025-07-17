@@ -95,19 +95,45 @@ type RunServerOptions struct {
 	CollectMetrics bool `json:"collect_metrics,omitempty"`
 }
 
-type RunServer struct {
+// BaseRunServer wraps RunServer and RunServerV1
+// to enable method sharing. It can be removed once RunServerV1
+// is removed.
+type BaseRunServer struct {
 	resourceManager *resource.ResourceManager
 	options         *RunServerOptions
+}
+
+type RunServer struct {
+	*BaseRunServer
 	apiv2beta1.UnimplementedRunServiceServer
 }
 
+type RunServerV1 struct {
+	*BaseRunServer
+	apiv1beta1.UnimplementedRunServiceServer
+}
+
 func NewRunServer(resourceManager *resource.ResourceManager, options *RunServerOptions) *RunServer {
-	return &RunServer{resourceManager: resourceManager, options: options}
+	return &RunServer{
+		BaseRunServer: &BaseRunServer{
+			resourceManager: resourceManager,
+			options:         options,
+		},
+	}
+}
+
+func NewRunServerV1(resourceManager *resource.ResourceManager, options *RunServerOptions) *RunServerV1 {
+	return &RunServerV1{
+		BaseRunServer: &BaseRunServer{
+			resourceManager: resourceManager,
+			options:         options,
+		},
+	}
 }
 
 // Creates a run.
 // Applies common logic on v1beta1 and v2beta1 API.
-func (s *RunServer) createRun(ctx context.Context, run *model.Run) (*model.Run, error) {
+func (s *BaseRunServer) createRun(ctx context.Context, run *model.Run) (*model.Run, error) {
 	// Validate user inputs
 	if run.DisplayName == "" {
 		return nil, util.Wrapf(util.NewInvalidInputError("The run name is empty. Please specify a valid name"), "Failed to create a run due to invalid name")
@@ -134,7 +160,7 @@ func (s *RunServer) createRun(ctx context.Context, run *model.Run) (*model.Run, 
 
 // Creates a run.
 // Supports v1beta1 behavior.
-func (s *RunServer) CreateRunV1(ctx context.Context, request *apiv1beta1.CreateRunRequest) (*apiv1beta1.RunDetail, error) {
+func (s *RunServerV1) CreateRunV1(ctx context.Context, request *apiv1beta1.CreateRunRequest) (*apiv1beta1.RunDetail, error) {
 	if s.options.CollectMetrics {
 		createRunRequests.Inc()
 	}
@@ -157,7 +183,7 @@ func (s *RunServer) CreateRunV1(ctx context.Context, request *apiv1beta1.CreateR
 
 // Fetches a run.
 // Applies common logic on v1beta1 and v2beta1 API.
-func (s *RunServer) getRun(ctx context.Context, runId string) (*model.Run, error) {
+func (s *BaseRunServer) getRun(ctx context.Context, runId string) (*model.Run, error) {
 	err := s.canAccessRun(ctx, runId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbGet})
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to authorize the request")
@@ -171,7 +197,7 @@ func (s *RunServer) getRun(ctx context.Context, runId string) (*model.Run, error
 
 // Fetches a run.
 // Supports v1beta1 behavior.
-func (s *RunServer) GetRunV1(ctx context.Context, request *apiv1beta1.GetRunRequest) (*apiv1beta1.RunDetail, error) {
+func (s *RunServerV1) GetRunV1(ctx context.Context, request *apiv1beta1.GetRunRequest) (*apiv1beta1.RunDetail, error) {
 	if s.options.CollectMetrics {
 		getRunRequests.Inc()
 	}
@@ -186,7 +212,7 @@ func (s *RunServer) GetRunV1(ctx context.Context, request *apiv1beta1.GetRunRequ
 
 // Fetches all runs that conform to the specified filter and listing options.
 // Applies common logic on v1beta1 and v2beta1 API.
-func (s *RunServer) listRuns(ctx context.Context, pageToken string, pageSize int, sortBy string, opts *list.Options, namespace string, experimentId string) ([]*model.Run, int, string, error) {
+func (s *BaseRunServer) listRuns(ctx context.Context, pageToken string, pageSize int, sortBy string, opts *list.Options, namespace string, experimentId string) ([]*model.Run, int, string, error) {
 	namespace = s.resourceManager.ReplaceNamespace(namespace)
 	if experimentId != "" {
 		ns, err := s.resourceManager.GetNamespaceFromExperimentId(experimentId)
@@ -224,7 +250,7 @@ func (s *RunServer) listRuns(ctx context.Context, pageToken string, pageSize int
 
 // Fetches runs given query parameters.
 // Supports v1beta1 behavior.
-func (s *RunServer) ListRunsV1(ctx context.Context, r *apiv1beta1.ListRunsRequest) (*apiv1beta1.ListRunsResponse, error) {
+func (s *RunServerV1) ListRunsV1(ctx context.Context, r *apiv1beta1.ListRunsRequest) (*apiv1beta1.ListRunsResponse, error) {
 	if s.options.CollectMetrics {
 		listRunRequests.Inc()
 	}
@@ -267,7 +293,7 @@ func (s *RunServer) ListRunsV1(ctx context.Context, r *apiv1beta1.ListRunsReques
 
 // Archives a run.
 // Applies common logic on v1beta1 and v2beta1 API.
-func (s *RunServer) archiveRun(ctx context.Context, runId string) error {
+func (s *BaseRunServer) archiveRun(ctx context.Context, runId string) error {
 	err := s.canAccessRun(ctx, runId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbArchive})
 	if err != nil {
 		return util.Wrap(err, "Failed to authorize the request")
@@ -277,7 +303,7 @@ func (s *RunServer) archiveRun(ctx context.Context, runId string) error {
 
 // Archives a run.
 // Supports v1beta1 behavior.
-func (s *RunServer) ArchiveRunV1(ctx context.Context, request *apiv1beta1.ArchiveRunRequest) (*empty.Empty, error) {
+func (s *RunServerV1) ArchiveRunV1(ctx context.Context, request *apiv1beta1.ArchiveRunRequest) (*empty.Empty, error) {
 	if s.options.CollectMetrics {
 		archiveRunRequests.Inc()
 	}
@@ -290,7 +316,7 @@ func (s *RunServer) ArchiveRunV1(ctx context.Context, request *apiv1beta1.Archiv
 
 // Un-archives a run.
 // Applies common logic on v1beta1 and v2beta1 API.
-func (s *RunServer) unarchiveRun(ctx context.Context, runId string) error {
+func (s *BaseRunServer) unarchiveRun(ctx context.Context, runId string) error {
 	err := s.canAccessRun(ctx, runId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbUnarchive})
 	if err != nil {
 		return util.Wrap(err, "Failed to authorize the request")
@@ -300,7 +326,7 @@ func (s *RunServer) unarchiveRun(ctx context.Context, runId string) error {
 
 // Un-archives a run.
 // Supports v1beta1 behavior.
-func (s *RunServer) UnarchiveRunV1(ctx context.Context, request *apiv1beta1.UnarchiveRunRequest) (*empty.Empty, error) {
+func (s *RunServerV1) UnarchiveRunV1(ctx context.Context, request *apiv1beta1.UnarchiveRunRequest) (*empty.Empty, error) {
 	if s.options.CollectMetrics {
 		unarchiveRunRequests.Inc()
 	}
@@ -313,7 +339,7 @@ func (s *RunServer) UnarchiveRunV1(ctx context.Context, request *apiv1beta1.Unar
 
 // Deletes a run.
 // Applies common logic on v1beta1 and v2beta1 API.
-func (s *RunServer) deleteRun(ctx context.Context, runId string) error {
+func (s *BaseRunServer) deleteRun(ctx context.Context, runId string) error {
 	err := s.canAccessRun(ctx, runId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbDelete})
 	if err != nil {
 		return util.Wrap(err, "Failed to authorize the request")
@@ -323,7 +349,7 @@ func (s *RunServer) deleteRun(ctx context.Context, runId string) error {
 
 // Deletes a run.
 // Supports v1beta1 behavior.
-func (s *RunServer) DeleteRunV1(ctx context.Context, request *apiv1beta1.DeleteRunRequest) (*empty.Empty, error) {
+func (s *RunServerV1) DeleteRunV1(ctx context.Context, request *apiv1beta1.DeleteRunRequest) (*empty.Empty, error) {
 	if s.options.CollectMetrics {
 		deleteRunRequests.Inc()
 	}
@@ -340,7 +366,7 @@ func (s *RunServer) DeleteRunV1(ctx context.Context, request *apiv1beta1.DeleteR
 
 // Reports run metrics.
 // Applies common logic on v1beta1 and v2beta1 API.
-func (s *RunServer) reportRunMetrics(ctx context.Context, metrics []*model.RunMetric, runId string) ([]map[string]string, error) {
+func (s *BaseRunServer) reportRunMetrics(ctx context.Context, metrics []*model.RunMetric, runId string) ([]map[string]string, error) {
 	err := s.canAccessRun(ctx, runId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbReportMetrics})
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to authorize the request")
@@ -391,7 +417,7 @@ func (s *RunServer) reportRunMetrics(ctx context.Context, metrics []*model.RunMe
 
 // Reports run metrics.
 // Supports v1beta1 API.
-func (s *RunServer) ReportRunMetricsV1(ctx context.Context, request *apiv1beta1.ReportRunMetricsRequest) (*apiv1beta1.ReportRunMetricsResponse, error) {
+func (s *RunServerV1) ReportRunMetricsV1(ctx context.Context, request *apiv1beta1.ReportRunMetricsRequest) (*apiv1beta1.ReportRunMetricsResponse, error) {
 	if s.options.CollectMetrics {
 		reportRunMetricsRequests.Inc()
 	}
@@ -418,7 +444,7 @@ func (s *RunServer) ReportRunMetricsV1(ctx context.Context, request *apiv1beta1.
 
 // Reads an artifact.
 // Supports v1beta1 behavior.
-func (s *RunServer) ReadArtifactV1(ctx context.Context, request *apiv1beta1.ReadArtifactRequest) (*apiv1beta1.ReadArtifactResponse, error) {
+func (s *RunServerV1) ReadArtifactV1(ctx context.Context, request *apiv1beta1.ReadArtifactRequest) (*apiv1beta1.ReadArtifactResponse, error) {
 	if s.options.CollectMetrics {
 		readArtifactRequests.Inc()
 	}
@@ -440,7 +466,7 @@ func (s *RunServer) ReadArtifactV1(ctx context.Context, request *apiv1beta1.Read
 
 // Terminates a run.
 // Applies common logic on v1beta1 and v2beta1 API.
-func (s *RunServer) terminateRun(ctx context.Context, runId string) error {
+func (s *BaseRunServer) terminateRun(ctx context.Context, runId string) error {
 	err := s.canAccessRun(ctx, runId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbTerminate})
 	if err != nil {
 		return util.Wrap(err, "Failed to authorize the request")
@@ -450,7 +476,7 @@ func (s *RunServer) terminateRun(ctx context.Context, runId string) error {
 
 // Retries a run.
 // Applies common logic on v1beta1 and v2beta1 API.
-func (s *RunServer) retryRun(ctx context.Context, runId string) error {
+func (s *BaseRunServer) retryRun(ctx context.Context, runId string) error {
 	err := s.canAccessRun(ctx, runId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbRetry})
 	if err != nil {
 		return util.Wrap(err, "Failed to authorize the request")
@@ -460,7 +486,7 @@ func (s *RunServer) retryRun(ctx context.Context, runId string) error {
 
 // Terminates a run.
 // Supports v1beta1 behavior.
-func (s *RunServer) TerminateRunV1(ctx context.Context, request *apiv1beta1.TerminateRunRequest) (*empty.Empty, error) {
+func (s *RunServerV1) TerminateRunV1(ctx context.Context, request *apiv1beta1.TerminateRunRequest) (*empty.Empty, error) {
 	if s.options.CollectMetrics {
 		terminateRunRequests.Inc()
 	}
@@ -473,7 +499,7 @@ func (s *RunServer) TerminateRunV1(ctx context.Context, request *apiv1beta1.Term
 
 // Retries a run.
 // Supports v1beta1 behavior.
-func (s *RunServer) RetryRunV1(ctx context.Context, request *apiv1beta1.RetryRunRequest) (*empty.Empty, error) {
+func (s *RunServerV1) RetryRunV1(ctx context.Context, request *apiv1beta1.RetryRunRequest) (*empty.Empty, error) {
 	if s.options.CollectMetrics {
 		retryRunRequests.Inc()
 	}
@@ -635,7 +661,7 @@ func (s *RunServer) RetryRun(ctx context.Context, request *apiv2beta1.RetryRunRe
 // Checks if a user can access a run.
 // Adds namespace of the parent experiment of a run id,
 // API group, version, and resource type.
-func (s *RunServer) canAccessRun(ctx context.Context, runId string, resourceAttributes *authorizationv1.ResourceAttributes) error {
+func (s *BaseRunServer) canAccessRun(ctx context.Context, runId string, resourceAttributes *authorizationv1.ResourceAttributes) error {
 	if !common.IsMultiUserMode() {
 		// Skip authz if not multi-user mode.
 		return nil

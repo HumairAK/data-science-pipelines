@@ -292,15 +292,11 @@ func (s *BaseExperimentServer) unarchiveExperiment(ctx context.Context, experime
 	return s.resourceManager.UnarchiveExperiment(experimentId)
 }
 
-func NewBaseExperimentServer(resourceManager *resource.ResourceManager, options *ExperimentServerOptions) *BaseExperimentServer {
-	return &BaseExperimentServer{
-		resourceManager: resourceManager,
-		options:         options,
-	}
-}
-
-func NewExperimentServer(base *BaseExperimentServer) *ExperimentServer {
+func NewExperimentServer(resourceManager *resource.ResourceManager, options *ExperimentServerOptions) *ExperimentServer {
 	return &ExperimentServer{
-		BaseExperimentServer: base,
+		BaseExperimentServer: &BaseExperimentServer{
+			resourceManager: resourceManager,
+			options:         options,
+		},
 	}
 }

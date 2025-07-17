@@ -97,16 +97,28 @@ type PipelineServerOptions struct {
 	CollectMetrics bool `json:"collect_metrics,omitempty"`
 }
 
-type PipelineServer struct {
+// BasePipelineServer wraps PipelineServer and PipelineServerV1
+// to enable method sharing. It can be removed once PipelineServerV1
+// is removed.
+type BasePipelineServer struct {
 	resourceManager *resource.ResourceManager
 	httpClient      *http.Client
 	options         *PipelineServerOptions
+}
+
+type PipelineServer struct {
+	*BasePipelineServer
 	apiv2beta1.UnimplementedPipelineServiceServer
+}
+
+type PipelineServerV1 struct {
+	*BasePipelineServer
+	apiv1beta1.UnimplementedPipelineServiceServer
 }
 
 // Creates a pipeline. Not exported.
 // Applies common logic on v1beta1 and v2beta1 API.
-func (s *PipelineServer) createPipeline(ctx context.Context, pipeline *model.Pipeline) (*model.Pipeline, error) {
+func (s *BasePipelineServer) createPipeline(ctx context.Context, pipeline *model.Pipeline) (*model.Pipeline, error) {
 	pipeline.Namespace = s.resourceManager.ReplaceNamespace(pipeline.Namespace)
 
 	if pipeline.Name == "" {
@@ -128,7 +140,7 @@ func (s *PipelineServer) createPipeline(ctx context.Context, pipeline *model.Pip
 
 // Creates a pipeline and a pipeline version in a single transaction.
 // Applies common logic on v1beta1 and v2beta1 API.
-func (s *PipelineServer) createPipelineAndPipelineVersion(ctx context.Context, pipeline *model.Pipeline, pipelineUrlStr string) (*model.Pipeline, *model.PipelineVersion, error) {
+func (s *BasePipelineServer) createPipelineAndPipelineVersion(ctx context.Context, pipeline *model.Pipeline, pipelineUrlStr string) (*model.Pipeline, *model.PipelineVersion, error) {
 	// Resolve name and namespace
 	pipelineFileName := path.Base(pipelineUrlStr)
 
@@ -188,7 +200,7 @@ func (s *PipelineServer) createPipelineAndPipelineVersion(ctx context.Context, p
 
 // Creates a pipeline and a pipeline version in a single transaction.
 // Supports v1beta1 behavior.
-func (s *PipelineServer) CreatePipelineV1(ctx context.Context, request *apiv1beta1.CreatePipelineRequest) (*apiv1beta1.Pipeline, error) {
+func (s *PipelineServerV1) CreatePipelineV1(ctx context.Context, request *apiv1beta1.CreatePipelineRequest) (*apiv1beta1.Pipeline, error) {
 	if s.options.CollectMetrics {
 		createPipelineRequests.Inc()
 		createPipelineVersionRequests.Inc()
@@ -241,7 +253,7 @@ func (s *PipelineServer) CreatePipeline(ctx context.Context, request *apiv2beta1
 // TODO(gkcalat): consider removing as default version is deprecated. This requires changes to v1beta1 proto.
 // Updates default pipeline version for a given pipeline.
 // Supports v1beta1 behavior.
-func (s *PipelineServer) UpdatePipelineDefaultVersionV1(ctx context.Context, request *apiv1beta1.UpdatePipelineDefaultVersionRequest) (*empty.Empty, error) {
+func (s *PipelineServerV1) UpdatePipelineDefaultVersionV1(ctx context.Context, request *apiv1beta1.UpdatePipelineDefaultVersionRequest) (*empty.Empty, error) {
 	if s.options.CollectMetrics {
 		updatePipelineDefaultVersionRequests.Inc()
 	}
@@ -261,7 +273,7 @@ func (s *PipelineServer) UpdatePipelineDefaultVersionV1(ctx context.Context, req
 
 // Fetches a pipeline.
 // Applies common logic on v1beta1 and v2beta1 API.
-func (s *PipelineServer) getPipeline(ctx context.Context, pipelineId string) (*model.Pipeline, error) {
+func (s *BasePipelineServer) getPipeline(ctx context.Context, pipelineId string) (*model.Pipeline, error) {
 	if pipelineId == "" {
 		return nil, util.NewInvalidInputError("Failed to get a pipeline. Pipeline id cannot be empty")
 	}
@@ -279,7 +291,7 @@ func (s *PipelineServer) getPipeline(ctx context.Context, pipelineId string) (*m
 // Returns a pipeline.
 // Note, the default pipeline version will be set to be the latest pipeline version.
 // Supports v1beta behavior.
-func (s *PipelineServer) GetPipelineV1(ctx context.Context, request *apiv1beta1.GetPipelineRequest) (*apiv1beta1.Pipeline, error) {
+func (s *PipelineServerV1) GetPipelineV1(ctx context.Context, request *apiv1beta1.GetPipelineRequest) (*apiv1beta1.Pipeline, error) {
 	if s.options.CollectMetrics {
 		getPipelineRequests.Inc()
 	}
@@ -313,7 +325,7 @@ func (s *PipelineServer) GetPipeline(ctx context.Context, request *apiv2beta1.Ge
 
 // Fetches pipeline and (optionally) pipeline version for a given name and namespace.
 // Applies common logic on v1beta1 and v2beta1 API.
-func (s *PipelineServer) getPipelineByName(ctx context.Context, name string, namespace string, apiRequestVersion string) (*model.Pipeline, *model.PipelineVersion, error) {
+func (s *BasePipelineServer) getPipelineByName(ctx context.Context, name string, namespace string, apiRequestVersion string) (*model.Pipeline, *model.PipelineVersion, error) {
 	namespace = s.resourceManager.ReplaceNamespace(namespace)
 	resourceAttributes := &authorizationv1.ResourceAttributes{
 		Namespace: namespace,
@@ -373,7 +385,7 @@ func (s *PipelineServer) GetPipelineByName(ctx context.Context, request *apiv2be
 
 // Fetches an array of pipelines and an array of pipeline versions for given search query parameters.
 // Applies common logic on v1beta1 and v2beta1 API.
-func (s *PipelineServer) listPipelines(ctx context.Context, namespace string, pageToken string, pageSize int32, sortBy string, opts *list.Options, apiRequestVersion string) ([]*model.Pipeline, []*model.PipelineVersion, int, string, error) {
+func (s *BasePipelineServer) listPipelines(ctx context.Context, namespace string, pageToken string, pageSize int32, sortBy string, opts *list.Options, apiRequestVersion string) ([]*model.Pipeline, []*model.PipelineVersion, int, string, error) {
 	// Fill in the default namespace
 	namespace = s.resourceManager.ReplaceNamespace(namespace)
 	resourceAttributes := &authorizationv1.ResourceAttributes{
@@ -404,7 +416,7 @@ func (s *PipelineServer) listPipelines(ctx context.Context, namespace string, pa
 
 // Returns pipelines with default pipeline versions for a given query.
 // Supports v1beta behavior.
-func (s *PipelineServer) ListPipelinesV1(ctx context.Context, request *apiv1beta1.ListPipelinesRequest) (*apiv1beta1.ListPipelinesResponse, error) {
+func (s *PipelineServerV1) ListPipelinesV1(ctx context.Context, request *apiv1beta1.ListPipelinesRequest) (*apiv1beta1.ListPipelinesResponse, error) {
 	if s.options.CollectMetrics {
 		listPipelineRequests.Inc()
 	}
@@ -476,7 +488,7 @@ func (s *PipelineServer) ListPipelines(ctx context.Context, request *apiv2beta1.
 
 // Removes a pipeline.
 // Applies common logic on v1beta1 and v2beta1 API.
-func (s *PipelineServer) deletePipeline(ctx context.Context, pipelineId string) error {
+func (s *BasePipelineServer) deletePipeline(ctx context.Context, pipelineId string) error {
 	// Fail fast
 	if pipelineId == "" {
 		return util.NewInvalidInputError("Failed to delete a pipeline due missing pipeline id")
@@ -496,7 +508,7 @@ func (s *PipelineServer) deletePipeline(ctx context.Context, pipelineId string) 
 
 // Deletes a pipeline.
 // Supports v1beta1 behavior.
-func (s *PipelineServer) DeletePipelineV1(ctx context.Context, request *apiv1beta1.DeletePipelineRequest) (*empty.Empty, error) {
+func (s *PipelineServerV1) DeletePipelineV1(ctx context.Context, request *apiv1beta1.DeletePipelineRequest) (*empty.Empty, error) {
 	if s.options.CollectMetrics {
 		deletePipelineRequests.Inc()
 	}
@@ -553,7 +565,7 @@ func (s *PipelineServer) GetTemplate(ctx context.Context, request *apiv1beta1.Ge
 }
 
 // Fetches the latest pipeline version for a given pipeline id.
-func (s *PipelineServer) getLatestPipelineVersion(ctx context.Context, pipelineId string) (*model.PipelineVersion, error) {
+func (s *BasePipelineServer) getLatestPipelineVersion(ctx context.Context, pipelineId string) (*model.PipelineVersion, error) {
 	if pipelineId == "" {
 		return nil, util.NewInvalidInputError("Failed to get the latest pipeline version as pipeline id is empty")
 	}
@@ -569,7 +581,7 @@ func (s *PipelineServer) getLatestPipelineVersion(ctx context.Context, pipelineI
 
 // Validates a pipeline version before creating a record in the DB.
 // Requires Name and PipelineId to be non-empty and presence of PipelineSpec or a valid URI to the pipeline spec.
-func (s *PipelineServer) validatePipelineVersionBeforeCreating(p *model.PipelineVersion) error {
+func (s *BasePipelineServer) validatePipelineVersionBeforeCreating(p *model.PipelineVersion) error {
 	if p.Name == "" {
 		return util.NewInvalidInputError("name is required")
 	}
@@ -591,7 +603,23 @@ func (s *PipelineServer) validatePipelineVersionBeforeCreating(p *model.Pipeline
 }
 
 func NewPipelineServer(resourceManager *resource.ResourceManager, options *PipelineServerOptions) *PipelineServer {
-	return &PipelineServer{resourceManager: resourceManager, httpClient: http.DefaultClient, options: options}
+	return &PipelineServer{
+		BasePipelineServer: &BasePipelineServer{
+			resourceManager: resourceManager,
+			httpClient:      http.DefaultClient,
+			options:         options,
+		},
+	}
+}
+
+func NewPipelineServerV1(resourceManager *resource.ResourceManager, options *PipelineServerOptions) *PipelineServerV1 {
+	return &PipelineServerV1{
+		BasePipelineServer: &BasePipelineServer{
+			resourceManager: resourceManager,
+			httpClient:      http.DefaultClient,
+			options:         options,
+		},
+	}
 }
 
 // Creates a pipeline and a pipeline version in a single transaction.
@@ -1032,7 +1060,7 @@ func (s *PipelineServer) canAccessPipelineVersion(ctx context.Context, versionId
 // Checks if a user can access a pipeline.
 // Adds parent namespace if pipeline id is not empty,
 // API group, version, and resource type.
-func (s *PipelineServer) canAccessPipeline(ctx context.Context, pipelineId string, resourceAttributes *authorizationv1.ResourceAttributes) error {
+func (s *BasePipelineServer) canAccessPipeline(ctx context.Context, pipelineId string, resourceAttributes *authorizationv1.ResourceAttributes) error {
 	if !common.IsMultiUserMode() {
 		// Skip authorization if not multi-user mode.
 		return nil

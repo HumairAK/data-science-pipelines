@@ -30,13 +30,25 @@ import (
 	scheduledworkflow "github.com/kubeflow/pipelines/backend/src/crd/pkg/apis/scheduledworkflow/v1beta1"
 )
 
-type ReportServer struct {
+// BaseReportServer wraps ReportServer and ReportServerV1
+// to enable method sharing. It can be removed once ReportServerV1
+// is removed.
+type BaseReportServer struct {
 	resourceManager *resource.ResourceManager
+}
+
+type ReportServer struct {
+	*BaseReportServer
 	apiv2beta1.UnimplementedReportServiceServer
 }
 
+type ReportServerV1 struct {
+	*BaseReportServer
+	apiv1beta1.UnimplementedReportServiceServer
+}
+
 // Extracts task details from an execution spec and reports them to storage.
-func (s ReportServer) reportTasksFromExecution(execSpec util.ExecutionSpec, runId string) ([]*model.Task, error) {
+func (s *BaseReportServer) reportTasksFromExecution(execSpec util.ExecutionSpec, runId string) ([]*model.Task, error) {
 	if !execSpec.ExecutionStatus().HasNodes() {
 		return nil, nil
 	}
@@ -48,7 +60,7 @@ func (s ReportServer) reportTasksFromExecution(execSpec util.ExecutionSpec, runI
 }
 
 // Reports a workflow.
-func (s *ReportServer) reportWorkflow(ctx context.Context, workflow string) (*empty.Empty, error) {
+func (s *BaseReportServer) reportWorkflow(ctx context.Context, workflow string) (*empty.Empty, error) {
 	execSpec, err := validateReportWorkflowRequest(workflow)
 	if err != nil {
 		return nil, util.Wrap(err, "Report workflow failed")
@@ -77,7 +89,7 @@ func (s *ReportServer) reportWorkflow(ctx context.Context, workflow string) (*em
 	return &empty.Empty{}, nil
 }
 
-func (s *ReportServer) ReportWorkflowV1(ctx context.Context,
+func (s *ReportServerV1) ReportWorkflowV1(ctx context.Context,
 	request *apiv1beta1.ReportWorkflowRequest,
 ) (*empty.Empty, error) {
 	return s.reportWorkflow(ctx, request.GetWorkflow())
@@ -90,7 +102,7 @@ func (s *ReportServer) ReportWorkflow(ctx context.Context,
 }
 
 // Reports a scheduled workflow.
-func (s *ReportServer) reportScheduledWorkflow(ctx context.Context, swf string) (*empty.Empty, error) {
+func (s *BaseReportServer) reportScheduledWorkflow(ctx context.Context, swf string) (*empty.Empty, error) {
 	scheduledWorkflow, err := validateReportScheduledWorkflowRequest(swf)
 	if err != nil {
 		return nil, util.Wrap(err, "Report scheduled workflow failed")
@@ -111,7 +123,7 @@ func (s *ReportServer) reportScheduledWorkflow(ctx context.Context, swf string) 
 	return &empty.Empty{}, nil
 }
 
-func (s *ReportServer) ReportScheduledWorkflowV1(ctx context.Context,
+func (s *ReportServerV1) ReportScheduledWorkflowV1(ctx context.Context,
 	request *apiv1beta1.ReportScheduledWorkflowRequest,
 ) (*empty.Empty, error) {
 	return s.reportScheduledWorkflow(ctx, request.GetScheduledWorkflow())
@@ -160,7 +172,7 @@ func validateReportScheduledWorkflowRequest(swfManifest string) (*util.Scheduled
 	return swf, nil
 }
 
-func (s *ReportServer) canAccessWorkflow(ctx context.Context, executionName string, resourceAttributes *authorizationv1.ResourceAttributes) error {
+func (s *BaseReportServer) canAccessWorkflow(ctx context.Context, executionName string, resourceAttributes *authorizationv1.ResourceAttributes) error {
 	resourceAttributes.Group = common.RbacPipelinesGroup
 	resourceAttributes.Version = common.RbacPipelinesVersion
 	err := s.resourceManager.IsAuthorized(ctx, resourceAttributes)
@@ -171,5 +183,17 @@ func (s *ReportServer) canAccessWorkflow(ctx context.Context, executionName stri
 }
 
 func NewReportServer(resourceManager *resource.ResourceManager) *ReportServer {
-	return &ReportServer{resourceManager: resourceManager}
+	return &ReportServer{
+		BaseReportServer: &BaseReportServer{
+			resourceManager: resourceManager,
+		},
+	}
+}
+
+func NewReportServerV1(resourceManager *resource.ResourceManager) *ReportServerV1 {
+	return &ReportServerV1{
+		BaseReportServer: &BaseReportServer{
+			resourceManager: resourceManager,
+		},
+	}
 }

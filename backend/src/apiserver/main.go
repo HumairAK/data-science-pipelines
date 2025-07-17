@@ -210,26 +210,27 @@ func startRpcServer(resourceManager *resource.ResourceManager) {
 	}
 	s := grpc.NewServer(grpc.UnaryInterceptor(apiServerInterceptor), grpc.MaxRecvMsgSize(math.MaxInt32))
 
-	baseExperimentServer := server.NewBaseExperimentServer(resourceManager, &server.ExperimentServerOptions{CollectMetrics: *collectMetricsFlag})
-	ExperimentServerV1 := server.NewExperimentServerV1(baseExperimentServer)
-	ExperimentServer := server.NewExperimentServer(baseExperimentServer)
+	ExperimentServerV1 := server.NewExperimentServerV1(resourceManager, &server.ExperimentServerOptions{CollectMetrics: *collectMetricsFlag})
+	ExperimentServer := server.NewExperimentServer(resourceManager, &server.ExperimentServerOptions{CollectMetrics: *collectMetricsFlag})
 
-	sharedPipelineServer := server.NewPipelineServer(
-		resourceManager,
-		&server.PipelineServerOptions{
-			CollectMetrics: *collectMetricsFlag,
-		},
-	)
-	sharedJobServer := server.NewJobServer(resourceManager, &server.JobServerOptions{CollectMetrics: *collectMetricsFlag})
-	sharedRunServer := server.NewRunServer(resourceManager, &server.RunServerOptions{CollectMetrics: *collectMetricsFlag})
-	sharedReportServer := server.NewReportServer(resourceManager)
+	PipelineServerV1 := server.NewPipelineServerV1(resourceManager, &server.PipelineServerOptions{CollectMetrics: *collectMetricsFlag})
+	PipelineServer := server.NewPipelineServer(resourceManager, &server.PipelineServerOptions{CollectMetrics: *collectMetricsFlag})
+
+	RunServerV1 := server.NewRunServerV1(resourceManager, &server.RunServerOptions{CollectMetrics: *collectMetricsFlag})
+	RunServer := server.NewRunServer(resourceManager, &server.RunServerOptions{CollectMetrics: *collectMetricsFlag})
+
+	JobServerV1 := server.NewJobServerV1(resourceManager, &server.JobServerOptions{CollectMetrics: *collectMetricsFlag})
+	JobServer := server.NewJobServer(resourceManager, &server.JobServerOptions{CollectMetrics: *collectMetricsFlag})
+
+	ReportServerV1 := server.NewReportServerV1(resourceManager)
+	ReportServer := server.NewReportServer(resourceManager)
 
 	apiv1beta1.RegisterExperimentServiceServer(s, ExperimentServerV1)
-	apiv1beta1.RegisterPipelineServiceServer(s, sharedPipelineServer)
-	apiv1beta1.RegisterJobServiceServer(s, sharedJobServer)
-	apiv1beta1.RegisterRunServiceServer(s, sharedRunServer)
+	apiv1beta1.RegisterPipelineServiceServer(s, PipelineServerV1)
+	apiv1beta1.RegisterJobServiceServer(s, JobServerV1)
+	apiv1beta1.RegisterRunServiceServer(s, RunServerV1)
 	apiv1beta1.RegisterTaskServiceServer(s, server.NewTaskServer(resourceManager))
-	apiv1beta1.RegisterReportServiceServer(s, sharedReportServer)
+	apiv1beta1.RegisterReportServiceServer(s, ReportServerV1)
 
 	apiv1beta1.RegisterVisualizationServiceServer(
 		s,
@@ -241,10 +242,10 @@ func startRpcServer(resourceManager *resource.ResourceManager) {
 	apiv1beta1.RegisterAuthServiceServer(s, server.NewAuthServer(resourceManager))
 
 	apiv2beta1.RegisterExperimentServiceServer(s, ExperimentServer)
-	apiv2beta1.RegisterPipelineServiceServer(s, sharedPipelineServer)
-	apiv2beta1.RegisterRecurringRunServiceServer(s, sharedJobServer)
-	apiv2beta1.RegisterRunServiceServer(s, sharedRunServer)
-	apiv2beta1.RegisterReportServiceServer(s, sharedReportServer)
+	apiv2beta1.RegisterPipelineServiceServer(s, PipelineServer)
+	apiv2beta1.RegisterRecurringRunServiceServer(s, JobServer)
+	apiv2beta1.RegisterRunServiceServer(s, RunServer)
+	apiv2beta1.RegisterReportServiceServer(s, ReportServer)
 
 	// Register reflection service on gRPC server.
 	reflection.Register(s)

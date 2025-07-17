@@ -5,6 +5,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/resource"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/pkg/errors"
 )
@@ -140,8 +141,11 @@ func (s *ExperimentServerV1) CreateExperimentV1(ctx context.Context, request *ap
 	return apiExperiment, nil
 }
 
-func NewExperimentServerV1(base *BaseExperimentServer) *ExperimentServerV1 {
+func NewExperimentServerV1(resourceManager *resource.ResourceManager, options *ExperimentServerOptions) *ExperimentServerV1 {
 	return &ExperimentServerV1{
-		BaseExperimentServer: base,
+		BaseExperimentServer: &BaseExperimentServer{
+			resourceManager: resourceManager,
+			options:         options,
+		},
 	}
 }
