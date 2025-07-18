@@ -18,9 +18,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
-	"net/http"
 
 	"github.com/golang/glog"
 	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"

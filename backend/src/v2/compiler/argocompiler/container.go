@@ -16,10 +16,11 @@ package argocompiler
 
 import (
 	"fmt"
-	"google.golang.org/protobuf/encoding/protojson"
 	"os"
 	"strconv"
 	"strings"
+
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 	"k8s.io/apimachinery/pkg/util/intstr"

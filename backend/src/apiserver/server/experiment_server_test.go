@@ -16,10 +16,11 @@ package server
 
 import (
 	"context"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"strings"
 	"testing"
 	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"google.golang.org/protobuf/types/known/structpb"
 	"sigs.k8s.io/yaml"

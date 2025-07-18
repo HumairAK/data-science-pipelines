@@ -16,8 +16,9 @@ package filter
 
 import (
 	"encoding/json"
-	"google.golang.org/protobuf/encoding/prototext"
 	"testing"
+
+	"google.golang.org/protobuf/encoding/prototext"
 
 	"github.com/Masterminds/squirrel"
 	"github.com/google/go-cmp/cmp"

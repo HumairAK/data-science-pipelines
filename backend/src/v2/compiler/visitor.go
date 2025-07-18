@@ -24,8 +24,9 @@ package compiler
 import (
 	"bytes"
 	"fmt"
-	"google.golang.org/protobuf/encoding/protojson"
 	"sort"
+
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	"google.golang.org/protobuf/types/known/structpb"

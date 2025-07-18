@@ -18,11 +18,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+
+	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
 
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"

@@ -16,10 +16,11 @@ package server
 
 import (
 	"context"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"net/http"
 	"net/url"
 	"path"
+
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"

@@ -15,9 +15,10 @@ package compiler_test
 
 import (
 	"fmt"
-	"google.golang.org/protobuf/encoding/protojson"
 	"os"
 	"testing"
+
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
