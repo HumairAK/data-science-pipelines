@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Contact one of chensun, HumairAK, zijianjoy if this remote image needs an update.
+# Contact one of chensun, HumairAK if this remote image needs an update.
 PREBUILT_REMOTE_IMAGE=quay.io/hukhan/kfp-api-generator:1.4
 
 .PHONY: all
@@ -36,10 +36,18 @@ clean-go:
 	rm -rf v2alpha1/go
 	rm -f v2alpha1/google/rpc/status.proto
 
-# Build and locally install Python package.
+# Build Python package using pre-built image
 .PHONY: python
-python: v2alpha1/pipeline_spec.proto fetch-protos
-	python3 v2alpha1/python/generate_proto.py && cd v2alpha1/python && python3 setup.py bdist_wheel
+python: python fetch-protos
+	docker run --interactive --rm \
+		--user $$(id -u):$$(id -g) \
+		-e HOME=/tmp \
+		-v "$$(pwd)/..":"/go/src/github.com/kubeflow/pipelines":z \
+		$(PREBUILT_REMOTE_IMAGE) \
+		sh -c 'cd /go/src/github.com/kubeflow/pipelines/api/v2alpha1/python && \
+		    python3 -m pip install --user --break-system-packages -r requirements.txt && \
+		    python3 generate_proto.py && \
+		    python3 setup.py bdist_wheel  --bdist-dir /tmp/bdist --dist-dir /tmp/dist'
 
 # Build and locally install Python package using editable mode for development.
 .PHONY: python-dev
@@ -55,9 +63,9 @@ clean-python:
 	rm -f v2alpha1/python/kfp/pipeline_spec/pipeline_spec_pb2.py
 	rm -f v2alpha1/google/rpc/status.proto
 
-##########################
+###########################################
 # The following are IMPLEMENTATION DETAILS.
-##########################
+###########################################
 
 # Generates proto packages locally, this should only be called:
 # * during development
@@ -84,11 +92,8 @@ go_cachekey: v2alpha1/pipeline_spec.proto v2alpha1/cache_key.proto
 # Required for compiling the proto files
 #########################################
 
-# Versions
 GOOGLEAPIS_COMMIT ?= fecd7d35f46753b45bf4519f6342495a181740c9
 PROTOBUF_TAG ?= v26.0
-
-# Destination
 PROTO_DST_DIR := v2alpha1/google
 TMP_PROTOBUF_DIR := /tmp/protobuf-src
 

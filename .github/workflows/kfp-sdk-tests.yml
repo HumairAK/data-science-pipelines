@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         python-version: ['3.9', '3.13']
-        protobuf-version: ['5.26.0', '6.31.0']
+        protobuf-version: ['5.26.0', '6.31.1']
 
     steps:
     - name: Checkout code
