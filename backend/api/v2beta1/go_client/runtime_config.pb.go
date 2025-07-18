@@ -46,7 +46,7 @@ type RuntimeConfig struct {
 	// output directory of the pipeline. It is used by the system to
 	// generate the paths of output artifacts.
 	// Ref:(https://www.kubeflow.org/docs/components/pipelines/pipeline-root/)
-	PipelineRoot  string `protobuf:"bytes,2,opt,name=pipeline_root,json=pipelineRoot,proto3" json:"pipeline_root,omitempty"`
+	PipelineRoot  string `protobuf:"bytes,2,opt,name=pipeline_root,proto3" json:"pipeline_root,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -99,12 +99,12 @@ var File_backend_api_v2beta1_runtime_config_proto protoreflect.FileDescriptor
 
 const file_backend_api_v2beta1_runtime_config_proto_rawDesc = "" +
 	"\n" +
-	"(backend/api/v2beta1/runtime_config.proto\x12&kubeflow.pipelines.backend.api.v2beta1\x1a\x1cgoogle/protobuf/struct.proto\"\xf2\x01\n" +
+	"(backend/api/v2beta1/runtime_config.proto\x12&kubeflow.pipelines.backend.api.v2beta1\x1a\x1cgoogle/protobuf/struct.proto\"\xf3\x01\n" +
 	"\rRuntimeConfig\x12e\n" +
 	"\n" +
 	"parameters\x18\x01 \x03(\v2E.kubeflow.pipelines.backend.api.v2beta1.RuntimeConfig.ParametersEntryR\n" +
-	"parameters\x12#\n" +
-	"\rpipeline_root\x18\x02 \x01(\tR\fpipelineRoot\x1aU\n" +
+	"parameters\x12$\n" +
+	"\rpipeline_root\x18\x02 \x01(\tR\rpipeline_root\x1aU\n" +
 	"\x0fParametersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
 	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value:\x028\x01B=Z;github.com/kubeflow/pipelines/backend/api/v2beta1/go_clientb\x06proto3"

@@ -1159,7 +1159,7 @@
     },
     "/apis/v2beta1/runs": {
       "get": {
-        "summary": "Finds all runs in an experiment given by experiment ID. \nIf experiment id is not specified, finds all runs across all experiments.",
+        "summary": "Finds all runs in an experiment given by experiment ID.\nIf experiment id is not specified, finds all runs across all experiments.",
         "operationId": "RunService_ListRuns",
         "responses": {
           "200": {
@@ -1225,7 +1225,7 @@
         ]
       },
       "post": {
-        "summary": "Creates a new run in an experiment specified by experiment ID. \nIf experiment ID is not specified, the run is created in the default experiment.",
+        "summary": "Creates a new run in an experiment specified by experiment ID.\nIf experiment ID is not specified, the run is created in the default experiment.",
         "operationId": "RunService_CreateRun",
         "responses": {
           "200": {
@@ -2328,7 +2328,7 @@
             "type": "object",
             "$ref": "#/definitions/v2beta1RuntimeStatus"
           },
-          "description": "A sequence of task statuses. This field keeps a record \nof state transitions."
+          "description": "A sequence of task statuses. This field keeps a record\nof state transitions."
         },
         "pod_name": {
           "type": "string",
@@ -2463,7 +2463,7 @@
             "type": "object",
             "$ref": "#/definitions/v2beta1RuntimeStatus"
           },
-          "description": "Output. A sequence of run statuses. This field keeps a record \nof state transitions."
+          "description": "Output. A sequence of run statuses. This field keeps a record\nof state transitions."
         }
       }
     },
@@ -2531,7 +2531,7 @@
         },
         "error": {
           "$ref": "#/definitions/googlerpcStatus",
-          "description": "The error that occurred during the state. May be set when the state is\nany of the non-final states (PENDING/RUNNING/CANCELING) or FAILED state.\nIf the state is FAILED, the error here is final and not going to be\nretried. If the state is a non-final state, the error indicates that a \nsystem-error being retried."
+          "description": "The error that occurred during the state. May be set when the state is\nany of the non-final states (PENDING/RUNNING/CANCELING) or FAILED state.\nIf the state is FAILED, the error here is final and not going to be\nretried. If the state is a non-final state, the error indicates that a\nsystem-error being retried."
         }
       },
       "description": "Timestamped representation of a runtime state with an optional error."
