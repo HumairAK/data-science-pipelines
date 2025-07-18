@@ -5,6 +5,7 @@ on:
     branches: [master]
   pull_request:
     paths:
+      - 'api/**'
       - 'sdk/**'
       - 'test/presubmit-tests-sdk.sh'
       - '.github/workflows/kfp-sdk-tests.yml'
