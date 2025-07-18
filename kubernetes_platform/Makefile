@@ -39,10 +39,13 @@ golang: proto/*.proto
 clean-go:
 	rm -rf kubernetes_platform/go
 
+.PHONY: fetch-protos
+fetch-protos:
+		make -C ../api fetch-protos
 
 # Build Python package using pre-built image
 .PHONY: python
-python: proto/kubernetes_executor_config.proto
+python: proto/kubernetes_executor_config.proto fetch-protos
 	docker run --interactive --rm \
 		--user $$(id -u):$$(id -g) \
 		-e HOME=/tmp \
@@ -56,7 +59,7 @@ python: proto/kubernetes_executor_config.proto
 
 # Build and install in editable mode using pre-built image
 .PHONY: python-dev
-python-dev: proto/kubernetes_executor_config.proto
+python-dev: proto/kubernetes_executor_config.proto fetch-protos
 	python3 python/generate_proto.py && cd python && pip install -e .[dev]
 
 # Delete all generated Python packages

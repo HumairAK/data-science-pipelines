@@ -38,12 +38,12 @@ clean-go:
 
 # Build and locally install Python package.
 .PHONY: python
-python: v2alpha1/pipeline_spec.proto v2alpha1/google/rpc/status.proto
+python: v2alpha1/pipeline_spec.proto fetch-protos
 	python3 v2alpha1/python/generate_proto.py && cd v2alpha1/python && python3 setup.py bdist_wheel
 
 # Build and locally install Python package using editable mode for development.
 .PHONY: python-dev
-python-dev: v2alpha1/pipeline_spec.proto v2alpha1/google/rpc/status.proto
+python-dev: v2alpha1/pipeline_spec.proto fetch-protos
 	python3 v2alpha1/python/generate_proto.py && cd v2alpha1/python && pip install -e .
 
 # Delete all generated Python packages
@@ -65,7 +65,7 @@ clean-python:
 .PHONY: generate
 generate: go_pipelinespec go_cachekey
 
-go_pipelinespec: v2alpha1/pipeline_spec.proto v2alpha1/google/rpc/status.proto
+go_pipelinespec: v2alpha1/pipeline_spec.proto fetch-protos
 	mkdir -p v2alpha1/go/pipelinespec
 	cd v2alpha1 && protoc -I=. \
 		--go_out=go/pipelinespec \
@@ -79,12 +79,35 @@ go_cachekey: v2alpha1/pipeline_spec.proto v2alpha1/cache_key.proto
 		--go_opt=paths=source_relative \
 		cache_key.proto
 
-# Fetch dependency proto
-v2alpha1/google/rpc/status.proto:
-	mkdir -p v2alpha1/google/rpc
-	wget -O v2alpha1/google/rpc/status.proto https://raw.githubusercontent.com/googleapis/googleapis/047d3a8ac7f75383855df0166144f891d7af08d9/google/rpc/status.proto
+#########################################
+# The following are dependencies
+# Required for compiling the proto files
+#########################################
 
-# protoc-gen-go is already installed in api-generator image
-.PHONY: protoc-gen-go
+# Versions
+GOOGLEAPIS_COMMIT ?= fecd7d35f46753b45bf4519f6342495a181740c9
+PROTOBUF_TAG ?= v26.0
+
+# Destination
+PROTO_DST_DIR := v2alpha1/google
+TMP_PROTOBUF_DIR := /tmp/protobuf-src
+
+.PHONY: fetch-protos fetch-googleapis fetch-protobuf protoc-gen-go clean-protobuf-tmp
+
+fetch-protos: fetch-googleapis fetch-protobuf
+
+fetch-googleapis:
+	@echo "Downloading google/rpc/status.proto from googleapis@$(GOOGLEAPIS_COMMIT)..."
+	mkdir -p $(PROTO_DST_DIR)/rpc
+	wget -qO $(PROTO_DST_DIR)/rpc/status.proto https://raw.githubusercontent.com/googleapis/googleapis/$(GOOGLEAPIS_COMMIT)/google/rpc/status.proto
+
+fetch-protobuf: clean-protobuf-tmp
+	@git clone --depth 1 --branch $(PROTOBUF_TAG) https://github.com/protocolbuffers/protobuf.git $(TMP_PROTOBUF_DIR)
+	@mkdir -p $(PROTO_DST_DIR)/protobuf
+	@cp $(TMP_PROTOBUF_DIR)/src/google/protobuf/*.proto $(PROTO_DST_DIR)/protobuf/
+
+clean-protobuf-tmp:
+	@rm -rf $(TMP_PROTOBUF_DIR)
+
 protoc-gen-go:
 	go install google.golang.org/protobuf/cmd/protoc-gen-go
