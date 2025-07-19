@@ -17,6 +17,7 @@ package server
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -145,16 +146,23 @@ func parseAPIFilter(encoded string, apiVersion string) (interface{}, error) {
 	if err != nil {
 		return nil, util.NewInvalidInputError("failed to parse valid filter from %q: %v", encoded, err)
 	}
+
+	transformedJSON, err := transformJSONForBackwardCompatibility(decoded)
+	if err != nil {
+		fmt.Printf("Failed to transform JSON: %v\n", err)
+		return nil, err
+	}
+
 	switch apiVersion {
 	case "v2beta1":
 		f := &apiv2beta1.Filter{}
-		if err := protojson.Unmarshal([]byte(decoded), f); err != nil {
+		if err := protojson.Unmarshal([]byte(transformedJSON), f); err != nil {
 			return nil, util.NewInvalidInputError("failed to parse valid filter from %q: %v", encoded, err)
 		}
 		return f, nil
 	case "v1beta1":
 		f := &apiv1beta1.Filter{}
-		if err := protojson.Unmarshal([]byte(decoded), f); err != nil {
+		if err := protojson.Unmarshal([]byte(transformedJSON), f); err != nil {
 			return nil, util.NewInvalidInputError("failed to parse valid filter from %q: %v", encoded, err)
 		}
 		return f, nil
@@ -205,4 +213,17 @@ func validatedListOptions(listable list.Listable, pageToken string, pageSize int
 	}
 
 	return opts, nil
+}
+
+func transformJSONForBackwardCompatibility(jsonStr string) (string, error) {
+	replacer := strings.NewReplacer(
+		`"intValue":`, `"int_value":`,
+		`"longValue":`, `"long_value":`,
+		`"stringValue":`, `"string_value":`,
+		`"timestampValue":`, `"timestamp_value":`,
+		`"intValues":`, `"int_values":`,
+		`"longValues":`, `"long_values":`,
+		`"stringValues":`, `"string_values":`,
+	)
+	return replacer.Replace(jsonStr), nil
 }
