@@ -244,7 +244,7 @@ func (x *CreateRunRequest) GetRun() *Run {
 type GetRunRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The ID of the run to be retrieved.
-	RunId         string `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	RunId         string `protobuf:"bytes,1,opt,name=run_id,proto3" json:"run_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -378,7 +378,7 @@ func (x *ListRunsRequest) GetFilter() string {
 type TerminateRunRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The ID of the run to be terminated.
-	RunId         string `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	RunId         string `protobuf:"bytes,1,opt,name=run_id,proto3" json:"run_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -423,7 +423,7 @@ func (x *TerminateRunRequest) GetRunId() string {
 type RetryRunRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The ID of the run to be retried.
-	RunId         string `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	RunId         string `protobuf:"bytes,1,opt,name=run_id,proto3" json:"run_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -885,7 +885,7 @@ func (x *PipelineRuntime) GetWorkflowManifest() string {
 type RunDetail struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Run             *Run                   `protobuf:"bytes,1,opt,name=run,proto3" json:"run,omitempty"`
-	PipelineRuntime *PipelineRuntime       `protobuf:"bytes,2,opt,name=pipeline_runtime,json=pipelineRuntime,proto3" json:"pipeline_runtime,omitempty"`
+	PipelineRuntime *PipelineRuntime       `protobuf:"bytes,2,opt,name=pipeline_runtime,proto3" json:"pipeline_runtime,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -1317,9 +1317,9 @@ const file_backend_api_v1beta1_run_proto_rawDesc = "" +
 	"\n" +
 	"\x1dbackend/api/v1beta1/run.proto\x12\x03api\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a'backend/api/v1beta1/pipeline_spec.proto\x1a,backend/api/v1beta1/resource_reference.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\".\n" +
 	"\x10CreateRunRequest\x12\x1a\n" +
-	"\x03run\x18\x01 \x01(\v2\b.api.RunR\x03run\"&\n" +
-	"\rGetRunRequest\x12\x15\n" +
-	"\x06run_id\x18\x01 \x01(\tR\x05runId\"\xcb\x01\n" +
+	"\x03run\x18\x01 \x01(\v2\b.api.RunR\x03run\"'\n" +
+	"\rGetRunRequest\x12\x16\n" +
+	"\x06run_id\x18\x01 \x01(\tR\x06run_id\"\xcb\x01\n" +
 	"\x0fListRunsRequest\x12\x1e\n" +
 	"\n" +
 	"page_token\x18\x01 \x01(\tR\n" +
@@ -1327,11 +1327,11 @@ const file_backend_api_v1beta1_run_proto_rawDesc = "" +
 	"\tpage_size\x18\x02 \x01(\x05R\tpage_size\x12\x18\n" +
 	"\asort_by\x18\x03 \x01(\tR\asort_by\x12H\n" +
 	"\x16resource_reference_key\x18\x04 \x01(\v2\x10.api.ResourceKeyR\x16resource_reference_key\x12\x16\n" +
-	"\x06filter\x18\x05 \x01(\tR\x06filter\",\n" +
-	"\x13TerminateRunRequest\x12\x15\n" +
-	"\x06run_id\x18\x01 \x01(\tR\x05runId\"(\n" +
-	"\x0fRetryRunRequest\x12\x15\n" +
-	"\x06run_id\x18\x01 \x01(\tR\x05runId\"z\n" +
+	"\x06filter\x18\x05 \x01(\tR\x06filter\"-\n" +
+	"\x13TerminateRunRequest\x12\x16\n" +
+	"\x06run_id\x18\x01 \x01(\tR\x06run_id\")\n" +
+	"\x0fRetryRunRequest\x12\x16\n" +
+	"\x06run_id\x18\x01 \x01(\tR\x06run_id\"z\n" +
 	"\x10ListRunsResponse\x12\x1c\n" +
 	"\x04runs\x18\x01 \x03(\v2\b.api.RunR\x04runs\x12\x1e\n" +
 	"\n" +
@@ -1367,10 +1367,10 @@ const file_backend_api_v1beta1_run_proto_rawDesc = "" +
 	"\x0fPipelineRuntime\x12,\n" +
 	"\x11pipeline_manifest\x18\n" +
 	" \x01(\tR\x11pipeline_manifest\x12,\n" +
-	"\x11workflow_manifest\x18\v \x01(\tR\x11workflow_manifest\"h\n" +
+	"\x11workflow_manifest\x18\v \x01(\tR\x11workflow_manifest\"i\n" +
 	"\tRunDetail\x12\x1a\n" +
-	"\x03run\x18\x01 \x01(\v2\b.api.RunR\x03run\x12?\n" +
-	"\x10pipeline_runtime\x18\x02 \x01(\v2\x14.api.PipelineRuntimeR\x0fpipelineRuntime\"\xcb\x01\n" +
+	"\x03run\x18\x01 \x01(\v2\b.api.RunR\x03run\x12@\n" +
+	"\x10pipeline_runtime\x18\x02 \x01(\v2\x14.api.PipelineRuntimeR\x10pipeline_runtime\"\xcb\x01\n" +
 	"\tRunMetric\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\anode_id\x18\x02 \x01(\tR\anode_id\x12$\n" +

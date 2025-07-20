@@ -144,7 +144,7 @@ message CreateRunRequest {
 
 message GetRunRequest {
   // The ID of the run to be retrieved.
-  string run_id = 1;
+  string run_id = 1 [json_name = "run_id"];
 }
 
 message ListRunsRequest {
@@ -174,12 +174,12 @@ message ListRunsRequest {
 
 message TerminateRunRequest {
   // The ID of the run to be terminated.
-  string run_id = 1;
+  string run_id = 1 [json_name = "run_id"];
 }
 
 message RetryRunRequest {
   // The ID of the run to be retried.
-  string run_id = 1;
+  string run_id = 1 [json_name = "run_id"];
 }
 
 message ListRunsResponse {
@@ -277,7 +277,7 @@ message PipelineRuntime {
 
 message RunDetail {
   Run run = 1;
-  PipelineRuntime pipeline_runtime = 2;
+  PipelineRuntime pipeline_runtime = 2 [json_name = "pipeline_runtime"];
 }
 
 message RunMetric {
