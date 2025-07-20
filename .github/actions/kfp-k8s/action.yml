@@ -1,0 +1,37 @@
+name: "Install kfp & kfp-kubernetes"
+inputs:
+  build_version:
+    required: true
+    default: "1.2.2"
+    description: "build package version"
+runs:
+  using: "composite"
+  steps:
+    - name: Install build tool
+      run: pip install build==${{inputs.build_version}}
+
+    - name: Build kfp dist
+      id: install-kfp
+      working-directory: sdk/python
+      run: |
+        python -m build .
+
+    - name: Generate kfp-kubernetes proto files from source
+      id: generate-kfp-kubernetes-proto-files
+      if: ${{ steps.install-kfp.outcome == 'success' }}
+      working-directory: ./kubernetes_platform
+      run: make clean python USE_FIND_LINKS=true
+
+    # kfp is installed transitively
+    # --find-links ensures pip first looks in the sdk/python/dist folder
+    # outputted from install-kfp step before looking at pypi
+    - name: Install kfp & kfp-kubernetes from source
+      id: install-kfp-kubernetes
+      if: ${{ steps.generate-kfp-kubernetes-proto-files.outcome == 'success' }}
+      run: |
+        pip install -e ./kubernetes_platform/python[dev] --find-links=sdk/python/dist
+
+    - name: Install test requirements
+      id: install-requirements
+      if: ${{ steps.install-kfp-kubernetes.outcome == 'success' }}
+      run: pip install -r ./test/kfp-kubernetes-execution-tests/requirements.txt
