@@ -244,7 +244,7 @@ func VerifyJobResourceReferences(resRefs []*job_model.APIResourceReference, targ
 				break
 			}
 			if resRef.Key != nil {
-				if resRef.Key.ID == target.Key.ID && resRef.Key.Type == target.Key.Type && resRef.Relationship == target.Relationship {
+				if resRef.Key.ID == target.Key.ID && *resRef.Key.Type == *target.Key.Type && *resRef.Relationship == *target.Relationship {
 					matches++
 					break
 				}

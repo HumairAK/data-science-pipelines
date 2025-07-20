@@ -15,11 +15,9 @@
 package integration
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -554,6 +552,7 @@ func (s *JobApiTestSuite) checkHelloWorldJob(t *testing.T, job *job_model.APIJob
 			PipelineID:       job.PipelineSpec.PipelineID,
 			PipelineName:     job.PipelineSpec.PipelineName,
 			WorkflowManifest: job.PipelineSpec.WorkflowManifest,
+			Parameters:       []*job_model.APIParameter{},
 		},
 		ResourceReferences: []*job_model.APIResourceReference{
 			{
@@ -571,10 +570,7 @@ func (s *JobApiTestSuite) checkHelloWorldJob(t *testing.T, job *job_model.APIJob
 		UpdatedAt:      job.UpdatedAt,
 		Status:         job.Status,
 	}
-	assert.True(t, test.VerifyJobResourceReferences(job.ResourceReferences, expectedJob.ResourceReferences))
-	expectedJob.ResourceReferences = job.ResourceReferences
-
-	assert.Equal(t, expectedJob, job)
+	verifyJobEqual(t, expectedJob, job)
 }
 
 func (s *JobApiTestSuite) checkArgParamsJob(t *testing.T, job *job_model.APIJob, experimentID string, experimentName string) {
@@ -606,9 +602,7 @@ func (s *JobApiTestSuite) checkArgParamsJob(t *testing.T, job *job_model.APIJob,
 		UpdatedAt:      job.UpdatedAt,
 		Status:         job.Status,
 	}
-	assert.True(t, test.VerifyJobResourceReferences(job.ResourceReferences, expectedJob.ResourceReferences))
-	expectedJob.ResourceReferences = job.ResourceReferences
-	assert.Equal(t, expectedJob, job)
+	verifyJobEqual(t, expectedJob, job)
 }
 
 func (s *JobApiTestSuite) TestJobApis_SwfNotFound() {
@@ -661,24 +655,63 @@ func (s *JobApiTestSuite) TestJobApis_SwfNotFound() {
 	require.Contains(t, err.Error(), "not found")
 }
 
-func equal(expected, actual interface{}) bool {
-	if expected == nil || actual == nil {
-		return expected == actual
+// verifyJobEqual compares two APIJobs for deep equality, handling special cases like resource references
+func verifyJobEqual(t *testing.T, expected, actual *job_model.APIJob) {
+	t.Helper()
+
+	// Check if both are nil or both are non-nil
+	if (expected == nil) != (actual == nil) {
+		t.Errorf("Job equality check failed: one job is nil while other is not")
+		return
+	}
+	if expected == nil {
+		return
 	}
 
-	exp, ok := expected.([]byte)
-	if !ok {
-		return reflect.DeepEqual(expected, actual)
+	// Check basic fields
+	assert.Equal(t, expected.ID, actual.ID)
+	assert.Equal(t, expected.Name, actual.Name)
+	assert.Equal(t, expected.Description, actual.Description)
+	assert.Equal(t, expected.ServiceAccount, actual.ServiceAccount)
+	assert.Equal(t, expected.MaxConcurrency, actual.MaxConcurrency)
+	assert.Equal(t, expected.Enabled, actual.Enabled)
+	assert.Equal(t, expected.CreatedAt, actual.CreatedAt)
+	assert.Equal(t, expected.UpdatedAt, actual.UpdatedAt)
+	assert.Equal(t, expected.Status, actual.Status)
+
+	// Check PipelineSpec
+	if expected.PipelineSpec != nil {
+		assert.NotNil(t, actual.PipelineSpec)
+		assert.Equal(t, expected.PipelineSpec.PipelineID, actual.PipelineSpec.PipelineID)
+		assert.Equal(t, expected.PipelineSpec.PipelineName, actual.PipelineSpec.PipelineName)
+		assert.Equal(t, expected.PipelineSpec.WorkflowManifest, actual.PipelineSpec.WorkflowManifest)
+		// Compare parameters
+		if expected.PipelineSpec.Parameters != nil {
+			assert.NotNil(t, actual.PipelineSpec.Parameters)
+			assert.Equal(t, len(expected.PipelineSpec.Parameters), len(actual.PipelineSpec.Parameters))
+
+			// Create maps for easier comparison
+			expectedParams := make(map[string]string)
+			actualParams := make(map[string]string)
+
+			for _, p := range expected.PipelineSpec.Parameters {
+				expectedParams[p.Name] = p.Value
+			}
+			for _, p := range actual.PipelineSpec.Parameters {
+				actualParams[p.Name] = p.Value
+			}
+
+			assert.Equal(t, expectedParams, actualParams, "Parameters do not match")
+		} else {
+			assert.Nil(t, actual.PipelineSpec.Parameters)
+		}
+
+	} else {
+		assert.Nil(t, actual.PipelineSpec)
 	}
 
-	act, ok := actual.([]byte)
-	if !ok {
-		return false
-	}
-	if exp == nil || act == nil {
-		return exp == nil && act == nil
-	}
-	return bytes.Equal(exp, act)
+	// Verify resource references (they need to match regardless of order)
+	assert.True(t, test.VerifyJobResourceReferences(actual.ResourceReferences, expected.ResourceReferences))
 }
 
 func (s *JobApiTestSuite) checkHelloWorldRun(run *run_model.APIRun, experimentID string, experimentName string, jobID string, jobName string) error {
