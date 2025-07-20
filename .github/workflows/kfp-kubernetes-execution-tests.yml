@@ -48,17 +48,18 @@ jobs:
         id: install-protobuf-deps
         uses: ./.github/actions/protobuf
 
-      - name: Install kfp from source
+      - name: Build kfp from source
         id: install-kfp
         if: ${{ steps.install-protobuf-deps.outcome == 'success' }}
+        working-directory: sdk
         run: |
-          pip install -e ./sdk/python
+          python -m build .
 
       - name: Generate kfp-kubernetes proto files from source
         id: generate-kfp-kubernetes-proto-files
         if: ${{ steps.install-kfp.outcome == 'success' }}
         working-directory: ./kubernetes_platform
-        run: make clean python
+        run: make clean python USE_FIND_LINKS=true
 
       - name: Install kfp-kubernetes from source
         id: install-kfp-kubernetes
