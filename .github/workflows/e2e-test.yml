@@ -440,6 +440,11 @@ jobs:
         id: install-protobuf-deps
         uses: ./.github/actions/protobuf
 
+      - name: Install kfp & kfp-kubernetes from source
+        if: ${{ steps.install-protobuf-deps.outcome == 'success' }}
+        id: install-kfp-k8s-deps
+        uses: ./.github/actions/kfp-k8s
+
       - name: Install prerequisites
         if: ${{ steps.create-kfp-cluster.outcome == 'success' }}
         run: pip3 install -r ./test/sample-test/requirements.txt
