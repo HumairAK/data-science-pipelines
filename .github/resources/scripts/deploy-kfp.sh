@@ -54,6 +54,15 @@ if [ "${USE_PROXY}" == "true" && "${PIPELINES_STORE}" == "kubernetes" ]; then
   exit 1
 fi
 
+# TODO(humairak): remove
+# Check if all pods are running - (10 minutes)
+wait_for_pods || EXIT_CODE=$?
+if [[ $EXIT_CODE -ne 0 ]]
+then
+  echo "Deploy unsuccessful. Not all pods running."
+  exit 1
+fi
+
 kubectl apply -k "manifests/kustomize/cluster-scoped-resources/"
 kubectl wait crd/applications.app.k8s.io --for condition=established --timeout=60s || EXIT_CODE=$?
 if [[ $EXIT_CODE -ne 0 ]]
