@@ -49,13 +49,13 @@ jobs:
         uses: ./.github/actions/protobuf
 
       - name: Install kfp & kfp-kubernetes
-        id: install-protobuf-deps
-        uses: ./.github/actions/protobuf
+        id: install-kfp-k8s-deps
+        uses: ./.github/actions/kfp-k8s
 
       - name: Create KFP cluster
         id: create-kfp-cluster
         uses: ./.github/actions/kfp-cluster
-        if: ${{ steps.install-requirements.outcome == 'success' }}
+        if: ${{ steps.install-kfp-k8s-deps.outcome == 'success' }}
         with:
           k8s_version: ${{ matrix.k8s_version }}
         continue-on-error: true
