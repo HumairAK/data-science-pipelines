@@ -155,7 +155,7 @@ func (s *CacheTestSuite) TestCacheRecurringRun() {
 
 		if len(allRuns) >= 2 {
 			for _, run := range allRuns {
-				if run.State != run_model.V2beta1RuntimeStateSUCCEEDED.Pointer() {
+				if *run.State != *run_model.V2beta1RuntimeStateSUCCEEDED.Pointer() {
 					return false
 				}
 			}
