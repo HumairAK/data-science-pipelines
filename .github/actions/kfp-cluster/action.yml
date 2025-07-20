@@ -21,20 +21,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Deploy KFP
-      shell: bash
-      run: |
-        ARGS=""
-
-        if [ "${{ inputs.proxy }}" = "true" ]; then
-          ARGS="${ARGS} --proxy"
-        elif [ "${{inputs.cache_enabled }}" = "false" ]; then
-          ARGS="${ARGS} --cache-disabled"
-        elif [ "${{inputs.pipeline_store }}" = "kubernetes" ]; then
-          ARGS="${ARGS}  --deploy-k8s-native"
-        fi
-
-        ./.github/resources/scripts/deploy-kfp.sh $ARGS
     - name: Create k8s Kind Cluster
       uses: container-tools/kind-action@v2
       with:
