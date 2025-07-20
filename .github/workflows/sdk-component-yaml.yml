@@ -27,7 +27,6 @@ jobs:
           python-version: 3.9
 
       - name: Install protobuf dependencies
-        id: create-kfp-cluster
         uses: ./.github/actions/protobuf
 
       - name: Install requirements

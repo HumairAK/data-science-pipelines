@@ -44,7 +44,6 @@ jobs:
             df -h
 
       - name: Install protobuf dependencies
-        id: create-kfp-cluster
         uses: ./.github/actions/protobuf
 
       - name: Generate kfp-kubernetes proto files from source
