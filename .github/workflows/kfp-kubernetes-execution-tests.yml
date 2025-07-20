@@ -51,7 +51,7 @@ jobs:
       - name: Install build tool
         run: pip install build
 
-      - name: Build kfp from source
+      - name: Build kfp dist
         id: install-kfp
         if: ${{ steps.install-protobuf-deps.outcome == 'success' }}
         working-directory: sdk/python
@@ -68,7 +68,7 @@ jobs:
         id: install-kfp-kubernetes
         if: ${{ steps.generate-kfp-kubernetes-proto-files.outcome == 'success' }}
         run: |
-          pip install -e ./kubernetes_platform/python[dev]
+          pip install -e ./kubernetes_platform/python[dev] --find-links=sdk/python/dist
 
       - name: Install test requirements
         id: install-requirements
