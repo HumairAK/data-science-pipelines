@@ -95,6 +95,7 @@ def import_obj_from_file(python_path: str, obj_name: str) -> Any:
 
 
 def run(test_case: TestCase) -> Tuple[str, client.client.RunPipelineResult]:
+    # Ensure that we are installing pipeline-spec from source during pipeline execution.
     if 'KFP_PIPELINE_SPEC_PACKAGE_PATH' not in os.environ:
         os.environ['KFP_PIPELINE_SPEC_PACKAGE_PATH'] = get_kfp_pipeline_spec_path()
 
