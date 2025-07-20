@@ -38,7 +38,7 @@ CONFIG_PATH = os.path.join(
     'test_data_config.yaml',
 )
 
-kfp_client = client.Client(host=KFP_ENDPOINT)
+kfp_client = client.Client(host=KFP_ENDPOINT, verify_ssl=False)
 
 
 @dataclasses.dataclass
@@ -95,6 +95,9 @@ def import_obj_from_file(python_path: str, obj_name: str) -> Any:
 
 
 def run(test_case: TestCase) -> Tuple[str, client.client.RunPipelineResult]:
+    if 'KFP_PIPELINE_SPEC_PACKAGE_PATH' not in os.environ:
+        os.environ['KFP_PIPELINE_SPEC_PACKAGE_PATH'] = get_kfp_pipeline_spec_path()
+
     full_path = os.path.join(PROJECT_ROOT, test_case.module_path)
     pipeline_func = import_obj_from_file(full_path, test_case.function_name)
     run_result = kfp_client.create_run_from_pipeline_func(
@@ -110,12 +113,21 @@ def run(test_case: TestCase) -> Tuple[str, client.client.RunPipelineResult]:
 
 
 def get_kfp_package_path() -> str:
+    path = get_package_path("sdk/python")
+    print(f'Using the following KFP package path for tests: {path}')
+    return path
+
+def get_kfp_pipeline_spec_path() -> str:
+    path = get_package_path("api/v2alpha1/python")
+    print(f'Using the following KFP pipeline spec path for tests: {path}')
+    return path
+
+def get_package_path(subdir: str) -> str:
     repo_name = os.environ.get('REPO_NAME', 'kubeflow/pipelines')
     if os.environ.get('PULL_NUMBER'):
-        path = f'git+https://github.com/{repo_name}.git@refs/pull/{os.environ["PULL_NUMBER"]}/merge#subdirectory=sdk/python'
+        path = f'git+https://github.com/{repo_name}.git@refs/pull/{os.environ["PULL_NUMBER"]}/merge#subdirectory={subdir}'
     else:
-        path = f'git+https://github.com/{repo_name}.git@master#subdirectory=sdk/python'
-    print(f'Using the following KFP package path for tests: {path}')
+        path = f'git+https://github.com/{repo_name}.git@master#subdirectory={subdir}'
     return path
 
 
