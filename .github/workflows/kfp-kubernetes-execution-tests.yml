@@ -44,6 +44,18 @@ jobs:
             echo "Disk usage after clean up:"
             df -h
 
+      - name: Create KFP cluster
+        id: create-kfp-cluster
+        uses: ./.github/actions/kfp-cluster
+        with:
+          k8s_version: ${{ matrix.k8s_version }}
+        continue-on-error: true
+
+      - name: Forward API port
+        id: forward-api-port
+        run: ./.github/resources/scripts/forward-port.sh "kubeflow" "ml-pipeline" 8888 8888
+        continue-on-error: true
+
       - name: Install protobuf dependencies
         id: install-protobuf-deps
         uses: ./.github/actions/protobuf
@@ -52,23 +64,8 @@ jobs:
         id: install-kfp-k8s-deps
         uses: ./.github/actions/kfp-k8s
 
-      - name: Create KFP cluster
-        id: create-kfp-cluster
-        uses: ./.github/actions/kfp-cluster
-        if: ${{ steps.install-kfp-k8s-deps.outcome == 'success' }}
-        with:
-          k8s_version: ${{ matrix.k8s_version }}
-        continue-on-error: true
-
-      - name: Forward API port
-        id: forward-api-port
-        if: ${{ steps.create-kfp-cluster.outcome == 'success' }}
-        run: ./.github/resources/scripts/forward-port.sh "kubeflow" "ml-pipeline" 8888 8888
-        continue-on-error: true
-
       - name: Run tests
         id: test
-        if: ${{ steps.forward-api-port.outcome == 'success' }}
         env:
           PULL_NUMBER: ${{ github.event.pull_request.number }}
           REPO_NAME: ${{ github.repository }}
