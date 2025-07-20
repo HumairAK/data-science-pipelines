@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
+        # TODO(humairak): revert this vvv
         k8s_version: [ "v1.31.0" ]
     name: kfp-kubernetes execution tests - K8s ${{ matrix.k8s_version }}
     steps:
@@ -44,18 +45,19 @@ jobs:
             df -h
 
       - name: Install protobuf dependencies
+        id: install-protobuf-deps
         uses: ./.github/actions/protobuf
-
-      - name: Generate kfp-kubernetes proto files from source
-        id: generate-kfp-kubernetes-proto-files
-        if: ${{ steps.generate-api-proto-files.outcome == 'success' }}
-        working-directory: ./kubernetes_platform
-        run: make clean python
 
       - name: Install kfp from source
         id: install-kfp
         run: |
           pip install -e ./sdk/python
+
+      - name: Generate kfp-kubernetes proto files from source
+        id: generate-kfp-kubernetes-proto-files
+        if: ${{ steps.install-protobuf-deps.outcome == 'success' }}
+        working-directory: ./kubernetes_platform
+        run: make clean python
 
       - name: Install kfp-kubernetes from source
         id: install-kfp-kubernetes
