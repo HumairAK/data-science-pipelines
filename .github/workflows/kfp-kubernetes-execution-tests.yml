@@ -44,7 +44,6 @@ jobs:
             df -h
 
       - name: Create KFP cluster
-        id: create-kfp-cluster
         uses: ./.github/actions/kfp-cluster
         with:
           k8s_version: ${{ matrix.k8s_version }}
