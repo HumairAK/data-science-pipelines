@@ -51,7 +51,7 @@ jobs:
       - name: Build kfp from source
         id: install-kfp
         if: ${{ steps.install-protobuf-deps.outcome == 'success' }}
-        working-directory: sdk
+        working-directory: sdk/python
         run: |
           python -m build .
 
