@@ -48,6 +48,9 @@ jobs:
         id: install-protobuf-deps
         uses: ./.github/actions/protobuf
 
+      - name: Install build tool
+        run: pip install build
+
       - name: Build kfp from source
         id: install-kfp
         if: ${{ steps.install-protobuf-deps.outcome == 'success' }}
