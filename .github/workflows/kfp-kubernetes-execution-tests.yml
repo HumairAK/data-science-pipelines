@@ -52,20 +52,24 @@ jobs:
         continue-on-error: true
 
       - name: Forward API port
+        if: ${{ steps.create-kfp-cluster.outcome == 'success' }}
         id: forward-api-port
         run: ./.github/resources/scripts/forward-port.sh "kubeflow" "ml-pipeline" 8888 8888
         continue-on-error: true
 
       - name: Install protobuf dependencies
+        if: ${{ steps.forward-api-port.outcome == 'success' }}
         id: install-protobuf-deps
         uses: ./.github/actions/protobuf
 
       - name: Install kfp & kfp-kubernetes
+        if: ${{ steps.install-protobuf-deps.outcome == 'success' }}
         id: install-kfp-k8s-deps
         uses: ./.github/actions/kfp-k8s
 
       - name: Run tests
         id: test
+        if: ${{ steps.install-kfp-k8s-deps.outcome == 'success' }}
         env:
           PULL_NUMBER: ${{ github.event.pull_request.number }}
           REPO_NAME: ${{ github.repository }}
