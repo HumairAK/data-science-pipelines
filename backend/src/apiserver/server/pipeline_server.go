@@ -545,7 +545,7 @@ func (s *PipelineServer) DeletePipeline(ctx context.Context, request *apiv2beta1
 
 // Returns the default (latest) pipeline template for a given pipeline id.
 // Supports v1beta1 behavior.
-func (s *PipelineServer) GetTemplate(ctx context.Context, request *apiv1beta1.GetTemplateRequest) (*apiv1beta1.GetTemplateResponse, error) {
+func (s *PipelineServerV1) GetTemplate(ctx context.Context, request *apiv1beta1.GetTemplateRequest) (*apiv1beta1.GetTemplateResponse, error) {
 	pipelineId := request.GetId()
 	if pipelineId == "" {
 		return nil, util.NewInvalidInputError("Failed to get the default pipeline template (v1beta1). Pipeline id cannot be empty")
@@ -1023,7 +1023,7 @@ func (s *PipelineServer) DeletePipelineVersion(ctx context.Context, request *api
 
 // Returns pipeline template.
 // Supports v1beta1 behavior.
-func (s *PipelineServer) GetPipelineVersionTemplate(ctx context.Context, request *apiv1beta1.GetPipelineVersionTemplateRequest) (*apiv1beta1.GetTemplateResponse, error) {
+func (s *PipelineServerV1) GetPipelineVersionTemplate(ctx context.Context, request *apiv1beta1.GetPipelineVersionTemplateRequest) (*apiv1beta1.GetTemplateResponse, error) {
 	resourceAttributes := &authorizationv1.ResourceAttributes{
 		Verb: common.RbacResourceVerbGet,
 	}
