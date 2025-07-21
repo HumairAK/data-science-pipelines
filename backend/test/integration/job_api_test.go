@@ -17,6 +17,7 @@ package integration
 import (
 	"context"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
 	"os"
 	"strings"
 	"testing"
@@ -569,8 +570,18 @@ func (s *JobApiTestSuite) checkHelloWorldJob(t *testing.T, job *job_model.APIJob
 		CreatedAt:      job.CreatedAt,
 		UpdatedAt:      job.UpdatedAt,
 		Status:         job.Status,
+		Mode:           job_model.JobModeUNKNOWNMODE.Pointer(),
 	}
-	verifyJobEqual(t, expectedJob, job)
+
+	assert.True(t, test.VerifyJobResourceReferences(job.ResourceReferences, expectedJob.ResourceReferences))
+	expectedJob.ResourceReferences = job.ResourceReferences
+	opts := []cmp.Option{
+		cmp.Comparer(func(x, y strfmt.DateTime) bool {
+			return x.String() == y.String()
+		}),
+	}
+	diff := cmp.Diff(expectedJob, job, opts...)
+	assert.Empty(t, diff, "APIRuns differ: %s", diff)
 }
 
 func (s *JobApiTestSuite) checkArgParamsJob(t *testing.T, job *job_model.APIJob, experimentID string, experimentName string) {
@@ -601,8 +612,17 @@ func (s *JobApiTestSuite) checkArgParamsJob(t *testing.T, job *job_model.APIJob,
 		CreatedAt:      job.CreatedAt,
 		UpdatedAt:      job.UpdatedAt,
 		Status:         job.Status,
+		Mode:           job_model.JobModeUNKNOWNMODE.Pointer(),
 	}
-	verifyJobEqual(t, expectedJob, job)
+	assert.True(t, test.VerifyJobResourceReferences(job.ResourceReferences, expectedJob.ResourceReferences))
+	expectedJob.ResourceReferences = job.ResourceReferences
+	opts := []cmp.Option{
+		cmp.Comparer(func(x, y strfmt.DateTime) bool {
+			return x.String() == y.String()
+		}),
+	}
+	diff := cmp.Diff(expectedJob, job, opts...)
+	assert.Empty(t, diff, "APIRuns differ: %s", diff)
 }
 
 func (s *JobApiTestSuite) TestJobApis_SwfNotFound() {
@@ -653,65 +673,6 @@ func (s *JobApiTestSuite) TestJobApis_SwfNotFound() {
 	_, err = s.jobClient.Get(&jobparams.JobServiceGetJobParams{ID: job.ID})
 	require.NotNil(t, err)
 	require.Contains(t, err.Error(), "not found")
-}
-
-// verifyJobEqual compares two APIJobs for deep equality, handling special cases like resource references
-func verifyJobEqual(t *testing.T, expected, actual *job_model.APIJob) {
-	t.Helper()
-
-	// Check if both are nil or both are non-nil
-	if (expected == nil) != (actual == nil) {
-		t.Errorf("Job equality check failed: one job is nil while other is not")
-		return
-	}
-	if expected == nil {
-		return
-	}
-
-	// Check basic fields
-	assert.Equal(t, expected.ID, actual.ID)
-	assert.Equal(t, expected.Name, actual.Name)
-	assert.Equal(t, expected.Description, actual.Description)
-	assert.Equal(t, expected.ServiceAccount, actual.ServiceAccount)
-	assert.Equal(t, expected.MaxConcurrency, actual.MaxConcurrency)
-	assert.Equal(t, expected.Enabled, actual.Enabled)
-	assert.Equal(t, expected.CreatedAt, actual.CreatedAt)
-	assert.Equal(t, expected.UpdatedAt, actual.UpdatedAt)
-	assert.Equal(t, expected.Status, actual.Status)
-
-	// Check PipelineSpec
-	if expected.PipelineSpec != nil {
-		assert.NotNil(t, actual.PipelineSpec)
-		assert.Equal(t, expected.PipelineSpec.PipelineID, actual.PipelineSpec.PipelineID)
-		assert.Equal(t, expected.PipelineSpec.PipelineName, actual.PipelineSpec.PipelineName)
-		assert.Equal(t, expected.PipelineSpec.WorkflowManifest, actual.PipelineSpec.WorkflowManifest)
-		// Compare parameters
-		if expected.PipelineSpec.Parameters != nil {
-			assert.NotNil(t, actual.PipelineSpec.Parameters)
-			assert.Equal(t, len(expected.PipelineSpec.Parameters), len(actual.PipelineSpec.Parameters))
-
-			// Create maps for easier comparison
-			expectedParams := make(map[string]string)
-			actualParams := make(map[string]string)
-
-			for _, p := range expected.PipelineSpec.Parameters {
-				expectedParams[p.Name] = p.Value
-			}
-			for _, p := range actual.PipelineSpec.Parameters {
-				actualParams[p.Name] = p.Value
-			}
-
-			assert.Equal(t, expectedParams, actualParams, "Parameters do not match")
-		} else {
-			assert.Nil(t, actual.PipelineSpec.Parameters)
-		}
-
-	} else {
-		assert.Nil(t, actual.PipelineSpec)
-	}
-
-	// Verify resource references (they need to match regardless of order)
-	assert.True(t, test.VerifyJobResourceReferences(actual.ResourceReferences, expected.ResourceReferences))
 }
 
 func (s *JobApiTestSuite) checkHelloWorldRun(run *run_model.APIRun, experimentID string, experimentName string, jobID string, jobName string) error {

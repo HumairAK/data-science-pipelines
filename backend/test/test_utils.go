@@ -124,7 +124,7 @@ func DeleteAllJobs(client *api_server.JobClient, namespace string, t *testing.T)
 func GetExperimentIDFromV1beta1ResourceReferences(resourceRefs []*run_model.APIResourceReference) string {
 	experimentID := ""
 	for _, resourceRef := range resourceRefs {
-		if resourceRef.Key.Type == run_model.APIResourceTypeEXPERIMENT.Pointer() {
+		if *resourceRef.Key.Type == run_model.APIResourceTypeEXPERIMENT {
 			experimentID = resourceRef.Key.ID
 			break
 		}

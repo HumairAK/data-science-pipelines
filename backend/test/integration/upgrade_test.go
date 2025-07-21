@@ -16,6 +16,8 @@ package integration
 
 import (
 	"fmt"
+	"github.com/go-openapi/strfmt"
+	"github.com/google/go-cmp/cmp"
 	"os"
 	"testing"
 	"time"
@@ -437,6 +439,7 @@ func (s *UpgradeTests) VerifyJobs() {
 			PipelineID:       pipeline.ID,
 			PipelineName:     "hello-world.yaml",
 			WorkflowManifest: job.PipelineSpec.WorkflowManifest,
+			Parameters:       []*job_model.APIParameter{},
 		},
 		ResourceReferences: []*job_model.APIResourceReference{
 			{
@@ -451,11 +454,19 @@ func (s *UpgradeTests) VerifyJobs() {
 		CreatedAt:      job.CreatedAt,
 		UpdatedAt:      job.UpdatedAt,
 		Status:         job.Status,
+		Mode:           job_model.JobModeUNKNOWNMODE.Pointer(),
 	}
 
 	assert.True(t, test.VerifyJobResourceReferences(job.ResourceReferences, expectedJob.ResourceReferences), "Inconsistent resource references: %v does not contain %v", job.ResourceReferences, expectedJob.ResourceReferences)
 	expectedJob.ResourceReferences = job.ResourceReferences
-	assert.Equal(t, expectedJob, job)
+
+	opts := []cmp.Option{
+		cmp.Comparer(func(x, y strfmt.DateTime) bool {
+			return x.String() == y.String()
+		}),
+	}
+	diff := cmp.Diff(expectedJob, job, opts...)
+	assert.Empty(t, diff, "APIRuns differ: %s", diff)
 }
 
 func (s *UpgradeTests) VerifyCreatingRunsAndJobs() {
@@ -598,6 +609,7 @@ func checkHelloWorldRunDetail(t *testing.T, runDetail *run_model.APIRunDetail) {
 			PipelineID:       runDetail.Run.PipelineSpec.PipelineID,
 			PipelineName:     "hello-world.yaml",
 			WorkflowManifest: runDetail.Run.PipelineSpec.WorkflowManifest,
+			Parameters:       []*run_model.APIParameter{},
 		},
 		ResourceReferences: []*run_model.APIResourceReference{
 			{
@@ -609,10 +621,19 @@ func checkHelloWorldRunDetail(t *testing.T, runDetail *run_model.APIRunDetail) {
 		CreatedAt:      runDetail.Run.CreatedAt,
 		ScheduledAt:    runDetail.Run.ScheduledAt,
 		FinishedAt:     runDetail.Run.FinishedAt,
+		Metrics:        []*run_model.APIRunMetric{},
+		StorageState:   run_model.APIRunStorageStateSTORAGESTATEAVAILABLE.Pointer(),
 	}
 	assert.True(t, test.VerifyRunResourceReferences(runDetail.Run.ResourceReferences, expectedRun.ResourceReferences), "Run's res references %v does not include %v", runDetail.Run.ResourceReferences, expectedRun.ResourceReferences)
 	expectedRun.ResourceReferences = runDetail.Run.ResourceReferences
-	assert.Equal(t, expectedRun, runDetail.Run)
+
+	opts := []cmp.Option{
+		cmp.Comparer(func(x, y strfmt.DateTime) bool {
+			return x.String() == y.String()
+		}),
+	}
+	diff := cmp.Diff(expectedRun, runDetail.Run, opts...)
+	assert.Empty(t, diff, "APIRuns differ: %s", diff)
 }
 
 func (s *UpgradeTests) createHelloWorldExperiment() *experiment_model.APIExperiment {

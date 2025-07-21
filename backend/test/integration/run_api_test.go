@@ -16,6 +16,8 @@ package integration
 
 import (
 	"fmt"
+	"github.com/go-openapi/strfmt"
+	"github.com/google/go-cmp/cmp"
 	"os"
 	"testing"
 	"time"
@@ -374,6 +376,7 @@ func (s *RunApiTestSuite) checkTerminatedRunDetail(t *testing.T, runDetail *run_
 			PipelineID:       runDetail.Run.PipelineSpec.PipelineID,
 			PipelineName:     runDetail.Run.PipelineSpec.PipelineName,
 			WorkflowManifest: runDetail.Run.PipelineSpec.WorkflowManifest,
+			Parameters:       []*run_model.APIParameter{},
 		},
 		ResourceReferences: []*run_model.APIResourceReference{
 			{
@@ -385,14 +388,27 @@ func (s *RunApiTestSuite) checkTerminatedRunDetail(t *testing.T, runDetail *run_
 				Name: pipelineVersionName, Relationship: run_model.APIRelationshipCREATOR.Pointer(),
 			},
 		},
-		CreatedAt:   runDetail.Run.CreatedAt,
-		ScheduledAt: runDetail.Run.ScheduledAt,
-		FinishedAt:  runDetail.Run.FinishedAt,
+		CreatedAt:    runDetail.Run.CreatedAt,
+		ScheduledAt:  runDetail.Run.ScheduledAt,
+		FinishedAt:   runDetail.Run.FinishedAt,
+		Metrics:      []*run_model.APIRunMetric{},
+		StorageState: run_model.APIRunStorageStateSTORAGESTATEAVAILABLE.Pointer(),
 	}
 
+	verifyRunDetails(t, runDetail, expectedRun)
+}
+
+func verifyRunDetails(t *testing.T, runDetail *run_model.APIRunDetail, expectedRun *run_model.APIRun) {
 	assert.True(t, test.VerifyRunResourceReferences(runDetail.Run.ResourceReferences, expectedRun.ResourceReferences))
 	expectedRun.ResourceReferences = runDetail.Run.ResourceReferences
-	assert.Equal(t, expectedRun, runDetail.Run)
+
+	opts := []cmp.Option{
+		cmp.Comparer(func(x, y strfmt.DateTime) bool {
+			return x.String() == y.String()
+		}),
+	}
+	diff := cmp.Diff(expectedRun, runDetail.Run, opts...)
+	assert.Empty(t, diff, "APIRuns differ: %s", diff)
 }
 
 func (s *RunApiTestSuite) checkHelloWorldRunDetail(t *testing.T, runDetail *run_model.APIRunDetail, experimentId string, experimentName string, pipelineVersionId string, pipelineVersionName string) {
@@ -411,6 +427,7 @@ func (s *RunApiTestSuite) checkHelloWorldRunDetail(t *testing.T, runDetail *run_
 			PipelineID:       runDetail.Run.PipelineSpec.PipelineID,
 			PipelineName:     runDetail.Run.PipelineSpec.PipelineName,
 			WorkflowManifest: runDetail.Run.PipelineSpec.WorkflowManifest,
+			Parameters:       []*run_model.APIParameter{},
 		},
 		ResourceReferences: []*run_model.APIResourceReference{
 			{
@@ -422,14 +439,14 @@ func (s *RunApiTestSuite) checkHelloWorldRunDetail(t *testing.T, runDetail *run_
 				Name: pipelineVersionName, Relationship: run_model.APIRelationshipCREATOR.Pointer(),
 			},
 		},
-		CreatedAt:   runDetail.Run.CreatedAt,
-		ScheduledAt: runDetail.Run.ScheduledAt,
-		FinishedAt:  runDetail.Run.FinishedAt,
+		CreatedAt:    runDetail.Run.CreatedAt,
+		ScheduledAt:  runDetail.Run.ScheduledAt,
+		FinishedAt:   runDetail.Run.FinishedAt,
+		Metrics:      []*run_model.APIRunMetric{},
+		StorageState: run_model.APIRunStorageStateSTORAGESTATEAVAILABLE.Pointer(),
 	}
 
-	assert.True(t, test.VerifyRunResourceReferences(runDetail.Run.ResourceReferences, expectedRun.ResourceReferences))
-	expectedRun.ResourceReferences = runDetail.Run.ResourceReferences
-	assert.Equal(t, expectedRun, runDetail.Run)
+	verifyRunDetails(t, runDetail, expectedRun)
 }
 
 func (s *RunApiTestSuite) checkArgParamsRunDetail(t *testing.T, runDetail *run_model.APIRunDetail, experimentId string, experimentName string) {
@@ -460,14 +477,14 @@ func (s *RunApiTestSuite) checkArgParamsRunDetail(t *testing.T, runDetail *run_m
 				Name: experimentName, Relationship: run_model.APIRelationshipOWNER.Pointer(),
 			},
 		},
-		CreatedAt:   runDetail.Run.CreatedAt,
-		ScheduledAt: runDetail.Run.ScheduledAt,
-		FinishedAt:  runDetail.Run.FinishedAt,
+		CreatedAt:    runDetail.Run.CreatedAt,
+		ScheduledAt:  runDetail.Run.ScheduledAt,
+		FinishedAt:   runDetail.Run.FinishedAt,
+		Metrics:      []*run_model.APIRunMetric{},
+		StorageState: run_model.APIRunStorageStateSTORAGESTATEAVAILABLE.Pointer(),
 	}
 
-	assert.True(t, test.VerifyRunResourceReferences(runDetail.Run.ResourceReferences, expectedRun.ResourceReferences))
-	expectedRun.ResourceReferences = runDetail.Run.ResourceReferences
-	assert.Equal(t, expectedRun, runDetail.Run)
+	verifyRunDetails(t, runDetail, expectedRun)
 }
 
 func TestRunApi(t *testing.T) {
