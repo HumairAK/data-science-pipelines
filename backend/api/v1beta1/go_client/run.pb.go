@@ -1028,6 +1028,8 @@ type isRunMetric_Value interface {
 
 type RunMetric_NumberValue struct {
 	// The number value of the metric.
+	// The camelCase support for json support of this field is
+	// deprecated, switch to using snake case.
 	NumberValue float64 `protobuf:"fixed64,3,opt,name=number_value,proto3,oneof"`
 }
 

@@ -294,6 +294,8 @@ message RunMetric {
 
   oneof value {
     // The number value of the metric.
+    // The camelCase support for json support of this field is
+    // deprecated, switch to using snake case.
     double number_value = 3 [json_name = "number_value"];
   }
 

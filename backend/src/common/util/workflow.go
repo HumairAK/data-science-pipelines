@@ -518,7 +518,13 @@ func collectNodeMetricsOrNil(runID string, nodeStatus *workflowapi.NodeStatus, r
 	// ReportRunMetricsRequest as a workaround to hold user's metrics, which is a superset of what
 	// user can provide.
 	reportMetricsRequest := new(api.ReportRunMetricsRequest)
-	err = protojson.Unmarshal([]byte(metricsJSON), reportMetricsRequest)
+	transformedJSON, err := transformJSONForBackwardCompatibility(metricsJSON)
+	if err != nil {
+		fmt.Printf("Failed to transform JSON: %v\n", err)
+		return nil, err
+	}
+
+	err = protojson.Unmarshal([]byte(transformedJSON), reportMetricsRequest)
 	if err != nil {
 		// User writes invalid metrics JSON.
 		// TODO(#1426): report the error back to api server to notify user
@@ -539,6 +545,13 @@ func collectNodeMetricsOrNil(runID string, nodeStatus *workflowapi.NodeStatus, r
 		metric.NodeId = retrievedNodeID
 	}
 	return reportMetricsRequest.GetMetrics(), nil
+}
+
+func transformJSONForBackwardCompatibility(jsonStr string) (string, error) {
+	replacer := strings.NewReplacer(
+		`"numberValue":`, `"number_value":`,
+	)
+	return replacer.Replace(jsonStr), nil
 }
 
 func readNodeMetricsJSONOrEmpty(runID string, nodeStatus *workflowapi.NodeStatus,

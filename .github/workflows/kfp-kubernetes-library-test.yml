@@ -31,12 +31,10 @@ jobs:
           python-version: ${{matrix.python.version}}
 
       - name: Install protobuf dependencies & kfp-pipeline-spec
-        if: ${{ steps.forward-api-port.outcome == 'success' }}
         id: install-protobuf-deps
         uses: ./.github/actions/protobuf
 
       - name: Install kfp & kfp-kubernetes from source
-        if: ${{ steps.install-protobuf-deps.outcome == 'success' }}
         id: install-kfp-k8s-deps
         uses: ./.github/actions/kfp-k8s
 
