@@ -60,6 +60,7 @@ clean-python:
 	rm -rf v2alpha1/python/build
 	rm -rf v2alpha1/python/dist
 	rm -rf v2alpha1/python/kfp_pipeline_spec.egg-info
+	rm -rf v2alpha1/google
 	rm -f v2alpha1/python/kfp/pipeline_spec/pipeline_spec_pb2.py
 	rm -f v2alpha1/google/rpc/status.proto
 
