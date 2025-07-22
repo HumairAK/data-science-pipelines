@@ -19,6 +19,8 @@ from typing import NamedTuple
 import unittest
 from unittest import mock
 
+import pytest
+
 from kfp import dsl
 from kfp import local
 from kfp.dsl import Dataset
@@ -29,6 +31,16 @@ from kfp.dsl import pipeline_task
 from kfp.local import testing_utilities
 
 ROOT_FOR_TESTING = './testing_root'
+
+@pytest.fixture(autouse=True)
+def set_env_for_test_classes(monkeypatch, request):
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+    # Only apply to specific classes
+    if request.cls.__name__ in {
+        "TestRunLocalPipeline",
+        "TestFstringContainerComponent",
+    }:
+        monkeypatch.setenv("KFP_PIPELINE_SPEC_PACKAGE_PATH", os.path.join(root, 'api', 'v2alpha1', 'python'))
 
 
 class TestRunLocalPipeline(testing_utilities.LocalRunnerEnvironmentTestCase):
@@ -708,7 +720,6 @@ class TestFstringContainerComponent(
 
         task = my_pipeline()
         self.assertEqual(task.output, 'foo-bar-baz')
-
 
 if __name__ == '__main__':
     unittest.main()

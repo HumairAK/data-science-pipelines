@@ -25,6 +25,7 @@ import re
 import unittest
 from unittest import mock
 
+import pytest
 from absl.testing import parameterized
 from kfp import dsl
 from kfp import local
@@ -41,6 +42,18 @@ from kfp.local import testing_utilities
 # impact of such an error we should not install into the main test process'
 # environment.
 
+@pytest.fixture(autouse=True)
+def set_env_for_test_classes(monkeypatch, request):
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+    # Only apply to specific classes
+    if request.cls.__name__ in {
+        "TestLocalExecutionValidation",
+        "TestSupportOfComponentTypes",
+        "TestSupportOfComponentTypes",
+        "TestExceptionHandlingAndLogging",
+        "TestPipelineRootPaths"
+    }:
+        monkeypatch.setenv("KFP_PIPELINE_SPEC_PACKAGE_PATH", os.path.join(root, 'api', 'v2alpha1', 'python'))
 
 class TestLocalExecutionValidation(
         testing_utilities.LocalRunnerEnvironmentTestCase):
