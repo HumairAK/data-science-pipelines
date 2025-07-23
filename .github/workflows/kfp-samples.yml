@@ -83,6 +83,19 @@ jobs:
         du -sh /opt/hostedtoolcache/* | sort -hr | head -n 10
         echo "::endgroup::"
 
+    - name: Inspect Python cache
+      run: |
+        echo "::group::~/.cache/pip"
+        du -sh ~/.cache/pip || echo "No pip cache found"
+        echo "::endgroup::"
+        
+        echo "::group::__pycache__ folders in workspace"
+        find . -type d -name "__pycache__" -exec du -sh {} + | sort -hr | head -n 20
+        echo "::endgroup::"
+        
+        echo "::group::.venv folder (if any)"
+        du -sh .venv || echo "No .venv found"
+        echo "::endgroup::"
 
     - name: Install protobuf dependencies & kfp-pipeline-spec
       id: install-protobuf-deps
@@ -110,6 +123,21 @@ jobs:
 
         echo "::group::/opt/hostedtoolcache"
         du -sh /opt/hostedtoolcache/* | sort -hr | head -n 10
+        echo "::endgroup::"
+  
+
+    - name: Inspect Python cache
+      run: |
+        echo "::group::~/.cache/pip"
+        du -sh ~/.cache/pip || echo "No pip cache found"
+        echo "::endgroup::"
+    
+        echo "::group::__pycache__ folders in workspace"
+        find . -type d -name "__pycache__" -exec du -sh {} + | sort -hr | head -n 20
+        echo "::endgroup::"
+    
+        echo "::group::.venv folder (if any)"
+        du -sh .venv || echo "No .venv found"
         echo "::endgroup::"
 
 
