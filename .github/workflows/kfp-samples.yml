@@ -109,36 +109,28 @@ jobs:
     - name: Disk Usage (Root)
       run: df -h /
 
-    - name: Disk Usage (Workspace)
-      run: df -h $GITHUB_WORKSPACE
-
-    - name: Largest Directories in Workspace
-      run: du -h -d 2 $GITHUB_WORKSPACE | sort -hr | head -n 20
-
-    - name: Runner Temp & Tool Cache Size
+    - name: Inspect Disk Usage - Key Areas
       run: |
-        echo "::group::/tmp"
-        du -sh /tmp/* | sort -hr | head -n 10
+        echo "::group::Disk Usage Summary"
+        df -h
+        echo "::endgroup::"
+        
+        echo "::group::Top Space Usage in /home/runner"
+        du -xh /home/runner | sort -hr | head -n 20
+        echo "::endgroup::"
+        
+        echo "::group::Top Space Usage in /tmp"
+        du -xh /tmp | sort -hr | head -n 20
+        echo "::endgroup::"
+        
+        echo "::group::Top Space Usage in /opt/hostedtoolcache"
+        du -xh /opt/hostedtoolcache | sort -hr | head -n 20
+        echo "::endgroup::"
+        
+        echo "::group::Top Space Usage in /usr/local"
+        du -xh /usr/local | sort -hr | head -n 20
         echo "::endgroup::"
 
-        echo "::group::/opt/hostedtoolcache"
-        du -sh /opt/hostedtoolcache/* | sort -hr | head -n 10
-        echo "::endgroup::"
-  
-
-    - name: Inspect Python cache
-      run: |
-        echo "::group::~/.cache/pip"
-        du -sh ~/.cache/pip || echo "No pip cache found"
-        echo "::endgroup::"
-    
-        echo "::group::__pycache__ folders in workspace"
-        find . -type d -name "__pycache__" -exec du -sh {} + | sort -hr | head -n 20
-        echo "::endgroup::"
-    
-        echo "::group::.venv folder (if any)"
-        du -sh .venv || echo "No .venv found"
-        echo "::endgroup::"
 
 
 #    - name: Run Samples Tests
