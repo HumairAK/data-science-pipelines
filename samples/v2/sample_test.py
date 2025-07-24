@@ -48,11 +48,7 @@ def get_package_path(subdir: str) -> str:
 
 # Set the component configuration BEFORE importing any pipeline modules
 dsl.component = functools.partial(
-    dsl.component, kfp_package_path=get_kfp_package_path())
-
-# Ensure that we are installing pipeline-spec from source during pipeline execution.
-if 'KFP_PIPELINE_SPEC_PACKAGE_PATH' not in os.environ:
-    os.environ['KFP_PIPELINE_SPEC_PACKAGE_PATH'] = get_kfp_pipeline_spec_path()
+    dsl.component, kfp_package_path=get_kfp_package_path(), packages_to_install=[get_kfp_pipeline_spec_path()])
 
 # Now import the pipeline modules, this way we can leverage the kfp_package and pipeline
 # spec defined above

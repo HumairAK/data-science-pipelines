@@ -15,7 +15,6 @@
 import dataclasses
 import functools
 import os
-import subprocess
 import sys
 import kfp_server_api
 import kubernetes.client
@@ -24,7 +23,6 @@ import kubernetes.config
 import pytest
 import yaml
 from typing import Any, Dict, List, Tuple
-from minio import S3Error
 from minio import Minio
 from kfp import client
 from kfp import dsl
@@ -165,7 +163,7 @@ def get_package_path(subdir: str) -> str:
 
 
 dsl.component = functools.partial(
-    dsl.component, kfp_package_path=get_kfp_package_path())
+    dsl.component, kfp_package_path=get_kfp_package_path(),  packages_to_install=[get_kfp_pipeline_spec_path()])
 
 
 @pytest.mark.parametrize('test_case', create_test_case_parameters())

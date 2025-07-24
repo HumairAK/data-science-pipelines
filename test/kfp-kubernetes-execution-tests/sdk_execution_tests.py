@@ -95,10 +95,6 @@ def import_obj_from_file(python_path: str, obj_name: str) -> Any:
 
 
 def run(test_case: TestCase) -> Tuple[str, client.client.RunPipelineResult]:
-    # Ensure that we are installing pipeline-spec from source during pipeline execution.
-    if 'KFP_PIPELINE_SPEC_PACKAGE_PATH' not in os.environ:
-        os.environ['KFP_PIPELINE_SPEC_PACKAGE_PATH'] = get_kfp_pipeline_spec_path()
-
     full_path = os.path.join(PROJECT_ROOT, test_case.module_path)
     pipeline_func = import_obj_from_file(full_path, test_case.function_name)
     run_result = kfp_client.create_run_from_pipeline_func(
@@ -133,7 +129,7 @@ def get_package_path(subdir: str) -> str:
 
 
 dsl.component = functools.partial(
-    dsl.component, kfp_package_path=get_kfp_package_path())
+    dsl.component, kfp_package_path=get_kfp_package_path(),  packages_to_install=[get_kfp_pipeline_spec_path()])
 
 
 @pytest.mark.asyncio_cooperative
