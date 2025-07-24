@@ -14,7 +14,6 @@
 import dataclasses
 import inspect
 import itertools
-import os
 import pathlib
 import re
 import textwrap
@@ -144,8 +143,6 @@ python3 -m venv "$tmp/venv" --system-site-packages
 . "$tmp/venv/bin/activate"
 '''
 
-_KFP_PIPELINE_SPEC_PACKAGE_PATH = "KFP_PIPELINE_SPEC_PACKAGE_PATH"
-
 def _get_packages_to_install_command(
     kfp_package_path: Optional[str] = None,
     pip_index_urls: Optional[List[str]] = None,
@@ -167,17 +164,17 @@ def _get_packages_to_install_command(
     index_url_options = make_index_url_options(pip_index_urls,
                                                pip_trusted_hosts)
 
-    # Setting pipeline spec path is not intended to be public api and
-    # is largely intended for testing and development purposes to
-    # allow pipeline runtime execution to install pipeline spec from
-    # development branches and pull request CIs.
-    pipeline_spec_path = os.getenv(_KFP_PIPELINE_SPEC_PACKAGE_PATH)
-    if pipeline_spec_path:
-        kfp_pipeline_spec_install_command = make_pip_install_command(
-            install_parts=[pipeline_spec_path],
-            index_url_options=index_url_options
+    # Install packages before KFP. This allows us to
+    # control where we source kfp-pipeline-spec.
+    # This is particularly useful for development and
+    # CI use-case when you want to install the spec
+    # from source.
+    if packages_to_install:
+        user_packages_pip_install_command = make_pip_install_command(
+            install_parts=packages_to_install,
+            index_url_options=index_url_options,
         )
-        pip_install_strings.append(kfp_pipeline_spec_install_command)
+        pip_install_strings.append(user_packages_pip_install_command)
         if inject_kfp_install:
             pip_install_strings.append(' && ')
 
@@ -199,16 +196,6 @@ def _get_packages_to_install_command(
                 index_url_options=index_url_options,
             )
         pip_install_strings.append(kfp_pip_install_command)
-
-        if packages_to_install:
-            pip_install_strings.append(' && ')
-
-    if packages_to_install:
-        user_packages_pip_install_command = make_pip_install_command(
-            install_parts=packages_to_install,
-            index_url_options=index_url_options,
-        )
-        pip_install_strings.append(user_packages_pip_install_command)
 
     return [
         'sh', '-c',
@@ -580,6 +567,18 @@ def create_component_from_func(
         pip_trusted_hosts=pip_trusted_hosts,
         use_venv=use_venv,
     )
+    print("hihihi")
+    print("hihihi")
+    print("hihihi")
+    print("hihihi")
+    print("hihihi")
+    print("hihihi")
+    print("hihihi")
+    print("hihihi")
+    print(packages_to_install)
+
+    print(packages_to_install_command)
+
 
     command = []
     args = []
