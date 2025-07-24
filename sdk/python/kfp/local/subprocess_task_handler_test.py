@@ -13,13 +13,13 @@
 # limitations under the License.
 """Tests for subprocess_local_task_handler.py."""
 import contextlib
+import functools
 import io
 import os
 from typing import NamedTuple, Optional
 import unittest
 from unittest import mock
 
-import pytest
 from absl.testing import parameterized
 from kfp import dsl
 from kfp import local
@@ -36,18 +36,11 @@ from kfp.local import testing_utilities
 # impact of such an error we should not install into the main test process'
 # environment.
 
-@pytest.fixture(autouse=True)
-def set_env_for_test_classes(monkeypatch, request):
-    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
-    # Only apply to specific classes
-    if request.cls.__name__ in {
-        "TestSubprocessRunner",
-        "TestRunLocalSubproces",
-        "TestUseCurrentPythonExecutable",
-        "TestUseVenv",
-        "TestLightweightPythonComponentLogic"
-    }:
-        monkeypatch.setenv("KFP_PIPELINE_SPEC_PACKAGE_PATH", os.path.join(root, 'api', 'v2alpha1', 'python'))
+CURRENT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+kfp_pipeline_spec_path = os.path.join(CURRENT_DIR, 'api', 'v2alpha1', 'python')
+
+dsl.component = functools.partial(
+    dsl.component, packages_to_install=[kfp_pipeline_spec_path])
 
 class TestSubprocessRunner(testing_utilities.LocalRunnerEnvironmentTestCase):
 
@@ -99,7 +92,7 @@ class TestSubprocessRunner(testing_utilities.LocalRunnerEnvironmentTestCase):
     def test_cannot_run_containerized_python_component(self):
         local.init(runner=local.SubprocessRunner(use_venv=True))
 
-        @dsl.component(target_image='foo')
+        @dsl.component(target_image='foo', packages_to_install=[])
         def comp():
             pass
 
@@ -152,7 +145,7 @@ class TestUseVenv(testing_utilities.LocalRunnerEnvironmentTestCase):
     def test_use_venv_true(self, **kwargs):
         local.init(**kwargs)
 
-        @dsl.component(packages_to_install=['cloudpickle'])
+        @dsl.component(packages_to_install=[kfp_pipeline_spec_path, 'cloudpickle'])
         def installer_component():
             import cloudpickle
             print('Cloudpickle is installed:', cloudpickle)

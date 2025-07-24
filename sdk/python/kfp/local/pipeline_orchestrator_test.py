@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for pipeline_orchestrator.py."""
-
+import functools
 import io as stdlib_io
 import os
 from typing import NamedTuple
@@ -31,16 +31,11 @@ from kfp.dsl import pipeline_task
 from kfp.local import testing_utilities
 
 ROOT_FOR_TESTING = './testing_root'
+CURRENT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+kfp_pipeline_spec_path = os.path.join(CURRENT_DIR, 'api', 'v2alpha1', 'python')
 
-@pytest.fixture(autouse=True)
-def set_env_for_test_classes(monkeypatch, request):
-    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
-    # Only apply to specific classes
-    if request.cls.__name__ in {
-        "TestRunLocalPipeline",
-        "TestFstringContainerComponent",
-    }:
-        monkeypatch.setenv("KFP_PIPELINE_SPEC_PACKAGE_PATH", os.path.join(root, 'api', 'v2alpha1', 'python'))
+dsl.component = functools.partial(
+    dsl.component, packages_to_install=[kfp_pipeline_spec_path])
 
 
 class TestRunLocalPipeline(testing_utilities.LocalRunnerEnvironmentTestCase):
@@ -88,7 +83,7 @@ class TestRunLocalPipeline(testing_utilities.LocalRunnerEnvironmentTestCase):
     def test_no_io(self):
         local.init(local.SubprocessRunner(), pipeline_root=ROOT_FOR_TESTING)
 
-        @dsl.component
+        @dsl.component()
         def pass_op():
             pass
 
@@ -720,6 +715,7 @@ class TestFstringContainerComponent(
 
         task = my_pipeline()
         self.assertEqual(task.output, 'foo-bar-baz')
+
 
 if __name__ == '__main__':
     unittest.main()

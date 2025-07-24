@@ -19,13 +19,13 @@ whereas these tests focus on how the task dispatcher should behave,
 irrespective of the runner. While there will inevitably some overlap, we
 should seek to minimize it.
 """
+import functools
 import io
 import os
 import re
 import unittest
 from unittest import mock
 
-import pytest
 from absl.testing import parameterized
 from kfp import dsl
 from kfp import local
@@ -42,18 +42,11 @@ from kfp.local import testing_utilities
 # impact of such an error we should not install into the main test process'
 # environment.
 
-@pytest.fixture(autouse=True)
-def set_env_for_test_classes(monkeypatch, request):
-    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
-    # Only apply to specific classes
-    if request.cls.__name__ in {
-        "TestLocalExecutionValidation",
-        "TestSupportOfComponentTypes",
-        "TestSupportOfComponentTypes",
-        "TestExceptionHandlingAndLogging",
-        "TestPipelineRootPaths"
-    }:
-        monkeypatch.setenv("KFP_PIPELINE_SPEC_PACKAGE_PATH", os.path.join(root, 'api', 'v2alpha1', 'python'))
+CURRENT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+kfp_pipeline_spec_path = os.path.join(CURRENT_DIR, 'api', 'v2alpha1', 'python')
+
+dsl.component = functools.partial(
+    dsl.component, packages_to_install=[kfp_pipeline_spec_path])
 
 class TestLocalExecutionValidation(
         testing_utilities.LocalRunnerEnvironmentTestCase):
