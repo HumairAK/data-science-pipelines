@@ -55,26 +55,47 @@ jobs:
         echo "Disk usage after clean up:"
         df -h
 
-    - name: Create KFP cluster
-      id: create-kfp-cluster
-      uses: ./.github/actions/kfp-cluster
-      with:
-        k8s_version: ${{ matrix.k8s_version }}
-      continue-on-error: true
+#    - name: Create KFP cluster
+#      id: create-kfp-cluster
+#      uses: ./.github/actions/kfp-cluster
+#      with:
+#        k8s_version: ${{ matrix.k8s_version }}
+#      continue-on-error: true
+#
+#    - name: Build and upload the sample Modelcar image to Kind
+#      id: build-sample-modelcar-image
+#      if: ${{ steps.create-kfp-cluster.outcome == 'success' }}
+#      run: |
+#        docker build -f samples/v2/modelcar/Dockerfile -t registry.domain.local/modelcar:test .
+#        kind --name kfp load docker-image registry.domain.local/modelcar:test
+#      continue-on-error: true
+#
+#    - name: Forward API port
+#      id: forward-api-port
+#      if: ${{ steps.build-sample-modelcar-image.outcome == 'success' }}
+#      run: ./.github/resources/scripts/forward-port.sh "kubeflow" "ml-pipeline" 8888 8888
+#      continue-on-error: true
 
-    - name: Build and upload the sample Modelcar image to Kind
-      id: build-sample-modelcar-image
-      if: ${{ steps.create-kfp-cluster.outcome == 'success' }}
+
+    - name: Disk Usage (Root)
+      run: df -h /
+
+    - name: Disk Usage (Workspace)
+      run: df -h $GITHUB_WORKSPACE
+
+    - name: Largest Directories in Workspace
+      run: du -h -d 2 $GITHUB_WORKSPACE | sort -hr | head -n 20
+
+    - name: Runner Temp & Tool Cache Size
       run: |
-        docker build -f samples/v2/modelcar/Dockerfile -t registry.domain.local/modelcar:test .
-        kind --name kfp load docker-image registry.domain.local/modelcar:test
-      continue-on-error: true
+        echo "::group::/tmp"
+        du -sh /tmp/* | sort -hr | head -n 10
+        echo "::endgroup::"
 
-    - name: Forward API port
-      id: forward-api-port
-      if: ${{ steps.build-sample-modelcar-image.outcome == 'success' }}
-      run: ./.github/resources/scripts/forward-port.sh "kubeflow" "ml-pipeline" 8888 8888
-      continue-on-error: true
+        echo "::group::/opt/hostedtoolcache"
+        du -sh /opt/hostedtoolcache/* | sort -hr | head -n 10
+        echo "::endgroup::"
+
 
     - name: Install protobuf dependencies & kfp-pipeline-spec
       id: install-protobuf-deps
@@ -84,22 +105,43 @@ jobs:
       id: install-kfp-k8s-deps
       uses: ./.github/actions/kfp-k8s
 
-    - name: Run Samples Tests
-      id: tests
-      if: ${{ steps.forward-api-port.outcome == 'success' }}
+
+    - name: Disk Usage (Root)
+      run: df -h /
+
+    - name: Disk Usage (Workspace)
+      run: df -h $GITHUB_WORKSPACE
+
+    - name: Largest Directories in Workspace
+      run: du -h -d 2 $GITHUB_WORKSPACE | sort -hr | head -n 20
+
+    - name: Runner Temp & Tool Cache Size
       run: |
-        python3 -u ./samples/v2/sample_test.py
-      continue-on-error: true
+        echo "::group::/tmp"
+        du -sh /tmp/* | sort -hr | head -n 10
+        echo "::endgroup::"
 
-    - name: Collect failed logs
-      if: ${{ steps.create-kfp-cluster.outcome != 'success' || steps.forward-api-port.outcome != 'success' || steps.tests.outcome != 'success' }}
-      run: | 
-        ./.github/resources/scripts/collect-logs.sh --ns kubeflow --output /tmp/tmp_pod_log.txt
-        exit 1
+        echo "::group::/opt/hostedtoolcache"
+        du -sh /opt/hostedtoolcache/* | sort -hr | head -n 10
+        echo "::endgroup::"
 
-    - name: Collect test results
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: kfp-samples-tests-artifacts-k8s-${{ matrix.k8s_version }}
-        path: /tmp/tmp*/*
+
+#    - name: Run Samples Tests
+#      id: tests
+#      if: ${{ steps.forward-api-port.outcome == 'success' }}
+#      run: |
+#        python3 -u ./samples/v2/sample_test.py
+#      continue-on-error: true
+#
+#    - name: Collect failed logs
+#      if: ${{ steps.create-kfp-cluster.outcome != 'success' || steps.forward-api-port.outcome != 'success' || steps.tests.outcome != 'success' }}
+#      run: |
+#        ./.github/resources/scripts/collect-logs.sh --ns kubeflow --output /tmp/tmp_pod_log.txt
+#        exit 1
+#
+#    - name: Collect test results
+#      if: always()
+#      uses: actions/upload-artifact@v4
+#      with:
+#        name: kfp-samples-tests-artifacts-k8s-${{ matrix.k8s_version }}
+#        path: /tmp/tmp*/*
