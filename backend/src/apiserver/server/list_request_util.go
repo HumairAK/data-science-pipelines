@@ -215,6 +215,13 @@ func validatedListOptions(listable list.Listable, pageToken string, pageSize int
 	return opts, nil
 }
 
+// transformJSONForBackwardCompatibility replaces specific JSON key names to maintain
+// backward compatibility with older APIs. Previously, KFP deviated from the typical
+// snake_case naming convention for protobuf field names for Filter predicate values.
+// This function replaces specific JSON key names to maintain backward compatibility
+// with older APIs.
+// See Predicate.value in backend/api/v2beta1/filter.proto for these values.
+// Previously
 func transformJSONForBackwardCompatibility(jsonStr string) (string, error) {
 	replacer := strings.NewReplacer(
 		`"intValue":`, `"int_value":`,

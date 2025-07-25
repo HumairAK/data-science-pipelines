@@ -547,6 +547,12 @@ func collectNodeMetricsOrNil(runID string, nodeStatus *workflowapi.NodeStatus, r
 	return reportMetricsRequest.GetMetrics(), nil
 }
 
+// Previously number_value for RunMetrics in backend/api/v1beta1/run.proto
+// allowed camelCase field values in JSON, to be consistent with the
+// rest of the API (as well as with KFP api docs); this value was switched
+// to support snake case. This function will convert old values to the
+// newer snakecase so we can continue to support camelcase Metric Values for
+// backwards compatibility for the end user.
 func transformJSONForBackwardCompatibility(jsonStr string) (string, error) {
 	replacer := strings.NewReplacer(
 		`"numberValue":`, `"number_value":`,

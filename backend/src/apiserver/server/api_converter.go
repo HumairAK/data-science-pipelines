@@ -773,7 +773,7 @@ func toApiTriggerV1(trigger *model.Trigger) *apiv1beta1.Trigger {
 		cronSchedule.Cron = *trigger.Cron
 		if trigger.CronScheduleStartTimeInSec != nil {
 			cronSchedule.StartTime = timestamppb.New(time.Unix(*trigger.CronScheduleStartTimeInSec, 0))
-		} // timestamppb.New(time.Unix(trigger.CronScheduleStartTimeInSec, 0))
+		}
 		if trigger.CronScheduleEndTimeInSec != nil {
 			cronSchedule.EndTime = timestamppb.New(time.Unix(*trigger.CronScheduleEndTimeInSec, 0))
 		}

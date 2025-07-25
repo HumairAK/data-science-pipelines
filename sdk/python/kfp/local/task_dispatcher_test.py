@@ -26,6 +26,7 @@ import re
 import unittest
 from unittest import mock
 
+import pytest
 from absl.testing import parameterized
 from kfp import dsl
 from kfp import local
@@ -42,11 +43,20 @@ from kfp.local import testing_utilities
 # impact of such an error we should not install into the main test process'
 # environment.
 
-CURRENT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
-kfp_pipeline_spec_path = os.path.join(CURRENT_DIR, 'api', 'v2alpha1', 'python')
-
-dsl.component = functools.partial(
-    dsl.component, packages_to_install=[kfp_pipeline_spec_path])
+@pytest.fixture(autouse=True)
+def set_packages_for_test_classes(monkeypatch, request):
+    if request.cls.__name__ in {
+        "TestLocalExecutionValidation",
+        "TestSupportOfComponentTypes",
+        "TestSupportOfComponentTypes",
+        "TestExceptionHandlingAndLogging",
+        "TestPipelineRootPaths"
+    }:
+        root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+        kfp_pipeline_spec_path = os.path.join(root_dir, 'api', 'v2alpha1', 'python')
+        original_dsl_component = dsl.component
+        monkeypatch.setattr(dsl, 'component', functools.partial(
+            original_dsl_component, packages_to_install=[kfp_pipeline_spec_path]))
 
 class TestLocalExecutionValidation(
         testing_utilities.LocalRunnerEnvironmentTestCase):
