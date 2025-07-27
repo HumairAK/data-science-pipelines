@@ -19,6 +19,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"google.golang.org/protobuf/encoding/protojson"
 	"io"
 	"math"
 	"net"
@@ -282,8 +283,26 @@ func startHttpProxy(resourceManager *resource.ResourceManager, usePipelinesKuber
 		pipelineStore = "database"
 	}
 
-	// Create gRPC HTTP MUX and register services for v1beta1 api.
-	runtimeMux := runtime.NewServeMux(runtime.WithIncomingHeaderMatcher(grpcCustomMatcher))
+	// Create gRPC HTTP MUX and register.
+	// Create a custom marshaler to use snake_case
+	customMarshaler := &runtime.JSONPb{
+		MarshalOptions: protojson.MarshalOptions{
+			// This allows us to use proto field names which are
+			// in snake_case format
+			UseProtoNames: true,
+			// Also emit fields that are zero-valued
+			// This is the same behavior as the default marshaler.
+			EmitUnpopulated: true,
+		},
+		UnmarshalOptions: protojson.UnmarshalOptions{
+			// Discard unknown fields during unmarshaling
+			// This is the same behavior as the default marshaler.
+			DiscardUnknown: true,
+		},
+	}
+	runtimeMux := runtime.NewServeMux(
+		runtime.WithIncomingHeaderMatcher(grpcCustomMatcher),
+		runtime.WithMarshalerOption(runtime.MIMEWildcard, customMarshaler))
 	registerHttpHandlerFromEndpoint(apiv1beta1.RegisterPipelineServiceHandlerFromEndpoint, "PipelineService", ctx, runtimeMux)
 	registerHttpHandlerFromEndpoint(apiv1beta1.RegisterExperimentServiceHandlerFromEndpoint, "ExperimentService", ctx, runtimeMux)
 	registerHttpHandlerFromEndpoint(apiv1beta1.RegisterJobServiceHandlerFromEndpoint, "JobService", ctx, runtimeMux)

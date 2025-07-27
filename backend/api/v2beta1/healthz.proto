@@ -71,7 +71,7 @@ message GetHealthzResponse {
   // TODO(gkcalat): rename or deprecate v1beta1 HealthzService
   // 
   // Returns if KFP in multi-user mode
-  bool multi_user = 3 [json_name = "multi_user"];
+  bool multi_user = 3;
   // Returns the pipeline storage type (database or kubernetes)
-  string pipeline_store = 4 [json_name = "pipeline_store"];
+  string pipeline_store = 4;
 }

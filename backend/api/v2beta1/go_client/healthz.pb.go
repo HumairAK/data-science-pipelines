@@ -45,9 +45,9 @@ type GetHealthzResponse struct {
 	// TODO(gkcalat): rename or deprecate v1beta1 HealthzService
 	//
 	// Returns if KFP in multi-user mode
-	MultiUser bool `protobuf:"varint,3,opt,name=multi_user,proto3" json:"multi_user,omitempty"`
+	MultiUser bool `protobuf:"varint,3,opt,name=multi_user,json=multiUser,proto3" json:"multi_user,omitempty"`
 	// Returns the pipeline storage type (database or kubernetes)
-	PipelineStore string `protobuf:"bytes,4,opt,name=pipeline_store,proto3" json:"pipeline_store,omitempty"`
+	PipelineStore string `protobuf:"bytes,4,opt,name=pipeline_store,json=pipelineStore,proto3" json:"pipeline_store,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -100,12 +100,11 @@ var File_backend_api_v2beta1_healthz_proto protoreflect.FileDescriptor
 
 const file_backend_api_v2beta1_healthz_proto_rawDesc = "" +
 	"\n" +
-	"!backend/api/v2beta1/healthz.proto\x12&kubeflow.pipelines.backend.api.v2beta1\x1a\x1cgoogle/api/annotations.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\\\n" +
-	"\x12GetHealthzResponse\x12\x1e\n" +
+	"!backend/api/v2beta1/healthz.proto\x12&kubeflow.pipelines.backend.api.v2beta1\x1a\x1cgoogle/api/annotations.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"Z\n" +
+	"\x12GetHealthzResponse\x12\x1d\n" +
 	"\n" +
-	"multi_user\x18\x03 \x01(\bR\n" +
-	"multi_user\x12&\n" +
-	"\x0epipeline_store\x18\x04 \x01(\tR\x0epipeline_store2\x91\x01\n" +
+	"multi_user\x18\x03 \x01(\bR\tmultiUser\x12%\n" +
+	"\x0epipeline_store\x18\x04 \x01(\tR\rpipelineStore2\x91\x01\n" +
 	"\x0eHealthzService\x12\x7f\n" +
 	"\n" +
 	"GetHealthz\x12\x16.google.protobuf.Empty\x1a:.kubeflow.pipelines.backend.api.v2beta1.GetHealthzResponse\"\x1d\x82\xd3\xe4\x93\x02\x17\x12\x15/apis/v2beta1/healthzB\x98\x01\x92AX*\x02\x01\x02R#\n" +

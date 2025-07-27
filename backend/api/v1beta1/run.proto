@@ -144,28 +144,28 @@ message CreateRunRequest {
 
 message GetRunRequest {
   // The ID of the run to be retrieved.
-  string run_id = 1 [json_name = "run_id"];
+  string run_id = 1;
 }
 
 message ListRunsRequest {
   // A page token to request the next page of results. The token is acquried
   // from the nextPageToken field of the response from the previous
   // ListRuns call or can be omitted when fetching the first page.
-  string page_token = 1 [json_name = "page_token"];
+  string page_token = 1;
 
   // The number of runs to be listed per page. If there are more runs than this
   // number, the response message will contain a nextPageToken field you can use
   // to fetch the next page.
-  int32 page_size = 2 [json_name = "page_size"];
+  int32 page_size = 2;
 
   // Can be format of "field_name", "field_name asc" or "field_name desc"
   // (Example, "name asc" or "id desc"). Ascending by default.
-  string sort_by = 3 [json_name = "sort_by"];
+  string sort_by = 3;
 
   // What resource reference to filter on.
   // E.g. If listing run for an experiment, the query string would be
   // resource_reference_key.type=EXPERIMENT&resource_reference_key.id=123
-  ResourceKey resource_reference_key = 4 [json_name = "resource_reference_key"];
+  ResourceKey resource_reference_key = 4;
 
   // A url-encoded, JSON-serialized Filter protocol buffer (see
   // [filter.proto](https://github.com/kubeflow/pipelines/blob/master/backend/api/v1beta1/filter.proto)).
@@ -174,22 +174,22 @@ message ListRunsRequest {
 
 message TerminateRunRequest {
   // The ID of the run to be terminated.
-  string run_id = 1 [json_name = "run_id"];
+  string run_id = 1;
 }
 
 message RetryRunRequest {
   // The ID of the run to be retried.
-  string run_id = 1 [json_name = "run_id"];
+  string run_id = 1;
 }
 
 message ListRunsResponse {
   repeated Run runs = 1;
 
   // The total number of runs for the given query.
-  int32 total_size = 3 [json_name = "total_size"];
+  int32 total_size = 3;
 
   // The token to list the next page of runs.
-  string next_page_token = 2 [json_name = "next_page_token"];
+  string next_page_token = 2;
 }
 
 message ArchiveRunRequest {
@@ -221,34 +221,34 @@ message Run {
   }
 
   // Output. Specify whether this run is in archived or available mode.
-  StorageState storage_state = 10 [json_name = "storage_state"];
+  StorageState storage_state = 10;
 
   // Optional input field. Describing the purpose of the run
   string description = 3;
 
   // Required input field.
   // Describing what the pipeline manifest and parameters to use for the run.
-  PipelineSpec pipeline_spec = 4 [json_name = "pipeline_spec"];
+  PipelineSpec pipeline_spec = 4;
 
   // Optional input field. Specify which resource this run belongs to.
   // When creating a run from a particular pipeline version, the pipeline
   // version can be specified here.
-  repeated ResourceReference resource_references = 5 [json_name = "resource_references"];
+  repeated ResourceReference resource_references = 5;
 
   // Optional input field. Specify which Kubernetes service account this run uses.
-  string service_account = 14 [json_name = "service_account"];
+  string service_account = 14;
 
   // Output. The time that the run created.
-  google.protobuf.Timestamp created_at = 6 [json_name = "created_at"];
+  google.protobuf.Timestamp created_at = 6;
 
   // Output. When this run is scheduled to run. This could be different from
   // created_at. For example, if a run is from a backfilling job that was
   // supposed to run 2 month ago, the scheduled_at is 2 month ago,
   // v.s. created_at is the current time.
-  google.protobuf.Timestamp scheduled_at = 7 [json_name = "scheduled_at"];
+  google.protobuf.Timestamp scheduled_at = 7;
 
   // Output. The time this run is finished.
-  google.protobuf.Timestamp finished_at = 13 [json_name = "finished_at"];
+  google.protobuf.Timestamp finished_at = 13;
 
   // Output. The status of the run.
   // One of [Pending, Running, Succeeded, Skipped, Failed, Error]
@@ -268,16 +268,16 @@ message Run {
 message PipelineRuntime {
   // Output. The runtime JSON manifest of the pipeline, including the status
   // of pipeline steps and fields need for UI visualization etc.
-  string pipeline_manifest = 10 [json_name = "pipeline_manifest"];
+  string pipeline_manifest = 10;
 
   // Output. The runtime JSON manifest of the argo workflow.
   // This is deprecated after pipeline_runtime_manifest is in use.
-  string workflow_manifest = 11 [json_name = "workflow_manifest"];
+  string workflow_manifest = 11;
 }
 
 message RunDetail {
   Run run = 1;
-  PipelineRuntime pipeline_runtime = 2 [json_name = "pipeline_runtime"];
+  PipelineRuntime pipeline_runtime = 2;
 }
 
 message RunMetric {
@@ -290,13 +290,11 @@ message RunMetric {
   // found in the RunDetail.workflow.Status. Metric with same (node_id, name)
   // are considerd as duplicate. Only the first reporting will be recorded. Max
   // length is 128.
-  string node_id = 2 [json_name = "node_id"];
+  string node_id = 2;
 
   oneof value {
     // The number value of the metric.
-    // The camelCase support for json support of this field is
-    // deprecated, switch to using snake case.
-    double number_value = 3 [json_name = "number_value"];
+    double number_value = 3;
   }
 
   enum Format {
@@ -313,7 +311,7 @@ message RunMetric {
 
 message ReportRunMetricsRequest {
   // Required. The parent run ID of the metric.
-  string run_id = 1 [json_name = "run_id"];
+  string run_id = 1;
 
   // List of metrics to report.
   repeated RunMetric metrics = 2;
@@ -322,10 +320,10 @@ message ReportRunMetricsRequest {
 message ReportRunMetricsResponse {
   message ReportRunMetricResult {
     // Output. The name of the metric.
-    string metric_name = 1 [json_name = "metric_name"];
+    string metric_name = 1;
 
     // Output. The ID of the node which reports the metric.
-    string metric_node_id = 2 [json_name = "metric_node_id"];
+    string metric_node_id = 2;
 
     enum Status {
       // Default value if not present.
@@ -350,11 +348,11 @@ message ReportRunMetricsResponse {
 
 message ReadArtifactRequest {
   // The ID of the run.
-  string run_id = 1 [json_name = "run_id"];
+  string run_id = 1;
   // The ID of the running node.
-  string node_id = 2 [json_name = "node_id"];
+  string node_id = 2;
   // The name of the artifact.
-  string artifact_name = 3 [json_name = "artifact_name"];
+  string artifact_name = 3;
 }
 
 message ReadArtifactResponse {

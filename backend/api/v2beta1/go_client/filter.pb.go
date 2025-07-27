@@ -346,38 +346,38 @@ type isPredicate_Value interface {
 
 type Predicate_IntValue struct {
 	// Integer.
-	IntValue int32 `protobuf:"varint,3,opt,name=int_value,proto3,oneof"`
+	IntValue int32 `protobuf:"varint,3,opt,name=int_value,json=intValue,proto3,oneof"`
 }
 
 type Predicate_LongValue struct {
 	// Long integer.
-	LongValue int64 `protobuf:"varint,4,opt,name=long_value,proto3,oneof"`
+	LongValue int64 `protobuf:"varint,4,opt,name=long_value,json=longValue,proto3,oneof"`
 }
 
 type Predicate_StringValue struct {
 	// String.
-	StringValue string `protobuf:"bytes,5,opt,name=string_value,proto3,oneof"`
+	StringValue string `protobuf:"bytes,5,opt,name=string_value,json=stringValue,proto3,oneof"`
 }
 
 type Predicate_TimestampValue struct {
 	// Timestamp values will be converted to Unix time (seconds since the epoch)
 	// prior to being used in a filtering operation.
-	TimestampValue *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=timestamp_value,proto3,oneof"`
+	TimestampValue *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=timestamp_value,json=timestampValue,proto3,oneof"`
 }
 
 type Predicate_IntValues_ struct {
 	// Array values below are only meant to be used by the IN operator.
-	IntValues *Predicate_IntValues `protobuf:"bytes,7,opt,name=int_values,proto3,oneof"`
+	IntValues *Predicate_IntValues `protobuf:"bytes,7,opt,name=int_values,json=intValues,proto3,oneof"`
 }
 
 type Predicate_LongValues_ struct {
 	// List of long integers.
-	LongValues *Predicate_LongValues `protobuf:"bytes,8,opt,name=long_values,proto3,oneof"`
+	LongValues *Predicate_LongValues `protobuf:"bytes,8,opt,name=long_values,json=longValues,proto3,oneof"`
 }
 
 type Predicate_StringValues_ struct {
 	// List of strings.
-	StringValues *Predicate_StringValues `protobuf:"bytes,9,opt,name=string_values,proto3,oneof"`
+	StringValues *Predicate_StringValues `protobuf:"bytes,9,opt,name=string_values,json=stringValues,proto3,oneof"`
 }
 
 func (*Predicate_IntValue) isPredicate_Value() {}
@@ -537,21 +537,20 @@ const file_backend_api_v2beta1_filter_proto_rawDesc = "" +
 	"\x06Filter\x12Q\n" +
 	"\n" +
 	"predicates\x18\x01 \x03(\v21.kubeflow.pipelines.backend.api.v2beta1.PredicateR\n" +
-	"predicates\"\xfc\x06\n" +
+	"predicates\"\xf5\x06\n" +
 	"\tPredicate\x12Y\n" +
 	"\toperation\x18\x01 \x01(\x0e2;.kubeflow.pipelines.backend.api.v2beta1.Predicate.OperationR\toperation\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key\x12\x1e\n" +
-	"\tint_value\x18\x03 \x01(\x05H\x00R\tint_value\x12 \n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\x12\x1d\n" +
+	"\tint_value\x18\x03 \x01(\x05H\x00R\bintValue\x12\x1f\n" +
 	"\n" +
-	"long_value\x18\x04 \x01(\x03H\x00R\n" +
-	"long_value\x12$\n" +
-	"\fstring_value\x18\x05 \x01(\tH\x00R\fstring_value\x12F\n" +
-	"\x0ftimestamp_value\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\x0ftimestamp_value\x12]\n" +
+	"long_value\x18\x04 \x01(\x03H\x00R\tlongValue\x12#\n" +
+	"\fstring_value\x18\x05 \x01(\tH\x00R\vstringValue\x12E\n" +
+	"\x0ftimestamp_value\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\x0etimestampValue\x12\\\n" +
 	"\n" +
-	"int_values\x18\a \x01(\v2;.kubeflow.pipelines.backend.api.v2beta1.Predicate.IntValuesH\x00R\n" +
-	"int_values\x12`\n" +
-	"\vlong_values\x18\b \x01(\v2<.kubeflow.pipelines.backend.api.v2beta1.Predicate.LongValuesH\x00R\vlong_values\x12f\n" +
-	"\rstring_values\x18\t \x01(\v2>.kubeflow.pipelines.backend.api.v2beta1.Predicate.StringValuesH\x00R\rstring_values\x1a#\n" +
+	"int_values\x18\a \x01(\v2;.kubeflow.pipelines.backend.api.v2beta1.Predicate.IntValuesH\x00R\tintValues\x12_\n" +
+	"\vlong_values\x18\b \x01(\v2<.kubeflow.pipelines.backend.api.v2beta1.Predicate.LongValuesH\x00R\n" +
+	"longValues\x12e\n" +
+	"\rstring_values\x18\t \x01(\v2>.kubeflow.pipelines.backend.api.v2beta1.Predicate.StringValuesH\x00R\fstringValues\x1a#\n" +
 	"\tIntValues\x12\x16\n" +
 	"\x06values\x18\x01 \x03(\x05R\x06values\x1a&\n" +
 	"\fStringValues\x12\x16\n" +
