@@ -57,3 +57,19 @@ jobs:
 
       - name: Check for Changes
         run: make check-diff
+
+  validate-backwards-compabitiblity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Validate Go proto code backwards compatibility
+        working-directory: ./backend/test/proto_tests
+        env:
+          UPDATE_EXPORTED: false
+        run: go test .

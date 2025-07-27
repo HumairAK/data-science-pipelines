@@ -470,7 +470,7 @@ func toApiPipelineVersion(pv *model.PipelineVersion) *apiv2beta1.PipelineVersion
 	}
 
 	// Convert pipeline spec
-	spec, err := yamlStringToPipelineSpecStruct(pv.PipelineSpec)
+	spec, err := YamlStringToPipelineSpecStruct(pv.PipelineSpec)
 	if err != nil {
 		return &apiv2beta1.PipelineVersion{
 			PipelineVersionId: pv.UUID,
@@ -1506,7 +1506,7 @@ func toApiRun(r *model.Run) *apiv2beta1.Run {
 		}
 		return apiRunV2
 	} else if r.PipelineSpec.PipelineSpecManifest != "" {
-		spec, err1 := yamlStringToPipelineSpecStruct(r.PipelineSpec.PipelineSpecManifest)
+		spec, err1 := YamlStringToPipelineSpecStruct(r.PipelineSpec.PipelineSpecManifest)
 		if err1 == nil {
 			apiRunV2.PipelineSource = &apiv2beta1.Run_PipelineSpec{
 				PipelineSpec: spec,
@@ -1515,7 +1515,7 @@ func toApiRun(r *model.Run) *apiv2beta1.Run {
 		}
 		err = util.Wrap(err1, err.Error()).(*util.UserError)
 	} else if r.PipelineSpec.WorkflowSpecManifest != "" {
-		spec, err1 := yamlStringToPipelineSpecStruct(r.PipelineSpec.WorkflowSpecManifest)
+		spec, err1 := YamlStringToPipelineSpecStruct(r.PipelineSpec.WorkflowSpecManifest)
 		if err1 == nil {
 			apiRunV2.PipelineSource = &apiv2beta1.Run_PipelineSpec{
 				PipelineSpec: spec,
@@ -2209,7 +2209,7 @@ func toApiRecurringRun(j *model.Job) *apiv2beta1.RecurringRun {
 	}
 
 	if j.PipelineSpec.PipelineId == "" && j.PipelineSpec.PipelineVersionId == "" {
-		spec, err := yamlStringToPipelineSpecStruct(j.PipelineSpec.PipelineSpecManifest)
+		spec, err := YamlStringToPipelineSpecStruct(j.PipelineSpec.PipelineSpecManifest)
 		if err != nil {
 			return &apiv2beta1.RecurringRun{
 				RecurringRunId: j.UUID,

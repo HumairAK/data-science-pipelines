@@ -19,7 +19,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"google.golang.org/protobuf/encoding/protojson"
 	"io"
 	"math"
 	"net"
@@ -27,6 +26,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/golang/glog"
