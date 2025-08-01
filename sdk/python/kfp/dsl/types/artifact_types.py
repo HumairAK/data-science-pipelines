@@ -531,16 +531,5 @@ def get_uri(suffix: str = 'Output') -> str:
         raise RuntimeError(
             f"'dsl.{get_uri.__name__}' can only be called at task runtime. The task root is unknown in the current environment."
         )
-    UNSUPPORTED_KFP_PATH = '/tmp/kfp_outputs'
-    if CONTAINER_TASK_ROOT == UNSUPPORTED_KFP_PATH:
-        warnings.warn(
-            f'dsl.{get_uri.__name__} is not yet supported by the KFP backend. Please specify a URI explicitly.',
-            RuntimeWarning,
-            stacklevel=2,
-        )
-        # return empty string, not None, to conform with logic in artifact
-        # constructor which immediately converts uri=None to uri=''
-        # this way the .path property can worry about handling fewer input types
-        return ''
     remote_task_root = convert_local_path_to_remote_path(CONTAINER_TASK_ROOT)
     return os.path.join(remote_task_root, suffix)
