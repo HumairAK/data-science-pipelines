@@ -4,7 +4,6 @@
 
 [//]: # (TODO: add)
 
-
 ### New KFP Database Schema
 
 We will make the following Additions to the DB Schema for Artifacts support: 
@@ -226,16 +225,41 @@ To run.proto we will add:
 syntax = "proto3";
 
 service RunService {
-  rpc GetArtifactEvents(GetArtifactEventsRequest) returns (Run) {
+  rpc ListArtifactEvents(GetArtifactEventsRequest) returns (GetArtifactEventsResponse) {
     option (google.api.http) = {
       get: "/apis/v2beta1/artifafct_events"
     };
   }
 }
 
+// The fields here work the same as previous backend api calls 
 message GetArtifactEventsRequest {
+  // Filter event by a set of task_ids 
   repeated string task_ids = 1;
+  string page_token = 2;
+  int32 page_size = 3;
+  string sort_by = 4;
+  string filter = 5;
 }
+
+message GetArtifactEventsResponse {
+  repeated ArtifactEvents events = 1;
+  int32 total_size = 2;
+  string next_page_token = 3;
+}
+
+message ArtifactEvents {
+  int64 id = 1;
+  int64 artifact_id = 2;
+  int64 task_id = 3;
+  enum Type {
+    INPUT = 0;
+    OUTPUT = 1;
+  }
+  Type type = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
 // TODO: getArtifactEventsByTasks
 message PipelineTaskDetail {
   // omit pre-existing fields 
@@ -271,8 +295,6 @@ message PipelineTaskDetail {
   map<string, ArtifactList> outputs = 12;
   repeated ChildTask child_tasks = 16;
 }
-
-
 ```
 
 Example Run JSON would look like the following:
@@ -357,7 +379,6 @@ Example Run JSON would look like the following:
 
 ### Driver changes
 
-
 #### Control Flows 
 
 In KFP the driver component is responsible for creating new Executions. There are two types of driver executions: 
@@ -377,13 +398,10 @@ In KFP the driver component is responsible for creating new Executions. There ar
 
 Each execution type interacts with mlmd in slightly different ways. 
 
-
-
 ##### ContainerExecution
 
 [//]: # (TODO: Add the standard code th[//]: # (TODO: Add the standard code that will need to be changed for Container executions, talk about input resolutions, how will input parameters be handled?)
 at will need to be changed for Container executions, talk about input resolutions, how will input parameters be handled?)
-
 
 ##### Loops 
 
@@ -406,16 +424,13 @@ or `condition-branches-`.
 
 2. **`CONDITION_BRANCHES`** - Represents the branches that stem from a conditional statement.
 
-
 ### Launcher changes 
 
 * Status updates and reporting for task level
 
-
 ### Nested Pipelines 
 
 [//]: # (TODO: add)
-
 
 ### Caching 
 
@@ -434,14 +449,14 @@ const artifacts = await getArtifactsFromContext(context);
 const events = await getEventsByExecutions(executions);
 ```
 
-These can be  be replaced by: 
+These can be replaced by: 
 
 ```typescript
 // context no longer needed, use the Run object which often readily available wherever context is required
 const tasks = run.run_details.task_details;  // run is a V2beta1Run
 const artifacts = await fetchArtifactsFromTasks(tasks); // the information is now available in the task.
 // a separate call for this is may not needed, as the required info may already be present in `tasks`
-const events = await getArtifactEventsByTasks(tasks);
+const events = await getArtifactEventsByTasks(tasks); // uses ListArtifactEvents()
 ```
 
 
