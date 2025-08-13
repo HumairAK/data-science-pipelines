@@ -1,0 +1,78 @@
+syntax = "proto3";
+import "artifacts.proto";
+
+
+service RunService {
+  rpc CreateTask(CreateTaskRequest) returns (PipelineTaskDetail) {
+    option (google.api.http) = {
+      post: "/apis/v2beta1/task"
+      body: "task"
+    };
+  }
+}
+
+message CreateTaskRequest {
+  // Run to be created.
+  PipelineTaskDetail task = 2;
+}
+
+
+
+message PipelineTaskDetail {
+  //--------------------------
+  // Pre-Existing fields
+  //--------------------------
+  // This will be changed to Output only.
+  string task_id = 2;
+  string run_id = 1;
+  string display_name = 3;
+  google.protobuf.Timestamp create_time = 4;
+  google.protobuf.Timestamp start_time = 5;
+  google.protobuf.Timestamp end_time = 6;
+  PipelineTaskExecutorDetail executor_detail = 7;
+  RuntimeState state = 8;
+  int64 execution_id = 9;
+  google.rpc.Status error = 10;
+  string parent_task_id = 13;
+  repeated RuntimeStatus state_history = 14;
+  // This will be changed to Output only.
+  // Note also this is applicable only to the Runtime tasks
+  string pod_name = 15;
+
+  // Deprecate these fields
+  map<string, ArtifactList> inputs = 11;
+  map<string, ArtifactList> outputs = 12;
+  repeated ChildTask child_tasks = 16;
+
+  //--------------------------
+  // New fields
+  //--------------------------
+
+  repeated string child_tasks_ids = 17;
+  repeated Artifact input_artifacts = 18;
+  repeated Artifact output_artifacts = 19;
+
+  message parameter {
+    string key = 1;
+    string value = 2;
+  }
+  repeated parameter input_parameters = 20;
+  repeated parameter output_parameters = 21;
+
+  enum TaskType {
+    RUNTIME = 0;
+    CONDITION_BRANCH = 1;
+    CONDITION = 2;
+    LOOP = 3;
+    LOOP_ITERATION = 4;
+  }
+  TaskType type = 22;
+
+  // Applies to type LOOP_ITERATION
+  int64 iteration_index = 23;
+  // Applies to type LOOP
+  int64 iteration_count = 24;
+  string name = 25;
+
+
+}
