@@ -16,7 +16,6 @@ message CreateTaskRequest {
   PipelineTaskDetail task = 2;
 }
 
-
 message PipelineTaskDetail {
   //--------------------------
   // Pre-Existing fields
