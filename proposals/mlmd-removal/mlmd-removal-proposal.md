@@ -183,6 +183,8 @@ Driver has scope to create/fetch artifacts in that namespace, since the run was 
 
 What about importing artifacts? 
 
+Driver Launcher does SAR using Pipeline Service Account - consider importer
+
 ### Delivery Plan 
 
 * Add the tables and gorm model changes

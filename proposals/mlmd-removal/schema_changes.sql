@@ -1,27 +1,16 @@
--- This is a static table to keep type values normalized
 -- It will contain types like: Artifact, Model, Dataset
-CREATE TABLE `artifact_type`
-(
-    `UUID` int NOT NULL AUTO_INCREMENT,
-    `name` varchar(255) NOT NULL,
-    `version` varchar(255) DEFAULT NULL,
-    `description` text,
-    PRIMARY KEY (`UUID`),
-    KEY `idx_type_name` (`name`)
-);
 
 CREATE TABLE `artifacts`
 (
     `UUID` varchar(191) NOT NULL,
     -- For multi-tenancy, this is new and did not exist in mlmd, for migration we can fetch the associated context and backfill this
     `Namespace` varchar(63) NOT NULL,
-    `type_id` int NOT NULL,
+    `type` varchar(64) DEFAULT NULL,
     `uri` text,
     `name` varchar(128) DEFAULT NULL,
     `create_time_since_epoch` bigint NOT NULL DEFAULT '0',
     `last_update_time_since_epoch` bigint NOT NULL DEFAULT '0',
-    CONSTRAINT fk_artifacts_types FOREIGN KEY (type_id) REFERENCES artifact_type (UUID) ON DELETE RESTRICT ON UPDATE CASCADE,
-    KEY idx_artifacts_type_id (type_id)
+    PRIMARY KEY (`UUID`)
 );
 
 -- For supporting Artifact metadata
@@ -43,7 +32,7 @@ CREATE TABLE `artifact_properties`
 -- Analogous to an mlmd Event, except it is specific to artifacts <-> tasks (instead of executions)
 CREATE TABLE `artifact_events`
 (
-    `id` int NOT NULL AUTO_INCREMENT,
+    `UUID` int NOT NULL AUTO_INCREMENT,
     `artifact_id` int NOT NULL,
     `task_id` int NOT NULL,
     -- 0 for INPUT, 1 for OUTPUT
@@ -51,6 +40,7 @@ CREATE TABLE `artifact_events`
     `type` int NOT NULL CHECK (type IN (0, 1)),
     `create_time_since_epoch` bigint NOT NULL DEFAULT '0',
 
+    PRIMARY KEY (`UUID`),
     UNIQUE KEY `UniqueLink` (`artifact_id`,`task_id`,`type`),
     KEY `idx_link_task_id` (`task_id`),
     CONSTRAINT fk_artifact_events_artifacts FOREIGN KEY (artifact_id) REFERENCES artifacts (UUID) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -69,16 +59,6 @@ CREATE TABLE `artifact_events`
 -- existing of `LoopIteration` is unfortunate, and the project should try to remove the need for this, however this
 -- is out of scope of this proposal.
 
--- TODO: Get rid of this --> Have task type be a string enum
-CREATE TABLE `task_types`
-(
-    `UUID` int NOT NULL AUTO_INCREMENT,
-    `name` varchar(255) NOT NULL,
-    `version` varchar(255) DEFAULT NULL,
-    `description` text,
-    PRIMARY KEY (`UUID`),
-    KEY `idx_type_name` (`name`)
-);
 
 -- Consider breaking up tasks table into sub tables like task_iteration, task_condition, etc.
 -- We can do inheritance to have the different task types,
@@ -122,15 +102,14 @@ CREATE TABLE `tasks`
     -- Only applicable for Iteration tasks
     `IterationCount` int,
     -- Corresponds to the executions created for each driver pod, which result in a Node on the Run Graph.
-    `TypeID` int NOT NULL,
+    -- E.g values are: Runtime, Condition, Loop, etc.
+    `Type` varchar(64) DEFAULT NULL,
 
     PRIMARY KEY (`UUID`),
     KEY `tasks_RunUUID_run_details_UUID_foreign` (`RunUUID`),
-    CONSTRAINT fk_tasks_types FOREIGN KEY (TypeID) REFERENCES task_types (UUID) ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT `tasks_RunUUID_run_details_UUID_foreign` FOREIGN KEY (`RunUUID`) REFERENCES `run_details` (`UUID`) ON DELETE CASCADE ON UPDATE CASCADE,
-    KEY idx_artifacts_type_id (TypeID)
+    KEY idx_artifacts_type_id (Type)
 )
-
 
 -- The run_details table doesn't change but is provided here as a reference
 CREATE TABLE `run_details`

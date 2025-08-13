@@ -107,22 +107,26 @@ message Artifact {
   // Note: it seems in MLMD when name was set, it had to be unique for that type_id
   // this restriction is removed here
   string name = 2;
-  // The id of an ArtifactType. This needs to be specified when an artifact is
-  // created, and it cannot be changed.
-  int64 type_id = 3;
-  // Output only. The name of an ArtifactType. E.g. Dataset
-  string type = 4;
+
+  enum ArtifactType {
+    Artifact = 0;
+    Model = 1;
+    Dataset = 2;
+  }
+  // The name of an ArtifactType. E.g. Dataset
+  ArtifactType type = 3;
+
   // The uniform resource identifier of the physical artifact.
   // May be empty if there is no physical artifact.
-  string uri = 5;
+  string uri = 4;
   // User provided custom properties which are not defined by its type.
-  map<string, Value> custom_properties = 6;
+  map<string, Value> custom_properties = 5;
   // Output only. Create time of the artifact in millisecond since epoch.
   // Note: The type and name is updated from mlmd artifact to be consistent with other backend apis.
-  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp created_at = 6;
 
   // New field:
-  string namespace = 8;
+  string namespace = 7;
 
   // In KFP only the Live state is ever used
   // Optionally we can omit this and always assume
@@ -135,8 +139,8 @@ message Artifact {
     // omitted other states as they are not applicable to KFP
   }
   // The state of the artifact known to the system.
-  State state = 9;
+  State state = 8;
 
-  // Fields not included from mlmd artifact are: state, external_id, properties, system_metadata, last_update_time_since_epoch
+  // Fields not included from mlmd artifact are: state, external_id, properties, system_metadata, last_update_time_since_epoch, type_id
   // Reference: https://raw.githubusercontent.com/kubeflow/pipelines/refs/heads/master/third_party/ml-metadata/ml_metadata/proto/metadata_store.proto
 }

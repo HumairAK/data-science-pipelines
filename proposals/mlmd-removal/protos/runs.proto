@@ -17,7 +17,6 @@ message CreateTaskRequest {
 }
 
 
-
 message PipelineTaskDetail {
   //--------------------------
   // Pre-Existing fields
@@ -29,7 +28,6 @@ message PipelineTaskDetail {
   google.protobuf.Timestamp create_time = 4;
   google.protobuf.Timestamp start_time = 5;
   google.protobuf.Timestamp end_time = 6;
-  PipelineTaskExecutorDetail executor_detail = 7;
   RuntimeState state = 8;
   int64 execution_id = 9;
   google.rpc.Status error = 10;
@@ -39,7 +37,8 @@ message PipelineTaskDetail {
   // Note also this is applicable only to the Runtime tasks
   string pod_name = 15;
 
-  // Deprecate these fields
+  // Remove these fields
+  PipelineTaskExecutorDetail executor_detail = 7;
   map<string, ArtifactList> inputs = 11;
   map<string, ArtifactList> outputs = 12;
   repeated ChildTask child_tasks = 16;
@@ -47,17 +46,41 @@ message PipelineTaskDetail {
   //--------------------------
   // New fields
   //--------------------------
-
   repeated string child_tasks_ids = 17;
-  repeated Artifact input_artifacts = 18;
-  repeated Artifact output_artifacts = 19;
 
-  message parameter {
-    string key = 1;
-    string value = 2;
+  enum InputType {
+    ResolvedValue = 0;
+    PipelineChannel = 1;
   }
-  repeated parameter input_parameters = 20;
-  repeated parameter output_parameters = 21;
+
+  message Parameter {
+    InputType input_type = 1;
+    string value = 2;
+
+    // Fields for Resolved type
+    string name = 3;
+
+    // Fields for PipelineChannel type
+    string producer_task_name = 4;
+    string producer_parameter_id = 5;
+  }
+  repeated Parameter input_parameters = 18;
+  repeated Parameter output_parameters = 19;
+
+  message TaskArtifact {
+    InputType input_type = 1;
+    Artifact value = 2;
+
+    // Fields for ResolvedValue type
+    string name = 3;
+
+    // Fields for PipelineChannel type
+    string producer_task_name = 4;
+    string producer_parameter_id = 5;
+
+  }
+  repeated TaskArtifact input_artifacts = 20;
+  repeated TaskArtifact output_artifacts = 21;
 
   enum TaskType {
     RUNTIME = 0;
@@ -73,6 +96,4 @@ message PipelineTaskDetail {
   // Applies to type LOOP
   int64 iteration_count = 24;
   string name = 25;
-
-
 }
