@@ -96,3 +96,13 @@ message PipelineTaskDetail {
   int64 iteration_count = 24;
   string name = 25;
 }
+
+
+message Run {
+  // ...
+  // This will be added
+  repeated PipelineTaskDetail tasks = 18;
+
+  // Either remove or deprecate this
+  RunDetails run_details = 15;
+}
