@@ -12,7 +12,7 @@
   "finished_at": "2025-08-08T15:18:24Z",
   "state": "SUCCEEDED",
 
-  // This is new
+  // This is new:
   "tasks": [
     {
       "task_id": "task_id_1",
@@ -110,7 +110,8 @@
       // This should match the component task names created during sdk compilation
       // UI can use this to look up matching tasks in the UI.
       // In the case of task_groups this would take on names like: "condition-branches-1, for-loop-1, etc."
-      "name": "task_name"
+      "name": "task_name",
+      "cache_fingerprint": "0d32871640a827e4abaec95747b8780602f38f2f66d447ee70af3a7310d5849e"
     }
   ],
 

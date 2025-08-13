@@ -95,6 +95,8 @@ message PipelineTaskDetail {
   // Applies to type LOOP
   int64 iteration_count = 24;
   string name = 25;
+
+  string cache_fingerprint = 26;
 }
 
 
