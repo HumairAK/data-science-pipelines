@@ -32,6 +32,7 @@
       "child_tasks": [{"pod_name": "pipeline-j9t66-382940577"}],
 
       // Add these new fields
+
       "child_task_ids": [
         "task_id_2",
         "task_id_3"

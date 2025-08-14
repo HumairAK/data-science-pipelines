@@ -10,6 +10,8 @@ See [schema_changes.sql](./schema_changes.sql) for the database schema additions
 
 Note that a task is a db model for a task node type as viewed in the Run Graph of the UI.
 
+Note that we will be dropping the task table that exists today and recreating it. This is because it is rarely used within KFP, and where it is used, it is unnecessary (i.e., caching). This will require a migration strategy, addressed later in the proposal.
+
 ### KFP Server API
 
 To facilitate the removal of MLMD, the KFP server will now take on the burden of handling Artifacts, Dags, input resolution, and so on. 
@@ -168,12 +170,64 @@ Each of these results in a new dag execution. Instead of these executions, will 
 
 ##### Caching
 
-Caching mechanisms should remain the same. The `PipelineTaskDetail` proto will support a `cache_fingerprint` field. 
-For task creation and updates this field can be provided for `CreateTask`, `UpdateTask`.
+###### Caching explained 
+To understand how caching out to be handle in a post mlmd world, let's first review how caching in KFP works. 
+
+Caching has two parts. The first being Cache Fingerprint creations which happen in the launcher, and the second is detecting Cache hits, which happen in Container Drivers. 
+
+1. At the end of launcher `Execute()` procedure, there is a call to `l.clientManager.CacheClient().CreateExecutionCache(ctx, task)` which store a `Task` with a `cache_fingerprint`. Underneath, this uses the `TaskServiceClient.CreateTaskV1` api, meaning this is execution data stored in the Task database table. 
+1. When the container driver runs, it will run: 
+```go
+if !opts.CacheDisabled {
+    fingerPrint, cachedMLMDExecutionID, err := getFingerPrintsAndID(execution, &opts, cacheClient)
+    if err != nil {
+        return execution, err
+    }
+  ecfg.CachedMLMDExecutionID = cachedMLMDExecutionID
+  ecfg.FingerPrint = fingerPrint
+}
+createdExecution, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
+```
+
+The call to `getFingerPrintsAndID` will make a subsequent call to `TaskServiceClient.ListTasksV1` and fetch the execution ID for the Task with the fingerprint stored in the launcher step. If such an execution ID is found we assume there was a cache hit, and we don't run the next launcher. 
+
+Notice also that we st ore the `ecfg.FingerPrint = fingerPrint` in the MLMD execution as well, this means the container execution also has the `cache_fingerprint` found in the task table. 
+
+###### Caching post mlmd
+
+Much of the logic flow will stay the same, but instead of calls to `TaskServiceClient`'s v1 API, the v2 `RunService` api will be used.
+
+When the `launcher` finishes running `Execute()` it `defers` and `UpdateDAGExecutionsState()` call, this can be replaced with the `UpdateTask` call using the v2 `RunServerClient`, providing the `cache_fingerprint` for this `Runtime` task. 
+
+In the driver, `getFingerPrintsAndID` will be updated to leverage `ListTasks` and it's `filter` capability to search by `cache_fingerprint` to detect a hit, much like how it uses `ListTasksV1` today. Note that unlike how the driver works today, the `cache_fingerprint` should not be stored for an upcoming task that will be created (in the driver), it should instead be updated by the launcher once an execution successfully completes. 
+
+** Migration Note ** 
+
+Caching needs special consideration for migration. Since the `tasks` table will be dropped and re-populated using data from MLMD, caching will need to be handled carefully. When converting a `ContainerExecution` to a `Runtime` task, only store the fingerprint if the execution has a `COMPLETE` status.  
 
 ### Launcher changes 
 
-* Status updates and reporting for task level
+Like driver, launcher will need new client connections to the RunServerClient to reach the Runs api for task fetching, and similarly an `ArtifactServiceClient`.
+
+The following flags will need to be removed: 
+
+```text
+--execution_id
+--mlmd_server_address
+--mlmd_server_port
+```
+
+And replaced with: 
+
+```text
+--task_id
+--kfp_server_address
+--kfp_server_port
+```
+
+This is a good opportunity to also replace the endpoints used in `cacheDefaultEndpoint` to use this address/port value, instead of relying on hardcoded defaults. 
+
+Other changes that will be required in launcher are mentioned elsewhere in the proposal (see [Caching](#caching), and [Metrics](#metrics) sections).
 
 ### Nested Pipelines 
 
@@ -209,7 +263,7 @@ Removing this property from the Artifact will also require Frontend changes, the
 
 The server will instead need to build this object similar to how the root driver does it [here](https://github.com/kubeflow/pipelines/blob/2c91fb797ed5e95bb51ae80c4daa2c6b9334b51b/frontend/server/handlers/artifacts.ts#L102). 
 
-### Metrics 
+### Metrics
 
 Metrics in KFP today are stored as Artifacts, they have the following Artifact Types: 
 
@@ -289,8 +343,6 @@ The `CompareV2.tsx` also makes various calls to MLMD, much like `RuntimeNodeDeta
 ```typescript
       Promise.all(
         runIds.map(async runId => {
-          // TODO(zijianjoy): MLMD query is limited to 100 artifacts per run.
-          // https://github.com/google/ml-metadata/blob/5757f09d3b3ae0833078dbfd2d2d1a63208a9821/ml_metadata/proto/metadata_store.proto#L733-L737
           const context = await getKfpV2RunContext(runId);
           const executions = await getExecutionsFromContext(context);
           const artifacts = await getArtifactsFromContext(context);
@@ -319,29 +371,22 @@ _, err = s.reportTasksFromExecution(newExecSpec, runId)
 
 ### Auth Considerations 
 
-The driver/launcher will be making requests for tasks, artifacts, etc. from API server 
-How will they check for authorization on behalf of user that they have access to this namespace? 
+The Driver/Launcher will be introducing a new `RunServerClient` and `ArtifactServerClient` using the `v2beta1`. All calls to this endpoint must be protected via SubjectAccessReview. The new server implementations can simply use `resourceManager.IsAuthorized(ctx, resourceAttributes)`, which is the standard everywhere else in KFP. For `ArtifactService` implementations, we will introduce `RbacResourceTypeArtifacts = "artifactgs"`, in `backend/src/apiserver/common/const.go` much like the other resources.
 
-When driver is creating an artifact, it always creates it in the namespace the pipeline is running, so it's fine if 
-Driver has scope to create/fetch artifacts in that namespace, since the run was gated already via namespace. 
+Note also that the Driver/Launcher communicate with the KFP Server via the CacheClient. This has no auth mechanism today, and will need to be updated. 
 
-What about importing artifacts? 
+The Driver/Launcher will provide the Pipeline Runner's Service Account token in the auth header for authorization. 
 
-Driver Launcher does SAR using Pipeline Service Account - consider importer
+As such the Pipeline Runner SA will need the appropriate namespace level to such resources for the Driver & Launcher to communicate with the Api Server.
 
-### Delivery Plan 
+### Manifests 
 
-* Add the tables and gorm model changes
-* Start logging all Dags and as tasks alongside MLMD 
-    * Do each control flow seperately?
-    * Should also update the task details proto/json reporting on pipeline server
-* Update the API server to display: 
-  * Accurate Task pod name 
-  * Child tasks 
-* Update the UI to start reading from the API server, removing MLMD logic
-* Update resolve/input logic to use Task details and remove all MLMD invocations from the backend
-* Keep MLMD around for the next release, and add migration scripts/code 
-* In the following release, remove MLMD manifests, deployment options, etc. 
+The following changes will need to be made: 
+
+* For Driver/Launcher authentication purpose, the Pipeline Runner rbac will need to be updated accordingly to support basic verbs on the Artifact resource accordingly. 
+* Envoy manifests will be removed 
+* MLMD manifests will need to be removed 
+* Any configmaps, env vars, or such fields referencing MLMD will need to be removed
 
 ### Migration
 
@@ -357,11 +402,22 @@ We can either:
 1. User needs to provision (as new configs) DB credentials to apiserver, if the user does not provide these - api server will fail to start up with reason
 2. Or we auto detect if we can see these tables (if they are using the opinioated kf/kfp installs), if so we require an opt-in config via `MigrateMLMD=True`
    This way the user does not need to provide an additional set of configs. If we can't access it, user will need to provide credentials like (1)
-3. Migration script - light weight, it's a one time op, API Server would fail if we are in a pre-migrate state 
+3. Migration script—light weight, it's a one time op, API Server would fail if we are in a pre-migrate state 
 
 ### Testing
 
-[//]: # (TODO: add)
+
+
+
+### Delivery Plan
+
+* Add the proto files, tables, and gorm model changes
+* Add API Server Logic
+* Start adding all _post_ server logic in Driver and Launcher (alongside MLMD)
+* Update the UI to start reading from the API server, removing MLMD logic from frontend
+* Update resolve/input logic to use Task details and remove all MLMD invocations from the backend
+* Remove MLMD logic from Driver/Launcher, and add Migration logic
+* Remove MLMD from manifests
 
 ### Conclusion
 

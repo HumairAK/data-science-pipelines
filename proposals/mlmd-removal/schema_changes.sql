@@ -68,10 +68,10 @@ CREATE TABLE `tasks`
 (
     `UUID` varchar(191) NOT NULL,
     `Namespace` varchar(255) NOT NULL,
-    -- We will drop PipelineName
+    -- This is used for cache_fprints
     `PipelineName` varchar(255) NOT NULL,
     `RunUUID` varchar(255) NOT NULL,
-    -- Only applicable for Runtime Tasks. This doesn't point to the runtime pod for this task, this will need to be fixed
+    -- This doesn't point to the runtime pod for this task, this will need to be fixed
     `PodName` varchar(255) NOT NULL,
     `MLMDExecutionID` varchar(255) NOT NULL, -- drop
     `CreatedTimestamp` bigint NOT NULL,
@@ -87,18 +87,15 @@ CREATE TABLE `tasks`
     `MLMDOutputs` longtext, -- drop
     `ChildrenPods` longtext,  -- drop
     `Payload` longtext, -- drop
+
     -- New fields:
-    -- Only applicable for Runtime
-    `DisplayName` varchar(255),
     `InputParameters` longtext,
     `OutputParameters` longtext,
-    -- Only applicable for IterationIndex tasks
-    `IterationIndex` int,
-    -- Only applicable for Iteration tasks
-    `IterationCount` int,
     -- Corresponds to the executions created for each driver pod, which result in a Node on the Run Graph.
     -- E.g values are: Runtime, Condition, Loop, etc.
-    `Type` varchar(64) DEFAULT NULL,
+    `Type` varchar(64) DEFAULT NOT NULL,
+    -- All type-specific attributes (Runtime.DisplayName, Loop.IterationIndex/Count)
+    `TypeAttrs` json NOT NULL
 
     PRIMARY KEY (`UUID`),
     KEY `tasks_RunUUID_run_details_UUID_foreign` (`RunUUID`),
