@@ -39,7 +39,30 @@ service ArtifactService {
       body: "*"
     };
   }
+
+  // Logs a metric for a specific task.
+  rpc LogMetric(LogMetricRequest) returns (Metric) {
+    option (google.api.http) = {
+      post: "/apis/v2beta1/metrics"
+      body: "*"
+    };
+  }
+
+  // Gets a metric by task ID and name.
+  rpc GetMetric(GetMetricRequest) returns (Metric) {
+    option (google.api.http) = {
+      get: "/apis/v2beta1/metrics/{task_id}/{name}"
+    };
+  }
+
+  // Lists all metrics.
+  rpc ListMetrics(ListMetricsRequest) returns (ListMetricsResponse) {
+    option (google.api.http) = {
+      get: "/apis/v2beta1/metrics"
+    };
+  }
 }
+
 
 message CreateArtifactRequest {
   // Required. The artifact to create.
@@ -114,6 +137,38 @@ message GetArtifactEventsResponse {
   string next_page_token = 3;
 }
 
+message LogMetricRequest {
+  // Required. The metric to log.
+  Metric metric = 1;
+}
+
+message GetMetricRequest {
+  // Required. Task UUID that owns this metric
+  string task_id = 1;
+  // Required. Name of the metric
+  string name = 2;
+}
+
+message ListMetricsRequest {
+  // A page token to request the results page.
+  string page_token = 1;
+  // The number of metrics to be listed per page.
+  int32 page_size = 2;
+  // Sorting order in form of "field_name", "field_name asc" or "field_name desc".
+  string sort_by = 3;
+  // A url-encoded, JSON-serialized filter protocol buffer.
+  string filter = 4;
+}
+
+message ListMetricsResponse {
+  // The list of metrics returned.
+  repeated Metric metrics = 1;
+  // The total number of metrics available.
+  int32 total_size = 2;
+  // Token to retrieve the next page of results.
+  string next_page_token = 3;
+}
+
 enum ArtifactEventType {
   INPUT = 0;
   OUTPUT = 1;
@@ -125,6 +180,27 @@ message ArtifactEvents {
 
   ArtifactEventType type = 4;
   google.protobuf.Timestamp created_at = 5;
+}
+
+enum MetricType {
+  METRIC_INPUT = 0;
+  METRIC_OUTPUT = 1;
+}
+
+message Metric {
+  // Required. Task UUID that owns this metric
+  string task_id = 1;
+  // Required. Name of the metric
+  string name = 2;
+  // Optional. Numeric value of the metric
+  double number_value = 3;
+  // Optional. JSON value of the metric
+  string json_value = 4;
+  // Required. Schema of the metric
+  string schema = 5;
+
+  // Required. Type of the metric (input/output)
+  MetricType type = 6;
 }
 
 // Note to be confused with RuntimeArtifact in pipelinespec
@@ -141,6 +217,8 @@ message Artifact {
     Artifact = 0;
     Model = 1;
     Dataset = 2;
+    HTML = 3;
+    Markdown = 4;
   }
   // The name of an ArtifactType. E.g. Dataset
   ArtifactType type = 3;
@@ -173,3 +251,4 @@ message Artifact {
   // Fields not included from mlmd artifact are: state, external_id, properties, system_metadata, last_update_time_since_epoch, type_id
   // Reference: https://raw.githubusercontent.com/kubeflow/pipelines/refs/heads/master/third_party/ml-metadata/ml_metadata/proto/metadata_store.proto
 }
+

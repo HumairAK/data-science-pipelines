@@ -48,8 +48,7 @@ CREATE TABLE `artifact_events`
 );
 
 -- This is a static table to keep type values normalized
--- TODO: do we need a "NestedPipeline" TaskType?
--- It will contain types like: Runtime, ConditionBranch, Condition, Loop, LoopIteration
+-- It will contain types like: Runtime, ConditionBranch, Condition, Loop, LoopIteration, Dag (Nested and other cases)
 -- Optionally, we can consolidate TaskType and ArtifactType into one table
 
 -- The Types: `ConditionBranch`, `Condition`, `Loop` are taskgroups in the KFP SDK and each have a dag
@@ -67,7 +66,7 @@ CREATE TABLE `artifact_events`
 -- field and a task_uuid FK column).
 CREATE TABLE `tasks`
 (
-    `UUID` varchar(255) NOT NULL,
+    `UUID` varchar(191) NOT NULL,
     `Namespace` varchar(255) NOT NULL,
     -- We will drop PipelineName
     `PipelineName` varchar(255) NOT NULL,
@@ -82,7 +81,6 @@ CREATE TABLE `tasks`
     -- This seems like it's unique within a run, regardless of task type
     `Name` varchar(255) DEFAULT NULL,
     `ParentTaskUUID` varchar(255) DEFAULT NULL,
-    -- TODO: only set sometimes?
     `State` varchar(255) DEFAULT NULL,
     `StateHistory` longtext,
     `MLMDInputs` longtext, -- drop
@@ -106,6 +104,19 @@ CREATE TABLE `tasks`
     KEY `tasks_RunUUID_run_details_UUID_foreign` (`RunUUID`),
     CONSTRAINT `tasks_RunUUID_run_details_UUID_foreign` FOREIGN KEY (`RunUUID`) REFERENCES `run_details` (`UUID`) ON DELETE CASCADE ON UPDATE CASCADE,
     KEY idx_artifacts_type_id (Type)
+)
+
+-- We will also revamp the Metrics table, it is not used today so we can drop it and recreate it as needed without worrying about breaking changes:
+CREATE TABLE `run_metrics`
+(
+    `TaskUUID` varchar(191) NOT NULL,
+    `Name` varchar(255) NOT NULL,
+    `NumberValue` double DEFAULT NULL,
+    `JsonValue` JSON DEFAULT NULL,
+    -- 0 for INPUT, 1 for OUTPUT
+    `Type` int NOT NULL,
+    `Schema` varchar(64) NOT NULL,
+    PRIMARY KEY (`TaskUUID`, `Name`)
 )
 
 -- The run_details table doesn't change but is provided here as a reference

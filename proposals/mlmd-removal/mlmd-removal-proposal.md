@@ -195,8 +195,59 @@ And build it use it directly in `launcher_v2.go`, replacing:
 storeSessionInfo, err := objectstore.GetSessionInfoFromString(execution.GetPipeline().GetStoreSessionInfo())
 ```
 
+### Metrics 
+
+Metrics in KFP today are stored as Artifacts, they have the following Artifact Types: 
+
+* system.Metrics - Regular Key -> NumberValue pair 
+* system.ClassificationMetrics - Key -> JSON 
+* system.SlicedClassificationMetrics -> Key -> JSON
+
+The values for these Metrics Artifacts are stored as `CustomProperties`, they aren't actually stored in object store. 
+So it is questionable that they are treated as Artifacts to begin with. Instead of porting this behavior, we'll instead leverage the Metrics table in KFP which is currently unused. 
+
+We will log the Metrics there when such artifact types are encountered in the launcher. These can be addressed in `launcher_v2.go` when `uploadOutputArtifact` is called. During this invocation we can check for an artifacts type via: 
+
+```go
+	schemaTitle := runtimeArtifact.Type.GetSchemaTitle()
+	switch schemaTitle {
+	case "system.Metrics":  // Handles Metric type, do something similar for ClassificationMetrics & SlicedClassificationMetrics
+		err := LogMetric(...)
+		...
+    case "system.Artifact":
+        err := RecordArtifact()
+		...
+```
+
+In the executor Input we can abstain from storing a URI since this does not apply to Metrics.
+
+When the driver is looking to resolve Artifacts, to store in the ExecutorInput, it will need to ensure it's differentiating between Metrics and other Artifact types.
+
+To keep the Python SDK will continue to interpret Metrics as artifacts, this helps maintain backwards compatibility. The Driver will need to ensure when it is creating the Artifacts list during the call to `resolveInputs -> resolveInputArtifact -> resolveUpstreamArtifacts() -> artifact.ToRuntimeArtifact()`, we are parsing Metrics. The updated pseudocode in `resolveUpstreamArtifacts` will be something like: 
+
+```go
+package driver
+
+func resolveUpstreamArtifacts(cfg resolveUpstreamOutputsConfig) (*pipelinespec.ArtifactList, error) {
+  for {
+    ...
+  } else {
+    // use the Component *pipelinespec.ComponentSpec.ComponentInputsSpec from Options in driver.go to determine 
+	// artifact schema type, 
+    schemaTitle := determineArtifactSchema(ComponentInputSpec, TaskSpec)
+    switch schemaTitle {
+    case "system.Metrics":  // Handles Metric type, do something similar for ClassificationMetrics & SlicedClassificationMetrics
+	  // GetOutputMetricsByTaskID can fetch the Task via GetTask (if we don't already have the task), 
+	  // and can parse the `output_metrics` to return map[string]*OutputArtifact or just the *OutputArtifact
+      outputs, err := GetOutputMetricsByTaskID(cfg.ctx, taskID)
+    case "system.Artifact":
+      outputs, err := GetOutArtifactsByTaskID(cfg.ctx, taskID)
+  }
+}
+```
+
 ### Frontend Changes 
-For run details, MLMD data is fetched via: 
+For run details, MLMD data is fetched in `RuntimeNodeDetailsV2.tsx` via: 
 
 ```typescript
 const context = await getKfpV2RunContext(runId);
@@ -205,7 +256,7 @@ const artifacts = await getArtifactsFromContext(context);
 const events = await getEventsByExecutions(executions);
 ```
 
-These can be replaced by: 
+These can be replaced by the following new implementations: 
 
 ```typescript
 // context no longer needed, use the Run object which often readily available wherever context is required
@@ -214,6 +265,32 @@ const artifacts = await fetchArtifactsFromTasks(tasks); // the information is no
 // a separate call for this is may not needed, as the required info may already be present in `tasks`
 const events = await getArtifactEventsByTasks(tasks); // uses ListArtifactEvents()
 ```
+
+The `Visualization` Nav in `RuntimeNodeDetailsV2.tsx` will also need to be updated to take `Metrics` fetch from `Task` proto, instead of `Artifacts` from MLMD.
+
+The Artifact Node in the UI should also no longer display an `Artifact URI`, as this is not applicable to metrics. 
+
+The `CompareV2.tsx` also makes various calls to MLMD, much like `RuntimeNodeDetailsV2`: 
+
+```typescript
+      Promise.all(
+        runIds.map(async runId => {
+          // TODO(zijianjoy): MLMD query is limited to 100 artifacts per run.
+          // https://github.com/google/ml-metadata/blob/5757f09d3b3ae0833078dbfd2d2d1a63208a9821/ml_metadata/proto/metadata_store.proto#L733-L737
+          const context = await getKfpV2RunContext(runId);
+          const executions = await getExecutionsFromContext(context);
+          const artifacts = await getArtifactsFromContext(context);
+          const events = await getEventsByExecutions(executions);
+          return {
+            executions,
+            artifacts,
+            events,
+          } as MlmdPackage;
+        }),
+      ),
+```
+
+This and associated code will also need to be updated to leverage Tasks retrieved via the Runs API server.
 
 #### Run Reporting
 

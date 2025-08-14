@@ -126,6 +126,23 @@ message PipelineTaskDetail {
   repeated TaskArtifact input_artifacts = 20;
   repeated TaskArtifact output_artifacts = 21;
 
+  message TaskMetric {
+    enum Type {
+      METRIC = 0;
+      CLASSIFICATION_METRICS = 1;
+      SlicedClassificationMetrics = 2;
+    }
+    string key = 3;
+    Type type = 4;
+    // If It's a METRIC
+    oneof ValueType {
+      double value = 5;
+      google.protobuf.Struct values = 6;
+    }
+  }
+  repeated TaskMetric input_metrics = 22;
+  repeated TaskMetric output_metrics = 23;
+
   enum TaskType {
     // Root task replaces Root Execution, it is the top ancestor task to all tasks in the pipeline run
     ROOT = 0;
@@ -140,14 +157,14 @@ message PipelineTaskDetail {
     // a driver.
     DAG = 7;
   }
-  TaskType type = 22;
+  TaskType type = 24;
 
   // Applies to type LOOP_ITERATION
-  int64 iteration_index = 23;
+  int64 iteration_index = 25;
   // Applies to type LOOP
-  int64 iteration_count = 24;
-  string name = 25;
-  string cache_fingerprint = 26;
+  int64 iteration_count = 26;
+  string name = 27;
+  string cache_fingerprint = 28;
 }
 
 
