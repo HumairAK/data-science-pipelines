@@ -23,6 +23,19 @@ service ArtifactService {
       get: "/apis/v2beta1/artifafct_events"
     };
   }
+
+  // Creates a new artifact.
+  rpc CreateArtifact(CreateArtifactRequest) returns (Artifact) {
+    option (google.api.http) = {
+      post: "/apis/v2beta1/artifacts"
+      body: "*"
+    };
+  }
+}
+
+message CreateArtifactRequest {
+  // Required. The artifact to create.
+  Artifact artifact = 1;
 }
 
 message GetArtifactRequest {
@@ -67,13 +80,13 @@ message ListArtifactResponse {
 // The fields here work the same as previous backend api calls
 message GetArtifactEventsRequest {
   // Filter event by a set of task_ids
+  // We can also likely just rely on filter for this and omit this field
   repeated string task_ids = 1;
   // API Server can do SAR on Artifacts in this namespace for authz
-  string namespace = 2;  // TODO: double check if we want this
-  string page_token = 3;
-  int32 page_size = 4;
-  string sort_by = 5;
-  string filter = 6;
+  string page_token = 2;
+  int32 page_size = 3;
+  string sort_by = 4;
+  string filter = 5;
 }
 
 message GetArtifactEventsResponse {

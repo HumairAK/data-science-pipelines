@@ -61,6 +61,8 @@ type Execution struct {
   pipeline  *Pipeline
 }
 // A pipeline context contains: create/update time, namespace, pipeline_root
+// The pipelineCtx represents a Pipeline (not PipelineVersion) and is created once per pipeline
+// This struct is primarily used for creating execution Associations and can most likely be discarded
 type Pipeline struct {
   pipelineCtx    *pb.Context
   pipelineRunCtx *pb.Context
@@ -87,6 +89,7 @@ func (c *Client) GetExecutions(ctx context.Context, ids []int64) ([]*pb.Executio
 func (c *Client) GetExecution(ctx context.Context, id int64) (*Execution, error)
 func (c *Client) GetPipelineFromExecution(ctx context.Context, id int64) (*Pipeline, error)
 func (c *Client) GetExecutionsInDAG(ctx context.Context, dag *DAG, pipeline *Pipeline, filter bool) (executionsMap map[string]*Execution, err error)
+
 func (c *Client) GetEventsByArtifactIDs(ctx context.Context, artifactIds []int64) ([]*pb.Event, error)
 func (c *Client) GetArtifactName(ctx context.Context, artifactId int64) (string, error)
 func (c *Client) GetArtifacts(ctx context.Context, ids []int64) ([]*pb.Artifact, error)
@@ -97,21 +100,44 @@ func (c *Client) GetOrInsertArtifactType(ctx context.Context, schema string) (ty
 func (c *Client) FindMatchedArtifact(ctx context.Context, artifactToMatch *pb.Artifact, pipelineContextId int64) (matchedArtifact *pb.Artifact, err error)
 ```
 
-These will be replaced calls to v2beta1.Run instead:
+These will be replaced calls to v2beta1.RunService instead:
 
 ```go
 package runclient
 
-// Replaces GetPipeline and GetDag, we will need to pass experiment ID to the driver/launcher
+// Replaces GetPipeline, additionally we will need to pass experiment ID to the driver/launcher
+// It also replaces GetPipelineFromExecution, since Tasks have a RunID
 func (c *RunServerClient) GetRun(ctx, runID, experimentID) (*apiv2beta1.Run, error)
+// Replaces GetDAG (filter on task type), GetExecutions, GetExecution
+func (c *RunServerClient) GetTask(ctx, taskID) (*apiv2beta1.PipelineTaskDetail, error)  // uses GetTask() in RunsAPI
+func (c *RunServerClient) GetTasks(ctx, taskID) ([]*apiv2beta1.PipelineTaskDetail, error) // uses ListTasks() in RunsAPI
 
-// Replaces PublishExecution, CreateExecution and PrePublishExecution
-func (c *RunServerClient) CreateTask(ctx, runID, namespace) (*apiv2beta1.Run, error)
-func (c *RunServerClient) UpdateTask(ctx, taskID, namespace) (*apiv2beta1.Run, error)
+// Replaces PublishExecution, CreateExecution, PrePublishExecution, UpdateDAGExecutionsState
+func (c *RunServerClient) CreateTask(ctx context.Context, task apiv2beta1.PipelineTaskDetail) (*apiv2beta1.PipelineTaskDetail, error)
+func (c *RunServerClient) UpdateTask(ctx context.Context, task apiv2beta1.PipelineTaskDetail) (*apiv2beta1.PipelineTaskDetail, error)
+
+// replaces GetExecutionsInDAG
+// Use Run API's ListTasks() with run_id field 
+func (c *RunServerClient) GetChildTasks(ctx context.Context, task apiv2beta1.PipelineTaskDetail) (map[string]*apiv2beta1.PipelineTaskDetail, error)
+```
+
+The following will be replaced by v2beta1 ArtifactService: 
+
+```go
+func (c *ArtifactServerClient) 
+
+
 ```
 
 ** Note ** 
-Because we are relying on driver/launcher to create/update tasks, we will no longer require Persistent Agent to update 
+Because we are relying on driver/launcher to create/update tasks, we will no longer require Persistent Agent to report on task details, we will need to get rid of this portion of the code.
+This is the key piece of code from `report-server.go`: 
+
+```go
+_, err = s.reportTasksFromExecution(newExecSpec, runId)
+```
+
+[//]: # (TODO:) Add a comment about how task ids will be passed to dag Tasks
 
 
 
@@ -208,8 +234,6 @@ UI for example will be pulling tasks instead of execution trying to populate old
 * We can make it so that if it's not present then it looks at mlmd executions
 * If MLMD executions are not available we don't render the graphs? 
 The problem exists even if we use a new table though.
-
-
 
 User must opt in to migrating via configs.
 
