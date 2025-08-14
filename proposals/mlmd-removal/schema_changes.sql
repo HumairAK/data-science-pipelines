@@ -30,20 +30,21 @@ CREATE TABLE `artifact_properties`
 );
 
 -- Analogous to an mlmd Event, except it is specific to artifacts <-> tasks (instead of executions)
-CREATE TABLE `tasks_to_artifacts`
+CREATE TABLE `artifact_events`
 (
     `UUID` int NOT NULL AUTO_INCREMENT,
     `artifact_id` int NOT NULL,
     `task_id` int NOT NULL,
-    `type` int NOT NULL,     -- 0 for INPUT, 1 for OUTPUT
+    -- 0 for INPUT, 1 for OUTPUT
+    `type` int NOT NULL,
     `create_time_since_epoch` bigint NOT NULL DEFAULT '0',
 
     PRIMARY KEY (`UUID`),
     UNIQUE KEY `UniqueLink` (`artifact_id`,`task_id`,`type`),
     KEY `idx_link_task_id` (`task_id`),
 
-    CONSTRAINT fk_tasks_to_artifacts_tasks FOREIGN KEY (task_id) REFERENCES tasks (UUID) ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT fk_tasks_to_artifacts_artifacts FOREIGN KEY (artifact_id) REFERENCES artifacts (UUID) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT fk_artifact_events_tasks FOREIGN KEY (task_id) REFERENCES tasks (UUID) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_artifact_events_artifacts FOREIGN KEY (artifact_id) REFERENCES artifacts (UUID) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- This is a static table to keep type values normalized

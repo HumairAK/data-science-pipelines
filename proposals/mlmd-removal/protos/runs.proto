@@ -134,6 +134,11 @@ message PipelineTaskDetail {
     CONDITION = 3;
     LOOP = 4;
     LOOP_ITERATION = 5;
+    EXIT_HANDLER = 6;
+    // Generic DAG task type for types like Nested Pipelines
+    // where there is no declarative way to detect this within
+    // a driver.
+    DAG = 7;
   }
   TaskType type = 22;
 

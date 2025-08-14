@@ -23,9 +23,13 @@ See [runs.proto](./protos/runs.proto) for additions to the RunService client.
 Example [runs.json](./protos/runs.json) to see what the updated run response might look like, some existing feels are 
 omitted for clarity.
 
-#### Run Reporting 
-
 ### Driver changes
+
+The driver makes various interactions with MLMD which will need to be adjusted. The main transition will be from creating Executions to Tasks.
+
+The `ROOT_DAG` driver will pass `execution_id` flag to succeeding drivers within the pipeline. These will need to be updated to instead pass `parent_task_id`. 
+
+There are various control flows to consider that create and manage executions. We'll address them individually below.
 
 #### Control Flows 
 
@@ -46,7 +50,8 @@ In KFP the driver component is responsible for creating new Executions. There ar
 
 Each execution type interacts with mlmd in slightly different ways. 
 
-##### ContainerExecution
+
+### MLMD Client replacement 
 
 MLMD client will need to be replaced. These are the relevant calls used by driver and launcher:
 
@@ -91,7 +96,7 @@ func (c *Client) GetPipelineFromExecution(ctx context.Context, id int64) (*Pipel
 func (c *Client) GetExecutionsInDAG(ctx context.Context, dag *DAG, pipeline *Pipeline, filter bool) (executionsMap map[string]*Execution, err error)
 
 func (c *Client) GetEventsByArtifactIDs(ctx context.Context, artifactIds []int64) ([]*pb.Event, error)
-func (c *Client) GetArtifactName(ctx context.Context, artifactId int64) (string, error)
+func (c *Client) GetArtifactName(ctx context.Context, artifactId int64) (string, error) // Not used
 func (c *Client) GetArtifacts(ctx context.Context, ids []int64) ([]*pb.Artifact, error)
 func (c *Client) GetOutputArtifactsByExecutionId(ctx context.Context, executionId int64) (map[string]*OutputArtifact, error)
 func (c *Client) GetInputArtifactsByExecutionID(ctx context.Context, executionID int64) (inputs map[string]*pipelinespec.ArtifactList, err error)
@@ -103,7 +108,7 @@ func (c *Client) FindMatchedArtifact(ctx context.Context, artifactToMatch *pb.Ar
 These will be replaced calls to v2beta1.RunService instead:
 
 ```go
-package runclient
+package run_client
 
 // Replaces GetPipeline, additionally we will need to pass experiment ID to the driver/launcher
 // It also replaces GetPipelineFromExecution, since Tasks have a RunID
@@ -116,42 +121,39 @@ func (c *RunServerClient) GetTasks(ctx, taskID) ([]*apiv2beta1.PipelineTaskDetai
 func (c *RunServerClient) CreateTask(ctx context.Context, task apiv2beta1.PipelineTaskDetail) (*apiv2beta1.PipelineTaskDetail, error)
 func (c *RunServerClient) UpdateTask(ctx context.Context, task apiv2beta1.PipelineTaskDetail) (*apiv2beta1.PipelineTaskDetail, error)
 
-// replaces GetExecutionsInDAG
+// Replaces GetExecutionsInDAG
 // Use Run API's ListTasks() with run_id field 
 func (c *RunServerClient) GetChildTasks(ctx context.Context, task apiv2beta1.PipelineTaskDetail) (map[string]*apiv2beta1.PipelineTaskDetail, error)
 ```
 
-The following will be replaced by v2beta1 ArtifactService: 
+In a similar manner, the v2beta1 ArtifactService can be used to implement the following: 
 
-```go
-func (c *ArtifactServerClient) 
-
-
-```
-
-** Note ** 
-Because we are relying on driver/launcher to create/update tasks, we will no longer require Persistent Agent to report on task details, we will need to get rid of this portion of the code.
-This is the key piece of code from `report-server.go`: 
-
-```go
-_, err = s.reportTasksFromExecution(newExecSpec, runId)
-```
-
-[//]: # (TODO:) Add a comment about how task ids will be passed to dag Tasks
+* `GetEventsByArtifactIDs` rename to `GetArtifactEventsByArtifactIDs`, via `ListArtifactEvents`
+* `GetArtifacts`, via `ListArtifacts`
+* `RecordArtifact`, via `CreateArtifact`
+* `GetOutputArtifactsByExecutionId` rename to `GetOutArtifactsByTaskID`, via `ListArtifactEvents` and `ListArtifacts`
+* `GetInputArtifactsByExecutionID` rename to `GetInputArtifactsByTaskID`, via `ListArtifactEvents` and `ListArtifacts`
+* `GetOrInsertArtifactType`, use a combination of `GetArtifact`, `UpdateArtifact`
+* `FindMatchedArtifact`, use `ListArtifacts` and filter on `uri`
 
 
+##### ContainerExecution
+
+Container drivers will now create a task of type `RUNTIME`. When creating the PodSpecPatch, we will need to pass the `task_id` instead of the `execution_id` flag.
 
 ##### Loops 
 
 Loops in KFP today require two types of dags, there's either a dag that has an `iteration_count` or a dag that has an `iteration_index`. 
-We'll refer to these as Loop and LoopIteration respectively. A `Loop` is a task grouping of components that will run within a loop and trackts the total count of iterations via `iteration_count`. A `LoopIteration` is a dag that tracks the current iteration for a given loop via `iteration_index`.
+We'll refer to these as Loop and LoopIteration respectively. A `Loop` is a task grouping of components that will run within a loop and tracks the total count of iterations via `iteration_count`. A `LoopIteration` is a dag that tracks the current iteration for a given loop via `iteration_index`.
 
 Each of these results in an `DagExecution`. The components that run for each iteration will also have their regular `ContainerExecutions`.
-Each of these are used to resolve inputs/outputs and will need to be logged as Tasks into the Tasks table. 
+Each of these is used to resolve inputs/outputs and will need to be logged as Tasks into the Tasks table. 
 
-[//]: # (TODO: Add the code that will need to be replaced)
+Instead of these executions, will be switching to creating Tasks of types `LOOP` and `LOOP_ITERATION` respectively, and leverage the RunServer and ArtifactServer for input resolution. 
 
 ##### Exit handler 
+
+Any task under the `dsl.Exithandler` group falls within a Dag execution. These tasks will now be grouped under a task of type `EXIT_HANDLER`.
 
 ##### DSL If/Else/ElseIf
 
@@ -162,20 +164,36 @@ or `condition-branches-`.
 
 2. **`CONDITION_BRANCHES`** - Represents the branches that stem from a conditional statement.
 
+Each of these results in a new dag execution. Instead of these executions, will be switching to creating Tasks of types `CONDITION_BRANCH` and `CONDITION` respectively, and leverage the RunServer and ArtifactServer for input resolution.
+
+##### Caching
+
+Caching mechanisms should remain the same. The `PipelineTaskDetail` proto will support a `cache_fingerprint` field. 
+For task creation and updates this field can be provided for `CreateTask`, `UpdateTask`.
+
 ### Launcher changes 
 
 * Status updates and reporting for task level
 
 ### Nested Pipelines 
 
-[//]: # (TODO: add)
-
-### Caching 
-
-
-[//]: # (TODO: add)
+There is no way direct way to detect whether a driver run is for a Nested execution, to accommodate there is a generic `DAG` task type is provided to fit such cases.
+Alternatively, we could provide an SDK update to declare a task type in a field on a `ComponentSpec` `dag` field.
 
 ### StoreSessionInfo 
+
+Currently, Artifact credential info is stored as a custom property, and is called `store_session_info`. In this proposal, we will not port over this capability as a 
+custom artifact property, and we will instead remove this from the `rood_dag.go`: 
+
+```go
+storeSessionInfo, err = cfg.GetStoreSessionInfo(pipelineRoot)
+```
+
+And build it use it directly in `launcher_v2.go`, replacing: 
+
+```go
+storeSessionInfo, err := objectstore.GetSessionInfoFromString(execution.GetPipeline().GetStoreSessionInfo())
+```
 
 ### Frontend Changes 
 For run details, MLMD data is fetched via: 
@@ -197,7 +215,16 @@ const artifacts = await fetchArtifactsFromTasks(tasks); // the information is no
 const events = await getArtifactEventsByTasks(tasks); // uses ListArtifactEvents()
 ```
 
-[//]: # (TODO: add)
+#### Run Reporting
+
+The Persistent Agent calls the KFP Server's [report_server.go](../../backend/src/apiserver/server/report_server.go) for updating the Run in DB. This includes updates to the Task db.
+
+Because we are relying on driver/launcher to create/update tasks, we will no longer require Persistent Agent to report on task details, we will need to get rid of this portion of the code.
+This is the key piece of code from `report-server.go`:
+
+```go
+_, err = s.reportTasksFromExecution(newExecSpec, runId)
+```
 
 ### Auth Considerations 
 
@@ -226,8 +253,6 @@ Driver Launcher does SAR using Pipeline Service Account - consider importer
 * In the following release, remove MLMD manifests, deployment options, etc. 
 
 ### Migration
-
-[//]: # (TODO: add)
 
 For tasks/pipelineTaskDetail if we're re-using the old table then migration will become tricky 
 UI for example will be pulling tasks instead of execution trying to populate old runs input/output data

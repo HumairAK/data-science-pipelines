@@ -18,6 +18,14 @@ service ArtifactService {
     };
   }
 
+  // Updates an existing artifact.
+  rpc UpdateArtifact(UpdateArtifactRequest) returns (Artifact) {
+    option (google.api.http) = {
+      put: "/apis/v2beta1/artifacts/{artifact.artifact_id}"
+      body: "artifact"
+    };
+  }
+
   rpc ListArtifactEvents(GetArtifactEventsRequest) returns (GetArtifactEventsResponse) {
     option (google.api.http) = {
       get: "/apis/v2beta1/artifafct_events"
@@ -35,6 +43,11 @@ service ArtifactService {
 
 message CreateArtifactRequest {
   // Required. The artifact to create.
+  Artifact artifact = 1;
+}
+
+message UpdateArtifactRequest {
+  // Required. The artifact to update. The artifact_id field is required.
   Artifact artifact = 1;
 }
 
@@ -79,14 +92,20 @@ message ListArtifactResponse {
 
 // The fields here work the same as previous backend api calls
 message GetArtifactEventsRequest {
-  // Filter event by a set of task_ids
+  // Optional, filter event by a set of task_ids
   // We can also likely just rely on filter for this and omit this field
   repeated string task_ids = 1;
-  // API Server can do SAR on Artifacts in this namespace for authz
-  string page_token = 2;
-  int32 page_size = 3;
-  string sort_by = 4;
-  string filter = 5;
+  // Optional, filter event by a set of artifact_ids
+  // We can also likely just rely on filter for this and omit this field
+  repeated string artifact_ids = 2;
+  
+  // Optional. Only list events that have artifacts of this event type.
+  ArtifactEventType task_type = 3;
+  
+  string page_token = 4;
+  int32 page_size = 5;
+  string sort_by = 6;
+  string filter = 7;
 }
 
 message GetArtifactEventsResponse {
@@ -95,19 +114,16 @@ message GetArtifactEventsResponse {
   string next_page_token = 3;
 }
 
-// ------------
-// Structures
-// ------------
-
+enum ArtifactEventType {
+  INPUT = 0;
+  OUTPUT = 1;
+}
 message ArtifactEvents {
   int64 id = 1;
   int64 artifact_id = 2;
   int64 task_id = 3;
-  enum Type {
-    INPUT = 0;
-    OUTPUT = 1;
-  }
-  Type type = 4;
+
+  ArtifactEventType type = 4;
   google.protobuf.Timestamp created_at = 5;
 }
 
