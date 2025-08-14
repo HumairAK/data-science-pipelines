@@ -195,6 +195,20 @@ And build it use it directly in `launcher_v2.go`, replacing:
 storeSessionInfo, err := objectstore.GetSessionInfoFromString(execution.GetPipeline().GetStoreSessionInfo())
 ```
 
+Removing this property from the Artifact will also require Frontend changes, the server will now need to also parse the launcher config, instead of the client code sending this as part of the call to: 
+
+```typescript
+  // Apis.ts
+  public static readFile({
+    path,
+    providerInfo,
+    namespace,
+    peek,
+  }: { }
+```
+
+The server will instead need to build this object similar to how the root driver does it [here](https://github.com/kubeflow/pipelines/blob/2c91fb797ed5e95bb51ae80c4daa2c6b9334b51b/frontend/server/handlers/artifacts.ts#L102). 
+
 ### Metrics 
 
 Metrics in KFP today are stored as Artifacts, they have the following Artifact Types: 
@@ -287,7 +301,7 @@ The `CompareV2.tsx` also makes various calls to MLMD, much like `RuntimeNodeDeta
             events,
           } as MlmdPackage;
         }),
-      ),
+      )
 ```
 
 This and associated code will also need to be updated to leverage Tasks retrieved via the Runs API server.
