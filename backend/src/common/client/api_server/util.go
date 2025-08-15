@@ -63,12 +63,17 @@ func toWorkflowTestOnly(workflow string) *workflowapi.Workflow {
 	return &result
 }
 
-func NewHTTPRuntime(clientConfig clientcmd.ClientConfig, debug bool) (
+func NewHTTPRuntime(clientConfig clientcmd.ClientConfig, debug bool, tlsEnabled bool) (
 	*httptransport.Runtime, error,
 ) {
 	if os.Getenv("LOCAL_API_SERVER") == "true" {
 		httpClient := http.DefaultClient
-		runtime := httptransport.NewWithClient("localhost:8888", "", []string{"http"}, httpClient)
+		var runtime *httptransport.Runtime
+		if tlsEnabled {
+			runtime = httptransport.NewWithClient("localhost:8888", "", []string{"https"}, httpClient)
+		} else {
+			runtime = httptransport.NewWithClient("localhost:8888", "", []string{"http"}, httpClient)
+		}
 		if debug {
 			runtime.SetDebug(true)
 		}
@@ -94,8 +99,13 @@ func NewHTTPRuntime(clientConfig clientcmd.ClientConfig, debug bool) (
 	return runtime, err
 }
 
-func NewKubeflowInClusterHTTPRuntime(namespace string, debug bool) *httptransport.Runtime {
-	schemes := []string{"http"}
+func NewKubeflowInClusterHTTPRuntime(namespace string, debug bool, tlsEnabled bool) *httptransport.Runtime {
+	var schemes []string
+	if tlsEnabled {
+		schemes = []string{"https"}
+	} else {
+		schemes = []string{"http"}
+	}
 	httpClient := http.Client{}
 	runtime := httptransport.NewWithClient(fmt.Sprintf(apiServerKubeflowInClusterBasePath, namespace), "/", schemes, &httpClient)
 	runtime.SetDebug(debug)

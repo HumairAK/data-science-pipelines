@@ -68,31 +68,31 @@ func (s *CacheTestSuite) SetupTest() {
 		s.resourceNamespace = *resourceNamespace
 
 		newPipelineUploadClient = func() (*apiServer.PipelineUploadClient, error) {
-			return apiServer.NewKubeflowInClusterPipelineUploadClient(s.namespace, *isDebugMode)
+			return apiServer.NewKubeflowInClusterPipelineUploadClient(s.namespace, *isDebugMode, *tlsEnabled)
 		}
 		newPipelineClient = func() (*apiServer.PipelineClient, error) {
-			return apiServer.NewKubeflowInClusterPipelineClient(s.namespace, *isDebugMode)
+			return apiServer.NewKubeflowInClusterPipelineClient(s.namespace, *isDebugMode, *tlsEnabled)
 		}
 		newRunClient = func() (*apiServer.RunClient, error) {
-			return apiServer.NewKubeflowInClusterRunClient(s.namespace, *isDebugMode)
+			return apiServer.NewKubeflowInClusterRunClient(s.namespace, *isDebugMode, *tlsEnabled)
 		}
 		newRecurringRunClient = func() (*apiServer.RecurringRunClient, error) {
-			return apiServer.NewKubeflowInClusterRecurringRunClient(s.namespace, *isDebugMode)
+			return apiServer.NewKubeflowInClusterRecurringRunClient(s.namespace, *isDebugMode, *tlsEnabled)
 		}
 	} else {
 		clientConfig := test.GetClientConfig(*namespace)
 
 		newPipelineUploadClient = func() (*apiServer.PipelineUploadClient, error) {
-			return apiServer.NewPipelineUploadClient(clientConfig, *isDebugMode)
+			return apiServer.NewPipelineUploadClient(clientConfig, *isDebugMode, *tlsEnabled)
 		}
 		newPipelineClient = func() (*apiServer.PipelineClient, error) {
-			return apiServer.NewPipelineClient(clientConfig, *isDebugMode)
+			return apiServer.NewPipelineClient(clientConfig, *isDebugMode, *tlsEnabled)
 		}
 		newRunClient = func() (*apiServer.RunClient, error) {
-			return apiServer.NewRunClient(clientConfig, *isDebugMode)
+			return apiServer.NewRunClient(clientConfig, *isDebugMode, *tlsEnabled)
 		}
 		newRecurringRunClient = func() (*apiServer.RecurringRunClient, error) {
-			return apiServer.NewRecurringRunClient(clientConfig, *isDebugMode)
+			return apiServer.NewRecurringRunClient(clientConfig, *isDebugMode, *tlsEnabled)
 		}
 	}
 

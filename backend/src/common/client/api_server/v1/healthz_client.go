@@ -36,8 +36,8 @@ type HealthzClient struct {
 	authInfoWriter rt.ClientAuthInfoWriter
 }
 
-func NewHealthzClient(clientConfig clientcmd.ClientConfig, debug bool) (*HealthzClient, error) {
-	runtime, err := api_server.NewHTTPRuntime(clientConfig, debug)
+func NewHealthzClient(clientConfig clientcmd.ClientConfig, debug bool, tlsEnabled bool) (*HealthzClient, error) {
+	runtime, err := api_server.NewHTTPRuntime(clientConfig, debug, tlsEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -50,10 +50,10 @@ func NewHealthzClient(clientConfig clientcmd.ClientConfig, debug bool) (*Healthz
 	}, nil
 }
 
-func NewKubeflowInClusterHealthzClient(namespace string, debug bool) (
+func NewKubeflowInClusterHealthzClient(namespace string, debug bool, tlsEnabled bool) (
 	*HealthzClient, error) {
 
-	runtime := api_server.NewKubeflowInClusterHTTPRuntime(namespace, debug)
+	runtime := api_server.NewKubeflowInClusterHTTPRuntime(namespace, debug, tlsEnabled)
 
 	apiClient := apiclient.New(runtime, strfmt.Default)
 

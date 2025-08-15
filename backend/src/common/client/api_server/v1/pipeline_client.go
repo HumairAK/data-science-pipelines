@@ -68,10 +68,10 @@ func (c *PipelineClient) UpdateDefaultVersion(parameters *params.PipelineService
 	return nil
 }
 
-func NewPipelineClient(clientConfig clientcmd.ClientConfig, debug bool) (
+func NewPipelineClient(clientConfig clientcmd.ClientConfig, debug bool, tlsEnabled bool) (
 	*PipelineClient, error) {
 
-	runtime, err := api_server.NewHTTPRuntime(clientConfig, debug)
+	runtime, err := api_server.NewHTTPRuntime(clientConfig, debug, tlsEnabled)
 	if err != nil {
 		return nil, fmt.Errorf("Error occurred when creating pipeline client: %w", err)
 	}
@@ -84,10 +84,10 @@ func NewPipelineClient(clientConfig clientcmd.ClientConfig, debug bool) (
 	}, nil
 }
 
-func NewKubeflowInClusterPipelineClient(namespace string, debug bool) (
+func NewKubeflowInClusterPipelineClient(namespace string, debug bool, tlsEnabled bool) (
 	*PipelineClient, error) {
 
-	runtime := api_server.NewKubeflowInClusterHTTPRuntime(namespace, debug)
+	runtime := api_server.NewKubeflowInClusterHTTPRuntime(namespace, debug, tlsEnabled)
 
 	apiClient := apiclient.New(runtime, strfmt.Default)
 
