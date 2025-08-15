@@ -2,24 +2,30 @@
 
 ### New KFP Database Schema
 
-See [schema_changes.sql](./schema_changes.sql) for the database schema additions and changes.
+See [schema_changes.sql] for the database schema additions and changes.
 
 Note that a `Task` is a db model for a task node type as viewed in the Run Graph of the UI.
 
 Note that we will be dropping the `Task` table that exists today and recreating it. This is because it is rarely used within KFP, and where it is used, it is unnecessary (i.e. caching). This will require a migration strategy, addressed later in the proposal.
 
+[schema_changes.sql]: ./schema_changes.sql
+
 ### KFP Server API
 
 To facilitate the removal of MLMD, the KFP server will now take on the burden of handling Artifacts, Dags, input resolution, and so on.
 
-See [artifacts.proto](./protos/artifacts.proto) for the Artifact server changes.
+See [artifacts.proto] for the Artifact server changes.
 
 Instead of an MLMD client, the Driver and Launcher will include and leverage a `v2beta1.RunServiceClient` retrieved via `NewRunServiceClient()` in `backend/api/v2beta1`.
 
-See [runs.proto](./protos/runs.proto) for additions to the RunService client.
+See [runs.proto] for additions to the RunService client.
 
-Example [runs.json](./protos/runs.json) to see what the updated run response might look like, some existing feels are
+Example [runs.json] to see what the updated run response might look like, some existing feels are
 omitted for clarity.
+
+[artifacts.proto]: ./protos/artifacts.proto
+[runs.proto]: ./protos/runs.proto
+[runs.json]: ./protos/runs.json
 
 ### Driver changes
 
@@ -355,7 +361,7 @@ This and associated code will also need to be updated to leverage Tasks retrieve
 
 #### Run Reporting
 
-The Persistent Agent calls the KFP Server's [report_server.go](../../backend/src/apiserver/server/report_server.go) for updating the Run in DB. This includes updates to the Task db.
+The Persistent Agent calls the KFP Server's [report_server.go] for updating the Run in DB. This includes updates to the Task db.
 
 Because we are relying on driver/launcher to create/update tasks, we will no longer require Persistent Agent to report on task details, we will need to get rid of this portion of the code.
 This is the key piece of code from `report-server.go`:
@@ -363,6 +369,7 @@ This is the key piece of code from `report-server.go`:
 ```go
 _, err = s.reportTasksFromExecution(newExecSpec, runId)
 ```
+[report_server.go]: ../../backend/src/apiserver/server/report_server.go
 
 ### Auth Considerations
 
