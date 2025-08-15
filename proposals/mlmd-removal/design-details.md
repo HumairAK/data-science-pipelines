@@ -107,11 +107,11 @@ func (c *RunServerClient) GetChildTasks(ctx context.Context, task apiv2beta1.Pip
 
 In a similar manner, the v2beta1 ArtifactService can be used to implement the following:
 
-* `GetEventsByArtifactIDs` rename to `GetArtifactEventsByArtifactIDs`, via `ListArtifactEvents`
+* `GetEventsByArtifactIDs` renamed to `GetArtifactEventsByArtifactIDs`, via `ListArtifactEvents`
 * `GetArtifacts`, via `ListArtifacts`
 * `RecordArtifact`, via `CreateArtifact`
-* `GetOutputArtifactsByExecutionId` rename to `GetOutArtifactsByTaskID`, via `ListArtifactEvents` and `ListArtifacts`
-* `GetInputArtifactsByExecutionID` rename to `GetInputArtifactsByTaskID`, via `ListArtifactEvents` and `ListArtifacts`
+* `GetOutputArtifactsByExecutionId` renamed to `GetOutArtifactsByTaskID`, via `ListArtifactEvents` and `ListArtifacts`
+* `GetInputArtifactsByExecutionID` renamed to `GetInputArtifactsByTaskID`, via `ListArtifactEvents` and `ListArtifacts`
 * `GetOrInsertArtifactType`, use a combination of `GetArtifact`, `UpdateArtifact`
 * `FindMatchedArtifact`, use `ListArtifacts` and filter on `uri`
 
