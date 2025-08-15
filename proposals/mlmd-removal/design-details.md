@@ -14,7 +14,7 @@ Note also that we will be dropping the `Task` table that exists today and recrea
 
 The KFP server will now handle Artifacts, Dags, input resolution, and other responsibilities previously managed by MLMD.
 
-The Artifact service changes are detailed in [artifacts.proto]. The Driver and Launcher will introduce it a
+The Artifact service changes are detailed in [artifacts.proto]. The Driver and Launcher will introduce a
 `v2beta1.ArtifactServiceClient` to interact with this API.
 
 For the Driver and Launcher, a `v2beta1.RunServiceClient` obtained via `NewRunServiceClient()` in `backend/api/v2beta1`
@@ -118,8 +118,7 @@ In a similar manner, the v2beta1 ArtifactService can be used to implement the fo
 
 ### Driver changes
 
-Various portions of the Driver need adjustments to transition away from MLMD. The key change involves transitioning from
-creating Executions to creating Tasks.
+Various portions of the Driver require adjustments to transition away from MLMD. The key change involves transitioning from creating Executions to creating Tasks.
 
 In the pipeline, the `ROOT_DAG` Driver currently passes an `execution_id` flag to subsequent drivers. This needs to be
 updated to pass `parent_task_id` instead. Downstream Driver tasks will continue to propagate their corresponding tasks as `parent_task_id` as well.
@@ -159,12 +158,12 @@ Container Drivers will now create a task of type `Runtime`. When creating the Po
 
 ##### DagExecution—Loops
 
-Loops in KFP today require two types of dags, there's either a dag that has an `iteration_count` or a dag that has an `iteration_index`.
+Loops in KFP today require two types of dags, there is either a dag that has an `iteration_count` or a dag that has an `iteration_index`.
 We'll refer to these as `Loop` and `LoopIteration` respectively. A `Loop` is a task grouping of components that will run within this loop. It tracks the total count of iterations via `iteration_count`. A `LoopIteration` is a dag that tracks the current iteration for a given loop via `iteration_index`.
 
 Each of these results in a `DagExecution`. Recall that, the components that run within a `LoopIteration` will continue to have their regular `Runtime` tasks.
 
-Each of these is loop types is used to resolve inputs/outputs and will need to be logged as Tasks into the Tasks table. The Tasks will be logged as `Loop` and `LoopIteration` respectively, and leverage the `RunServer` and `ArtifactServer` for input resolution.
+Each of these loop types is used to resolve inputs/outputs and will need to be logged as Tasks into the Tasks table. The Tasks will be logged as `Loop` and `LoopIteration` respectively, and leverage the `RunServer` and `ArtifactServer` for input resolution.
 
 ##### DagExecution—Exit handler
 
@@ -212,11 +211,11 @@ Notice also that we store the `ecfg.FingerPrint = fingerPrint` in the MLMD execu
 
 Much of the logic flow will stay the same, but instead of calls to `TaskServiceClient`'s v1 API, the v2 `RunService` api will be used.
 
-When the Launcher finishes running `Execute()` it `defers` an `UpdateDAGExecutionsState()` call, this can be replaced with the `UpdateTask` call using the v2 `RunServerClient`, providing the `cache_fingerprint` for this `Runtime` task. The fingerprint should only be provided upon a successful launcher execution.
+When the Launcher finishes running `Execute()`, it `defers` an `UpdateDAGExecutionsState()` call, this can be replaced with the `UpdateTask` call using the v2 `RunServerClient`, providing the `cache_fingerprint` for this `Runtime` task. The fingerprint should only be provided upon a successful launcher execution.
 
-In the Driver, `getFingerPrintsAndID` will be updated to leverage `ListTasks` and it's `filter` field to search by `cache_fingerprint` to detect a hit, much like how it uses `ListTasksV1` today. Note that unlike how the Driver works today, the `cache_fingerprint` should not be stored for an upcoming task that will be created in the Driver, it should instead be updated by the Launcher once an execution successfully completes.
+In the Driver, `getFingerPrintsAndID` will be updated to leverage `ListTasks` and its `filter` field to search by `cache_fingerprint` to detect a hit, much like how it uses `ListTasksV1` today. Note that unlike how the Driver works today, the `cache_fingerprint` should not be stored for an upcoming task that will be created in the Driver, it should instead be updated by the Launcher once an execution successfully completes.
 
-** Migration Note **
+**Migration Note**
 
 Caching needs special consideration for migration. Since the `tasks` table will be dropped and re-populated using data from MLMD, caching will need to be handled carefully. When converting a `ContainerExecution` to a `Runtime` task, we will need to only store the fingerprint if the execution has a `COMPLETE` status. This avoids storing fingerprints that may be present in an execution, but where an executor pod never ran to success.
 
@@ -257,7 +256,7 @@ Currently, Artifact credential info is stored as a custom property, and is calle
 storeSessionInfo, err = cfg.GetStoreSessionInfo(pipelineRoot)
 ```
 
-And build it use it directly in `launcher_v2.go`, replacing:
+And use it directly in `launcher_v2.go`, replacing:
 
 ```go
 storeSessionInfo, err := objectstore.GetSessionInfoFromString(execution.GetPipeline().GetStoreSessionInfo())
@@ -333,7 +332,7 @@ func resolveUpstreamArtifacts(cfg resolveUpstreamOutputsConfig) (*pipelinespec.A
 
 There are three primary pages in the UI where MLMD encounters happen, the Run Details, Artifacts, and Executions page.
 
-The execution page can be removed entirely since all information will be present in the run Task nodes in the run graph. The FrontEnd will need to be updated to ensure all relevant information will continue to be surfaced in a Task Node's details sidebar. 
+The execution page can be removed entirely since all information will be present in the run task nodes in the run graph. The FrontEnd will need to be updated to ensure all relevant information will continue to be surfaced in a Task Node's details sidebar. 
 
 For run details, MLMD data is fetched in `RuntimeNodeDetailsV2.tsx` via:
 
@@ -350,7 +349,7 @@ These can be replaced by the following new implementations:
 // context no longer needed, use the Run object which often readily available wherever context is required
 const tasks = run.run_details.task_details;  // run is a V2beta1Run
 const artifacts = await fetchArtifactsFromTasks(tasks); // the information is now available in the task.
-// a separate call for this is may not needed, as the required info may already be present in `tasks`
+// a separate call for this may not needed, as the required info may already be present in `tasks`
 const events = await getArtifactEventsByTasks(tasks); // uses ListArtifactEvents()
 ```
 
@@ -398,7 +397,7 @@ Note also that the Driver/Launcher communicates with the KFP Server via the Cach
 
 The Driver/Launcher will provide the Pipeline Runner's Service Account token in the auth header for authorization.
 
-As such, the Pipeline Runner SA will need the appropriate namespace level to such resources for the Driver & Launcher to communicate with the Api Server.
+As such, the Pipeline Runner SA will need the appropriate namespace-level access to such resources for the Driver & Launcher to communicate with the Api Server.
 
 ### Manifests
 
@@ -432,7 +431,7 @@ An alternative to this migration strategy is to have the KFP server perform the 
 
 The benefits of this approach are that there's a more seamless migration that's automated. However, if a user wants to have more granular control of their migration, they may prefer the script method which they can adjust as needed.
 
-There is also the option of doing a hybrid approach at the cost of more overheard. 
+There is also the option of doing a hybrid approach at the cost of more overhead. 
 
 ### Testing
 
