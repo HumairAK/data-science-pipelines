@@ -12,16 +12,17 @@ Note also that we will be dropping the `Task` table that exists today and recrea
 
 ### KFP Server API
 
-To facilitate the removal of MLMD, the KFP server will now take on the burden of handling Artifacts, Dags, input resolution, and so on.
+The KFP server will now handle Artifacts, Dags, input resolution, and other responsibilities previously managed by MLMD.
 
-See [artifacts.proto] for the Artifact server changes. A `v2beta1.ArtifactServiceClient` will be introduced to the launcher and driver to interact with this api.
+The Artifact service changes are detailed in [artifacts.proto]. The driver and launcher will introduce it a
+`v2beta1.ArtifactServiceClient` to interact with this API.
 
-Instead of an MLMD client, the Driver and Launcher will include and leverage a `v2beta1.RunServiceClient` retrieved via `NewRunServiceClient()` in `backend/api/v2beta1`.
+For the Driver and Launcher, a `v2beta1.RunServiceClient` obtained via `NewRunServiceClient()` in `backend/api/v2beta1`
+will replace the MLMD client.
 
-See [runs.proto] for additions to the RunService client.
+The additions to the RunService client are documented in [runs.proto].
 
-Example [runs.json] to see what the updated run response might look like, some existing feels are
-omitted for clarity.
+An example of the updated run response format can be found in [runs.json]. 
 
 [artifacts.proto]: ./protos/artifacts.proto
 [runs.proto]: ./protos/runs.proto
@@ -29,15 +30,17 @@ omitted for clarity.
 
 ### Driver changes
 
-The driver makes various interactions with MLMD which will need to be adjusted. The main transition will be from creating Executions to Tasks.
+Various interactions in the driver need adjustments to move away from MLMD. The key change involves transitioning from
+creating Executions to creating Tasks.
 
-The `ROOT_DAG` driver will pass `execution_id` flag to succeeding drivers within the pipeline. These will need to be updated to instead pass `parent_task_id`.
+In the pipeline, the `ROOT_DAG` driver currently passes an `execution_id` flag to subsequent drivers. This needs to be
+updated to pass `parent_task_id` instead. Downstream driver tasks will continue to propagate their corresponding tasks as `parent_task_id` as well.
 
-There are various control flows to consider that create and manage executions. We'll address them individually below.
+Multiple control flows involving execution creation and management exist. These are detailed in the sections below.
 
 #### Control Flows
 
-In KFP the driver component is responsible for creating new Executions. There are two types of driver executions:
+In KFP, the driver component is responsible for creating new Executions. There are two types of driver executions:
 
 * ContainerExecution - always precedes the launcher/executor pod
     * Makes caching decisions
@@ -221,7 +224,7 @@ The following flags will need to be removed:
 And replaced with:
 
 ```text
---task_id
+--task_id               # note that unlike the driver we call this `task_id` instead of `parent_task_id`
 --kfp_server_address
 --kfp_server_port
 ```
