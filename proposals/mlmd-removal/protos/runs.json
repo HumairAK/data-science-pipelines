@@ -11,7 +11,6 @@
   "scheduled_at": "2025-08-08T15:15:41Z",
   "finished_at": "2025-08-08T15:18:24Z",
   "state": "SUCCEEDED",
-
   // This is new:
   "tasks": [
     {

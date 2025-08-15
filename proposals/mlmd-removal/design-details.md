@@ -48,7 +48,6 @@ In KFP the driver component is responsible for creating new Executions. There ar
 
 Each execution type interacts with mlmd in slightly different ways.
 
-
 ### MLMD Client replacement
 
 MLMD client will need to be replaced. These are the relevant calls used by driver and launcher:
