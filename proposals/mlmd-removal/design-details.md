@@ -28,60 +28,12 @@ An example of the updated run response format can be found in [runs.json].
 [runs.proto]: ./protos/runs.proto
 [runs.json]: ./protos/runs.json
 
-### Driver changes
-
-Various interactions in the driver need adjustments to move away from MLMD. The key change involves transitioning from
-creating Executions to creating Tasks.
-
-In the pipeline, the `ROOT_DAG` driver currently passes an `execution_id` flag to subsequent drivers. This needs to be
-updated to pass `parent_task_id` instead. Downstream driver tasks will continue to propagate their corresponding tasks as `parent_task_id` as well.
-
-Multiple control flows involving execution creation and management exist. These are detailed in the sections below.
-
-#### Control Flows
-
-In KFP, the driver component is responsible for creating new Executions. There are two types of driver executions:
-
-* DagExecution - this can be further subdivided to:
-    * RootDag - runs once per pipeline
-        * Creates the PipelineRun context in MLMD
-        * Contains runtime inputs information
-    * Dag - runs one or more times per task group (Condition, ConditionBranch, Loop, LoopIteration)
-        * Resolves conditions for conditional dags
-        * Resolves inputs
-        * Resolves iteration counts (for loops)
-
-Each execution type interacts with mlmd in slightly different ways.
---
-
-The KFP driver component creates and manages different types of executions during pipeline execution. These executions follow two main patterns:
-
-**ContainerExecution**
-- Runs before every launcher/executor pod
-- Handles caching decisions and input resolution
-- Generates the pod specification for the executor
-
-**DagExecution**
-
-Manages control flow and has two subtypes:
-
-- **RootDag** (runs once per pipeline)
-  - Establishes the PipelineRun context in MLMD
-  - Stores pipeline runtime input information
-
-- **Dag** (runs for each task group)
-  - Handles conditional logic (Condition, ConditionBranch, Loop, LoopIteration)
-  - Resolves conditional expressions
-  - Processes inputs for task groups
-  - Calculates iteration counts for loops
-
-Each execution type has distinct responsibilities and interacts with MLMD differently based on its role in the pipeline workflow.
-
 
 ### MLMD Client replacement
 
-MLMD client will need to be replaced. These are the relevant calls used by driver and launcher:
+This section explains how we will replace the MLMD client with new KFP Server API functionality in Driver/Launcher code.
 
+The key changes and replacements are outlined below.
 ```go
 package metadata
 
@@ -162,6 +114,43 @@ In a similar manner, the v2beta1 ArtifactService can be used to implement the fo
 * `GetInputArtifactsByExecutionID` rename to `GetInputArtifactsByTaskID`, via `ListArtifactEvents` and `ListArtifacts`
 * `GetOrInsertArtifactType`, use a combination of `GetArtifact`, `UpdateArtifact`
 * `FindMatchedArtifact`, use `ListArtifacts` and filter on `uri`
+
+### Driver changes
+
+Various interactions in the driver need adjustments to move away from MLMD. The key change involves transitioning from
+creating Executions to creating Tasks.
+
+In the pipeline, the `ROOT_DAG` driver currently passes an `execution_id` flag to subsequent drivers. This needs to be
+updated to pass `parent_task_id` instead. Downstream driver tasks will continue to propagate their corresponding tasks as `parent_task_id` as well.
+
+Multiple control flows involving execution creation and management exist. These are detailed in the sections below.
+
+#### Control Flows
+
+The KFP driver component creates and manages different types of executions during pipeline execution. These executions follow two main patterns:
+
+**DagExecution**
+
+Manages control flow and has two subtypes:
+
+- **RootDag** (runs once per pipeline)
+  - Creates the Pipeline and PipelineRun context in MLMD
+  - Stores pipeline runtime input information
+
+- **Dag** (runs for each task group)
+  - Handles conditional logic (Condition, ConditionBranch, Loop, LoopIteration)
+  - Resolves conditional expressions
+  - Processes inputs for task groups
+  - Calculates iteration counts for loops
+
+**ContainerExecution**
+  - Runs before every launcher/executor pod
+  - Handles caching decisions and input resolution
+  - Generates the pod specification for the executor
+  - Stores cache fingerprint in the task store
+  - Download and Upload artifacts
+
+Each execution type has distinct responsibilities and interacts with MLMD differently based on its role in the pipeline workflow.
 
 
 ##### ContainerExecution
