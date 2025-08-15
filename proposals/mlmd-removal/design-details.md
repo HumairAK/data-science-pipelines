@@ -51,6 +51,8 @@ type Pipeline struct {
   pipelineCtx    *pb.Context
   pipelineRunCtx *pb.Context
 }
+
+// These can be replaced with Artifacts from KFP artifacts.proto
 type InputArtifact struct {
   Artifact *pb.Artifact
 }
@@ -101,7 +103,7 @@ func (c *RunServerClient) CreateTask(ctx context.Context, task apiv2beta1.Pipeli
 func (c *RunServerClient) UpdateTask(ctx context.Context, task apiv2beta1.PipelineTaskDetail) (*apiv2beta1.PipelineTaskDetail, error)
 
 // Replaces GetExecutionsInDAG
-// Use Run API's ListTasks() with run_id field 
+// Queries Run API's ListTasks() with run_id field 
 func (c *RunServerClient) GetChildTasks(ctx context.Context, task apiv2beta1.PipelineTaskDetail) (map[string]*apiv2beta1.PipelineTaskDetail, error)
 ```
 
@@ -152,44 +154,43 @@ Manages control flow and has two subtypes:
 
 Each execution type has distinct responsibilities and interacts with MLMD differently based on its role in the pipeline workflow.
 
-
 ##### ContainerExecution
 
-Container drivers will now create a task of type `RUNTIME`. When creating the PodSpecPatch, we will need to pass the `task_id` instead of the `execution_id` flag.
+Container drivers will now create a task of type `Runtime`. When creating the PodSpecPatch, the Driver will pass the `--task_id` instead of the `execution_id` flag.
 
 ##### Loops
 
 Loops in KFP today require two types of dags, there's either a dag that has an `iteration_count` or a dag that has an `iteration_index`.
-We'll refer to these as Loop and LoopIteration respectively. A `Loop` is a task grouping of components that will run within a loop and tracks the total count of iterations via `iteration_count`. A `LoopIteration` is a dag that tracks the current iteration for a given loop via `iteration_index`.
+We'll refer to these as `Loop` and `LoopIteration` respectively. A `Loop` is a task grouping of components that will run within this loop. It tracks the total count of iterations via `iteration_count`. A `LoopIteration` is a dag that tracks the current iteration for a given loop via `iteration_index`.
 
-Each of these results in an `DagExecution`. The components that run for each iteration will also have their regular `ContainerExecutions`.
-Each of these is used to resolve inputs/outputs and will need to be logged as Tasks into the Tasks table.
+Each of these results in a `DagExecution`. Recall that, the components that run within a `LoopIteration` will continue to have their regular `Runtime` tasks.
 
-Instead of these executions, will be switching to creating Tasks of types `LOOP` and `LOOP_ITERATION` respectively, and leverage the RunServer and ArtifactServer for input resolution.
+Each of these is loop types is used to resolve inputs/outputs and will need to be logged as Tasks into the Tasks table. The Tasks will be logged as `Loop` and `LoopIteration` respectively, and leverage the `RunServer` and `ArtifactServer` for input resolution.
 
 ##### Exit handler
 
-Any task under the `dsl.Exithandler` group falls within a Dag execution. These tasks will now be grouped under a task of type `EXIT_HANDLER`.
+Any task under the `dsl.Exithandler` group falls within a Dag execution. These tasks will now be grouped under a task of type `Exithandler`.
 
 ##### DSL If/Else/ElseIf
 
-When working with Conditions in KFP, new nodes are introduced in the Pipeline Graph, they are prefixed with `condition-`
+When working with Conditions in KFP, new nodes are introduced in the Pipeline Graph; they are prefixed with `condition-`
 or `condition-branches-`.
 
-1. **`CONDITION`** - Represents a conditional task group (If/Else/ElseIf), in KFP it is represented by a DAG driver that outputs a condition parameter which determines whether the underlying dag or components should execute.
+1. **`Condition`** - Represents a conditional task group (i.e., per If/Else/ElseIf); in KFP it is represented by a DAG driver that outputs a condition parameter which determines whether the underlying dag or components should execute.
 
-2. **`CONDITION_BRANCHES`** - Represents the branches that stem from a conditional statement.
+2. **`ConditionBranch`** - Represents the branches that stem from a conditional statement (i.e., an If/Else wrapper).
 
-Each of these results in a new dag execution. Instead of these executions, will be switching to creating Tasks of types `CONDITION_BRANCH` and `CONDITION` respectively, and leverage the RunServer and ArtifactServer for input resolution.
+Each of these results in a new dag execution. Instead of these executions, we will be switching to creating Tasks of types `ConditionBranch` and `Condition` respectively, and leverage the RunServer and ArtifactServer for input resolution.
 
 ##### Caching
 
 ###### Caching explained
-To understand how caching out to be handle in a post mlmd world, let's first review how caching in KFP works.
+To understand how caching should be handled in a post mlmd world, let's first review how caching in KFP works.
 
-Caching has two parts. The first being Cache Fingerprint creations which happen in the launcher, and the second is detecting Cache hits, which happen in Container Drivers.
+Caching has two parts. The first being Cache Fingerprint creations that happen in the Launcher, and the second is detecting Cache hits, which happen in Container Drivers.
 
-1. At the end of launcher `Execute()` procedure, there is a call to `l.clientManager.CacheClient().CreateExecutionCache(ctx, task)` which store a `Task` with a `cache_fingerprint`. Underneath, this uses the `TaskServiceClient.CreateTaskV1` api, meaning this is execution data stored in the Task database table.
+1. At the end of Launcher `Execute()` procedure, there is a call to `l.clientManager.CacheClient().CreateExecutionCache(ctx, task)` which stores a `Task` with a `cache_fingerprint`. Underneath, this uses the `TaskServiceClient.CreateTaskV1` api, meaning this is execution data stored in the Task database table.
+
 1. When the container driver runs, it will run:
 ```go
 if !opts.CacheDisabled {
@@ -413,6 +414,7 @@ To accommodate the transition, the KFP release containing this change will provi
 * Drop the Metrics table (it is not used at all)
 * Scan MLMD executions, converting them to their Task counterparts.
   * When encountering ContainerExecutions with `cache_fingerprints`, the fingerprint should only be stored if the execution has a `COMPLETE` state.
+  * To detect exit handler dags, the execution name will need to be parsed for `exit-handler-*` prefixed, as there's no other declarative way to determine this type.
 * Scan all `Artifacts` and recreate in the KFP artifact table. 
 * In the case of metrics, artifacts will need to be logged to the `Metrics` table instead of `Artifacts`.
 * Validation Step
