@@ -5,12 +5,13 @@ CREATE TABLE `artifacts`
     `Type`                     varchar(64)           DEFAULT NULL, -- examples: Artifact, Model, Dataset
     `Uri`                      text,
     `Name`                     varchar(128)          DEFAULT NULL,
-    `CreateTimeSinceEpoch`     bigint       NOT NULL DEFAULT '0',
-    `LastUpdateTimeSinceEpoch` bigint       NOT NULL DEFAULT '0',
+    `CreatedAtInSec`           bigint       NOT NULL DEFAULT '0',
+    `LastUpdateInSec`          bigint       NOT NULL DEFAULT '0',
     `Properties`               JSON                  DEFAULT NULL, -- equivalent to mlmd custom properties
     PRIMARY KEY (`UUID`),
-    KEY                        idx_create_time (CreateTimeSinceEpoch),
-    KEY                        idx_last_update_time (LastUpdateTimeSinceEpoch)
+    KEY                        idx_type_namespace (`Namespace`, `Type`),
+    KEY                        idx_create_time (`CreatedAtInSec`),
+    KEY                        idx_last_update_time (`LastUpdateInSec`)
 );
 
 -- Analogous to an mlmd Event, except it is specific to artifacts <-> tasks (instead of executions)
@@ -21,13 +22,13 @@ CREATE TABLE `artifact_events`
     `TaskID`               varchar(191) NOT NULL,
     -- 0 for INPUT, 1 for OUTPUT
     `Type`                 int          NOT NULL,
-    `CreateTimeSinceEpoch` bigint       NOT NULL DEFAULT '0',
+    `CreatedAtInSec`       bigint       NOT NULL DEFAULT '0',
 
     PRIMARY KEY (`UUID`),
     UNIQUE KEY `UniqueLink` (`ArtifactID`,`TaskID`,`Type`),
     KEY                    `idx_link_task_id` (`TaskID`),
     KEY                    `idx_link_artifact_id` (`ArtifactID`),
-    KEY                    `idx_create_time` (CreateTimeSinceEpoch),
+    KEY                    `idx_create_time` (`CreatedAtInSec`),
     CONSTRAINT fk_artifact_events_tasks FOREIGN KEY (TaskID) REFERENCES tasks (UUID) ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_artifact_events_artifacts FOREIGN KEY (ArtifactID) REFERENCES artifacts (UUID) ON DELETE CASCADE ON UPDATE CASCADE
 );
@@ -41,9 +42,9 @@ CREATE TABLE `tasks`
     `PipelineName`      varchar(128) NOT NULL,
     `RunUUID`           varchar(191) NOT NULL,
     `PodName`           varchar(255) NOT NULL, -- This is broken today and will need to be fixed
-    `CreatedTimestamp`  bigint       NOT NULL,
-    `StartedTimestamp`  bigint       DEFAULT '0',
-    `FinishedTimestamp` bigint       DEFAULT '0',
+    `CreatedAtInSec`  bigint       NOT NULL,
+    `StartedInSec`  bigint       DEFAULT '0',
+    `FinishedInSec` bigint       DEFAULT '0',
     `Fingerprint`       varchar(255) NOT NULL,
     `Name`              varchar(128) DEFAULT NULL,
     `ParentTaskUUID`    varchar(191) DEFAULT NULL,
@@ -66,13 +67,13 @@ CREATE TABLE `tasks`
     `TypeAttrs`         json         NOT NULL,
 
     PRIMARY KEY (`UUID`),
-    KEY                 idx_artifacts_type_id (Type),
-    KEY                 idx_pipeline_name (PipelineName),
+    KEY                 idx_artifacts_type_id (`Type`),
+    KEY                 idx_pipeline_name (`PipelineName`),
     KEY                 idx_parent_run (`RunUUID`, `ParentTaskUUID`),
-    KEY                 idx_parent_task_uuid (ParentTaskUUID),
-    KEY                 idx_created_timestamp (CreatedTimestamp),
-    KEY                 idx_started_timestamp (StartedTimestamp),
-    KEY                 idx_finished_timestamp (FinishedTimestamp),
+    KEY                 idx_parent_task_uuid (`ParentTaskUUID`),
+    KEY                 idx_created_timestamp (`CreatedAtInSec`),
+    KEY                 idx_started_timestamp (`StartedInSec`),
+    KEY                 idx_finished_timestamp (`FinishedInSec`),
     CONSTRAINT `tasks_RunUUID_run_details_UUID_foreign` FOREIGN KEY (`RunUUID`) REFERENCES `run_details` (`UUID`) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
@@ -82,16 +83,16 @@ CREATE TABLE `run_metrics`
 (
     `TaskID`           varchar(191) NOT NULL,
     `Name`             varchar(128) NOT NULL,
-    `NumberValue` double DEFAULT NULL,
+    `NumberValue`      double DEFAULT NULL,
     `Namespace`        varchar(63)  NOT NULL,
     `JsonValue`        JSON DEFAULT NULL,
-    `CreatedTimestamp` bigint       NOT NULL,
+    `CreatedAtInSec`   bigint       NOT NULL,
     -- 0 for INPUT, 1 for OUTPUT
     `Type`             int          NOT NULL,
     `Schema`           varchar(64)  NOT NULL,
 
     PRIMARY KEY (`TaskID`, `Name`),
-    KEY                idx_number_value (NumberValue),
-    KEY                idx_created_timestamp (CreatedTimestamp),
+    KEY                idx_number_value (`NumberValue`),
+    KEY                idx_created_timestamp (`CreatedAtInSec`),
     CONSTRAINT fk_run_metrics_tasks FOREIGN KEY (TaskID) REFERENCES tasks (UUID) ON DELETE CASCADE ON UPDATE CASCADE
 );
