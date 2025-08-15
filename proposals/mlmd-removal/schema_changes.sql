@@ -1,33 +1,35 @@
 CREATE TABLE `artifacts`
 (
-    `UUID` varchar(191) NOT NULL,
-    `namespace` varchar(63) NOT NULL, -- enables multi-tenancy on artifacts
-    `type` varchar(64) DEFAULT NULL, -- examples: Artifact, Model, Dataset
-    `uri` text,
-    `name` varchar(128) DEFAULT NULL,
-    `create_time_since_epoch` bigint NOT NULL DEFAULT '0',
-    `last_update_time_since_epoch` bigint NOT NULL DEFAULT '0',
-    `properties` JSON DEFAULT NULL, -- equivalent to mlmd custom properties
-    PRIMARY KEY (`UUID`)
+    `UUID`                     varchar(191) NOT NULL,
+    `Namespace`                varchar(63)  NOT NULL,              -- enables multi-tenancy on artifacts
+    `Type`                     varchar(64)           DEFAULT NULL, -- examples: Artifact, Model, Dataset
+    `Uri`                      text,
+    `Name`                     varchar(128)          DEFAULT NULL,
+    `CreateTimeSinceEpoch`     bigint       NOT NULL DEFAULT '0',
+    `LastUpdateTimeSinceEpoch` bigint       NOT NULL DEFAULT '0',
+    `Properties`               JSON                  DEFAULT NULL, -- equivalent to mlmd custom properties
+    PRIMARY KEY (`UUID`),
+    KEY idx_create_time (CreateTimeSinceEpoch),
+    KEY idx_last_update_time (LastUpdateTimeSinceEpoch)
 );
 
 -- Analogous to an mlmd Event, except it is specific to artifacts <-> tasks (instead of executions)
 CREATE TABLE `artifact_events`
 (
-    `UUID` varchar(191) NOT NULL,
-    `artifact_id` varchar(191) NOT NULL,
-    `task_id` varchar(191) NOT NULL,
+    `UUID`                 varchar(191) NOT NULL,
+    `ArtifactID`           varchar(191) NOT NULL,
+    `TaskID`               varchar(191) NOT NULL,
     -- 0 for INPUT, 1 for OUTPUT
-    `type` int NOT NULL,
-    `create_time_since_epoch` bigint NOT NULL DEFAULT '0',
+    `Type`                 int          NOT NULL,
+    `CreateTimeSinceEpoch` bigint       NOT NULL DEFAULT '0',
 
     PRIMARY KEY (`UUID`),
-    UNIQUE KEY `UniqueLink` (`artifact_id`,`task_id`,`type`),
-    KEY `idx_link_task_id` (`task_id`),
-    KEY `idx_link_artifact_id` (`artifact_id`),
-
-    CONSTRAINT fk_artifact_events_tasks FOREIGN KEY (task_id) REFERENCES tasks (UUID) ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT fk_artifact_events_artifacts FOREIGN KEY (artifact_id) REFERENCES artifacts (UUID) ON DELETE CASCADE ON UPDATE CASCADE
+    UNIQUE KEY `UniqueLink` (`ArtifactID`,`TaskID`,`Type`),
+    KEY                    `idx_link_task_id` (`TaskID`),
+    KEY                    `idx_link_artifact_id` (`ArtifactID`),
+    KEY idx_create_time (CreateTimeSinceEpoch),
+    CONSTRAINT fk_artifact_events_tasks FOREIGN KEY (TaskID) REFERENCES tasks (UUID) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_artifact_events_artifacts FOREIGN KEY (ArtifactID) REFERENCES artifacts (UUID) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE `tasks`
@@ -68,6 +70,9 @@ CREATE TABLE `tasks`
     KEY idx_pipeline_name (PipelineName),
     KEY idx_parent_run (`RunUUID`, `ParentTaskUUID`),
     KEY idx_parent_task_uuid (ParentTaskUUID),
+    KEY idx_created_timestamp (CreatedTimestamp),
+    KEY idx_started_timestamp (StartedTimestamp),
+    KEY idx_finished_timestamp (FinishedTimestamp),
     CONSTRAINT `tasks_RunUUID_run_details_UUID_foreign` FOREIGN KEY (`RunUUID`) REFERENCES `run_details` (`UUID`) ON DELETE CASCADE ON UPDATE CASCADE,
 )
 
@@ -75,16 +80,21 @@ CREATE TABLE `tasks`
 -- and recreate it as needed without worrying about breaking changes
 CREATE TABLE `run_metrics`
 (
-    `TaskUUID` varchar(191) NOT NULL,
+    `TaskID` varchar(191) NOT NULL,
     `Name` varchar(128) NOT NULL,
     `NumberValue` double DEFAULT NULL,
     `Namespace` varchar(63) NOT NULL,
     `JsonValue` JSON DEFAULT NULL,
+    `CreatedTimestamp` bigint NOT NULL,
     -- 0 for INPUT, 1 for OUTPUT
     `Type` int NOT NULL,
     `Schema` varchar(64) NOT NULL,
-    
-    PRIMARY KEY (`TaskUUID`, `Name`),
+
+    PRIMARY KEY (`TaskID`, `Name`),
     KEY idx_number_value (NumberValue)
-    CONSTRAINT fk_run_metrics_tasks FOREIGN KEY (TaskUUID) REFERENCES tasks (UUID) ON DELETE CASCADE ON UPDATE CASCADE
+    
+
+    KEY idx_number_value (NumberValue),
+    KEY idx_created_timestamp (CreatedTimestamp),
+    CONSTRAINT fk_run_metrics_tasks FOREIGN KEY (TaskID) REFERENCES tasks (UUID) ON DELETE CASCADE ON UPDATE CASCADE
 )
