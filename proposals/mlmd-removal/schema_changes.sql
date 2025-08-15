@@ -67,15 +67,15 @@ CREATE TABLE `tasks`
     `TypeAttrs`        json         NOT NULL,
 
     PRIMARY KEY (`UUID`),
-    KEY                idx_artifacts_type_id (`Type`),
+    KEY                idx_task_type (`Type`),
     KEY                idx_pipeline_name (`PipelineName`),
     KEY                idx_parent_run (`RunUUID`, `ParentTaskUUID`),
     KEY                idx_parent_task_uuid (`ParentTaskUUID`),
     KEY                idx_created_timestamp (`CreatedAtInSec`),
     KEY                idx_started_timestamp (`StartedInSec`),
     KEY                idx_finished_timestamp (`FinishedInSec`),
-    CONSTRAINT `fk_tasks_parent_task` FOREIGN KEY (`ParentTaskUUID`) REFERENCES tasks (`UUID`) ON DELETE CASCADE ON UPDATE CASCADE
-        CONSTRAINT `tasks_RunUUID_run_details_UUID_foreign` FOREIGN KEY (`RunUUID`) REFERENCES `run_details` (`UUID`) ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT `fk_tasks_parent_task` FOREIGN KEY (`ParentTaskUUID`) REFERENCES tasks (`UUID`) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT `tasks_RunUUID_run_details_UUID_foreign` FOREIGN KEY (`RunUUID`) REFERENCES `run_details` (`UUID`) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- We will also revamp the Metrics table, it is not used today so we can drop it 
