@@ -391,6 +391,7 @@ This change will come with some drastic changes to the DB schema, namely the `Ta
 To accommodate the transition, the KFP release containing this change will provide a migration script for users to apply to their DB. MLMD will be required so that the script may use the mlmd client. The script will do the following: 
 
 * Drop the Tasks table and recreate it
+* Drop the Metrics table (it is not used at all)
 * Scan MLMD executions, converting them to their Task counterparts.
   * When encountering ContainerExecutions with `cache_fingerprints`, the fingerprint should only be stored if the execution has a `COMPLETE` state.
 * Scan all `Artifacts` and recreate in the KFP artifact table. 
