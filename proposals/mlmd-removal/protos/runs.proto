@@ -61,36 +61,42 @@ message ListTasksResponse {
   int32 total_size = 3;
 }
 
+// The field numbers are re-numbered
+// this can have strong implications
+// please review carefully.
 message PipelineTaskDetail {
   //--------------------------
   // Pre-Existing fields
   //--------------------------
-  // This will be changed to Output only.
-  string task_id = 2;
-  string run_id = 1;
+  // Output only.
+  string task_id = 1;
+  string run_id = 2;
   string display_name = 3;
   google.protobuf.Timestamp create_time = 4;
   google.protobuf.Timestamp start_time = 5;
   google.protobuf.Timestamp end_time = 6;
-  RuntimeState state = 8;
-  int64 execution_id = 9;
-  google.rpc.Status error = 10;
-  string parent_task_id = 13;
-  repeated RuntimeStatus state_history = 14;
+  RuntimeState state = 7;
+  int64 execution_id = 8;
+  google.rpc.Status error = 9;
+  string parent_task_id = 10;
+  repeated RuntimeStatus state_history = 11;
   // This will be changed to Output only.
   // Note also this is applicable only to the Runtime tasks
-  string pod_name = 15;
+  string pod_name = 12;
 
+  //--------------------------
   // Remove these fields
-  PipelineTaskExecutorDetail executor_detail = 7;
-  map<string, ArtifactList> inputs = 11;
-  map<string, ArtifactList> outputs = 12;
-  repeated ChildTask child_tasks = 16;
+  //--------------------------
+
+  //  PipelineTaskExecutorDetail executor_detail = 13;
+  //  map<string, ArtifactList> inputs = 14;
+  //  map<string, ArtifactList> outputs = 15;
+  //  repeated ChildTask child_tasks = 16;
 
   //--------------------------
   // New fields
   //--------------------------
-  repeated string child_tasks_ids = 17;
+  repeated string child_tasks_ids = 13;
 
   enum InputType {
     ResolvedValue = 0;
@@ -108,8 +114,8 @@ message PipelineTaskDetail {
     string producer_task_name = 4;
     string producer_parameter_id = 5;
   }
-  repeated Parameter input_parameters = 18;
-  repeated Parameter output_parameters = 19;
+  repeated Parameter input_parameters = 14;
+  repeated Parameter output_parameters = 15;
 
   message TaskArtifact {
     InputType input_type = 1;
@@ -123,14 +129,14 @@ message PipelineTaskDetail {
     string producer_parameter_id = 5;
 
   }
-  repeated TaskArtifact input_artifacts = 20;
-  repeated TaskArtifact output_artifacts = 21;
+  repeated TaskArtifact input_artifacts = 16;
+  repeated TaskArtifact output_artifacts = 17;
 
   message TaskMetric {
     enum Type {
       METRIC = 0;
       CLASSIFICATION_METRICS = 1;
-      SlicedClassificationMetrics = 2;
+      SLICED_CLASSIFICATION_METRICS = 2;
     }
     string key = 3;
     Type type = 4;
@@ -140,8 +146,8 @@ message PipelineTaskDetail {
       google.protobuf.Struct values = 6;
     }
   }
-  repeated TaskMetric input_metrics = 22;
-  repeated TaskMetric output_metrics = 23;
+  repeated TaskMetric input_metrics = 18;
+  repeated TaskMetric output_metrics = 19;
 
   enum TaskType {
     // Root task replaces Root Execution, it is the top ancestor task to all tasks in the pipeline run
@@ -157,14 +163,14 @@ message PipelineTaskDetail {
     // a driver.
     DAG = 7;
   }
-  TaskType type = 24;
+  TaskType type = 20;
 
-  // Applies to type LOOP_ITERATION
-  int64 iteration_index = 25;
-  // Applies to type LOOP
-  int64 iteration_count = 26;
-  string name = 27;
-  string cache_fingerprint = 28;
+  // Optional. Applies to type LOOP_ITERATION
+  int64 iteration_index = 21;
+  // Optional. Applies to type LOOP
+  int64 iteration_count = 22;
+  string name = 23;
+  string cache_fingerprint = 24;
 }
 
 

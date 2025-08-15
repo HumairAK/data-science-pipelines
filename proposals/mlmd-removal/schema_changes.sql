@@ -90,6 +90,7 @@ CREATE TABLE `run_metrics`
     `CreatedAtInSec` bigint       NOT NULL,
     -- 0 for INPUT, 1 for OUTPUT
     `Type`           int          NOT NULL,
+    -- Metric, ClassificationMetric, SlicedClassificationMetric
     `Schema`         varchar(64)  NOT NULL,
 
     PRIMARY KEY (`TaskID`, `Name`),
