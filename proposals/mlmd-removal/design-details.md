@@ -42,10 +42,6 @@ Multiple control flows involving execution creation and management exist. These 
 
 In KFP, the driver component is responsible for creating new Executions. There are two types of driver executions:
 
-* ContainerExecution - always precedes the launcher/executor pod
-    * Makes caching decisions
-    * Resolves inputs
-    * Builds podspec for the executor pod
 * DagExecution - this can be further subdivided to:
     * RootDag - runs once per pipeline
         * Creates the PipelineRun context in MLMD
@@ -56,6 +52,31 @@ In KFP, the driver component is responsible for creating new Executions. There a
         * Resolves iteration counts (for loops)
 
 Each execution type interacts with mlmd in slightly different ways.
+--
+
+The KFP driver component creates and manages different types of executions during pipeline execution. These executions follow two main patterns:
+
+**ContainerExecution**
+- Runs before every launcher/executor pod
+- Handles caching decisions and input resolution
+- Generates the pod specification for the executor
+
+**DagExecution**
+
+Manages control flow and has two subtypes:
+
+  **RootDag** (runs once per pipeline)
+    - Establishes the PipelineRun context in MLMD
+    - Stores pipeline runtime input information
+
+  **Dag** (runs for each task group)
+    - Handles conditional logic (Condition, ConditionBranch, Loop, LoopIteration)
+    - Resolves conditional expressions
+    - Processes inputs for task groups
+    - Calculates iteration counts for loops
+
+Each execution type has distinct responsibilities and interacts with MLMD differently based on its role in the pipeline workflow.
+
 
 ### MLMD Client replacement
 
