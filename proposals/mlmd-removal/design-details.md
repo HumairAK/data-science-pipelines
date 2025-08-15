@@ -14,7 +14,7 @@ Note also that we will be dropping the `Task` table that exists today and recrea
 
 To facilitate the removal of MLMD, the KFP server will now take on the burden of handling Artifacts, Dags, input resolution, and so on.
 
-See [artifacts.proto] for the Artifact server changes.
+See [artifacts.proto] for the Artifact server changes. A `v2beta1.ArtifactServiceClient` will be introduced to the launcher and driver to interact with this api.
 
 Instead of an MLMD client, the Driver and Launcher will include and leverage a `v2beta1.RunServiceClient` retrieved via `NewRunServiceClient()` in `backend/api/v2beta1`.
 
