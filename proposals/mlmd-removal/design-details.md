@@ -65,15 +65,15 @@ The KFP driver component creates and manages different types of executions durin
 
 Manages control flow and has two subtypes:
 
-  **RootDag** (runs once per pipeline)
-    - Establishes the PipelineRun context in MLMD
-    - Stores pipeline runtime input information
+- **RootDag** (runs once per pipeline)
+  - Establishes the PipelineRun context in MLMD
+  - Stores pipeline runtime input information
 
-  **Dag** (runs for each task group)
-    - Handles conditional logic (Condition, ConditionBranch, Loop, LoopIteration)
-    - Resolves conditional expressions
-    - Processes inputs for task groups
-    - Calculates iteration counts for loops
+- **Dag** (runs for each task group)
+  - Handles conditional logic (Condition, ConditionBranch, Loop, LoopIteration)
+  - Resolves conditional expressions
+  - Processes inputs for task groups
+  - Calculates iteration counts for loops
 
 Each execution type has distinct responsibilities and interacts with MLMD differently based on its role in the pipeline workflow.
 
