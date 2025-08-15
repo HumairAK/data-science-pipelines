@@ -4,9 +4,9 @@
 
 See [schema_changes.sql](./schema_changes.sql) for the database schema additions and changes.
 
-Note that a task is a db model for a task node type as viewed in the Run Graph of the UI.
+Note that a `Task` is a db model for a task node type as viewed in the Run Graph of the UI.
 
-Note that we will be dropping the task table that exists today and recreating it. This is because it is rarely used within KFP, and where it is used, it is unnecessary (i.e. caching). This will require a migration strategy, addressed later in the proposal.
+Note that we will be dropping the `Task` table that exists today and recreating it. This is because it is rarely used within KFP, and where it is used, it is unnecessary (i.e. caching). This will require a migration strategy, addressed later in the proposal.
 
 ### KFP Server API
 
