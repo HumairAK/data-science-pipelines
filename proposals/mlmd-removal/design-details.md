@@ -84,7 +84,7 @@ func (c *Client) GetOrInsertArtifactType(ctx context.Context, schema string) (ty
 func (c *Client) FindMatchedArtifact(ctx context.Context, artifactToMatch *pb.Artifact, pipelineContextId int64) (matchedArtifact *pb.Artifact, err error)
 ```
 
-These will be replaced calls to v2beta1.RunService instead:
+These will be replaced by calls to v2beta1.RunService instead:
 
 ```go
 package run_client
