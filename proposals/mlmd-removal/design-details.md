@@ -6,7 +6,7 @@ See [schema_changes.sql](./schema_changes.sql) for the database schema additions
 
 Note that a task is a db model for a task node type as viewed in the Run Graph of the UI.
 
-Note that we will be dropping the task table that exists today and recreating it. This is because it is rarely used within KFP, and where it is used, it is unnecessary (i.e., caching). This will require a migration strategy, addressed later in the proposal.
+Note that we will be dropping the task table that exists today and recreating it. This is because it is rarely used within KFP, and where it is used, it is unnecessary (i.e. caching). This will require a migration strategy, addressed later in the proposal.
 
 ### KFP Server API
 
@@ -386,19 +386,18 @@ The following changes will need to be made:
 
 ### Migration
 
-For tasks/pipelineTaskDetail if we're re-using the old table then migration will become tricky
-UI for example will be pulling tasks instead of execution trying to populate old runs input/output data
-* We can make it so that if it's not present then it looks at mlmd executions
-* If MLMD executions are not available we don't render the graphs?
-  The problem exists even if we use a new table though.
+This change will come with some drastic changes to the DB schema, namely the `Tasks` table. We will be dropping this table entirely. The only usage this table sees is described in the [caching](#caching) section. As noted there, all information that is relevant already exists in MLMD. 
 
-User must opt in to migrating via configs.
+To accommodate the transition, the KFP release containing this change will provide a migration script for users to apply to their DB. MLMD will be required so that the script may use the mlmd client. The script will do the following: 
 
-We can either:
-1. User needs to provision (as new configs) DB credentials to apiserver, if the user does not provide these - api server will fail to start up with reason
-2. Or we auto detect if we can see these tables (if they are using the opinioated kf/kfp installs), if so we require an opt-in config via `MigrateMLMD=True`
-   This way the user does not need to provide an additional set of configs. If we can't access it, user will need to provide credentials like (1)
-3. Migration script—light weight, it's one time op, API Server would fail if we are in a pre-migrate state 
+* Drop the Tasks table and recreate it
+* Scan MLMD executions, converting them to their Task counterparts.
+  * When encountering ContainerExecutions with `cache_fingerprints`, the fingerprint should only be stored if the execution has a `COMPLETE` state.
+* Scan all `Artifacts` and recreate in the KFP artifact table. 
+* In the case of metrics, artifacts will need to be logged to the `Metrics` table instead of `Artifacts`.
+* Validation Step
+
+Due to the nature of the change, we will require users to opt in to this upgrade by running this script. If the API Server detects the new fields are not present, KFP will assume the migration script has not been executed, and thus the server will fail to start up, logging a meaningful message to the user. 
 
 ### Testing
 
