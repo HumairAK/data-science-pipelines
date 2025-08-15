@@ -28,7 +28,6 @@ An example of the updated run response format can be found in [runs.json].
 [runs.proto]: ./protos/runs.proto
 [runs.json]: ./protos/runs.json
 
-
 ### MLMD Client replacement
 
 This section explains how we will replace the MLMD client with new KFP Server API functionality in Driver/Launcher code.
@@ -119,7 +118,7 @@ In a similar manner, the v2beta1 ArtifactService can be used to implement the fo
 
 ### Driver changes
 
-Various interactions in the Driver need adjustments to move away from MLMD. The key change involves transitioning from
+Various portions of the Driver need adjustments to transition away from MLMD. The key change involves transitioning from
 creating Executions to creating Tasks.
 
 In the pipeline, the `ROOT_DAG` Driver currently passes an `execution_id` flag to subsequent drivers. This needs to be
@@ -158,7 +157,7 @@ Each execution type has distinct responsibilities and interacts with MLMD differ
 
 Container Drivers will now create a task of type `Runtime`. When creating the PodSpecPatch, the Driver will pass the `--task_id` instead of the `execution_id` flag.
 
-##### Loops
+##### DagExecution—Loops
 
 Loops in KFP today require two types of dags, there's either a dag that has an `iteration_count` or a dag that has an `iteration_index`.
 We'll refer to these as `Loop` and `LoopIteration` respectively. A `Loop` is a task grouping of components that will run within this loop. It tracks the total count of iterations via `iteration_count`. A `LoopIteration` is a dag that tracks the current iteration for a given loop via `iteration_index`.
@@ -167,11 +166,11 @@ Each of these results in a `DagExecution`. Recall that, the components that run 
 
 Each of these is loop types is used to resolve inputs/outputs and will need to be logged as Tasks into the Tasks table. The Tasks will be logged as `Loop` and `LoopIteration` respectively, and leverage the `RunServer` and `ArtifactServer` for input resolution.
 
-##### Exit handler
+##### DagExecution—Exit handler
 
 Any task under the `dsl.Exithandler` group falls within a Dag execution. These tasks will now be grouped under a task of type `Exithandler`.
 
-##### DSL If/Else/ElseIf
+##### DagExecution—DSL If/Else/ElseIf
 
 When working with Conditions in KFP, new nodes are introduced in the Pipeline Graph; they are prefixed with `condition-`
 or `condition-branches-`.
@@ -205,27 +204,27 @@ if !opts.CacheDisabled {
 createdExecution, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
 ```
 
-The call to `getFingerPrintsAndID` will make a subsequent call to `TaskServiceClient.ListTasksV1` and fetch the execution ID for the Task with the fingerprint stored in the Launcher step. If such an execution ID is found we assume there was a cache hit, and we don't run the next Launcher.
+The call to `getFingerPrintsAndID` will make a subsequent call to `TaskServiceClient.ListTasksV1` and fetch the execution ID for the Task with the fingerprint stored in the Launcher step. If such an execution ID is found, we assume there was a cache hit, and we don't run the next Launcher.
 
-Notice also that we st ore the `ecfg.FingerPrint = fingerPrint` in the MLMD execution as well, this means the container execution also has the `cache_fingerprint` found in the task table.
+Notice also that we store the `ecfg.FingerPrint = fingerPrint` in the MLMD execution as well, this means the container execution also has the `cache_fingerprint` found in the task table.
 
 ###### Caching post mlmd
 
 Much of the logic flow will stay the same, but instead of calls to `TaskServiceClient`'s v1 API, the v2 `RunService` api will be used.
 
-When the Launcher finishes running `Execute()` it `defers` and `UpdateDAGExecutionsState()` call, this can be replaced with the `UpdateTask` call using the v2 `RunServerClient`, providing the `cache_fingerprint` for this `Runtime` task.
+When the Launcher finishes running `Execute()` it `defers` an `UpdateDAGExecutionsState()` call, this can be replaced with the `UpdateTask` call using the v2 `RunServerClient`, providing the `cache_fingerprint` for this `Runtime` task. The fingerprint should only be provided upon a successful launcher execution.
 
-In the Driver, `getFingerPrintsAndID` will be updated to leverage `ListTasks` and it's `filter` capability to search by `cache_fingerprint` to detect a hit, much like how it uses `ListTasksV1` today. Note that unlike how the Driver works today, the `cache_fingerprint` should not be stored for an upcoming task that will be created (in the Driver), it should instead be updated by the Launcher once an execution successfully completes.
+In the Driver, `getFingerPrintsAndID` will be updated to leverage `ListTasks` and it's `filter` field to search by `cache_fingerprint` to detect a hit, much like how it uses `ListTasksV1` today. Note that unlike how the Driver works today, the `cache_fingerprint` should not be stored for an upcoming task that will be created in the Driver, it should instead be updated by the Launcher once an execution successfully completes.
 
 ** Migration Note **
 
-Caching needs special consideration for migration. Since the `tasks` table will be dropped and re-populated using data from MLMD, caching will need to be handled carefully. When converting a `ContainerExecution` to a `Runtime` task, only store the fingerprint if the execution has a `COMPLETE` status.
+Caching needs special consideration for migration. Since the `tasks` table will be dropped and re-populated using data from MLMD, caching will need to be handled carefully. When converting a `ContainerExecution` to a `Runtime` task, we will need to only store the fingerprint if the execution has a `COMPLETE` status. This avoids storing fingerprints that may be present in an execution, but where an executor pod never ran to success.
 
 ### Launcher changes
 
-Like Driver, Launcher will need new client connections to the RunServerClient to reach the Runs api for task fetching, and similarly an `ArtifactServiceClient`.
+Like the Driver component, the Launcher will need to establish new client connections to access the Runs API via RunServerClient and the Artifacts API via ArtifactServiceClient.
 
-The following flags will need to be removed:
+The following flags in the launcher will need to be removed:
 
 ```text
 --execution_id
@@ -247,13 +246,12 @@ Other changes that will be required in Launcher are mentioned elsewhere in the p
 
 ### Nested Pipelines
 
-There is no way direct way to detect whether a Driver run is for a Nested execution, to accommodate there is a generic `DAG` task type is provided to fit such cases.
+There is no direct way to infer whether a Driver run is for a Nested execution, to accommodate this, there is a generic `DAG` task type provided to fit such cases.
 Alternatively, we could provide an SDK update to declare a task type in a field on a `ComponentSpec` `dag` field.
 
 ### StoreSessionInfo
 
-Currently, Artifact credential info is stored as a custom property, and is called `store_session_info`. In this proposal, we will not port over this capability as a
-custom artifact property, and we will instead remove this from the `rood_dag.go`:
+Currently, Artifact credential info is stored as a custom property, and is called `store_session_info`. Storing such system level info as a custom property is an anti-pattern and should be avoided. In this effort, we will not port over this functionality, and we will instead remove the following from `rood_dag.go`:
 
 ```go
 storeSessionInfo, err = cfg.GetStoreSessionInfo(pipelineRoot)
@@ -277,17 +275,20 @@ Removing this property from the Artifact will also require Frontend changes, the
   }: { }
 ```
 
-The server will instead need to build this object similar to how the root Driver does it [here](https://github.com/kubeflow/pipelines/blob/2c91fb797ed5e95bb51ae80c4daa2c6b9334b51b/frontend/server/handlers/artifacts.ts#L102).
+The server in [artifacts.tx] will instead need to build this object similar to how the root Driver does it in `cfg.GetStoreSessionInfo(pipelineRoot)`.
+
+[artifacts.tx]: https://github.com/kubeflow/pipelines/blob/2c91fb797ed5e95bb51ae80c4daa2c6b9334b51b/frontend/server/handlers/artifacts.ts#L102
 
 ### Metrics
 
 Metrics in KFP today are stored as Artifacts, they have the following Artifact Types:
 
-* system.Metrics - Regular Key -> NumberValue pair
-* system.ClassificationMetrics - Key -> JSON
-* system.SlicedClassificationMetrics -> Key -> JSON
+* system.Metrics - Regular Key and NumberValue pair
+* system.ClassificationMetrics - Key and JSON pair
+* system.SlicedClassificationMetrics - Key and JSON pair
 
-The values for these Metrics Artifacts are stored as `CustomProperties`, they aren't actually stored in object store.
+The values for these Metrics Artifacts are stored as `CustomProperties`, they are not stored in object store like other artifacts.
+
 So it is questionable that they are treated as Artifacts to begin with. Instead of porting this behavior, we'll instead leverage the Metrics table in KFP which is currently unused.
 
 We will log the Metrics there when such artifact types are encountered in the Launcher. These can be addressed in `launcher_v2.go` when `uploadOutputArtifact` is called. During this invocation we can check for an artifacts type via:
@@ -305,9 +306,7 @@ We will log the Metrics there when such artifact types are encountered in the La
 
 In the executor Input we can abstain from storing a URI since this does not apply to Metrics.
 
-When the Driver is looking to resolve Artifacts, to store in the ExecutorInput, it will need to ensure it's differentiating between Metrics and other Artifact types.
-
-To keep the Python SDK will continue to interpret Metrics as artifacts, this helps maintain backwards compatibility. The Driver will need to ensure when it is creating the Artifacts list during the call to `resolveInputs -> resolveInputArtifact -> resolveUpstreamArtifacts() -> artifact.ToRuntimeArtifact()`, we are parsing Metrics. The updated pseudocode in `resolveUpstreamArtifacts` will be something like:
+The Python SDK will continue to interpret Metrics as artifacts, this maintains backwards compatibility. The Driver will need to ensure when it is creating the Artifacts list during the call to `resolveInputs -> resolveInputArtifact -> resolveUpstreamArtifacts() -> artifact.ToRuntimeArtifact()`, we are converting Metrics to output Artifacts. The updated pseudocode in `resolveUpstreamArtifacts` will be something like:
 
 ```go
 package driver
@@ -331,6 +330,11 @@ func resolveUpstreamArtifacts(cfg resolveUpstreamOutputsConfig) (*pipelinespec.A
 ```
 
 ### Frontend Changes
+
+There are three primary pages in the UI where MLMD encounters happen, the Run Details, Artifacts, and Executions page.
+
+The execution page can be removed entirely since all information will be present in the run Task nodes in the run graph. The FrontEnd will need to be updated to ensure all relevant information will continue to be surfaced in a Task Node's details sidebar. 
+
 For run details, MLMD data is fetched in `RuntimeNodeDetailsV2.tsx` via:
 
 ```typescript
@@ -350,7 +354,7 @@ const artifacts = await fetchArtifactsFromTasks(tasks); // the information is no
 const events = await getArtifactEventsByTasks(tasks); // uses ListArtifactEvents()
 ```
 
-The `Visualization` Nav in `RuntimeNodeDetailsV2.tsx` will also need to be updated to take `Metrics` fetch from `Task` proto, instead of `Artifacts` from MLMD.
+The `Visualization` Nav in `RuntimeNodeDetailsV2.tsx` will also need to be updated to take `Metrics` fetched from `Task` response object, instead of `Artifacts` from MLMD.
 
 The Artifact Node in the UI should also no longer display an `Artifact URI`, as this is not applicable to metrics.
 
@@ -372,7 +376,7 @@ The `CompareV2.tsx` also makes various calls to MLMD, much like `RuntimeNodeDeta
       )
 ```
 
-This and associated code will also need to be updated to leverage Tasks retrieved via the Runs API server.
+This and underlying code will also need to be updated to leverage Tasks retrieved via the Runs API server.
 
 #### Run Reporting
 
@@ -388,19 +392,19 @@ _, err = s.reportTasksFromExecution(newExecSpec, runId)
 
 ### Auth Considerations
 
-The Driver/Launcher will be introducing a new `RunServerClient` and `ArtifactServerClient` using the `v2beta1`. All calls to this endpoint must be protected via SubjectAccessReview. The new server implementations can simply use `resourceManager.IsAuthorized(ctx, resourceAttributes)`, which is the standard everywhere else in KFP. For `ArtifactService` implementations, we will introduce `RbacResourceTypeArtifacts = "artifactgs"`, in `backend/src/apiserver/common/const.go` much like the other resources.
+The Driver/Launcher will be introducing a new `RunServerClient` and `ArtifactServerClient` using the `v2beta1`. All calls to this endpoint must be protected via SubjectAccessReview. The new server implementations can simply use `resourceManager.IsAuthorized(ctx, resourceAttributes)`, which is the standard everywhere else in KFP. For `ArtifactService` implementations, we will introduce `RbacResourceTypeArtifacts = "artifacts"`, in `backend/src/apiserver/common/const.go` much like the other resources.
 
-Note also that the Driver/Launcher communicate with the KFP Server via the CacheClient. This has no auth mechanism today, and will need to be updated.
+Note also that the Driver/Launcher communicates with the KFP Server via the CacheClient. This has no auth mechanism today and will need to be updated.
 
 The Driver/Launcher will provide the Pipeline Runner's Service Account token in the auth header for authorization.
 
-As such the Pipeline Runner SA will need the appropriate namespace level to such resources for the Driver & Launcher to communicate with the Api Server.
+As such, the Pipeline Runner SA will need the appropriate namespace level to such resources for the Driver & Launcher to communicate with the Api Server.
 
 ### Manifests
 
 The following changes will need to be made:
 
-* For Driver/Launcher authentication purpose, the Pipeline Runner rbac will need to be updated accordingly to support basic verbs on the Artifact resource accordingly.
+* For Driver/Launcher authentication purpose, the Pipeline Runner SA rbac will need to be updated accordingly to support basic verbs on the Artifact resource.
 * Envoy manifests will be removed
 * MLMD manifests will need to be removed
 * Any configmaps, env vars, or such fields referencing MLMD will need to be removed
@@ -420,12 +424,20 @@ To accommodate the transition, the KFP release containing this change will provi
 * In the case of metrics, artifacts will need to be logged to the `Metrics` table instead of `Artifacts`.
 * Validation Step
 
-Due to the nature of the change, we will require users to opt in to this upgrade by running this script. If the API Server detects the new fields are not present, KFP will assume the migration script has not been executed, and thus the server will fail to start up, logging a meaningful message to the user. 
+Due to the nature of the change, we will require users to opt in to this upgrade by running this script. If the API Server detects the new fields are not present, KFP will assume the migration script has not been executed, and thus the server will fail to start up, logging a meaningful message to the user.
+
+#### Migration Alternative 
+
+An alternative to this migration strategy is to have the KFP server perform the migration. We can enable opt-in by having a one time API Server config option `mlmdMigrat=true`.
+
+The benefits of this approach are that there's a more seamless migration that's automated. However, if a user wants to have more granular control of their migration, they may prefer the script method which they can adjust as needed.
+
+There is also the option of doing a hybrid approach at the cost of more overheard. 
 
 ### Testing
 
 1. Unit Tests
-- Driver/Launcher unit tests will need to be updated and ensure no regressions are introduced
+- Driver/Launcher unit tests will need to be updated to use KFP server instead of MLMD
 - API server unit tests for new task and artifact endpoints
 - Frontend unit tests for updated components using task data instead of MLMD
 
@@ -439,7 +451,7 @@ Due to the nature of the change, we will require users to opt in to this upgrade
 - Previous and post upgrade mysql dumps should be provided
 - Verify old cached pipelines continue to be cached post-upgrade
 - Verify recurring runs pre-upgrade and post-upgrade continue to work
-- Test running old and new pipelines during migration
+- Test running old and new pipelines before and after migration
 
 4. Security Tests (requires multi-user mode)
 - Test authentication/authorization for new API endpoints
