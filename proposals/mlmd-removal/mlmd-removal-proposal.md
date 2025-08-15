@@ -402,12 +402,7 @@ We can either:
 1. User needs to provision (as new configs) DB credentials to apiserver, if the user does not provide these - api server will fail to start up with reason
 2. Or we auto detect if we can see these tables (if they are using the opinioated kf/kfp installs), if so we require an opt-in config via `MigrateMLMD=True`
    This way the user does not need to provide an additional set of configs. If we can't access it, user will need to provide credentials like (1)
-3. Migration script—light weight, it's a one time op, API Server would fail if we are in a pre-migrate state 
-
-### Testing
-
-
-
+3. Migration script—light weight, it's one time op, API Server would fail if we are in a pre-migrate state 
 
 ### Delivery Plan
 
@@ -418,6 +413,34 @@ We can either:
 * Update resolve/input logic to use Task details and remove all MLMD invocations from the backend
 * Remove MLMD logic from Driver/Launcher, and add Migration logic
 * Remove MLMD from manifests
+
+### Testing
+
+1. Unit Tests
+  - Driver/Launcher unit tests will need to be updated and ensure no regressions are introduced
+  - API server unit tests for new task and artifact endpoints
+  - Frontend unit tests for updated components using task data instead of MLMD
+
+2. Integration Tests
+  - Existing integration tests will verify no regressions 
+  - With the change to metrics handling, we may need more rigorous testing if current sample pipelines are insufficient 
+  - Similarly, more testing around data passing might be required 
+
+3. Migration Tests (manual but accompanied by supporting evidence)
+  - Testing of a migration script
+  - Previous and post upgrade mysql dumps should be provided
+  - Verify old cached pipelines continue to be cached post-upgrade 
+  - Verify recurring runs pre-upgrade and post-upgrade continue to work 
+  - Test running old and new pipelines during migration
+
+4. Security Tests (requires multi-user mode)
+  - Test authentication/authorization for new API endpoints
+  - Verify proper RBAC enforcement for task/artifact operations
+  - Test multi-tenant isolation of tasks and artifacts
+
+5. Frontend Verification Tests
+  - Verify frontend reporting of metrics in the "Artifact Info" and "Visualization" navs in run details
+  - Verify the frontend comparison UI, confirming artifacts and metrics are fetched accordingly 
 
 ### Conclusion
 
