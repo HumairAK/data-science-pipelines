@@ -14,7 +14,7 @@ Note also that we will be dropping the `Task` table that exists today and recrea
 
 The KFP server will now handle Artifacts, Dags, input resolution, and other responsibilities previously managed by MLMD.
 
-The Artifact service changes are detailed in [artifacts.proto]. The driver and launcher will introduce it a
+The Artifact service changes are detailed in [artifacts.proto]. The Driver and Launcher will introduce it a
 `v2beta1.ArtifactServiceClient` to interact with this API.
 
 For the Driver and Launcher, a `v2beta1.RunServiceClient` obtained via `NewRunServiceClient()` in `backend/api/v2beta1`
@@ -91,7 +91,7 @@ These will be replaced by calls to v2beta1.RunService instead:
 ```go
 package run_client
 
-// Replaces GetPipeline, additionally we will need to pass experiment ID to the driver/launcher
+// Replaces GetPipeline, additionally we will need to pass experiment ID to the Driver/Launcher
 // It also replaces GetPipelineFromExecution, since Tasks have a RunID
 func (c *RunServerClient) GetRun(ctx, runID, experimentID) (*apiv2beta1.Run, error)
 // Replaces GetDAG (filter on task type), GetExecutions, GetExecution
@@ -119,17 +119,17 @@ In a similar manner, the v2beta1 ArtifactService can be used to implement the fo
 
 ### Driver changes
 
-Various interactions in the driver need adjustments to move away from MLMD. The key change involves transitioning from
+Various interactions in the Driver need adjustments to move away from MLMD. The key change involves transitioning from
 creating Executions to creating Tasks.
 
-In the pipeline, the `ROOT_DAG` driver currently passes an `execution_id` flag to subsequent drivers. This needs to be
-updated to pass `parent_task_id` instead. Downstream driver tasks will continue to propagate their corresponding tasks as `parent_task_id` as well.
+In the pipeline, the `ROOT_DAG` Driver currently passes an `execution_id` flag to subsequent drivers. This needs to be
+updated to pass `parent_task_id` instead. Downstream Driver tasks will continue to propagate their corresponding tasks as `parent_task_id` as well.
 
 Multiple control flows involving execution creation and management exist. These are detailed in the sections below.
 
 #### Control Flows
 
-The KFP driver component creates and manages different types of executions during pipeline execution. These executions follow two main patterns:
+The KFP Driver component creates and manages different types of executions during pipeline execution. These executions follow two main patterns:
 
 **DagExecution**
 
@@ -146,7 +146,7 @@ Manages control flow and has two subtypes:
   - Calculates iteration counts for loops
 
 **ContainerExecution**
-  - Runs before every launcher/executor pod
+  - Runs before every Launcher/executor pod
   - Handles caching decisions and input resolution
   - Generates the pod specification for the executor
   - Stores cache fingerprint in the task store
@@ -156,7 +156,7 @@ Each execution type has distinct responsibilities and interacts with MLMD differ
 
 ##### ContainerExecution
 
-Container drivers will now create a task of type `Runtime`. When creating the PodSpecPatch, the Driver will pass the `--task_id` instead of the `execution_id` flag.
+Container Drivers will now create a task of type `Runtime`. When creating the PodSpecPatch, the Driver will pass the `--task_id` instead of the `execution_id` flag.
 
 ##### Loops
 
@@ -176,7 +176,7 @@ Any task under the `dsl.Exithandler` group falls within a Dag execution. These t
 When working with Conditions in KFP, new nodes are introduced in the Pipeline Graph; they are prefixed with `condition-`
 or `condition-branches-`.
 
-1. **`Condition`** - Represents a conditional task group (i.e., per If/Else/ElseIf); in KFP it is represented by a DAG driver that outputs a condition parameter which determines whether the underlying dag or components should execute.
+1. **`Condition`** - Represents a conditional task group (i.e., per If/Else/ElseIf); in KFP it is represented by a DAG Driver that outputs a condition parameter which determines whether the underlying dag or components should execute.
 
 2. **`ConditionBranch`** - Represents the branches that stem from a conditional statement (i.e., an If/Else wrapper).
 
@@ -191,7 +191,8 @@ Caching has two parts. The first being Cache Fingerprint creations that happen i
 
 1. At the end of Launcher `Execute()` procedure, there is a call to `l.clientManager.CacheClient().CreateExecutionCache(ctx, task)` which stores a `Task` with a `cache_fingerprint`. Underneath, this uses the `TaskServiceClient.CreateTaskV1` api, meaning this is execution data stored in the Task database table.
 
-1. When the container driver runs, it will run:
+1. When the Container Driver runs, it will do the following:
+
 ```go
 if !opts.CacheDisabled {
     fingerPrint, cachedMLMDExecutionID, err := getFingerPrintsAndID(execution, &opts, cacheClient)
@@ -204,7 +205,7 @@ if !opts.CacheDisabled {
 createdExecution, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
 ```
 
-The call to `getFingerPrintsAndID` will make a subsequent call to `TaskServiceClient.ListTasksV1` and fetch the execution ID for the Task with the fingerprint stored in the launcher step. If such an execution ID is found we assume there was a cache hit, and we don't run the next launcher.
+The call to `getFingerPrintsAndID` will make a subsequent call to `TaskServiceClient.ListTasksV1` and fetch the execution ID for the Task with the fingerprint stored in the Launcher step. If such an execution ID is found we assume there was a cache hit, and we don't run the next Launcher.
 
 Notice also that we st ore the `ecfg.FingerPrint = fingerPrint` in the MLMD execution as well, this means the container execution also has the `cache_fingerprint` found in the task table.
 
@@ -212,9 +213,9 @@ Notice also that we st ore the `ecfg.FingerPrint = fingerPrint` in the MLMD exec
 
 Much of the logic flow will stay the same, but instead of calls to `TaskServiceClient`'s v1 API, the v2 `RunService` api will be used.
 
-When the `launcher` finishes running `Execute()` it `defers` and `UpdateDAGExecutionsState()` call, this can be replaced with the `UpdateTask` call using the v2 `RunServerClient`, providing the `cache_fingerprint` for this `Runtime` task.
+When the Launcher finishes running `Execute()` it `defers` and `UpdateDAGExecutionsState()` call, this can be replaced with the `UpdateTask` call using the v2 `RunServerClient`, providing the `cache_fingerprint` for this `Runtime` task.
 
-In the driver, `getFingerPrintsAndID` will be updated to leverage `ListTasks` and it's `filter` capability to search by `cache_fingerprint` to detect a hit, much like how it uses `ListTasksV1` today. Note that unlike how the driver works today, the `cache_fingerprint` should not be stored for an upcoming task that will be created (in the driver), it should instead be updated by the launcher once an execution successfully completes.
+In the Driver, `getFingerPrintsAndID` will be updated to leverage `ListTasks` and it's `filter` capability to search by `cache_fingerprint` to detect a hit, much like how it uses `ListTasksV1` today. Note that unlike how the Driver works today, the `cache_fingerprint` should not be stored for an upcoming task that will be created (in the Driver), it should instead be updated by the Launcher once an execution successfully completes.
 
 ** Migration Note **
 
@@ -222,7 +223,7 @@ Caching needs special consideration for migration. Since the `tasks` table will 
 
 ### Launcher changes
 
-Like driver, launcher will need new client connections to the RunServerClient to reach the Runs api for task fetching, and similarly an `ArtifactServiceClient`.
+Like Driver, Launcher will need new client connections to the RunServerClient to reach the Runs api for task fetching, and similarly an `ArtifactServiceClient`.
 
 The following flags will need to be removed:
 
@@ -235,18 +236,18 @@ The following flags will need to be removed:
 And replaced with:
 
 ```text
---task_id               # note that unlike the driver we call this `task_id` instead of `parent_task_id`
+--task_id               # note that unlike the Driver we call this `task_id` instead of `parent_task_id`
 --kfp_server_address
 --kfp_server_port
 ```
 
 This is a good opportunity to also replace the endpoints used in `cacheDefaultEndpoint` to use this address/port value, instead of relying on hardcoded defaults.
 
-Other changes that will be required in launcher are mentioned elsewhere in the proposal (see [Caching](#caching), and [Metrics](#metrics) sections).
+Other changes that will be required in Launcher are mentioned elsewhere in the proposal (see [Caching](#caching), and [Metrics](#metrics) sections).
 
 ### Nested Pipelines
 
-There is no way direct way to detect whether a driver run is for a Nested execution, to accommodate there is a generic `DAG` task type is provided to fit such cases.
+There is no way direct way to detect whether a Driver run is for a Nested execution, to accommodate there is a generic `DAG` task type is provided to fit such cases.
 Alternatively, we could provide an SDK update to declare a task type in a field on a `ComponentSpec` `dag` field.
 
 ### StoreSessionInfo
@@ -264,7 +265,7 @@ And build it use it directly in `launcher_v2.go`, replacing:
 storeSessionInfo, err := objectstore.GetSessionInfoFromString(execution.GetPipeline().GetStoreSessionInfo())
 ```
 
-Removing this property from the Artifact will also require Frontend changes, the server will now need to also parse the launcher config, instead of the client code sending this as part of the call to:
+Removing this property from the Artifact will also require Frontend changes, the server will now need to also parse the Launcher config, instead of the client code sending this as part of the call to:
 
 ```typescript
   // Apis.ts
@@ -276,7 +277,7 @@ Removing this property from the Artifact will also require Frontend changes, the
   }: { }
 ```
 
-The server will instead need to build this object similar to how the root driver does it [here](https://github.com/kubeflow/pipelines/blob/2c91fb797ed5e95bb51ae80c4daa2c6b9334b51b/frontend/server/handlers/artifacts.ts#L102).
+The server will instead need to build this object similar to how the root Driver does it [here](https://github.com/kubeflow/pipelines/blob/2c91fb797ed5e95bb51ae80c4daa2c6b9334b51b/frontend/server/handlers/artifacts.ts#L102).
 
 ### Metrics
 
@@ -289,7 +290,7 @@ Metrics in KFP today are stored as Artifacts, they have the following Artifact T
 The values for these Metrics Artifacts are stored as `CustomProperties`, they aren't actually stored in object store.
 So it is questionable that they are treated as Artifacts to begin with. Instead of porting this behavior, we'll instead leverage the Metrics table in KFP which is currently unused.
 
-We will log the Metrics there when such artifact types are encountered in the launcher. These can be addressed in `launcher_v2.go` when `uploadOutputArtifact` is called. During this invocation we can check for an artifacts type via:
+We will log the Metrics there when such artifact types are encountered in the Launcher. These can be addressed in `launcher_v2.go` when `uploadOutputArtifact` is called. During this invocation we can check for an artifacts type via:
 
 ```go
 	schemaTitle := runtimeArtifact.Type.GetSchemaTitle()
@@ -304,7 +305,7 @@ We will log the Metrics there when such artifact types are encountered in the la
 
 In the executor Input we can abstain from storing a URI since this does not apply to Metrics.
 
-When the driver is looking to resolve Artifacts, to store in the ExecutorInput, it will need to ensure it's differentiating between Metrics and other Artifact types.
+When the Driver is looking to resolve Artifacts, to store in the ExecutorInput, it will need to ensure it's differentiating between Metrics and other Artifact types.
 
 To keep the Python SDK will continue to interpret Metrics as artifacts, this helps maintain backwards compatibility. The Driver will need to ensure when it is creating the Artifacts list during the call to `resolveInputs -> resolveInputArtifact -> resolveUpstreamArtifacts() -> artifact.ToRuntimeArtifact()`, we are parsing Metrics. The updated pseudocode in `resolveUpstreamArtifacts` will be something like:
 
@@ -377,7 +378,7 @@ This and associated code will also need to be updated to leverage Tasks retrieve
 
 The Persistent Agent calls the KFP Server's [report_server.go] for updating the Run in DB. This includes updates to the Task db.
 
-Because we are relying on driver/launcher to create/update tasks, we will no longer require Persistent Agent to report on task details, we will need to get rid of this portion of the code.
+Because we are relying on Driver/Launcher to create/update tasks, we will no longer require Persistent Agent to report on task details, we will need to get rid of this portion of the code.
 This is the key piece of code from `report-server.go`:
 
 ```go
