@@ -18,7 +18,8 @@ configMapGenerator:
   - name: grpc-tls-config
     files:
       - patches/grpc-tls-enabled.yaml
-
+patchesStrategicMerge:
+  - patches/api-server-patch-launcher-driver.yaml
 patches:
   - path: patches/apiserver-deployment.yaml
     target:
@@ -36,3 +37,26 @@ patches:
     target:
       kind: Deployment
       name: metadata-grpc-deployment
+
+
+images:
+  - name: ghcr.io/kubeflow/kfp-api-server
+    newName: quay.io/agoins/apiserver
+    newTag: 2.14.0
+  - name: ghcr.io/kubeflow/kfp-frontend
+    newName: quay.io/agoins/kfp-frontend
+    newTag: 2.14.0
+  - name: ghcr.io/kubeflow/kfp-persistence-agent
+    newName: quay.io/agoins/persistence-agent
+    newTag: 2.14.0
+  - name: ghcr.io/kubeflow/kfp-scheduled-workflow-controller
+    newName: quay.io/agoins/scheduledworkflow
+    newTag: 2.14.0
+
+# Don't do:
+#  IMG_TAG_VIEWERCONTROLLER  ?= viewercontroller
+#  IMG_TAG_VISUALIZATION     ?= visualization
+
+# Build the UI (there's no makefile for it)
+# From the root of the repo run:
+# docker build . -f frontend/Dockerfile -t quay.io/agoins:kfp-frontend

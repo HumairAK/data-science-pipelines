@@ -15,14 +15,13 @@ CONTAINER_ENGINE ?= $(shell \
 
 # IMG_REGISTRY can be used to automatically prepend registry details. e.g. "quay.io/kubeflow/"
 IMG_REGISTRY ?=
-IMG_TAG_APISERVER         ?= apiserver
-IMG_TAG_PERSISTENCEAGENT  ?= persistence-agent
-IMG_TAG_CACHESERVER       ?= cache-server
-IMG_TAG_SCHEDULEDWORKFLOW ?= scheduledworkflow
-IMG_TAG_VIEWERCONTROLLER  ?= viewercontroller
-IMG_TAG_VISUALIZATION     ?= visualization
-IMG_TAG_DRIVER            ?= kfp-driver
-IMG_TAG_LAUNCHER          ?= kfp-launcher
+IMG_TAG_APISERVER         ?= apiserver:v2.14.0
+IMG_TAG_PERSISTENCEAGENT  ?= persistence-agent:v2.14.0
+IMG_TAG_CACHESERVER       ?= cache-server:v2.14.0
+IMG_TAG_SCHEDULEDWORKFLOW ?= scheduledworkflow:v2.14.0
+
+IMG_TAG_DRIVER            ?= kfp-driver:v2.14.0
+IMG_TAG_LAUNCHER          ?= kfp-launcher:v2.14.0
 IMG_TAG_WEBHOOK_PROXY     ?= domain.local/kfp/webhook-proxy:latest
 
 # Whenever build command for any of the binaries change, we should update them both here and in backend/Dockerfiles.
@@ -72,6 +71,13 @@ image_driver_debug:
 image_launcher:
 	cd $(MOD_ROOT) && ${CONTAINER_ENGINE} build --platform linux/amd64 -t ${IMG_REGISTRY}${IMG_TAG_LAUNCHER} -f backend/Dockerfile.launcher .
 
+.PHONY: load_all_images
+load_all_images:
+	kind load docker-image ${IMG_REGISTRY}/apiserver
+	kind load docker-image ${IMG_REGISTRY}/persistence-agent
+	kind load docker-image ${IMG_REGISTRY}/cache-server
+	# .. add the rest
+
 .PHONY: install-cert-manager
 install-cert-manager:
 	kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/$(CERT_MANAGER_VERSION)/cert-manager.yaml
@@ -96,6 +102,53 @@ kind-cluster-agnostic:
 	kubectl -n kubeflow wait --for condition=Available --timeout=3m deployment/ml-pipeline
 	# Switch to Kubeflow namespace context
 	kubectl config set-context --current --namespace=kubeflow
+
+.PHONY: kind-cluster-agnostic-tls
+kind-cluster-agnostic-tls:
+	# Deploy Kind Cluster
+	kind create cluster --name $(KIND_NAME)
+	kubectl config use-context kind-$(KIND_NAME)
+	kind get kubeconfig --name $(KIND_NAME) > $(CURDIR)/../kubeconfig_$(KIND_NAME)
+
+	$(MAKE) install-cert-manager
+	# Deploy cluster resources required by KFP
+	kubectl apply -k $(CURDIR)/../manifests/kustomize/cluster-scoped-resources
+	kubectl wait --for condition=established --timeout=1m crd/applications.app.k8s.io
+	# Deploy KFP
+	kubectl apply -k $(CURDIR)/../manifests/kustomize/env/cert-manager/platform-agnostic-standalone-tls
+	kubectl -n kubeflow wait --for condition=Available --timeout=10m deployment/mysql
+	kubectl -n kubeflow wait --for condition=Available --timeout=3m deployment/metadata-grpc-deployment
+	kubectl -n kubeflow wait --for condition=Available --timeout=3m deployment/ml-pipeline
+	# Switch to Kubeflow namespace context
+	kubectl config set-context --current --namespace=kubeflow
+
+
+.PHONY: create-kind-cluster
+create-kind-cluster:
+	# Deploy Kind Cluster
+	kind create cluster --name $(KIND_NAME)
+	kubectl config use-context kind-$(KIND_NAME)
+	kind get kubeconfig --name $(KIND_NAME) > $(CURDIR)/../kubeconfig_$(KIND_NAME)
+
+# make -C backend image_all (with the tags, don't commit the tags)
+# make -C backend load_all_images
+
+# Just for development
+.PHONY: kind-cluster-agnostic-tls-dev
+kind-cluster-agnostic-tls-dev:
+	$(MAKE) install-cert-manager
+	# Deploy cluster resources required by KFP
+	kubectl apply -k $(CURDIR)/../manifests/kustomize/cluster-scoped-resources
+	kubectl wait --for condition=established --timeout=1m crd/applications.app.k8s.io
+	# Deploy KFP
+	# (Humair): Don't commit the image pathcs
+	kubectl apply -k $(CURDIR)/../manifests/kustomize/env/cert-manager/platform-agnostic-standalone-tls
+	kubectl -n kubeflow wait --for condition=Available --timeout=10m deployment/mysql
+	kubectl -n kubeflow wait --for condition=Available --timeout=3m deployment/metadata-grpc-deployment
+	kubectl -n kubeflow wait --for condition=Available --timeout=3m deployment/ml-pipeline
+	# Switch to Kubeflow namespace context
+	kubectl config set-context --current --namespace=kubeflow
+
 
 .PHONY: dev-kind-cluster
 dev-kind-cluster:
