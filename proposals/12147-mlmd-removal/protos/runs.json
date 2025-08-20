@@ -21,7 +21,10 @@
       "create_time": "2025-08-08T15:15:41Z",
       "start_time": "2025-08-08T15:17:36Z",
       "end_time": "2025-08-08T15:18:24Z",
-      "state": "SUCCEEDED",
+      "status": "SUCCEEDED",
+      "status_metadata": {
+        "custom_message": "this is a custom message"
+      },
       "state_history": [],
       // in non Runtime types, we expect only one pod
       "pods": [

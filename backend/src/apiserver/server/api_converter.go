@@ -17,9 +17,11 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
-	"strconv"
 	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
@@ -1021,137 +1023,6 @@ func toApiRuntimeConfig(modelRuntime model.RuntimeConfig) *apiv2beta1.RuntimeCon
 	return &apiRuntimeConfig
 }
 
-// Converts internal runtime config representation to PipelineSpec's runtime config.
-// Note: returns nil if a parsing error occurs.
-func toPipelineSpecRuntimeConfig(cfg *model.RuntimeConfig) *pipelinespec.PipelineJob_RuntimeConfig {
-	if cfg == nil {
-		return &pipelinespec.PipelineJob_RuntimeConfig{}
-	}
-	runtimeParams := toMapProtoStructParameters(string(cfg.Parameters))
-	if runtimeParams == nil {
-		return nil
-	}
-	return &pipelinespec.PipelineJob_RuntimeConfig{
-		ParameterValues:    runtimeParams,
-		GcsOutputDirectory: string(cfg.PipelineRoot),
-	}
-}
-
-// Converts API run metric to its internal representation.
-// Supports both v1beta1 and v2beta1 API.
-func toModelRunMetric(m interface{}, runId string) (*model.RunMetric, error) {
-	var name, nodeId, format string
-	var val float64
-	switch apiRunMetric := m.(type) {
-	case *apiv1beta1.RunMetric:
-		name = apiRunMetric.GetName()
-		nodeId = apiRunMetric.GetNodeId()
-		val = apiRunMetric.GetNumberValue()
-		format = apiRunMetric.GetFormat().String()
-	default:
-		return nil, util.NewUnknownApiVersionError("RunMetric", m)
-	}
-	modelMetric := &model.RunMetric{
-		RunUUID:     runId,
-		Name:        name,
-		NodeID:      nodeId,
-		NumberValue: val,
-		Format:      format,
-	}
-	if err := validation.ValidateModel(modelMetric); err != nil {
-		return nil, util.NewInternalServerError(err, "Failed to convert API run metric to internal representation")
-	}
-	return modelMetric, nil
-
-}
-
-// Converts internal run metric representation to its API counterpart.
-// Supports v1beta1 API.
-func toApiRunMetricV1(metric *model.RunMetric) *apiv1beta1.RunMetric {
-	return &apiv1beta1.RunMetric{
-		Name:   metric.Name,
-		NodeId: metric.NodeID,
-		Value: &apiv1beta1.RunMetric_NumberValue{
-			NumberValue: metric.NumberValue,
-		},
-		Format: apiv1beta1.RunMetric_Format(apiv1beta1.RunMetric_Format_value[metric.Format]),
-	}
-}
-
-// Converts an array of internal run metric representations to an array of their API counterparts.
-// Supports v1beta1 API.
-func toApiRunMetricsV1(m []*model.RunMetric) []*apiv1beta1.RunMetric {
-	apiMetrics := make([]*apiv1beta1.RunMetric, 0)
-	for _, metric := range m {
-		apiMetrics = append(apiMetrics, toApiRunMetricV1(metric))
-	}
-	return apiMetrics
-}
-
-// Convert results of run metrics creation to API response.
-// Supports v1beta1 API.
-// Return nil if a parsing error occurs.
-func toApiReportMetricsResultV1(metricName string, nodeId string, status string, message string) *apiv1beta1.ReportRunMetricsResponse_ReportRunMetricResult {
-	apiResultV1 := &apiv1beta1.ReportRunMetricsResponse_ReportRunMetricResult{
-		MetricName:   metricName,
-		MetricNodeId: nodeId,
-		Message:      message,
-	}
-	switch status {
-	case "ok":
-		apiResultV1.Status = apiv1beta1.ReportRunMetricsResponse_ReportRunMetricResult_OK
-	case "internal":
-		apiResultV1.Status = apiv1beta1.ReportRunMetricsResponse_ReportRunMetricResult_INTERNAL_ERROR
-	case "invalid":
-		apiResultV1.Status = apiv1beta1.ReportRunMetricsResponse_ReportRunMetricResult_INVALID_ARGUMENT
-	case "duplicate":
-		apiResultV1.Status = apiv1beta1.ReportRunMetricsResponse_ReportRunMetricResult_DUPLICATE_REPORTING
-	default:
-		return nil
-	}
-	return apiResultV1
-}
-
-// Converts API run or run details to internal run details representation.
-// Supports both v1beta1 and v2beta1 API.
-// TODO(gkcalat): update this to extend run details.
-func toModelRunDetails(r interface{}) (*model.RunDetails, error) {
-	switch r := r.(type) {
-	case *apiv2beta1.Run:
-		apiRunV2 := r
-		modelRunDetails := &model.RunDetails{
-			CreatedAtInSec:       apiRunV2.GetCreatedAt().GetSeconds(),
-			ScheduledAtInSec:     apiRunV2.GetScheduledAt().GetSeconds(),
-			FinishedAtInSec:      apiRunV2.GetFinishedAt().GetSeconds(),
-			State:                model.RuntimeState(apiRunV2.GetState().String()),
-			PipelineContextId:    apiRunV2.GetRunDetails().GetPipelineContextId(),
-			PipelineRunContextId: apiRunV2.GetRunDetails().GetPipelineRunContextId(),
-		}
-		if apiRunV2.GetPipelineSpec() != nil {
-			spec, err := pipelineSpecStructToYamlString(apiRunV2.GetPipelineSpec())
-			if err != nil {
-				return nil, util.NewInternalServerError(err, "Failed to convert a API run to internal run details representation due to pipeline spec parsing error")
-			}
-			modelRunDetails.PipelineRuntimeManifest = model.LargeText(spec)
-		}
-		return modelRunDetails, nil
-	case *apiv2beta1.RunDetails:
-		return toModelRunDetails(apiv2beta1.Run{RunDetails: r})
-	case *apiv1beta1.RunDetail:
-		apiRunV1 := r.GetRun()
-		modelRunDetails, err := toModelRunDetails(apiRunV1)
-		if err != nil {
-			return nil, util.Wrap(err, "Failed to convert v1beta1 API run detail to its internal representation")
-		}
-		apiRuntimeV1 := r.GetPipelineRuntime()
-		modelRunDetails.PipelineRuntimeManifest = model.LargeText(apiRuntimeV1.GetPipelineManifest())
-		modelRunDetails.WorkflowRuntimeManifest = model.LargeText(apiRuntimeV1.GetWorkflowManifest())
-		return modelRunDetails, nil
-	default:
-		return nil, util.NewUnknownApiVersionError("RunDetails", r)
-	}
-}
-
 // Converts API run to its internal representation.
 // Supports both v1beta1 and v2beta1 API.
 func toModelRun(r interface{}) (*model.Run, error) {
@@ -1163,10 +1034,8 @@ func toModelRun(r interface{}) (*model.Run, error) {
 	var pipelineSpec, workflowSpec, runtimePipelineSpec, runtimeWorkflowSpec string
 	var pipelineRoot, storageState, serviceAcc string
 	var createTime, scheduleTime, finishTime int64
-	var modelMetrics []*model.RunMetric
 	var state model.RuntimeState
 	var stateHistory []*model.RuntimeStatus
-	var tasks []*model.Task
 	switch r := r.(type) {
 	case *apiv1beta1.Run:
 		return toModelRun(&apiv1beta1.RunDetail{Run: r})
@@ -1203,15 +1072,6 @@ func toModelRun(r interface{}) (*model.Run, error) {
 		createTime = apiRunV1.GetCreatedAt().GetSeconds()
 		scheduleTime = apiRunV1.GetScheduledAt().GetSeconds()
 		finishTime = apiRunV1.GetFinishedAt().GetSeconds()
-		if len(apiRunV1.GetMetrics()) > 0 {
-			modelMetrics = make([]*model.RunMetric, 0)
-			for _, metric := range apiRunV1.GetMetrics() {
-				modelMetric, err := toModelRunMetric(metric, runId)
-				if err == nil {
-					modelMetrics = append(modelMetrics, modelMetric)
-				}
-			}
-		}
 
 		params, err := toModelParameters(apiRunV1.GetPipelineSpec().GetParameters())
 		if err != nil {
@@ -1231,11 +1091,6 @@ func toModelRun(r interface{}) (*model.Run, error) {
 		serviceAcc = apiRunV1.GetServiceAccount()
 	case *apiv2beta1.Run:
 		apiRunV2 := r
-		if temp, err := toModelTasks(apiRunV2.GetRunDetails().GetTaskDetails()); err == nil {
-			tasks = temp
-		} else {
-			return nil, util.NewInternalServerError(err, "Failed to convert a API run detail to its internal representation due to error converting tasks")
-		}
 		if temp, err := toModelRuntimeState(apiRunV2.GetState()); err == nil {
 			state = temp
 		} else {
@@ -1327,7 +1182,6 @@ func toModelRun(r interface{}) (*model.Run, error) {
 		RecurringRunId: recRunId,
 		StorageState:   model.StorageState(storageState),
 		ServiceAccount: serviceAcc,
-		Metrics:        modelMetrics,
 		PipelineSpec: model.PipelineSpec{
 			PipelineId:           pipelineId,
 			PipelineVersionId:    pipelineVersionId,
@@ -1348,7 +1202,6 @@ func toModelRun(r interface{}) (*model.Run, error) {
 			FinishedAtInSec:         finishTime,
 			PipelineRuntimeManifest: model.LargeText(runtimePipelineSpec),
 			WorkflowRuntimeManifest: model.LargeText(runtimeWorkflowSpec),
-			TaskDetails:             tasks,
 		},
 	}
 
@@ -1389,9 +1242,6 @@ func toApiRunV1(r *model.Run) *apiv1beta1.Run {
 		}
 	}
 	var metrics []*apiv1beta1.RunMetric
-	if r.Metrics != nil {
-		metrics = toApiRunMetricsV1(r.Metrics)
-	}
 	if len(metrics) == 0 {
 		metrics = nil
 	}
@@ -1512,7 +1362,6 @@ func toApiRun(r *model.Run) *apiv2beta1.Run {
 	apiRd := &apiv2beta1.RunDetails{
 		PipelineContextId:    r.RunDetails.PipelineContextId,
 		PipelineRunContextId: r.RunDetails.PipelineRunContextId,
-		TaskDetails:          toApiPipelineTaskDetails(r.RunDetails.TaskDetails),
 	}
 	if apiRd.PipelineContextId == 0 && apiRd.PipelineRunContextId == 0 && apiRd.TaskDetails == nil {
 		apiRd = nil
@@ -1611,240 +1460,6 @@ func toApiRunDetailV1(r *model.Run) *apiv1beta1.RunDetail {
 		}
 	}
 	return apiRunDetails
-}
-
-// Converts API task to its internal representation.
-// Supports both v1beta1 and v2beta1 API.
-func toModelTask(t interface{}) (*model.Task, error) {
-	if t == nil {
-		return &model.Task{}, nil
-	}
-	var taskId, nodeId, namespace, pipelineName, runId, mlmdExecId, fingerprint string
-	var name, parentTaskId, state, inputs, outputs string
-	var createTime, startTime, finishTime int64
-	var stateHistory []*model.RuntimeStatus
-	var children []string
-	switch t := t.(type) {
-	case *apiv1beta1.Task:
-		apiTaskV1 := t
-		namespace = apiTaskV1.GetNamespace()
-		taskId = apiTaskV1.GetId()
-		pipelineName = apiTaskV1.GetPipelineName()
-		runId = apiTaskV1.GetRunId()
-		mlmdExecId = apiTaskV1.GetMlmdExecutionID()
-		fingerprint = apiTaskV1.GetFingerprint()
-		createTime = apiTaskV1.GetCreatedAt().GetSeconds()
-		startTime = createTime
-		finishTime = apiTaskV1.GetFinishedAt().GetSeconds()
-		name = ""
-		parentTaskId = ""
-		state = ""
-		inputs = ""
-		outputs = ""
-	case *apiv2beta1.PipelineTaskDetail:
-		apiTaskDetailV2 := t
-		namespace = ""
-		taskId = apiTaskDetailV2.GetTaskId()
-		pipelineName = ""
-		runId = apiTaskDetailV2.GetRunId()
-		mlmdExecId = fmt.Sprint(apiTaskDetailV2.GetExecutionId())
-		fingerprint = ""
-		createTime = apiTaskDetailV2.GetCreateTime().GetSeconds()
-		startTime = apiTaskDetailV2.GetStartTime().GetSeconds()
-		finishTime = apiTaskDetailV2.GetEndTime().GetSeconds()
-		name = apiTaskDetailV2.GetDisplayName()
-		parentTaskId = apiTaskDetailV2.GetParentTaskId()
-		state = apiTaskDetailV2.GetState().String()
-		if hist, err := toModelRuntimeStatuses(apiTaskDetailV2.GetStateHistory()); err == nil {
-			stateHistory = hist
-		}
-		if inpBytes, err := json.Marshal(apiTaskDetailV2.GetInputs()); err == nil {
-			inputs = string(inpBytes)
-		}
-		if outBytes, err := json.Marshal(apiTaskDetailV2.GetOutputs()); err == nil {
-			outputs = string(outBytes)
-		}
-		for _, c := range apiTaskDetailV2.GetChildTasks() {
-			if c.GetTaskId() != "" {
-				children = append(children, c.GetTaskId())
-			} else {
-				children = append(children, c.GetPodName())
-			}
-		}
-	case util.NodeStatus:
-		// TODO(gkcalat): parse input and output artifacts
-		wfStatus := t
-		nodeId = wfStatus.ID
-		name = wfStatus.DisplayName
-		state = wfStatus.State
-		startTime = wfStatus.StartTime
-		createTime = wfStatus.CreateTime
-		finishTime = wfStatus.FinishTime
-		children = wfStatus.Children
-	default:
-		return nil, util.NewUnknownApiVersionError("Task", t)
-	}
-	return &model.Task{
-		UUID:              taskId,
-		PodName:           nodeId,
-		Namespace:         namespace,
-		PipelineName:      pipelineName,
-		RunId:             runId,
-		MLMDExecutionID:   mlmdExecId,
-		CreatedTimestamp:  createTime,
-		StartedTimestamp:  startTime,
-		FinishedTimestamp: finishTime,
-		Fingerprint:       fingerprint,
-		Name:              name,
-		ParentTaskId:      parentTaskId,
-		State:             model.RuntimeState(state).ToV2(),
-		StateHistory:      stateHistory,
-		MLMDInputs:        model.LargeText(inputs),
-		MLMDOutputs:       model.LargeText(outputs),
-		ChildrenPods:      children,
-	}, nil
-}
-
-// Converts API tasks details into their internal representations.
-// Supports both v1beta1 and v2beta1 API.
-func toModelTasks(t interface{}) ([]*model.Task, error) {
-	if t == nil {
-		return nil, nil
-	}
-	switch t := t.(type) {
-	case []*apiv2beta1.PipelineTaskDetail:
-		apiTasks := t
-		modelTasks := make([]*model.Task, 0)
-		for _, apiTask := range apiTasks {
-			modelTask, err := toModelTask(apiTask)
-			if err != nil {
-				return nil, util.Wrap(err, "Failed to convert API tasks to their internal representations")
-			}
-			modelTasks = append(modelTasks, modelTask)
-		}
-		return modelTasks, nil
-	case util.ExecutionSpec:
-		execSpec := t
-		runId := execSpec.ExecutionObjectMeta().Labels[util.LabelKeyWorkflowRunId]
-		namespace := execSpec.ExecutionNamespace()
-		createdAt := execSpec.ExecutionObjectMeta().GetCreationTimestamp().Unix()
-		// Get sorted node names to make the results repeatable
-		nodes := execSpec.ExecutionStatus().NodeStatuses()
-		nodeNames := make([]string, 0, len(nodes))
-		for nodeName := range nodes {
-			nodeNames = append(nodeNames, nodeName)
-		}
-		sort.Strings(nodeNames)
-		modelTasks := make([]*model.Task, 0)
-		for _, nodeName := range nodeNames {
-			node := nodes[nodeName]
-			modelTask, err := toModelTask(node)
-			if err != nil {
-				return nil, util.Wrap(err, "Failed to convert Argo workflow to tasks details")
-			}
-			modelTask.RunId = runId
-			modelTask.Namespace = namespace
-			modelTask.CreatedTimestamp = createdAt
-			modelTasks = append(modelTasks, modelTask)
-		}
-		return modelTasks, nil
-	default:
-		return nil, util.NewUnknownApiVersionError("[]Task", t)
-	}
-}
-
-// Converts internal task representation to its API counterpart.
-// Supports v1beta1 API.
-func toApiTaskV1(task *model.Task) *apiv1beta1.Task {
-	return &apiv1beta1.Task{
-		Id:              task.UUID,
-		Namespace:       task.Namespace,
-		PipelineName:    task.PipelineName,
-		RunId:           task.RunId,
-		MlmdExecutionID: task.MLMDExecutionID,
-		CreatedAt:       timestamppb.New(time.Unix(task.CreatedTimestamp, 0)),
-		FinishedAt:      timestamppb.New(time.Unix(task.FinishedTimestamp, 0)),
-		Fingerprint:     task.Fingerprint,
-	}
-}
-
-// Converts internal task representation to its API counterpart.
-// Supports v2beta1 API.
-// TODO(gkcalat): implement runtime details of a task.
-func toApiPipelineTaskDetail(t *model.Task) *apiv2beta1.PipelineTaskDetail {
-	execId, err := strconv.ParseInt(t.MLMDExecutionID, 10, 64)
-	if err != nil {
-		execId = 0
-	}
-	var inputArtifacts map[string]*apiv2beta1.ArtifactList
-	if t.MLMDInputs != "" {
-		err = json.Unmarshal([]byte(t.MLMDInputs), &inputArtifacts)
-		if err != nil {
-			return &apiv2beta1.PipelineTaskDetail{
-				RunId:  t.RunId,
-				TaskId: t.UUID,
-				Error:  util.ToRpcStatus(util.NewInternalServerError(err, "Failed to convert task's internal representation to its API counterpart due to error parsing inputs")),
-			}
-		}
-	}
-	var outputArtifacts map[string]*apiv2beta1.ArtifactList
-	if t.MLMDOutputs != "" {
-		err = json.Unmarshal([]byte(t.MLMDOutputs), &outputArtifacts)
-		if err != nil {
-			return &apiv2beta1.PipelineTaskDetail{
-				RunId:  t.RunId,
-				TaskId: t.UUID,
-				Error:  util.ToRpcStatus(util.NewInternalServerError(err, "Failed to convert task's internal representation to its API counterpart due to error parsing outputs")),
-			}
-		}
-	}
-	var children []*apiv2beta1.PipelineTaskDetail_ChildTask
-	for _, c := range t.ChildrenPods {
-		children = append(children, &apiv2beta1.PipelineTaskDetail_ChildTask{
-			ChildTask: &apiv2beta1.PipelineTaskDetail_ChildTask_PodName{PodName: c},
-		})
-	}
-	return &apiv2beta1.PipelineTaskDetail{
-		RunId:        t.RunId,
-		TaskId:       t.UUID,
-		DisplayName:  t.Name,
-		CreateTime:   timestamppb.New(time.Unix(t.CreatedTimestamp, 0)),
-		StartTime:    timestamppb.New(time.Unix(t.StartedTimestamp, 0)),
-		EndTime:      timestamppb.New(time.Unix(t.FinishedTimestamp, 0)),
-		State:        apiv2beta1.RuntimeState(apiv2beta1.RuntimeState_value[t.State.ToString()]),
-		ExecutionId:  execId,
-		Inputs:       inputArtifacts,
-		Outputs:      outputArtifacts,
-		ParentTaskId: t.ParentTaskId,
-		StateHistory: toApiRuntimeStatuses(t.StateHistory),
-		ChildTasks:   children,
-	}
-}
-
-// Converts and array of internal task representations to its API counterpart.
-// Supports v1beta1 API.
-func toApiTasksV1(tasks []*model.Task) []*apiv1beta1.Task {
-	if len(tasks) == 0 {
-		return nil
-	}
-	apiTasks := make([]*apiv1beta1.Task, 0)
-	for _, task := range tasks {
-		apiTasks = append(apiTasks, toApiTaskV1(task))
-	}
-	return apiTasks
-}
-
-// Converts and array of internal task representations to its API counterpart.
-// Supports v2beta1 API.
-func toApiPipelineTaskDetails(tasks []*model.Task) []*apiv2beta1.PipelineTaskDetail {
-	if len(tasks) == 0 {
-		return nil
-	}
-	apiTasks := make([]*apiv2beta1.PipelineTaskDetail, 0)
-	for _, task := range tasks {
-		apiTasks = append(apiTasks, toApiPipelineTaskDetail(task))
-	}
-	return apiTasks
 }
 
 // Converts API recurring run to its internal representation.
@@ -2348,59 +1963,6 @@ func toApiRunStorageState(s *model.StorageState) apiv2beta1.Run_StorageState {
 	}
 }
 
-// Converts internal storage state representation to its API run's counterpart.
-// Support v1beta1 API.
-// Note, default to STORAGESTATE_AVAILABLE.
-func toApiRunStorageStateV1(s *model.StorageState) apiv1beta1.Run_StorageState {
-	if string(*s) == "" {
-		return apiv1beta1.Run_STORAGESTATE_AVAILABLE
-	}
-	switch string(*s) {
-	case string(model.StorageStateArchived), string(model.StorageStateArchived.ToV1()):
-		return apiv1beta1.Run_STORAGESTATE_ARCHIVED
-	case string(model.StorageStateAvailable), string(model.StorageStateAvailable.ToV1()):
-		return apiv1beta1.Run_STORAGESTATE_AVAILABLE
-	default:
-		return apiv1beta1.Run_STORAGESTATE_AVAILABLE
-	}
-}
-
-// Converts internal storage state representation to its API experiment's counterpart.
-// Support v2beta1 API.
-func toApiExperimentStorageState(s *model.StorageState) apiv2beta1.Experiment_StorageState {
-	if string(*s) == "" {
-		return apiv2beta1.Experiment_STORAGE_STATE_UNSPECIFIED
-	}
-	switch string(*s) {
-	case string(model.StorageStateArchived), string(model.StorageStateArchived.ToV1()):
-		return apiv2beta1.Experiment_ARCHIVED
-	case string(model.StorageStateAvailable), string(model.StorageStateAvailable.ToV1()):
-		return apiv2beta1.Experiment_AVAILABLE
-	case string(model.StorageStateUnspecified), string(model.StorageStateUnspecified.ToV1()):
-		return apiv2beta1.Experiment_STORAGE_STATE_UNSPECIFIED
-	default:
-		return apiv2beta1.Experiment_STORAGE_STATE_UNSPECIFIED
-	}
-}
-
-// Converts internal storage state representation to its API experiment's counterpart.
-// Support v1beta1 API.
-func toApiExperimentStorageStateV1(s *model.StorageState) apiv1beta1.Experiment_StorageState {
-	if string(*s) == "" {
-		return apiv1beta1.Experiment_STORAGESTATE_UNSPECIFIED
-	}
-	switch string(*s) {
-	case string(model.StorageStateArchived), string(model.StorageStateArchived.ToV1()):
-		return apiv1beta1.Experiment_STORAGESTATE_ARCHIVED
-	case string(model.StorageStateAvailable), string(model.StorageStateAvailable.ToV1()):
-		return apiv1beta1.Experiment_STORAGESTATE_AVAILABLE
-	case string(model.StorageStateUnspecified), string(model.StorageStateUnspecified.ToV1()):
-		return apiv1beta1.Experiment_STORAGESTATE_UNSPECIFIED
-	default:
-		return apiv1beta1.Experiment_STORAGESTATE_UNSPECIFIED
-	}
-}
-
 // Converts API runtime state to its internal representation.
 // Supports both v1beta1 and v2beta1 API.
 func toModelRuntimeState(s interface{}) (model.RuntimeState, error) {
@@ -2495,4 +2057,503 @@ func toApiRuntimeStatuses(s []*model.RuntimeStatus) []*apiv2beta1.RuntimeStatus 
 		statuses = append(statuses, toApiRuntimeStatus(status))
 	}
 	return statuses
+}
+
+func toModelRunMetric(m *apiv2beta1.Metric) (*model.RunMetric, error) {
+	if m == nil {
+		return nil, util.NewInvalidInputError("Metric cannot be nil")
+	}
+
+	modelMetric := &model.RunMetric{
+		TaskID:         m.GetTaskId(),
+		Name:           m.GetName(),
+		CreatedAtInSec: time.Now().Unix(),
+	}
+
+	if m.GetValue() == nil {
+		return nil, util.NewInvalidInputError("Metric value cannot be nil")
+	}
+
+	switch m.GetValue().GetKind().(type) {
+	case *structpb.Value_NumberValue:
+		v := m.GetValue().GetNumberValue()
+		modelMetric.NumberValue = &v
+	case *structpb.Value_ListValue:
+		jsonData, err := convertValueToJSONData(m.GetValue())
+		if err != nil {
+			return nil, err
+		}
+		modelMetric.JsonValue = jsonData
+	case *structpb.Value_StructValue:
+		jsonData, err := convertValueToJSONData(m.GetValue())
+		if err != nil {
+			return nil, err
+		}
+		modelMetric.JsonValue = jsonData
+	default:
+		return nil, util.NewInvalidInputError("Metric value must be a number, list, or struct")
+	}
+
+	if err := validation.ValidateModel(modelMetric); err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to convert API metric to internal representation")
+	}
+	return modelMetric, nil
+}
+
+// Converts internal run metric representation to its API counterpart.
+// Supports v2beta1 API.
+func toApiMetric(metric *model.RunMetric) (*apiv2beta1.Metric, error) {
+	if metric == nil {
+		return nil, util.NewInvalidInputError("Metric cannot be nil")
+	}
+
+	apiMetric := &apiv2beta1.Metric{
+		TaskId:    metric.TaskID,
+		Name:      metric.Name,
+		CreatedAt: timestamppb.New(time.Unix(metric.CreatedAtInSec, 0)),
+	}
+
+	// Set the value based on which field is populated
+	if metric.NumberValue != nil {
+		apiMetric.Value = &structpb.Value{
+			Kind: &structpb.Value_NumberValue{
+				NumberValue: *metric.NumberValue,
+			},
+		}
+	} else if metric.JsonValue != nil {
+		// Handle JSONValue by marshaling and unmarshalling
+		jsonDataBytes, err := json.Marshal(metric.JsonValue)
+		if err == nil {
+			var structValue structpb.Value
+			err = protojson.Unmarshal(jsonDataBytes, &structValue)
+			if err != nil {
+				return nil, util.NewInternalServerError(err, "Failed to convert internal run metric representation to its API counterpart")
+			}
+			apiMetric.Value = &structValue
+		} else {
+			return nil, util.NewInternalServerError(err, "Failed to convert internal run metric representation to its API counterpart")
+		}
+	}
+
+	return apiMetric, nil
+}
+
+// Converts an array of internal run metric representations to an array of their API counterparts.
+// Supports v2beta1 API.
+func toApiMetrics(metrics []*model.RunMetric) []*apiv2beta1.Metric {
+	apiMetrics := make([]*apiv2beta1.Metric, 0)
+	for _, metric := range metrics {
+		apiMetric, err := toApiMetric(metric)
+		if err != nil {
+			return nil
+		}
+		apiMetrics = append(apiMetrics, apiMetric)
+	}
+	return apiMetrics
+}
+
+// Converts API v2beta1 artifact to its internal representation.
+func toModelArtifact(a *apiv2beta1.Artifact) (*model.Artifact, error) {
+	if a == nil {
+		return nil, util.NewInvalidInputError("Artifact cannot be nil")
+	}
+
+	modelArtifact := &model.Artifact{
+		UUID:            a.GetArtifactId(),
+		Namespace:       a.GetNamespace(),
+		Type:            int32(a.GetType()),
+		Uri:             a.GetUri(),
+		Name:            a.GetName(),
+		CreatedAtInSec:  time.Now().Unix(),
+		LastUpdateInSec: time.Now().Unix(),
+	}
+
+	if a.GetMetadata() != nil {
+		structValue := &structpb.Struct{Fields: a.GetMetadata()}
+		jsonDataBytes, err := protojson.Marshal(structValue)
+		if err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to marshal metadata to JSON")
+		}
+		var jsonData model.JSONData
+		if err := json.Unmarshal(jsonDataBytes, &jsonData); err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to unmarshal JSON into JSONData map")
+		}
+		modelArtifact.Metadata = jsonData
+	}
+
+	if err := validation.ValidateModel(modelArtifact); err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to convert API artifact to internal representation")
+	}
+	return modelArtifact, nil
+}
+
+// Converts internal artifact representation to its API counterpart.
+// Supports v2beta1 API.
+func toApiArtifact(artifact *model.Artifact) (*apiv2beta1.Artifact, error) {
+	if artifact == nil {
+		return nil, util.NewInvalidInputError("Artifact cannot be nil")
+	}
+
+	apiArtifact := &apiv2beta1.Artifact{
+		ArtifactId: artifact.UUID,
+		Namespace:  artifact.Namespace,
+		Type:       apiv2beta1.Artifact_ArtifactType(artifact.Type),
+		Uri:        artifact.Uri,
+		Name:       artifact.Name,
+		CreatedAt:  timestamppb.New(time.Unix(artifact.CreatedAtInSec, 0)),
+	}
+
+	if artifact.Metadata != nil {
+		jsonDataBytes, err := json.Marshal(artifact.Metadata)
+		if err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to marshal metadata to JSON")
+		}
+		var structValue structpb.Struct
+		if err := protojson.Unmarshal(jsonDataBytes, &structValue); err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to unmarshal JSON into structpb.Struct")
+		}
+		apiArtifact.Metadata = structValue.GetFields()
+	}
+
+	return apiArtifact, nil
+}
+
+// Converts an array of internal artifact representations to an array of their API counterparts.
+// Supports v2beta1 API.
+func toApiArtifacts(artifacts []*model.Artifact) []*apiv2beta1.Artifact {
+	apiArtifacts := make([]*apiv2beta1.Artifact, 0)
+	for _, artifact := range artifacts {
+		apiArtifact, err := toApiArtifact(artifact)
+		if err != nil {
+			return nil
+		}
+		apiArtifacts = append(apiArtifacts, apiArtifact)
+	}
+	return apiArtifacts
+}
+
+// Converts internal artifact task representation to its API counterpart.
+// Supports v2beta1 API.
+func toApiArtifactTask(artifactTask *model.ArtifactTask) *apiv2beta1.ArtifactTask {
+	if artifactTask == nil {
+		return &apiv2beta1.ArtifactTask{}
+	}
+
+	var taskType apiv2beta1.ArtifactTaskType
+	if artifactTask.Type == model.ArtifactTaskTypeInput {
+		taskType = apiv2beta1.ArtifactTaskType_INPUT
+	} else {
+		taskType = apiv2beta1.ArtifactTaskType_OUTPUT
+	}
+
+	return &apiv2beta1.ArtifactTask{
+		Id:         artifactTask.UUID,
+		ArtifactId: artifactTask.ArtifactID,
+		TaskId:     artifactTask.TaskID,
+		Type:       taskType,
+	}
+}
+
+// Converts an array of internal artifact task representations to an array of their API counterparts.
+// Supports v2beta1 API.
+func toApiArtifactTasks(artifactTasks []*model.ArtifactTask) []*apiv2beta1.ArtifactTask {
+	apiArtifactTasks := make([]*apiv2beta1.ArtifactTask, 0)
+	for _, artifactTask := range artifactTasks {
+		apiArtifactTasks = append(apiArtifactTasks, toApiArtifactTask(artifactTask))
+	}
+	return apiArtifactTasks
+}
+
+// TaskStateHistoryEntry represents a single entry in task state history
+type TaskStateHistoryEntry struct {
+	State           string `json:"state"`
+	UpdateTimeInSec int64  `json:"update_time,omitempty"`
+	Error           string `json:"error,omitempty"`
+}
+
+// Converts API PipelineTaskDetail to its internal representation.
+// Supports v2beta1 API.
+func toModelTask(apiTask *apiv2beta1.PipelineTaskDetail) (*model.Task, error) {
+	if apiTask == nil {
+		return nil, util.NewInvalidInputError("Task cannot be nil")
+	}
+
+	task := &model.Task{
+		UUID:           apiTask.GetTaskId(),
+		RunUUID:        apiTask.GetRunId(),
+		ParentTaskUUID: apiTask.GetParentTaskId(),
+		Name:           apiTask.GetName(),
+		DisplayName:    apiTask.GetDisplayName(),
+		Fingerprint:    apiTask.GetCacheFingerprint(),
+		PodNames:       model.PodNames{apiTask.GetPodName()},
+	}
+
+	// Convert timestamps
+	if apiTask.GetCreateTime() != nil {
+		task.CreatedAtInSec = apiTask.GetCreateTime().GetSeconds()
+	}
+	if apiTask.GetStartTime() != nil {
+		task.StartedInSec = apiTask.GetStartTime().GetSeconds()
+	}
+	if apiTask.GetEndTime() != nil {
+		task.FinishedInSec = apiTask.GetEndTime().GetSeconds()
+	}
+
+	// Convert status
+	task.Status = int32(apiTask.GetStatus())
+
+	// Convert task type
+	task.Type = int32(apiTask.GetType())
+
+	// Convert status metadata using the same pattern as toModelArtifact
+	if apiTask.GetStatusMetadata() != nil {
+		structValue := &structpb.Struct{Fields: apiTask.GetStatusMetadata()}
+		jsonDataBytes, err := protojson.Marshal(structValue)
+		if err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to marshal status metadata to JSON")
+		}
+		var jsonData model.JSONData
+		if err := json.Unmarshal(jsonDataBytes, &jsonData); err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to unmarshal status metadata JSON into JSONData map")
+		}
+		task.StatusMetadata = jsonData
+	}
+
+	// Convert state history using structured TaskStateHistoryEntry
+	if len(apiTask.GetStateHistory()) > 0 {
+		stateHistory := make([]TaskStateHistoryEntry, 0)
+		for _, runtimeStatus := range apiTask.GetStateHistory() {
+			historyEntry := TaskStateHistoryEntry{
+				State: runtimeStatus.GetState().String(),
+			}
+			if runtimeStatus.GetUpdateTime() != nil {
+				historyEntry.UpdateTimeInSec = runtimeStatus.GetUpdateTime().GetSeconds()
+			}
+			if runtimeStatus.GetError() != nil {
+				historyEntry.Error = runtimeStatus.GetError().GetMessage()
+			}
+			stateHistory = append(stateHistory, historyEntry)
+		}
+
+		jsonDataBytes, err := json.Marshal(stateHistory)
+		if err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to marshal state history to JSON")
+		}
+		var jsonData model.JSONData
+		if err := json.Unmarshal(jsonDataBytes, &jsonData); err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to unmarshal state history JSON into JSONData map")
+		}
+		task.StateHistory = jsonData
+	}
+
+	// Convert InputParameters from API inputs field
+	if apiTask.GetInputs() != nil {
+		inputsBytes, err := protojson.Marshal(apiTask.GetInputs())
+		if err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to marshal inputs to JSON")
+		}
+		var inputsData model.JSONData
+		if err := json.Unmarshal(inputsBytes, &inputsData); err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to unmarshal inputs JSON into JSONData map")
+		}
+		task.InputParameters = inputsData
+	}
+
+	// Convert OutputParameters from API outputs field
+	if apiTask.GetOutputs() != nil {
+		outputsBytes, err := protojson.Marshal(apiTask.GetOutputs())
+		if err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to marshal outputs to JSON")
+		}
+		var outputsData model.JSONData
+		if err := json.Unmarshal(outputsBytes, &outputsData); err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to unmarshal outputs JSON into JSONData map")
+		}
+		task.OutputParameters = outputsData
+	}
+
+	// Convert TypeAttrs - store additional API-specific fields
+	typeAttrs := make(map[string]interface{})
+	if apiTask.GetIterationIndex() > 0 {
+		typeAttrs["iteration_index"] = apiTask.GetIterationIndex()
+	}
+	if apiTask.GetIterationCount() > 0 {
+		typeAttrs["iteration_count"] = apiTask.GetIterationCount()
+	}
+
+	task.TypeAttrs = typeAttrs
+
+	return task, nil
+}
+
+// Converts internal task representation to its API counterpart.
+// Supports v2beta1 API.
+// Note that child tasks are not stored in the tasks table so
+// they must be provided as an argument.
+func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.PipelineTaskDetail, error) {
+	if modelTask == nil {
+		return nil, util.NewInvalidInputError("Task cannot be nil")
+	}
+
+	apiTask := &apiv2beta1.PipelineTaskDetail{
+		TaskId:           modelTask.UUID,
+		RunId:            modelTask.RunUUID,
+		ParentTaskId:     modelTask.ParentTaskUUID,
+		Name:             modelTask.Name,
+		DisplayName:      modelTask.DisplayName,
+		CacheFingerprint: modelTask.Fingerprint,
+	}
+
+	// Set pod name from the first pod in PodNames array
+	if len(modelTask.PodNames) > 0 {
+		apiTask.PodName = modelTask.PodNames[0]
+	}
+
+	// Convert timestamps
+	if modelTask.CreatedAtInSec > 0 {
+		apiTask.CreateTime = &timestamppb.Timestamp{Seconds: modelTask.CreatedAtInSec}
+	}
+	if modelTask.StartedInSec > 0 {
+		apiTask.StartTime = &timestamppb.Timestamp{Seconds: modelTask.StartedInSec}
+	}
+	if modelTask.FinishedInSec > 0 {
+		apiTask.EndTime = &timestamppb.Timestamp{Seconds: modelTask.FinishedInSec}
+	}
+
+	// Convert status
+	apiTask.Status = apiv2beta1.RuntimeState(modelTask.Status)
+
+	// Convert task type
+	apiTask.Type = apiv2beta1.PipelineTaskDetail_TaskType(modelTask.Type)
+
+	// Convert status metadata using the reverse of toModelArtifact pattern
+	if modelTask.StatusMetadata != nil {
+		jsonDataBytes, err := json.Marshal(modelTask.StatusMetadata)
+		if err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to marshal status metadata to JSON")
+		}
+		var structValue structpb.Struct
+		if err := protojson.Unmarshal(jsonDataBytes, &structValue); err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to unmarshal status metadata JSON into protobuf struct")
+		}
+		apiTask.StatusMetadata = structValue.Fields
+	}
+
+	// Convert state history from JSONData back to RuntimeStatus slice using structured approach
+	if modelTask.StateHistory != nil {
+		jsonDataBytes, err := json.Marshal(modelTask.StateHistory)
+		if err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to marshal state history to JSON")
+		}
+		var stateHistoryEntries []TaskStateHistoryEntry
+		if err := json.Unmarshal(jsonDataBytes, &stateHistoryEntries); err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to unmarshal state history JSON into TaskStateHistoryEntry slice")
+		}
+
+		stateHistory := make([]*apiv2beta1.RuntimeStatus, 0)
+		for _, entry := range stateHistoryEntries {
+			s := &apiv2beta1.RuntimeStatus{}
+
+			// Set state
+			if state, exists := apiv2beta1.RuntimeState_value[entry.State]; exists {
+				s.State = apiv2beta1.RuntimeState(state)
+			}
+
+			// Set update time
+			if entry.UpdateTimeInSec > 0 {
+				s.UpdateTime = &timestamppb.Timestamp{Seconds: entry.UpdateTimeInSec}
+			}
+
+			// Set error if present
+			if entry.Error != "" {
+				s.Error = status.New(codes.Internal, entry.Error).Proto()
+			}
+
+			stateHistory = append(stateHistory, s)
+		}
+		if len(stateHistory) > 0 {
+			apiTask.StateHistory = stateHistory
+		}
+	}
+
+	// Convert InputParameters to API inputs field
+	if modelTask.InputParameters != nil {
+		jsonDataBytes, err := json.Marshal(modelTask.InputParameters)
+		if err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to marshal input parameters to JSON")
+		}
+		var inputs apiv2beta1.PipelineTaskDetail_InputOutputs
+		if err := protojson.Unmarshal(jsonDataBytes, &inputs); err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to unmarshal input parameters JSON into InputOutputs")
+		}
+		apiTask.Inputs = &inputs
+	}
+
+	// Convert OutputParameters to API outputs field
+	if modelTask.OutputParameters != nil {
+		jsonDataBytes, err := json.Marshal(modelTask.OutputParameters)
+		if err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to marshal output parameters to JSON")
+		}
+		var outputs apiv2beta1.PipelineTaskDetail_InputOutputs
+		if err := protojson.Unmarshal(jsonDataBytes, &outputs); err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to unmarshal output parameters JSON into InputOutputs")
+		}
+		apiTask.Outputs = &outputs
+	}
+
+	// Extract additional fields from TypeAttrs
+	if modelTask.TypeAttrs != nil {
+		// Extract iteration info
+		if iterIndex, ok := modelTask.TypeAttrs["iteration_index"].(float64); ok {
+			apiTask.IterationIndex = int64(iterIndex)
+		}
+		if iterCount, ok := modelTask.TypeAttrs["iteration_count"].(float64); ok {
+			apiTask.IterationCount = int64(iterCount)
+		}
+	}
+
+	// Convert child tasks
+	apiChildTasks := make([]*apiv2beta1.PipelineTaskDetail_ChildTask, 0)
+	for _, childTask := range childTasks {
+		if childTask.ParentTaskUUID != modelTask.UUID {
+			return nil, util.NewInternalServerError(nil, "Child task %s has invalid parent task UUID %s", childTask.UUID, childTask.ParentTaskUUID)
+		}
+		childTaskAPI := &apiv2beta1.PipelineTaskDetail_ChildTask{
+			TaskId:   childTask.UUID,
+			PodNames: childTask.PodNames,
+		}
+		apiChildTasks = append(apiChildTasks, childTaskAPI)
+	}
+	if len(apiChildTasks) > 0 {
+		apiTask.ChildTasks = apiChildTasks
+	}
+
+	return apiTask, nil
+}
+
+func convertValueToJSONData(value *structpb.Value) (model.JSONData, error) {
+	var data interface{}
+
+	switch v := value.GetKind().(type) {
+	case *structpb.Value_ListValue:
+		data = v.ListValue.AsSlice()
+	case *structpb.Value_StructValue:
+		data = v.StructValue.AsMap()
+	default:
+		// This case should not be reached if called correctly
+		return nil, util.NewInvalidInputError("Invalid value type for JSONData conversion")
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to marshal value")
+	}
+
+	var jsonData model.JSONData
+	if err := json.Unmarshal(b, &jsonData); err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to unmarshal value into JSONData")
+	}
+
+	return jsonData, nil
 }

@@ -15,35 +15,89 @@
 package model
 
 import (
+	"database/sql/driver"
 	"encoding/json"
 )
 
+// JSONData represents JSON data stored in database columns
+type JSONData map[string]interface{}
+
+// Scan implements sql.Scanner interface for JSONData
+func (j *JSONData) Scan(value interface{}) error {
+	if value == nil {
+		*j = nil
+		return nil
+	}
+
+	switch v := value.(type) {
+	case []byte:
+		return json.Unmarshal(v, j)
+	case string:
+		return json.Unmarshal([]byte(v), j)
+	default:
+		return nil
+	}
+}
+
+// Value implements driver.Valuer interface for JSONData
+func (j JSONData) Value() (driver.Value, error) {
+	if j == nil {
+		return nil, nil
+	}
+	return json.Marshal(j)
+}
+
+// PodNames represents JSON array of pod names
+type PodNames []string
+
+// Scan implements sql.Scanner interface for PodNames
+func (p *PodNames) Scan(value interface{}) error {
+	if value == nil {
+		*p = nil
+		return nil
+	}
+
+	switch v := value.(type) {
+	case []byte:
+		return json.Unmarshal(v, p)
+	case string:
+		return json.Unmarshal([]byte(v), p)
+	default:
+		return nil
+	}
+}
+
+// Value implements driver.Valuer interface for PodNames
+func (p *PodNames) Value() (driver.Value, error) {
+	if p == nil {
+		return nil, nil
+	}
+	return json.Marshal(p)
+}
+
 type Task struct {
-	UUID      string `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
-	Namespace string `gorm:"column:Namespace; not null;"`
-	// PipelineName was deprecated. Use RunId instead.
-	PipelineName string `gorm:"column:PipelineName; not null;"`
-	// RunId is limited to varchar(191) to make it indexable as a foreign key.
-	// For details on type lengths and index safety, refer to comments in the Pipeline struct.
-	// nolint:staticcheck // [ST1003] Field name matches upstream legacy naming
-	RunId              string           `gorm:"column:RunUUID; type:varchar(191); not null; index:tasks_RunUUID_run_details_UUID_foreign;"`                            // Note: field name (RunId) ≠ column name (RunUUID). The former should be the foreign key instead of the letter.
-	Run                Run              `gorm:"foreignKey:RunId;references:UUID;constraint:tasks_RunUUID_run_details_UUID_foreign,OnDelete:CASCADE,OnUpdate:CASCADE;"` // A Task belongs to a Run.
-	PodName            string           `gorm:"column:PodName; not null;"`
-	MLMDExecutionID    string           `gorm:"column:MLMDExecutionID; not null;"`
-	CreatedTimestamp   int64            `gorm:"column:CreatedTimestamp; not null;"`
-	StartedTimestamp   int64            `gorm:"column:StartedTimestamp; default:0;"`
-	FinishedTimestamp  int64            `gorm:"column:FinishedTimestamp; default:0;"`
-	Fingerprint        string           `gorm:"column:Fingerprint; not null;"`
-	Name               string           `gorm:"column:Name; default:null"`
-	ParentTaskId       string           `gorm:"column:ParentTaskUUID; default:null"`
-	State              RuntimeState     `gorm:"column:State; default:null;"`
-	StateHistoryString LargeText        `gorm:"column:StateHistory; default:null;"`
-	MLMDInputs         LargeText        `gorm:"column:MLMDInputs; default:null;"`
-	MLMDOutputs        LargeText        `gorm:"column:MLMDOutputs; default:null;"`
-	ChildrenPodsString LargeText        `gorm:"column:ChildrenPods; default:null;"`
-	StateHistory       []*RuntimeStatus `gorm:"-;"`
-	ChildrenPods       []string         `gorm:"-;"`
-	Payload            LargeText        `gorm:"column:Payload; default:null;"`
+	UUID           string   `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
+	Namespace      string   `gorm:"column:Namespace; not null; type:varchar(63);"`
+	PipelineName   string   `gorm:"column:PipelineName; not null; type:varchar(128); index:idx_pipeline_name;"`
+	RunUUID        string   `gorm:"column:RunUUID; type:varchar(191); not null; index:idx_parent_run,priority:1;"`
+	Run            Run      `gorm:"foreignKey:RunUUID;references:UUID;constraint:tasks_RunUUID_run_details_UUID_foreign,OnDelete:CASCADE,OnUpdate:CASCADE;"`
+	PodNames       PodNames `gorm:"column:PodNames; not null; type:json;"`
+	CreatedAtInSec int64    `gorm:"column:CreatedAtInSec; not null; index:idx_created_timestamp;"`
+
+	StartedInSec     int64    `gorm:"column:StartedInSec; default:0; index:idx_started_timestamp;"`
+	FinishedInSec    int64    `gorm:"column:FinishedInSec; default:0; index:idx_finished_timestamp;"`
+	Fingerprint      string   `gorm:"column:Fingerprint; not null; type:varchar(255);"`
+	Name             string   `gorm:"column:Name; type:varchar(128); default:null;"`
+	DisplayName      string   `gorm:"column:DisplayName; type:varchar(128); default:null;"`
+	ParentTaskUUID   string   `gorm:"column:ParentTaskUUID; type:varchar(191); default:null; index:idx_parent_task_uuid; index:idx_parent_run,priority:2;"`
+	ParentTask       *Task    `gorm:"foreignKey:ParentTaskUUID;references:UUID;constraint:fk_tasks_parent_task,OnDelete:CASCADE,OnUpdate:CASCADE;"`
+	Status           int32    `gorm:"column:Status; not null;"`
+	StatusMetadata   JSONData `gorm:"column:StatusMetadata; type:json; default:null;"`
+	StateHistory     JSONData `gorm:"column:StateHistory; type:json;"`
+	InputParameters  JSONData `gorm:"column:InputParameters; type:json;"`
+	OutputParameters JSONData `gorm:"column:OutputParameters; type:json;"`
+	Type             int32    `gorm:"column:Type; not null; type:varchar(64); index:idx_task_type;"`
+	TypeAttrs        JSONData `gorm:"column:TypeAttrs; not null; type:json;"`
 }
 
 func (t Task) ToString() string {
@@ -60,7 +114,7 @@ func (t Task) PrimaryKeyColumnName() string {
 }
 
 func (t Task) DefaultSortField() string {
-	return "CreatedTimestamp"
+	return "CreatedAtInSec"
 }
 
 func (t Task) APIToModelFieldMap() map[string]string {
@@ -80,25 +134,29 @@ func (t Task) GetKeyFieldPrefix() string {
 }
 
 var taskAPIToModelFieldMap = map[string]string{
-	"task_id":         "UUID", // v2beta1 API
-	"id":              "UUID", // v1beta1 API
-	"namespace":       "Namespace",
-	"pipeline_name":   "PipelineName",      // v2beta1 API
-	"pipelineName":    "PipelineName",      // v1beta1 API
-	"run_id":          "RunUUID",           // v2beta1 API
-	"runId":           "RunUUID",           // v1beta1 API
-	"display_name":    "Name",              // v2beta1 API
-	"execution_id":    "MLMDExecutionID",   // v2beta1 API
-	"create_time":     "CreatedTimestamp",  // v2beta1 API
-	"start_time":      "StartedTimestamp",  // v2beta1 API
-	"end_time":        "FinishedTimestamp", // v2beta1 API
-	"fingerprint":     "Fingerprint",
-	"state":           "State",             // v2beta1 API
-	"state_history":   "StateHistory",      // v2beta1 API
-	"parent_task_id":  "ParentTaskUUID",    // v2beta1 API
-	"mlmdExecutionID": "MLMDExecutionID",   // v1beta1 API
-	"created_at":      "CreatedTimestamp",  // v1beta1 API
-	"finished_at":     "FinishedTimestamp", // v1beta1 API
+	"task_id":           "UUID", // v2beta1 API
+	"id":                "UUID", // v1beta1 API
+	"namespace":         "Namespace",
+	"name":              "Name",           // v2beta1 API
+	"display_name":      "DisplayName",    // v2beta1 API
+	"pipeline_name":     "PipelineName",   // v2beta1 API
+	"pipelineName":      "PipelineName",   // v1beta1 API
+	"run_id":            "RunUUID",        // v2beta1 API
+	"runId":             "RunUUID",        // v1beta1 API
+	"create_time":       "CreatedAtInSec", // v2beta1 API
+	"start_time":        "StartedInSec",   // v2beta1 API
+	"end_time":          "FinishedInSec",  // v2beta1 API
+	"fingerprint":       "Fingerprint",
+	"status":            "Status",         // v2beta1 API
+	"status_metadata":   "StatusMetadata", // v2beta1 API
+	"state_history":     "StateHistory",   // v2beta1 API
+	"parent_task_id":    "ParentTaskUUID", // v2beta1 API
+	"created_at":        "CreatedAtInSec", // v1beta1 API
+	"finished_at":       "FinishedInSec",  // v1beta1 API
+	"input_parameters":  "InputParameters",
+	"output_parameters": "OutputParameters",
+	"type":              "Type",
+	"type_attrs":        "TypeAttrs",
 }
 
 func (t Task) GetField(name string) (string, bool) {
@@ -116,26 +174,36 @@ func (t Task) GetFieldValue(name string) interface{} {
 		return t.Namespace
 	case "PipelineName":
 		return t.PipelineName
-	case "RunId":
-		return t.RunId
-	case "MLMDExecutionID":
-		return t.MLMDExecutionID
-	case "CreatedTimestamp":
-		return t.CreatedTimestamp
-	case "FinishedTimestamp":
-		return t.FinishedTimestamp
+	case "RunUUID":
+		return t.RunUUID
+	case "CreatedAtInSec":
+		return t.CreatedAtInSec
+	case "StartedInSec":
+		return t.StartedInSec
+	case "FinishedInSec":
+		return t.FinishedInSec
 	case "Fingerprint":
 		return t.Fingerprint
-	case "ParentTaskId":
-		return t.ParentTaskId
-	case "State":
-		return t.State
+	case "ParentTaskUUID":
+		return t.ParentTaskUUID
+	case "Status":
+		return t.Status
+	case "StatusMetadata":
+		return t.StatusMetadata
+	case "StateHistory":
+		return t.StateHistory
 	case "Name":
 		return t.Name
-	case "MLMDInputs":
-		return t.MLMDInputs
-	case "MLMDOutputs":
-		return t.MLMDOutputs
+	case "DisplayName":
+		return t.DisplayName
+	case "InputParameters":
+		return t.InputParameters
+	case "OutputParameters":
+		return t.OutputParameters
+	case "Type":
+		return t.Type
+	case "TypeAttrs":
+		return t.TypeAttrs
 	default:
 		return nil
 	}

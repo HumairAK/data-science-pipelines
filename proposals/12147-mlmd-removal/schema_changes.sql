@@ -39,17 +39,18 @@ CREATE TABLE `tasks`
     `Namespace`        varchar(63)  NOT NULL, -- updated to 63 (max namespace size in k8s)
     -- This is used for searching for cached_fingerprints today
     -- likely to prevent caching across pipelines 
-    `PipelineName`     varchar(128) NOT NULL,
-    `RunUUID`          varchar(191) NOT NULL,
-    `PodNames`         json         NOT NULL, -- This is broken today and will need to be fixed
-    `CreatedAtInSec`   bigint       NOT NULL,
-    `StartedInSec`     bigint       DEFAULT '0',
-    `FinishedInSec`    bigint       DEFAULT '0',
-    `Fingerprint`      varchar(255) NOT NULL,
-    `Name`             varchar(128) DEFAULT NULL,
-    `ParentTaskUUID`   varchar(191) DEFAULT NULL,
-    `State`            varchar(64)  DEFAULT NULL,
-    `StateHistory`     json,
+    `PipelineName`        varchar(128) NOT NULL,
+    `RunUUID`             varchar(191) NOT NULL,
+    `PodNames`            json         NOT NULL, -- This is broken today and will need to be fixed
+    `CreatedAtInSec`      bigint       NOT NULL,
+    `StartedInSec`        bigint       DEFAULT '0',
+    `FinishedInSec`       bigint       DEFAULT '0',
+    `Fingerprint`         varchar(255) NOT NULL,
+    `Name`                varchar(128) DEFAULT NULL,
+    `ParentTaskUUID`      varchar(191) DEFAULT NULL,
+    `Status`              varchar(64)  DEFAULT NULL,
+    `StatusMetadata`      json         DEFAULT NULL,
+    `StateHistory`        json,
     -- Remove the following: 
     -- `MLMDExecutionID` varchar(255) NOT NULL,
     -- `MLMDInputs` longtext,

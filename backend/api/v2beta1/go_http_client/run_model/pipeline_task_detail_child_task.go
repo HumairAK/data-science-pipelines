@@ -20,7 +20,7 @@ type PipelineTaskDetailChildTask struct {
 
 	// Name of the corresponding pod assigned by the orchestration engine.
 	// Also known as node_id.
-	PodName string `json:"pod_name,omitempty"`
+	PodNames []string `json:"pod_names"`
 
 	// System-generated ID of a task.
 	TaskID string `json:"task_id,omitempty"`

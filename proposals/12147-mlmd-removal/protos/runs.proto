@@ -87,11 +87,13 @@ message PipelineTaskDetail {
   google.protobuf.Timestamp create_time = 4;
   google.protobuf.Timestamp start_time = 5;
   google.protobuf.Timestamp end_time = 6;
-  RuntimeState state = 7;
-  int64 execution_id = 8;
-  google.rpc.Status error = 9;
-  string parent_task_id = 10;
-  repeated RuntimeStatus state_history = 11;
+  RuntimeState status = 7;
+  map<string, google.protobuf.Value> status_metadata = 8;
+
+  int64 execution_id = 9;
+  google.rpc.Status error = 10;
+  string parent_task_id = 11;
+  repeated RuntimeStatus state_history = 12;
 
   enum PodType {
     DRIVER = 0;
@@ -102,7 +104,7 @@ message PipelineTaskDetail {
     string uid = 2;
     PodType type = 3;
   }
-  repeated PodInfo pods = 12;
+  repeated PodInfo pods = 13;
 
   //--------------------------
   // Remove these fields
@@ -120,7 +122,7 @@ message PipelineTaskDetail {
     string name = 1;
     string id = 2;
   }
-  repeated ChildTask child_tasks_ids = 13;
+  repeated ChildTask child_tasks_ids = 14;
 
   enum InputType {
     ResolvedValue = 0;
@@ -155,8 +157,8 @@ message PipelineTaskDetail {
     repeated Metric metrics = 3; // from artifacts.proto
   }
 
-  InputOutputs inputs = 14;
-  InputOutputs outputs = 15;
+  InputOutputs inputs = 15;
+  InputOutputs outputs = 16;
 
   enum TaskType {
     // Root task replaces Root Execution, it is the top ancestor task to all tasks in the pipeline run
@@ -172,14 +174,14 @@ message PipelineTaskDetail {
     // a driver.
     DAG = 7;
   }
-  TaskType type = 16;
+  TaskType type = 17;
 
   // Optional. Applies to type LOOP_ITERATION
-  int64 iteration_index = 17;
+  int64 iteration_index = 18;
   // Optional. Applies to type LOOP
-  int64 iteration_count = 18;
-  string name = 19;
-  string cache_fingerprint = 20;
+  int64 iteration_count = 19;
+  string name = 20;
+  string cache_fingerprint = 21;
 }
 
 

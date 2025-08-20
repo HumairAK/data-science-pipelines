@@ -1,0 +1,94 @@
+// Copyright 2025 The Kubeflow Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package model
+
+// Artifact represents an artifact in the KFP system, replacing MLMD artifacts
+type Artifact struct {
+	UUID            string   `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
+	Namespace       string   `gorm:"column:Namespace; not null; type:varchar(63); index:idx_type_namespace,priority:1;"`
+	Type            int32    `gorm:"column:Type; default:null; index:idx_type_namespace,priority:2;"`
+	Uri             string   `gorm:"column:Uri; type:text;"`
+	Name            string   `gorm:"column:Name; type:varchar(128); default:null;"`
+	CreatedAtInSec  int64    `gorm:"column:CreatedAtInSec; not null; default:0; index:idx_created_timestamp;"`
+	LastUpdateInSec int64    `gorm:"column:LastUpdateInSec; not null; default:0; index:idx_last_update_timestamp;"`
+	Metadata        JSONData `gorm:"column:Metadata; type:json; default:null;"`
+}
+
+func (a Artifact) PrimaryKeyColumnName() string {
+	return "UUID"
+}
+
+func (a Artifact) DefaultSortField() string {
+	return "CreatedAtInSec"
+}
+
+func (a Artifact) APIToModelFieldMap() map[string]string {
+	return artifactAPIToModelFieldMap
+}
+
+func (a Artifact) GetModelName() string {
+	return "artifacts"
+}
+
+func (a Artifact) GetSortByFieldPrefix(s string) string {
+	return "artifacts."
+}
+
+func (a Artifact) GetKeyFieldPrefix() string {
+	return "artifacts."
+}
+
+var artifactAPIToModelFieldMap = map[string]string{
+	"artifact_id": "UUID",
+	"id":          "UUID",
+	"namespace":   "Namespace",
+	"type":        "Type",
+	"uri":         "Uri",
+	"name":        "Name",
+	"created_at":  "CreatedAtInSec",
+	"last_update": "LastUpdateInSec",
+	"properties":  "Metadata",
+	"metadata":    "Metadata",
+}
+
+func (a Artifact) GetField(name string) (string, bool) {
+	if field, ok := artifactAPIToModelFieldMap[name]; ok {
+		return field, true
+	}
+	return "", false
+}
+
+func (a Artifact) GetFieldValue(name string) interface{} {
+	switch name {
+	case "UUID":
+		return a.UUID
+	case "Namespace":
+		return a.Namespace
+	case "Type":
+		return a.Type
+	case "Uri":
+		return a.Uri
+	case "Name":
+		return a.Name
+	case "CreatedAtInSec":
+		return a.CreatedAtInSec
+	case "LastUpdateInSec":
+		return a.LastUpdateInSec
+	case "Metadata":
+		return a.Metadata
+	default:
+		return nil
+	}
+}

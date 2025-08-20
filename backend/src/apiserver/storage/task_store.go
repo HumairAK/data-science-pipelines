@@ -26,42 +26,49 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 )
 
-const table_name = "tasks"
+const tableName = "tasks"
 
 var taskColumns = []string{
 	"UUID",
 	"Namespace",
 	"PipelineName",
 	"RunUUID",
-	"PodName",
-	"MLMDExecutionID",
-	"CreatedTimestamp",
-	"StartedTimestamp",
-	"FinishedTimestamp",
+	"PodNames",
+	"CreatedAtInSec",
+	"StartedInSec",
+	"FinishedInSec",
 	"Fingerprint",
 	"Name",
 	"ParentTaskUUID",
-	"State",
+	"Status",
+	"StatusMetadata",
 	"StateHistory",
-	"MLMDInputs",
-	"MLMDOutputs",
-	"ChildrenPods",
+	"InputParameters",
+	"OutputParameters",
+	"Type",
+	"TypeAttrs",
 }
 
 var taskColumnsWithPayload = append(taskColumns, "Payload")
 
+// Ensure TaskStore implements TaskStoreInterface
+var _ TaskStoreInterface = (*TaskStore)(nil)
+
 type TaskStoreInterface interface {
-	// Create a task entry in the database.
+	// CreateTask Create a task entry in the database.
 	CreateTask(task *model.Task) (*model.Task, error)
 
-	// Fetches a task with a given id.
+	// GetTask Fetches a task with a given id.
 	GetTask(id string) (*model.Task, error)
 
-	// Fetches tasks for given filtering and listing options.
+	// ListTasks Fetches tasks for given filtering and listing options.
 	ListTasks(filterContext *model.FilterContext, opts *list.Options) ([]*model.Task, int, string, error)
 
-	// Creates new tasks or updates the existing ones.
-	CreateOrUpdateTasks(tasks []*model.Task) ([]*model.Task, error)
+	// UpdateTask Updates an existing task entry in the database.
+	UpdateTask(task *model.Task) (*model.Task, error)
+
+	// GetChildTasks Fetches all child tasks for a given task UUID.
+	GetChildTasks(taskId string) ([]*model.Task, error)
 }
 
 type TaskStore struct {
@@ -88,13 +95,13 @@ func (s *TaskStore) CreateTask(task *model.Task) (*model.Task, error) {
 	}
 	newTask.UUID = id.String()
 
-	if newTask.CreatedTimestamp == 0 {
-		if newTask.StartedTimestamp == 0 {
+	if newTask.CreatedAtInSec == 0 {
+		if newTask.StartedInSec == 0 {
 			now := s.time.Now().Unix()
-			newTask.StartedTimestamp = now
-			newTask.CreatedTimestamp = now
+			newTask.StartedInSec = now
+			newTask.CreatedAtInSec = now
 		} else {
-			newTask.CreatedTimestamp = newTask.StartedTimestamp
+			newTask.CreatedAtInSec = newTask.StartedInSec
 		}
 	}
 
@@ -105,35 +112,55 @@ func (s *TaskStore) CreateTask(task *model.Task) (*model.Task, error) {
 		return nil, util.NewInternalServerError(err, "Failed to marshal state history in a new run")
 	}
 
-	childrenPodsString := ""
-	if children, err := json.Marshal(newTask.ChildrenPods); err == nil {
-		childrenPodsString = string(children)
+	podNamesString := ""
+	if podNames, err := json.Marshal(newTask.PodNames); err == nil {
+		podNamesString = string(podNames)
 	} else {
-		return nil, util.NewInternalServerError(err, "Failed to marshal children pods in a new run")
+		return nil, util.NewInternalServerError(err, "Failed to marshal pod names in a new task")
+	}
+
+	inputParamsString := ""
+	if inputParams, err := json.Marshal(newTask.InputParameters); err == nil {
+		inputParamsString = string(inputParams)
+	} else {
+		return nil, util.NewInternalServerError(err, "Failed to marshal input parameters in a new task")
+	}
+
+	outputParamsString := ""
+	if outputParams, err := json.Marshal(newTask.OutputParameters); err == nil {
+		outputParamsString = string(outputParams)
+	} else {
+		return nil, util.NewInternalServerError(err, "Failed to marshal output parameters in a new task")
+	}
+
+	typeAttrsString := ""
+	if typeAttrs, err := json.Marshal(newTask.TypeAttrs); err == nil {
+		typeAttrsString = string(typeAttrs)
+	} else {
+		return nil, util.NewInternalServerError(err, "Failed to marshal type attributes in a new task")
 	}
 
 	sql, args, err := sq.
-		Insert(table_name).
+		Insert(tableName).
 		SetMap(
 			sq.Eq{
-				"UUID":              newTask.UUID,
-				"Namespace":         newTask.Namespace,
-				"PipelineName":      newTask.PipelineName,
-				"RunUUID":           newTask.RunId,
-				"PodName":           newTask.PodName,
-				"MLMDExecutionID":   newTask.MLMDExecutionID,
-				"CreatedTimestamp":  newTask.CreatedTimestamp,
-				"StartedTimestamp":  newTask.StartedTimestamp,
-				"FinishedTimestamp": newTask.FinishedTimestamp,
-				"Fingerprint":       newTask.Fingerprint,
-				"Name":              newTask.Name,
-				"ParentTaskUUID":    newTask.ParentTaskId,
-				"State":             newTask.State.ToString(),
-				"StateHistory":      stateHistoryString,
-				"MLMDInputs":        newTask.MLMDInputs,
-				"MLMDOutputs":       newTask.MLMDOutputs,
-				"ChildrenPods":      childrenPodsString,
-				"Payload":           newTask.ToString(),
+				"UUID":             newTask.UUID,
+				"Namespace":        newTask.Namespace,
+				"PipelineName":     newTask.PipelineName,
+				"RunUUID":          newTask.RunUUID,
+				"PodNames":         podNamesString,
+				"CreatedAtInSec":   newTask.CreatedAtInSec,
+				"StartedInSec":     newTask.StartedInSec,
+				"FinishedInSec":    newTask.FinishedInSec,
+				"Fingerprint":      newTask.Fingerprint,
+				"Name":             newTask.Name,
+				"ParentTaskUUID":   newTask.ParentTaskUUID,
+				"Status":           newTask.Status,
+				"StateHistory":     stateHistoryString,
+				"InputParameters":  inputParamsString,
+				"OutputParameters": outputParamsString,
+				"Type":             string(newTask.Type),
+				"TypeAttrs":        typeAttrsString,
 			},
 		).
 		ToSql()
@@ -152,64 +179,103 @@ func (s *TaskStore) CreateTask(task *model.Task) (*model.Task, error) {
 func (s *TaskStore) scanRows(rows *sql.Rows) ([]*model.Task, error) {
 	var tasks []*model.Task
 	for rows.Next() {
-		var uuid, namespace, pipelineName, runUUID, podName, mlmdExecutionID, fingerprint string
-		var name, parentTaskId, state, stateHistory, inputs, outputs, children sql.NullString
-		var createdTimestamp, startedTimestamp, finishedTimestamp sql.NullInt64
+		var uuid, namespace, pipelineName, runUUID, fingerprint string
+		var name, parentTaskId, statusMetadata, stateHistory, inputParams, outputParams, typeAttrs sql.NullString
+		var createdAtInSec, startedInSec, finishedInSec sql.NullInt64
+		var taskStatus, taskType int32
+		var podNamesBytes []byte
 		err := rows.Scan(
 			&uuid,
 			&namespace,
 			&pipelineName,
 			&runUUID,
-			&podName,
-			&mlmdExecutionID,
-			&createdTimestamp,
-			&startedTimestamp,
-			&finishedTimestamp,
+			&podNamesBytes,
+			&createdAtInSec,
+			&startedInSec,
+			&finishedInSec,
 			&fingerprint,
 			&name,
 			&parentTaskId,
-			&state,
+			&taskStatus,
+			&statusMetadata,
 			&stateHistory,
-			&inputs,
-			&outputs,
-			&children,
+			&inputParams,
+			&outputParams,
+			&taskType,
+			&typeAttrs,
 		)
 		if err != nil {
 			fmt.Printf("scan error is %v", err)
 			return tasks, err
 		}
-		var stateHistoryNew []*model.RuntimeStatus
-		if stateHistory.Valid {
-			json.Unmarshal([]byte(stateHistory.String), &stateHistoryNew)
+		var statusMetadataNew model.JSONData
+		if statusMetadata.Valid {
+			err := json.Unmarshal([]byte(statusMetadata.String), &statusMetadataNew)
+			if err != nil {
+				return nil, err
+			}
 		}
-		var childrenPods []string
-		if children.Valid {
-			json.Unmarshal([]byte(children.String), &childrenPods)
+		var stateHistoryNew model.JSONData
+		if stateHistory.Valid {
+			err := json.Unmarshal([]byte(stateHistory.String), &stateHistoryNew)
+			if err != nil {
+				return nil, err
+			}
+		}
+		var podNames []string
+		if podNamesBytes != nil {
+			err := json.Unmarshal(podNamesBytes, &podNames)
+			if err != nil {
+				return nil, err
+			}
+		}
+		var inputParameters model.JSONData
+		if inputParams.Valid {
+			err := json.Unmarshal([]byte(inputParams.String), &inputParameters)
+			if err != nil {
+				return nil, err
+			}
+		}
+		var outputParameters model.JSONData
+		if outputParams.Valid {
+			err := json.Unmarshal([]byte(outputParams.String), &outputParameters)
+			if err != nil {
+				return nil, err
+			}
+		}
+		var typeAttrsData model.JSONData
+		if typeAttrs.Valid {
+			err := json.Unmarshal([]byte(typeAttrs.String), &typeAttrsData)
+			if err != nil {
+				return nil, err
+			}
 		}
 		task := &model.Task{
-			UUID:              uuid,
-			Namespace:         namespace,
-			PipelineName:      pipelineName,
-			RunId:             runUUID,
-			PodName:           podName,
-			MLMDExecutionID:   mlmdExecutionID,
-			CreatedTimestamp:  createdTimestamp.Int64,
-			StartedTimestamp:  startedTimestamp.Int64,
-			FinishedTimestamp: finishedTimestamp.Int64,
-			Fingerprint:       fingerprint,
-			Name:              name.String,
-			ParentTaskId:      parentTaskId.String,
-			StateHistory:      stateHistoryNew,
-			MLMDInputs:        model.LargeText(inputs.String),
-			MLMDOutputs:       model.LargeText(outputs.String),
-			ChildrenPods:      childrenPods,
+			UUID:             uuid,
+			Namespace:        namespace,
+			PipelineName:     pipelineName,
+			RunUUID:          runUUID,
+			PodNames:         podNames,
+			CreatedAtInSec:   createdAtInSec.Int64,
+			StartedInSec:     startedInSec.Int64,
+			FinishedInSec:    finishedInSec.Int64,
+			Fingerprint:      fingerprint,
+			Name:             name.String,
+			ParentTaskUUID:   parentTaskId.String,
+			Status:           taskStatus,
+			StatusMetadata:   statusMetadataNew,
+			StateHistory:     stateHistoryNew,
+			InputParameters:  inputParameters,
+			OutputParameters: outputParameters,
+			Type:             taskType,
+			TypeAttrs:        typeAttrsData,
 		}
 		tasks = append(tasks, task)
 	}
 	return tasks, nil
 }
 
-// Runs two SQL queries in a transaction to return a list of matching experiments, as well as their
+// ListTasks Runs two SQL queries in a transaction to return a list of matching experiments, as well as their
 // total_size. The total_size does not reflect the page size.
 func (s *TaskStore) ListTasks(filterContext *model.FilterContext, opts *list.Options) ([]*model.Task, int, string, error) {
 	errorF := func(err error) ([]*model.Task, int, string, error) {
@@ -223,6 +289,9 @@ func (s *TaskStore) ListTasks(filterContext *model.FilterContext, opts *list.Opt
 	}
 	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.RunResourceType {
 		sqlBuilder = sqlBuilder.Where(sq.Eq{"RunUUID": filterContext.ReferenceKey.ID})
+	}
+	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.TaskResourceType {
+		sqlBuilder = sqlBuilder.Where(sq.Eq{"ParentTaskUUID": filterContext.ReferenceKey.ID})
 	}
 	sqlBuilder = opts.AddFilterToSelect(sqlBuilder)
 
@@ -239,6 +308,9 @@ func (s *TaskStore) ListTasks(filterContext *model.FilterContext, opts *list.Opt
 	}
 	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.RunResourceType {
 		sqlBuilder = sqlBuilder.Where(sq.Eq{"RunUUID": filterContext.ReferenceKey.ID})
+	}
+	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.TaskResourceType {
+		sqlBuilder = sqlBuilder.Where(sq.Eq{"ParentTaskUUID": filterContext.ReferenceKey.ID})
 	}
 	sizeSql, sizeArgs, err := opts.AddFilterToSelect(sqlBuilder).ToSql()
 	if err != nil {
@@ -299,7 +371,7 @@ func (s *TaskStore) ListTasks(filterContext *model.FilterContext, opts *list.Opt
 }
 
 func (s *TaskStore) GetTask(id string) (*model.Task, error) {
-	sql, args, err := sq.
+	toSql, args, err := sq.
 		Select(taskColumns...).
 		From("tasks").
 		Where(sq.Eq{"tasks.uuid": id}).
@@ -307,7 +379,7 @@ func (s *TaskStore) GetTask(id string) (*model.Task, error) {
 	if err != nil {
 		return nil, util.NewInternalServerError(err, "Failed to create query to get task: %v", err.Error())
 	}
-	r, err := s.db.Query(sql, args...)
+	r, err := s.db.Query(toSql, args...)
 	if err != nil {
 		return nil, util.NewInternalServerError(err, "Failed to get task: %v", err.Error())
 	}
@@ -315,7 +387,7 @@ func (s *TaskStore) GetTask(id string) (*model.Task, error) {
 	tasks, err := s.scanRows(r)
 
 	if err != nil || len(tasks) > 1 {
-		return nil, util.NewInternalServerError(err, "Failed to get pipeline: %v", err.Error())
+		return nil, util.NewInternalServerError(err, "Failed to get pipeline: %v", err)
 	}
 	if len(tasks) == 0 {
 		return nil, util.NewResourceNotFoundError("task", fmt.Sprint(id))
@@ -323,171 +395,112 @@ func (s *TaskStore) GetTask(id string) (*model.Task, error) {
 	return tasks[0], nil
 }
 
-// Updates missing fields with existing data entries.
-func (s *TaskStore) patchWithExistingTasks(tasks []*model.Task) error {
-	var podNames []string
-	for _, task := range tasks {
-		podNames = append(podNames, task.PodName)
+// UpdateTask updates an existing task in the tasks table and returns the updated task.
+func (s *TaskStore) UpdateTask(task *model.Task) (*model.Task, error) {
+	if task == nil {
+		return nil, util.NewInvalidInputError("Failed to update task: task cannot be nil")
 	}
-	sql, args, err := sq.
-		Select(taskColumns...).
-		From("tasks").
-		Where(sq.Eq{"PodName": podNames}).
+	if task.UUID == "" {
+		return nil, util.NewInvalidInputError("Failed to update task: task ID cannot be empty")
+	}
+
+	// Marshal complex fields to JSON strings where needed
+	stateHistoryString := ""
+	if history, err := json.Marshal(task.StateHistory); err == nil {
+		stateHistoryString = string(history)
+	} else {
+		return nil, util.NewInternalServerError(err, "Failed to marshal state history in an updated task")
+	}
+
+	statusMetadataString := ""
+	if statusMetadata, err := json.Marshal(task.StatusMetadata); err == nil {
+		statusMetadataString = string(statusMetadata)
+	} else {
+		return nil, util.NewInternalServerError(err, "Failed to marshal status metadata in an updated task")
+	}
+
+	podNamesString := ""
+	if podNames, err := json.Marshal(task.PodNames); err == nil {
+		podNamesString = string(podNames)
+	} else {
+		return nil, util.NewInternalServerError(err, "Failed to marshal pod names in an updated task")
+	}
+
+	inputParamsString := ""
+	if inputParams, err := json.Marshal(task.InputParameters); err == nil {
+		inputParamsString = string(inputParams)
+	} else {
+		return nil, util.NewInternalServerError(err, "Failed to marshal input parameters in an updated task")
+	}
+
+	outputParamsString := ""
+	if outputParams, err := json.Marshal(task.OutputParameters); err == nil {
+		outputParamsString = string(outputParams)
+	} else {
+		return nil, util.NewInternalServerError(err, "Failed to marshal output parameters in an updated task")
+	}
+
+	typeAttrsString := ""
+	if typeAttrs, err := json.Marshal(task.TypeAttrs); err == nil {
+		typeAttrsString = string(typeAttrs)
+	} else {
+		return nil, util.NewInternalServerError(err, "Failed to marshal type attributes in an updated task")
+	}
+
+	// Build the update statement. We do not update CreatedAtInSec.
+	sqlStr, args, err := sq.
+		Update(tableName).
+		SetMap(sq.Eq{
+			"Namespace":        task.Namespace,
+			"PipelineName":     task.PipelineName,
+			"RunUUID":          task.RunUUID,
+			"PodNames":         podNamesString,
+			"StartedInSec":     task.StartedInSec,
+			"FinishedInSec":    task.FinishedInSec,
+			"Fingerprint":      task.Fingerprint,
+			"Name":             task.Name,
+			"ParentTaskUUID":   task.ParentTaskUUID,
+			"Status":           task.Status,
+			"StatusMetadata":   statusMetadataString,
+			"StateHistory":     stateHistoryString,
+			"InputParameters":  inputParamsString,
+			"OutputParameters": outputParamsString,
+			"Type":             string(task.Type),
+			"TypeAttrs":        typeAttrsString,
+		}).
+		Where(sq.Eq{"UUID": task.UUID}).
 		ToSql()
 	if err != nil {
-		return util.NewInternalServerError(err, "Failed to create query to check existing tasks")
+		return nil, util.NewInternalServerError(err, "Failed to create query to update task: %v", err.Error())
 	}
-	r, err := s.db.Query(sql, args...)
+
+	res, err := s.db.Exec(sqlStr, args...)
 	if err != nil {
-		return util.NewInternalServerError(err, "Failed to check existing tasks")
+		return nil, util.NewInternalServerError(err, "Failed to update task: %v", err.Error())
 	}
-	defer r.Close()
-	existingTasks, err := s.scanRows(r)
-	if err != nil {
-		return util.NewInternalServerError(err, "Failed to parse existing tasks")
+	if rows, _ := res.RowsAffected(); rows == 0 {
+		return nil, util.NewResourceNotFoundError("task", task.UUID)
 	}
-	mapTasks := make(map[string]*model.Task, 0)
-	for _, task := range existingTasks {
-		mapTasks[task.PodName] = task
-	}
-	for _, task := range tasks {
-		if existingTask, ok := mapTasks[task.PodName]; ok {
-			patchTask(task, existingTask)
-		}
-	}
-	return nil
+
+	return s.GetTask(task.UUID)
 }
 
-// Creates new entries or updates existing ones.
-func (s *TaskStore) CreateOrUpdateTasks(tasks []*model.Task) ([]*model.Task, error) {
-	buildQuery := func(ts []*model.Task) (string, []interface{}, error) {
-		sqlInsert := sq.Insert("tasks").Columns(taskColumnsWithPayload...)
-		for _, t := range ts {
-			childrenPodsString := ""
-			if len(t.ChildrenPods) > 0 {
-				children, err := json.Marshal(t.ChildrenPods)
-				if err != nil {
-					return "", nil, util.NewInternalServerError(err, "Failed to marshal child task ids in a task")
-				}
-				childrenPodsString = string(children)
-			}
-			stateHistoryString := ""
-			if len(t.StateHistory) > 0 {
-				history, err := json.Marshal(t.StateHistory)
-				if err != nil {
-					return "", nil, util.NewInternalServerError(err, "Failed to marshal state history in a task")
-				}
-				stateHistoryString = string(history)
-			}
-			sqlInsert = sqlInsert.Values(
-				t.UUID,
-				t.Namespace,
-				t.PipelineName,
-				t.RunId,
-				t.PodName,
-				t.MLMDExecutionID,
-				t.CreatedTimestamp,
-				t.StartedTimestamp,
-				t.FinishedTimestamp,
-				t.Fingerprint,
-				t.Name,
-				t.ParentTaskId,
-				t.State.ToString(),
-				stateHistoryString,
-				t.MLMDInputs,
-				t.MLMDOutputs,
-				childrenPodsString,
-				t.ToString(),
-			)
-		}
-		return sqlInsert.ToSql()
+func (s *TaskStore) GetChildTasks(taskId string) ([]*model.Task, error) {
+	toSql, args, err := sq.
+		Select(taskColumns...).
+		From("tasks").
+		Where(sq.Eq{"ParentTaskUUID": taskId}).
+		ToSql()
+
+	if err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to create query to get child tasks: %v", err.Error())
 	}
 
-	// Check for existing tasks and fill empty field with existing data.
-	// Assumes that PodName column is a unique key.
-	if err := s.patchWithExistingTasks(tasks); err != nil {
-		return nil, util.NewInternalServerError(err, "Failed to check for existing tasks")
-	}
-	for _, task := range tasks {
-		task.State = task.State.ToV2()
-		if task.UUID == "" {
-			id, err := s.uuid.NewRandom()
-			if err != nil {
-				return nil, util.NewInternalServerError(err, "Failed to create an task id")
-			}
-			task.UUID = id.String()
-		}
-		if task.CreatedTimestamp == 0 {
-			task.CreatedTimestamp = s.time.Now().Unix()
-		}
-		if len(task.StateHistory) == 0 || task.StateHistory[len(task.StateHistory)-1].State != task.State {
-			task.StateHistory = append(task.StateHistory, &model.RuntimeStatus{
-				UpdateTimeInSec: s.time.Now().Unix(),
-				State:           task.State,
-			})
-		}
-	}
-	// Execute the query
-	sql, arg, err := buildQuery(tasks)
+	rows, err := s.db.Query(toSql, args...)
 	if err != nil {
-		return nil, util.NewInternalServerError(err, "Failed to build query to update or insert tasks")
+		return nil, util.NewInternalServerError(err, "Failed to get child tasks: %v", err.Error())
 	}
-	sql = s.db.Upsert(sql, "UUID", true, taskColumnsWithPayload...)
-	_, err = s.db.Exec(sql, arg...)
-	if err != nil {
-		return nil, util.NewInternalServerError(err, "Failed to update or insert tasks. Query: %v. Args: %v", sql, arg)
-	}
-	return tasks, nil
-}
+	defer rows.Close()
 
-// Fills empty fields in a new task with the data from an existing task.
-func patchTask(original *model.Task, patch *model.Task) {
-	if original.UUID == "" {
-		original.UUID = patch.UUID
-	}
-	if original.Namespace == "" {
-		original.Namespace = patch.Namespace
-	}
-	if original.RunId == "" {
-		original.RunId = patch.RunId
-	}
-	if original.PodName == "" {
-		original.PodName = patch.PodName
-	}
-	if original.MLMDExecutionID == "" {
-		original.MLMDExecutionID = patch.MLMDExecutionID
-	}
-	if original.CreatedTimestamp == 0 {
-		original.CreatedTimestamp = patch.CreatedTimestamp
-	}
-	if original.StartedTimestamp == 0 {
-		original.StartedTimestamp = patch.StartedTimestamp
-	}
-	if original.FinishedTimestamp == 0 {
-		original.FinishedTimestamp = patch.FinishedTimestamp
-	}
-	if original.Fingerprint == "" {
-		original.Fingerprint = patch.Fingerprint
-	}
-	if original.Name == "" {
-		original.Name = patch.Name
-	}
-	if original.ParentTaskId == "" {
-		original.ParentTaskId = patch.ParentTaskId
-	}
-	if original.State.ToV2() == model.RuntimeStateUnspecified {
-		original.State = patch.State.ToV2()
-	}
-	if original.MLMDInputs == "" {
-		original.MLMDInputs = patch.MLMDInputs
-	}
-	if original.MLMDOutputs == "" {
-		original.MLMDOutputs = patch.MLMDOutputs
-	}
-	if original.StateHistory == nil {
-		original.StateHistory = patch.StateHistory
-	}
-	if len(original.ChildrenPods) == 0 {
-		original.ChildrenPods = patch.ChildrenPods
-	}
+	return s.scanRows(rows)
 }

@@ -20,11 +20,9 @@ import (
 	"testing"
 
 	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
-	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/resource"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 	"sigs.k8s.io/yaml"
@@ -327,55 +325,6 @@ func TestGetExperimentIDFromResourceReferences(t *testing.T) {
 	}
 }
 
-func TestValidateRunMetric_Pass(t *testing.T) {
-	metric := &model.RunMetric{
-		Name:   "foo",
-		NodeID: "node-1",
-	}
-	err := validateRunMetric(metric)
-
-	assert.Nil(t, err)
-}
-
-func TestValidateRunMetric_InvalidNames(t *testing.T) {
-	metric := &model.RunMetric{
-		NodeID: "node-1",
-	}
-
-	// Empty name
-	err := validateRunMetric(metric)
-	AssertUserError(t, err, codes.InvalidArgument)
-
-	// Unallowed character
-	metric.Name = "$"
-	err = validateRunMetric(metric)
-	AssertUserError(t, err, codes.InvalidArgument)
-
-	// Name is too long
-	bytes := make([]byte, 65)
-	for i := range bytes {
-		bytes[i] = 'a'
-	}
-	metric.Name = string(bytes)
-	err = validateRunMetric(metric)
-	AssertUserError(t, err, codes.InvalidArgument)
-}
-
-func TestValidateRunMetric_InvalidNodeIDs(t *testing.T) {
-	metric := &model.RunMetric{
-		Name: "a",
-	}
-
-	// Empty node ID
-	err := validateRunMetric(metric)
-	AssertUserError(t, err, codes.InvalidArgument)
-
-	// Node ID is too long
-	metric.NodeID = string(make([]byte, 129))
-	err = validateRunMetric(metric)
-	AssertUserError(t, err, codes.InvalidArgument)
-}
-
 func loadYaml(t *testing.T, path string) string {
 	res, err := os.ReadFile(path)
 	if err != nil {
@@ -392,7 +341,8 @@ func TestPipelineSpecStructToYamlString_DirectSpec(t *testing.T) {
 
 	splitTemplate := strings.Split(template, "\n---\n")
 	pipelineSpecJson, _ := yaml.YAMLToJSON([]byte(splitTemplate[0]))
-	protojson.Unmarshal(pipelineSpecJson, &pipeline)
+	err := protojson.Unmarshal(pipelineSpecJson, &pipeline)
+	assert.Nil(t, err)
 
 	actualTemplate, err := pipelineSpecStructToYamlString(&pipeline)
 	assert.Nil(t, err)
@@ -416,10 +366,13 @@ func TestPipelineSpecStructToYamlString_WithPlatform(t *testing.T) {
 
 	splitTemplate := strings.Split(template, "\n---\n")
 	pipelineSpecJson, _ := yaml.YAMLToJSON([]byte(splitTemplate[0]))
-	protojson.Unmarshal(pipelineSpecJson, &pipelineSpec)
+
+	err := protojson.Unmarshal(pipelineSpecJson, &pipelineSpec)
+	assert.Nil(t, err)
 
 	platformSpecJson, _ := yaml.YAMLToJSON([]byte(splitTemplate[1]))
-	protojson.Unmarshal(platformSpecJson, &platformSpec)
+	err = protojson.Unmarshal(platformSpecJson, &platformSpec)
+	assert.Nil(t, err)
 
 	pipelineSpecValue := structpb.NewStructValue(&pipelineSpec)
 	platformSpecValue := structpb.NewStructValue(&platformSpec)
@@ -453,7 +406,9 @@ func TestPipelineSpecStructToYamlString_NestedPipelineSpec(t *testing.T) {
 
 	splitTemplate := strings.Split(template, "\n---\n")
 	pipelineSpecJson, _ := yaml.YAMLToJSON([]byte(splitTemplate[0]))
-	protojson.Unmarshal(pipelineSpecJson, &pipelineSpec)
+	err := protojson.Unmarshal(pipelineSpecJson, &pipelineSpec)
+	assert.Nil(t, err)
+
 	pipelineSpecValue := structpb.NewStructValue(&pipelineSpec)
 
 	pipeline := structpb.Struct{
