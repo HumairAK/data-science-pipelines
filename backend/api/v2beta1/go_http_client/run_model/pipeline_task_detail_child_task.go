@@ -14,13 +14,13 @@ import (
 
 // PipelineTaskDetailChildTask A dependent task that requires this one to succeed.
 // Represented by either task_id or pod_name.
+// TODO(HumairAK): Do we need this if we have parent_task_id?
 //
 // swagger:model PipelineTaskDetailChildTask
 type PipelineTaskDetailChildTask struct {
 
-	// Name of the corresponding pod assigned by the orchestration engine.
-	// Also known as node_id.
-	PodName string `json:"pod_name,omitempty"`
+	// name
+	Name string `json:"name,omitempty"`
 
 	// System-generated ID of a task.
 	TaskID string `json:"task_id,omitempty"`

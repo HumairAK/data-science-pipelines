@@ -1,0 +1,106 @@
+# PIPELINE DEFINITION
+# Name: metrics-visualization-pipeline
+components:
+  comp-digit-classification:
+    executorLabel: exec-digit-classification
+    outputDefinitions:
+      artifacts:
+        metrics_out:
+          artifactType:
+            schemaTitle: system.Metrics
+            schemaVersion: 0.0.1
+  comp-takemetricinput:
+    executorLabel: exec-takemetricinput
+    inputDefinitions:
+      artifacts:
+        metric_in:
+          artifactType:
+            schemaTitle: system.Metrics
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-digit-classification:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - digit_classification
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef digit_classification(metrics_out: Output[Metrics]):\n    metrics_out.log_metric('accuracy',\
+          \ 0.5)\n    metrics_out.log_metric('anotherOne', 1.3)\n\n"
+        image: python:3.9
+    exec-takemetricinput:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - takeMetricInput
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef takeMetricInput(metric_in: Input[Metrics]):\n    print(metric_in.metadata['accuracy'])\n\
+          \    print(metric_in.metadata['anotherOne'])\n\n"
+        image: python:3.9
+pipelineInfo:
+  name: metrics-visualization-pipeline
+root:
+  dag:
+    tasks:
+      digit-classification:
+        cachingOptions: {}
+        componentRef:
+          name: comp-digit-classification
+        taskInfo:
+          name: digit-classification
+      takemetricinput:
+        cachingOptions: {}
+        componentRef:
+          name: comp-takemetricinput
+        dependentTasks:
+        - digit-classification
+        inputs:
+          artifacts:
+            metric_in:
+              taskOutputArtifact:
+                outputArtifactKey: metrics_out
+                producerTask: digit-classification
+        taskInfo:
+          name: takemetricinput
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.14.2

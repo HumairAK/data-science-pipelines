@@ -1,0 +1,37 @@
+import functools
+
+from kubernetes import client
+import kfp
+from kfp import dsl
+from kfp.dsl import (
+    Input,
+    Output,
+    Artifact,
+    Dataset,
+    component
+)
+
+base_image="quay.io/opendatahub/ds-pipelines-ci-executor-image:v1.0"
+dsl.component = functools.partial(dsl.component, base_image=base_image)
+
+@component
+def create_dataset(output_dataset: Output[Dataset]):
+    with open("/nonexistent/file.txt", "r") as f:
+        content = f.read()
+    with open(output_dataset.path, "w") as f:
+        f.write('hurricane')
+    output_dataset.metadata["category"] = 5
+    output_dataset.metadata["description"] = "A simple dataset"
+    
+
+
+@dsl.pipeline
+def primary_pipeline():
+    dataset_op = create_dataset()
+
+if __name__ == '__main__':
+    from kfp import compiler
+    compiler.Compiler().compile(
+        pipeline_func=primary_pipeline,
+        package_path=__file__+".yaml"
+    )

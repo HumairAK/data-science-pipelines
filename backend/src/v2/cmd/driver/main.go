@@ -20,10 +20,13 @@ import (
 	"flag"
 	"fmt"
 
-	"google.golang.org/protobuf/encoding/protojson"
-
+	"github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	"github.com/kubeflow/pipelines/backend/src/v2/apiclient/kfpapi"
+	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
+	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"os"
 	"path/filepath"
@@ -31,10 +34,8 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
-	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
-	"github.com/kubeflow/pipelines/backend/src/v2/config"
+	"github.com/kubeflow/pipelines/backend/src/v2/apiclient"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
 	"github.com/kubeflow/pipelines/kubernetes_platform/go/kubernetesplatform"
 )
 
@@ -63,16 +64,12 @@ var (
 	taskName          = flag.String("task_name", "", "original task name, used for proper input resolution in the container/dag driver")
 
 	// container inputs
-	dagExecutionID    = flag.Int64("dag_execution_id", 0, "DAG execution ID")
+	parentTaskID      = flag.String("parent_task_id", "", "Parent PipelineTask ID")
 	containerSpecJson = flag.String("container", "{}", "container spec")
 	k8sExecConfigJson = flag.String("kubernetes_config", "{}", "kubernetes executor config")
 
-	// config
-	mlmdServerAddress = flag.String("mlmd_server_address", "", "MLMD server address")
-	mlmdServerPort    = flag.String("mlmd_server_port", "", "MLMD server port")
-
 	// output paths
-	executionIDPath    = flag.String("execution_id_path", "", "Exeucution ID output path")
+	parentTaskIDPath   = flag.String("parent_task_id_path", "", "Parent Task ID output path")
 	iterationCountPath = flag.String("iteration_count_path", "", "Iteration Count output path")
 	podSpecPatchPath   = flag.String("pod_spec_patch_path", "", "Pod Spec Patch output path")
 	// the value stored in the paths will be either 'true' or 'false'
@@ -88,8 +85,6 @@ var (
 	cacheDisabledFlag = flag.Bool("cache_disabled", false, "Disable cache globally.")
 )
 
-// func RootDAG(pipelineName string, runID string, component *pipelinespec.ComponentSpec, task *pipelinespec.PipelineTaskSpec, mlmd *metadata.Client) (*Execution, error) {
-
 func main() {
 	flag.Parse()
 
@@ -101,7 +96,7 @@ func main() {
 
 	err = drive()
 	if err != nil {
-		glog.Exitf("%v", err)
+		glog.Exitf("Failed to execute driver: %v", err)
 	}
 }
 
@@ -130,12 +125,19 @@ func validate() error {
 }
 
 func drive() (err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("KFP driver: %w", err)
-		}
-	}()
 	ctx := context.Background()
+
+	// Initialize connection to the KFP API server
+	apiCfg := apiclient.FromEnv()
+	kfpAPIClient, apiErr := apiclient.New(apiCfg)
+	if apiErr != nil {
+		return fmt.Errorf("failed to init KFP API client: %w", apiErr)
+	}
+	defer kfpAPIClient.Close()
+	kfpAPI := kfpapi.New(kfpAPIClient)
+
+	glog.Infof("Initialized KFP API client at %s", kfpAPIClient.Endpoint)
+
 	if err = validate(); err != nil {
 		return err
 	}
@@ -147,6 +149,7 @@ func drive() (err error) {
 	if err := util.UnmarshalString(*componentSpecJson, componentSpec); err != nil {
 		return fmt.Errorf("failed to unmarshal component spec, error: %w\ncomponentSpec: %v", err, prettyPrint(*componentSpecJson))
 	}
+
 	var taskSpec *pipelinespec.PipelineTaskSpec
 	if *taskSpecJson != "" {
 		glog.Infof("input TaskSpec:%s\n", prettyPrint(*taskSpecJson))
@@ -155,11 +158,13 @@ func drive() (err error) {
 			return fmt.Errorf("failed to unmarshal task spec, error: %w\ntask: %v", err, taskSpecJson)
 		}
 	}
+
 	glog.Infof("input ContainerSpec:%s\n", prettyPrint(*containerSpecJson))
 	containerSpec := &pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec{}
 	if err := util.UnmarshalString(*containerSpecJson, containerSpec); err != nil {
 		return fmt.Errorf("failed to unmarshal container spec, error: %w\ncontainerSpec: %v", err, containerSpecJson)
 	}
+
 	var runtimeConfig *pipelinespec.PipelineJob_RuntimeConfig
 	if *runtimeConfigJson != "" {
 		glog.Infof("input RuntimeConfig:%s\n", prettyPrint(*runtimeConfigJson))
@@ -168,67 +173,107 @@ func drive() (err error) {
 			return fmt.Errorf("failed to unmarshal runtime config, error: %w\nruntimeConfig: %v", err, runtimeConfigJson)
 		}
 	}
+
 	k8sExecCfg, err := parseExecConfigJson(k8sExecConfigJson)
 	if err != nil {
 		return err
 	}
-	namespace, err := config.InPodNamespace()
+
+	namespace := os.Getenv("NAMESPACE")
+	if namespace == "" {
+		return fmt.Errorf("NAMESPACE environment variable must be set")
+	}
+
+	podName := os.Getenv("KFP_POD_NAME")
+	podUID := os.Getenv("KFP_POD_UID")
+	if podUID == "" || podName == "" {
+		return fmt.Errorf("KFP_POD_UID and KFP_POD_NAME environment variables must be set")
+	}
+
+	if runID == nil {
+		return fmt.Errorf("argument --run_id must be specified")
+	}
+	fullView := go_client.GetRunRequest_FULL
+	run, err := kfpAPI.GetRun(ctx, &go_client.GetRunRequest{RunId: *runID, View: &fullView})
 	if err != nil {
 		return err
 	}
-	client, err := newMlmdClient()
+
+	var parentTask *go_client.PipelineTaskDetail
+	if parentTaskID != nil && *parentTaskID != "" {
+		parentTask, err = kfpAPI.GetTask(ctx, &go_client.GetTaskRequest{TaskId: *parentTaskID})
+		if err != nil {
+			return err
+		}
+	}
+
+	// Argo Compiler does not always pass task name, so we infer it from the task spec.
+	// In the future we should require the task name to be passed explicitly.
+	// This will allow us to remove the need for a taskspec and component spec to be
+	// passed into the driver (we can infer it from the scope path and taskname).
+	var resolvedTaskName string
+	if *driverType != ROOT_DAG {
+		if *taskName != "" {
+			resolvedTaskName = *taskName
+		} else if taskSpec != nil && taskSpec.GetTaskInfo() != nil && taskSpec.GetTaskInfo().GetName() != "" {
+			resolvedTaskName = taskSpec.GetTaskInfo().GetName()
+		} else {
+			return fmt.Errorf("task name for non Root dag could not be resolved")
+		}
+	}
+
+	scopePath, err := buildScopePath(ctx, run, parentTask, resolvedTaskName, kfpAPI)
+	if err != nil || scopePath == nil {
+		return fmt.Errorf("failed to build scope path: %w", err)
+	}
+
+	clientManager, err := client_manager.NewClientManager()
 	if err != nil {
 		return err
 	}
-	cacheClient, err := cacheutils.NewClient(*cacheDisabledFlag)
-	if err != nil {
-		return err
-	}
-	options := driver.Options{
+
+	options := common.Options{
 		PipelineName:     *pipelineName,
-		RunID:            *runID,
+		Run:              run,
 		RunName:          *runName,
 		RunDisplayName:   *runDisplayName,
 		Namespace:        namespace,
 		Component:        componentSpec,
 		Task:             taskSpec,
-		DAGExecutionID:   *dagExecutionID,
 		IterationIndex:   *iterationIndex,
 		PipelineLogLevel: *logLevel,
 		PublishLogs:      *publishLogs,
 		CacheDisabled:    *cacheDisabledFlag,
 		DriverType:       *driverType,
-		TaskName:         *taskName,
+		TaskName:         resolvedTaskName,
+		ParentTask:       parentTask,
+		PodName:          podName,
+		PodUID:           podUID,
+		ScopePath:        *scopePath,
 	}
 	var execution *driver.Execution
-	var driverErr error
 	switch *driverType {
 	case ROOT_DAG:
 		options.RuntimeConfig = runtimeConfig
-		execution, driverErr = driver.RootDAG(ctx, options, client)
+		execution, err = driver.RootDAG(ctx, options, clientManager)
 	case DAG:
-		execution, driverErr = driver.DAG(ctx, options, client)
+		execution, err = driver.DAG(ctx, options, clientManager)
 	case CONTAINER:
 		options.Container = containerSpec
 		options.KubernetesExecutorConfig = k8sExecCfg
-		execution, driverErr = driver.Container(ctx, options, client, cacheClient)
+		execution, err = driver.Container(ctx, options, clientManager)
 	default:
 		err = fmt.Errorf("unknown driverType %s", *driverType)
 	}
-	if driverErr != nil {
-		if execution == nil {
-			return driverErr
-		}
-		defer func() {
-			// Override error with driver error, because driver error is more important.
-			// However, we continue running, because the following code prints debug info that
-			// may be helpful for figuring out why this failed.
-			err = driverErr
-		}()
+	if err != nil {
+		return fmt.Errorf("failed to execute driver: %w", err)
+	}
+	if execution == nil {
+		return fmt.Errorf("driver execution is nil")
 	}
 
-	executionPaths := &ExecutionPaths{
-		ExecutionID:    *executionIDPath,
+	executionPaths := &TaskPaths{
+		TaskID:         *parentTaskIDPath,
 		IterationCount: *iterationCountPath,
 		CachedDecision: *cachedDecisionPath,
 		Condition:      *conditionPath,
@@ -250,15 +295,17 @@ func parseExecConfigJson(k8sExecConfigJson *string) (*kubernetesplatform.Kuberne
 	return k8sExecCfg, nil
 }
 
-func handleExecution(execution *driver.Execution, driverType string, executionPaths *ExecutionPaths) error {
-	if execution.ID != 0 {
-		glog.Infof("output execution.ID=%v", execution.ID)
-		if executionPaths.ExecutionID != "" {
-			if err := writeFile(executionPaths.ExecutionID, []byte(fmt.Sprint(execution.ID))); err != nil {
-				return fmt.Errorf("failed to write execution ID to file: %w", err)
-			}
+func handleExecution(execution *driver.Execution, driverType string, executionPaths *TaskPaths) error {
+	if execution.TaskID == "" {
+		return fmt.Errorf("execution.TaskID is empty")
+	}
+	glog.Infof("output execution.ID=%v", execution.TaskID)
+	if executionPaths.TaskID != "" {
+		if err := writeFile(executionPaths.TaskID, []byte(fmt.Sprint(execution.TaskID))); err != nil {
+			return fmt.Errorf("failed to write execution ID to file: %w", err)
 		}
 	}
+
 	if execution.IterationCount != nil {
 		if err := writeFile(executionPaths.IterationCount, []byte(fmt.Sprintf("%v", *execution.IterationCount))); err != nil {
 			return fmt.Errorf("failed to write iteration count to file: %w", err)
@@ -331,11 +378,47 @@ func writeFile(path string, data []byte) (err error) {
 	return os.WriteFile(path, data, 0o644)
 }
 
-func newMlmdClient() (*metadata.Client, error) {
-	mlmdConfig := metadata.DefaultConfig()
-	if *mlmdServerAddress != "" && *mlmdServerPort != "" {
-		mlmdConfig.Address = *mlmdServerAddress
-		mlmdConfig.Port = *mlmdServerPort
+// Require PipelineSpec for scope path
+// Runs api may directly return the PipelineSpec or return a reference to it.
+// In the latter case we fetch the PipelineSpec from the Server.
+// TODO(Humair) The usage of scope-path renders the need for passing the component/task specs unnecessary
+// so we can remove those arguments. The canonical task name + parent task's scope path is sufficient
+// to fetch current task's scope which contains ComponentSpec and TaskSpec.
+func buildScopePath(
+	ctx context.Context,
+	run *go_client.Run,
+	parentTask *go_client.PipelineTaskDetail,
+	taskName string,
+	kfpAPI kfpapi.API) (*util.ScopePath, error) {
+	pipelineSpecStruct, err := kfpAPI.FetchPipelineSpecFromRun(ctx, run.GetPipelineSpec(), run)
+	if err != nil {
+		return nil, err
 	}
-	return metadata.NewClient(mlmdConfig.Address, mlmdConfig.Port)
+	var scopePath util.ScopePath
+	if driverType == nil {
+		return nil, fmt.Errorf("argument --%s must be specified", driverTypeArg)
+	}
+	if *driverType == ROOT_DAG {
+		scopePath, err = util.NewScopePathFromStruct(pipelineSpecStruct)
+		if err != nil {
+			return nil, err
+		}
+		err = scopePath.Push("root")
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		if taskName == "" {
+			return nil, fmt.Errorf("task name must be specified for non-root drivers")
+		}
+		scopePath, err = util.ScopePathFromStringPathWithNewTask(
+			pipelineSpecStruct,
+			parentTask.GetScopePath(),
+			taskName,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &scopePath, nil
 }

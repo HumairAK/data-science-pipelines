@@ -1,0 +1,143 @@
+# PIPELINE DEFINITION
+# Name: primary-pipeline
+components:
+  comp-analyze-artifact:
+    executorLabel: exec-analyze-artifact
+    inputDefinitions:
+      artifacts:
+        analyze_artifact_input:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      artifacts:
+        analyze_output_artifact:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+  comp-for-loop-2:
+    dag:
+      tasks:
+        analyze-artifact:
+          cachingOptions: {}
+          componentRef:
+            name: comp-analyze-artifact
+          dependentTasks:
+          - process-dataset
+          inputs:
+            artifacts:
+              analyze_artifact_input:
+                taskOutputArtifact:
+                  outputArtifactKey: output_artifact
+                  producerTask: process-dataset
+          taskInfo:
+            name: analyze-artifact
+        process-dataset:
+          cachingOptions: {}
+          componentRef:
+            name: comp-process-dataset
+          inputs:
+            parameters:
+              model_id_in:
+                componentInputParameter: pipelinechannel--loop-item-param-1
+          taskInfo:
+            name: process-dataset
+    inputDefinitions:
+      parameters:
+        pipelinechannel--loop-item-param-1:
+          parameterType: STRING
+  comp-process-dataset:
+    executorLabel: exec-process-dataset
+    inputDefinitions:
+      parameters:
+        model_id_in:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        output_artifact:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-analyze-artifact:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - analyze_artifact
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef analyze_artifact(analyze_artifact_input: Input[Artifact], analyze_output_artifact:\
+          \ Output[Artifact]):\n    with open(analyze_artifact_input.path, \"r\")\
+          \ as f:\n        data = f.read()\n    with open(analyze_output_artifact.path,\
+          \ \"w\") as f:\n        f.write(f'{{\"values\": {data}}}')\n    if data\
+          \ == '3':\n        print(\"Failing 3rd task\")\n        exit(1)\n    print(\"\
+          task succeeded: \" + data)\n\n"
+        image: python:3.9
+    exec-process-dataset:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - process_dataset
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef process_dataset(\n        model_id_in: str,\n        output_artifact:\
+          \ Output[Artifact],\n):\n    with open(output_artifact.path, \"w\") as f:\n\
+          \        data_out = f\"{model_id_in}\"\n        f.write(data_out)\n    \
+          \    print(data_out)\n    output_artifact.metadata[\"model_id\"] = model_id_in\n\
+          \n"
+        image: python:3.9
+pipelineInfo:
+  name: primary-pipeline
+root:
+  dag:
+    tasks:
+      for-loop-2:
+        componentRef:
+          name: comp-for-loop-2
+        parameterIterator:
+          itemInput: pipelinechannel--loop-item-param-1
+          items:
+            raw: '["1", "2", "3"]'
+        taskInfo:
+          name: for-loop-2
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.14.2

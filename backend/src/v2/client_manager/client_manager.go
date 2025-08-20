@@ -3,16 +3,15 @@ package client_manager
 import (
 	"fmt"
 
-	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
+	"github.com/kubeflow/pipelines/backend/src/common/util"
+	"github.com/kubeflow/pipelines/backend/src/v2/apiclient"
+	"github.com/kubeflow/pipelines/backend/src/v2/apiclient/kfpapi"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 type ClientManagerInterface interface {
 	K8sClient() kubernetes.Interface
-	MetadataClient() metadata.ClientInterface
-	CacheClient() cacheutils.Client
+	KFPAPIClient() kfpapi.API
 }
 
 // Ensure ClientManager implements ClientManagerInterface
@@ -20,21 +19,14 @@ var _ ClientManagerInterface = (*ClientManager)(nil)
 
 // ClientManager is a container for various service clients.
 type ClientManager struct {
-	k8sClient      kubernetes.Interface
-	metadataClient metadata.ClientInterface
-	cacheClient    cacheutils.Client
-}
-
-type Options struct {
-	MLMDServerAddress string
-	MLMDServerPort    string
-	CacheDisabled     bool
+	k8sClient    kubernetes.Interface
+	kfpAPIClient kfpapi.API
 }
 
 // NewClientManager creates and Init a new instance of ClientManager.
-func NewClientManager(options *Options) (*ClientManager, error) {
+func NewClientManager() (*ClientManager, error) {
 	clientManager := &ClientManager{}
-	err := clientManager.init(options)
+	err := clientManager.init()
 	if err != nil {
 		return nil, err
 	}
@@ -46,49 +38,37 @@ func (cm *ClientManager) K8sClient() kubernetes.Interface {
 	return cm.k8sClient
 }
 
-func (cm *ClientManager) MetadataClient() metadata.ClientInterface {
-	return cm.metadataClient
+func (cm *ClientManager) KFPAPIClient() kfpapi.API {
+	return cm.kfpAPIClient
 }
 
-func (cm *ClientManager) CacheClient() cacheutils.Client {
-	return cm.cacheClient
-}
-
-func (cm *ClientManager) init(opts *Options) error {
+func (cm *ClientManager) init() error {
 	k8sClient, err := initK8sClient()
 	if err != nil {
 		return err
 	}
-	metadataClient, err := initMetadataClient(opts.MLMDServerAddress, opts.MLMDServerPort)
-	if err != nil {
-		return err
-	}
-	cacheClient, err := initCacheClient(opts.CacheDisabled)
-	if err != nil {
-		return err
-	}
 	cm.k8sClient = k8sClient
-	cm.metadataClient = metadataClient
-	cm.cacheClient = cacheClient
+
+	// Initialize connection to new KFP v2beta1 API server
+	apiCfg := apiclient.FromEnv()
+	kfpAPIClient, apiErr := apiclient.New(apiCfg)
+	if apiErr != nil {
+		return fmt.Errorf("failed to init KFP API client: %w", apiErr)
+	}
+	var kfpAPI kfpapi.API
+	kfpAPI = kfpapi.New(kfpAPIClient)
+	cm.kfpAPIClient = kfpAPI
 	return nil
 }
 
 func initK8sClient() (kubernetes.Interface, error) {
-	restConfig, err := rest.InClusterConfig()
+	restConfig, err := util.GetKubernetesConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize kubernetes client: %w", err)
+		return nil, err
 	}
 	k8sClient, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize kubernetes client set: %w", err)
 	}
 	return k8sClient, nil
-}
-
-func initMetadataClient(address string, port string) (metadata.ClientInterface, error) {
-	return metadata.NewClient(address, port)
-}
-
-func initCacheClient(cacheDisabled bool) (cacheutils.Client, error) {
-	return cacheutils.NewClient(cacheDisabled)
 }
