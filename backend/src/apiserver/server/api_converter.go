@@ -2071,7 +2071,18 @@ func toModelRunMetric(m *apiv2beta1.Metric) (*model.RunMetric, error) {
 		return nil, util.NewInvalidInputError("Metric cannot be nil")
 	}
 
+	if m.GetRunId() == "" {
+		return nil, util.NewInvalidInputError("Run ID cannot be empty")
+	}
+	if m.GetTaskId() == "" {
+		return nil, util.NewInvalidInputError("Task ID cannot be empty")
+	}
+	if m.GetName() == "" {
+		return nil, util.NewInvalidInputError("Metric name cannot be empty")
+	}
+
 	modelMetric := &model.RunMetric{
+		RunID:          m.GetRunId(),
 		TaskID:         m.GetTaskId(),
 		Name:           m.GetName(),
 		CreatedAtInSec: time.Now().Unix(),
@@ -2115,6 +2126,7 @@ func toApiMetric(metric *model.RunMetric) (*apiv2beta1.Metric, error) {
 	}
 
 	apiMetric := &apiv2beta1.Metric{
+		RunId:     metric.RunID,
 		TaskId:    metric.TaskID,
 		Name:      metric.Name,
 		CreatedAt: timestamppb.New(time.Unix(metric.CreatedAtInSec, 0)),

@@ -663,6 +663,10 @@
     "v2beta1Metric": {
       "type": "object",
       "properties": {
+        "run_id": {
+          "type": "string",
+          "title": "Required. Task UUID that owns this metric"
+        },
         "task_id": {
           "type": "string",
           "title": "Required. Task UUID that owns this metric"

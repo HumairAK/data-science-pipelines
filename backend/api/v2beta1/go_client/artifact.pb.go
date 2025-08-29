@@ -1019,17 +1019,19 @@ func (x *ArtifactTask) GetType() ArtifactTaskType {
 type Metric struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Required. Task UUID that owns this metric
-	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	RunId string `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	// Required. Task UUID that owns this metric
+	TaskId string `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	// Required. Name of the metric
-	Name   string        `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Schema Metric_Schema `protobuf:"varint,3,opt,name=schema,proto3,enum=kubeflow.pipelines.backend.api.v2beta1.Metric_Schema" json:"schema,omitempty"`
+	Name   string        `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Schema Metric_Schema `protobuf:"varint,4,opt,name=schema,proto3,enum=kubeflow.pipelines.backend.api.v2beta1.Metric_Schema" json:"schema,omitempty"`
 	// Value can be double or a valid json,
 	// but not string_value, bool_value, null_value
 	// API server validation will be needed
-	Value     *structpb.Value        `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
-	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	Value     *structpb.Value        `protobuf:"bytes,5,opt,name=value,proto3" json:"value,omitempty"`
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// Required. Type of the metric (input/output)
-	Type          MetricType `protobuf:"varint,6,opt,name=type,proto3,enum=kubeflow.pipelines.backend.api.v2beta1.MetricType" json:"type,omitempty"`
+	Type          MetricType `protobuf:"varint,7,opt,name=type,proto3,enum=kubeflow.pipelines.backend.api.v2beta1.MetricType" json:"type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1062,6 +1064,13 @@ func (x *Metric) ProtoReflect() protoreflect.Message {
 // Deprecated: Use Metric.ProtoReflect.Descriptor instead.
 func (*Metric) Descriptor() ([]byte, []int) {
 	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *Metric) GetRunId() string {
+	if x != nil {
+		return x.RunId
+	}
+	return ""
 }
 
 func (x *Metric) GetTaskId() string {
@@ -1273,15 +1282,16 @@ const file_backend_api_v2beta1_artifact_proto_rawDesc = "" +
 	"\vartifact_id\x18\x02 \x01(\tR\n" +
 	"artifactId\x12\x17\n" +
 	"\atask_id\x18\x03 \x01(\tR\x06taskId\x12L\n" +
-	"\x04type\x18\x04 \x01(\x0e28.kubeflow.pipelines.backend.api.v2beta1.ArtifactTaskTypeR\x04type\"\x85\x03\n" +
-	"\x06Metric\x12\x17\n" +
-	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12M\n" +
-	"\x06schema\x18\x03 \x01(\x0e25.kubeflow.pipelines.backend.api.v2beta1.Metric.SchemaR\x06schema\x12,\n" +
-	"\x05value\x18\x04 \x01(\v2\x16.google.protobuf.ValueR\x05value\x129\n" +
+	"\x04type\x18\x04 \x01(\x0e28.kubeflow.pipelines.backend.api.v2beta1.ArtifactTaskTypeR\x04type\"\x9c\x03\n" +
+	"\x06Metric\x12\x15\n" +
+	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x17\n" +
+	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12M\n" +
+	"\x06schema\x18\x04 \x01(\x0e25.kubeflow.pipelines.backend.api.v2beta1.Metric.SchemaR\x06schema\x12,\n" +
+	"\x05value\x18\x05 \x01(\v2\x16.google.protobuf.ValueR\x05value\x129\n" +
 	"\n" +
-	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12F\n" +
-	"\x04type\x18\x06 \x01(\x0e22.kubeflow.pipelines.backend.api.v2beta1.MetricTypeR\x04type\"N\n" +
+	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12F\n" +
+	"\x04type\x18\a \x01(\x0e22.kubeflow.pipelines.backend.api.v2beta1.MetricTypeR\x04type\"N\n" +
 	"\x06Schema\x12\n" +
 	"\n" +
 	"\x06Metric\x10\x00\x12\x18\n" +

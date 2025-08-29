@@ -82,10 +82,10 @@ type Task struct {
 	RunUUID        string   `gorm:"column:RunUUID; type:varchar(191); not null; index:idx_parent_run,priority:1;"`
 	Run            Run      `gorm:"foreignKey:RunUUID;references:UUID;constraint:tasks_RunUUID_run_details_UUID_foreign,OnDelete:CASCADE,OnUpdate:CASCADE;"`
 	PodNames       PodNames `gorm:"column:PodNames; not null; type:json;"`
-	CreatedAtInSec int64    `gorm:"column:CreatedAtInSec; not null; index:idx_created_timestamp;"`
+	CreatedAtInSec int64    `gorm:"column:CreatedAtInSec; not null; index:idx_task_created_timestamp;"`
 
-	StartedInSec     int64    `gorm:"column:StartedInSec; default:0; index:idx_started_timestamp;"`
-	FinishedInSec    int64    `gorm:"column:FinishedInSec; default:0; index:idx_finished_timestamp;"`
+	StartedInSec     int64    `gorm:"column:StartedInSec; default:0; index:idx_task_started_timestamp;"`
+	FinishedInSec    int64    `gorm:"column:FinishedInSec; default:0; index:idx_task_finished_timestamp;"`
 	Fingerprint      string   `gorm:"column:Fingerprint; not null; type:varchar(255);"`
 	Name             string   `gorm:"column:Name; type:varchar(128); default:null;"`
 	DisplayName      string   `gorm:"column:DisplayName; type:varchar(128); default:null;"`

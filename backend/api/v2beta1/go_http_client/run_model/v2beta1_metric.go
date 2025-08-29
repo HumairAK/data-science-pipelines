@@ -26,6 +26,9 @@ type V2beta1Metric struct {
 	// Required. Name of the metric
 	Name string `json:"name,omitempty"`
 
+	// Required. Task UUID that owns this metric
+	RunID string `json:"run_id,omitempty"`
+
 	// schema
 	Schema *V2beta1MetricSchema `json:"schema,omitempty"`
 

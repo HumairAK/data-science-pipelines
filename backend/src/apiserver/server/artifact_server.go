@@ -440,6 +440,9 @@ func (s *ArtifactServer) validateLogMetricRequest(request *apiv2beta1.LogMetricR
 	if metric == nil {
 		return util.NewInvalidInputError("Metric is required")
 	}
+	if metric.GetRunId() == "" {
+		return util.NewInvalidInputError("Run ID is required")
+	}
 	if metric.GetTaskId() == "" {
 		return util.NewInvalidInputError("Task ID is required")
 	}

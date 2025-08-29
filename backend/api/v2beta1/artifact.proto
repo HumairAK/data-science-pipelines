@@ -283,9 +283,13 @@ enum MetricType {
 
 message Metric {
   // Required. Task UUID that owns this metric
-  string task_id = 1;
+  string run_id = 1;
+
+  // Required. Task UUID that owns this metric
+  string task_id = 2;
+
   // Required. Name of the metric
-  string name = 2;
+  string name = 3;
 
   // Required. Schema of the metric
   enum Schema {
@@ -293,14 +297,14 @@ message Metric {
     ClassificationMetric = 1;
     SlicedClassificationMetric = 2;
   }
-  Schema schema = 3;
+  Schema schema = 4;
   // Value can be double or a valid json,
   // but not string_value, bool_value, null_value
   // API server validation will be needed
-  google.protobuf.Value value = 4;
-  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Value value = 5;
+  google.protobuf.Timestamp created_at = 6;
   // Required. Type of the metric (input/output)
-  MetricType type = 6;
+  MetricType type = 7;
 }
 
 // Note to be confused with RuntimeArtifact in pipelinespec

@@ -33,12 +33,17 @@ const (
 
 // RunMetric represents metrics stored for tasks, replacing MLMD metrics artifacts
 type RunMetric struct {
-	TaskID         string       `gorm:"column:TaskID; not null; primaryKey; type:varchar(191);"`
+	RunID string `gorm:"column:RunID; not null; primaryKey; type:varchar(191);"`
+	// TaskID is nullable to support migration from V1 Metrics which did not have a Task associated with them.
+	// In the future we can make this nullable by introducing synthetic "run-level task" that we can create
+	// for old runs that don't have a task associated with them, and backfilling metrics' TaskID to satisfy
+	// the non-nullable constraint.
+	TaskID         string       `gorm:"column:TaskID; primaryKey; type:varchar(191);"`
 	Name           string       `gorm:"column:Name; not null; primaryKey; type:varchar(128);"`
 	NumberValue    *float64     `gorm:"column:NumberValue; default:null;"`
 	Namespace      string       `gorm:"column:Namespace; not null; type:varchar(63);"`
 	JsonValue      JSONData     `gorm:"column:JsonValue; type:json; default:null;"`
-	CreatedAtInSec int64        `gorm:"column:CreatedAtInSec; not null; index:idx_created_timestamp;"`
+	CreatedAtInSec int64        `gorm:"column:CreatedAtInSec; not null; index:idx_run_metrics_created_timestamp;"`
 	Type           MetricType   `gorm:"column:Type; not null;"`
 	Schema         MetricSchema `gorm:"column:Schema; not null; type:varchar(64);"`
 
@@ -80,6 +85,7 @@ func (rm RunMetric) GetKeyFieldPrefix() string {
 }
 
 var runMetricAPIToModelFieldMap = map[string]string{
+	"run_id":       "RunID",
 	"task_id":      "TaskID",
 	"name":         "Name",
 	"number_value": "NumberValue",
@@ -99,6 +105,8 @@ func (rm RunMetric) GetField(name string) (string, bool) {
 
 func (rm RunMetric) GetFieldValue(name string) interface{} {
 	switch name {
+	case "RunID":
+		return rm.RunID
 	case "TaskID":
 		return rm.TaskID
 	case "Name":

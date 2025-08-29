@@ -29,6 +29,7 @@ import (
 const runMetricTableName = "run_metrics"
 
 var runMetricColumns = []string{
+	"RunID",
 	"TaskID",
 	"Name",
 	"NumberValue",
@@ -81,12 +82,13 @@ func (s *RunMetricStore) CreateRunMetric(metric *model.RunMetric) (*model.RunMet
 func (s *RunMetricStore) scanRows(rows *sql.Rows) ([]*model.RunMetric, error) {
 	var metrics []*model.RunMetric
 	for rows.Next() {
-		var taskID, name, namespace, metricType, schema string
+		var runID, taskID, name, namespace, metricType, schema string
 		var numberValue sql.NullFloat64
 		var createdAtInSec int64
 		var jsonValueBytes []byte
 
 		err := rows.Scan(
+			&runID,
 			&taskID,
 			&name,
 			&numberValue,
@@ -126,6 +128,7 @@ func (s *RunMetricStore) scanRows(rows *sql.Rows) ([]*model.RunMetric, error) {
 		}
 
 		metric := &model.RunMetric{
+			RunID:          runID,
 			TaskID:         taskID,
 			Name:           name,
 			NumberValue:    numberPtr,
@@ -142,7 +145,6 @@ func (s *RunMetricStore) scanRows(rows *sql.Rows) ([]*model.RunMetric, error) {
 
 // applyFilterContextsToQuery applies multiple filter contexts to the query builder
 func (s *RunMetricStore) applyFilterContextsToQuery(sqlBuilder sq.SelectBuilder, filterContexts []*model.FilterContext) sq.SelectBuilder {
-	var hasRunFilter bool
 
 	for _, filterContext := range filterContexts {
 		if filterContext == nil || filterContext.ReferenceKey == nil {
@@ -155,12 +157,8 @@ func (s *RunMetricStore) applyFilterContextsToQuery(sqlBuilder sq.SelectBuilder,
 		case model.TaskResourceType:
 			sqlBuilder = sqlBuilder.Where(sq.Eq{"run_metrics.TaskID": filterContext.ReferenceKey.ID})
 		case model.RunResourceType:
-			// Need to join with tasks table to filter by run
-			if !hasRunFilter {
-				sqlBuilder = sqlBuilder.Join("tasks ON run_metrics.TaskID = tasks.UUID")
-				hasRunFilter = true
-			}
-			sqlBuilder = sqlBuilder.Where(sq.Eq{"tasks.RunUUID": filterContext.ReferenceKey.ID})
+			// Filter directly by RunID field on run_metrics table
+			sqlBuilder = sqlBuilder.Where(sq.Eq{"run_metrics.RunID": filterContext.ReferenceKey.ID})
 		}
 	}
 
@@ -273,6 +271,7 @@ func (s *RunMetricStore) CreateRunMetrics(metrics []*model.RunMetric) ([]*model.
 		sql, args, err := sq.
 			Insert(runMetricTableName).
 			SetMap(sq.Eq{
+				"RunID":          newMetric.RunID,
 				"TaskID":         newMetric.TaskID,
 				"Name":           newMetric.Name,
 				"NumberValue":    newMetric.NumberValue,

@@ -109,10 +109,9 @@ func validateRunMetricV1(metric *model.RunMetricV1) error {
 // Converts RunMetricV1 to RunMetric
 func convertModelRunMetricToV2(metricV1 *model.RunMetricV1) *model.RunMetric {
 	return &model.RunMetric{
-		TaskID:      metricV1.RunUUID,
+		RunID:       metricV1.RunUUID,
 		Name:        metricV1.Name,
 		NumberValue: &metricV1.NumberValue,
-		Namespace:   metricV1.NodeID,
 		Type:        model.MetricTypeOutput,
 		Schema:      model.MetricSchemaMetric,
 	}
@@ -125,10 +124,9 @@ func convertModelRunMetricToV1(metric *model.RunMetric) *model.RunMetricV1 {
 		numberValue = *metric.NumberValue
 	}
 	return &model.RunMetricV1{
-		RunUUID:     metric.TaskID,
-		NodeID:      metric.Namespace,
+		RunUUID:     metric.RunID,
 		Name:        metric.Name,
 		NumberValue: numberValue,
-		Format:      string(metric.Schema),
+		Format:      "PERCENTAGE",
 	}
 }

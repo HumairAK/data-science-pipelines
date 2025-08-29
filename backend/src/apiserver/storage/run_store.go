@@ -278,17 +278,11 @@ func (s *RunStore) addMetricsResourceReferencesAndTasks(filteredSelectBuilder sq
 		"subq.refs",
 		"subq.taskDetails",
 		metricConcatQuery+" AS metrics")
-
-	finalQuery := sq.
+	return sq.
 		Select(columnsAfterJoiningRunMetrics...).
 		FromSelect(subQ, "subq").
-		// Join tasks to connect runs to tasks
-		LeftJoin("tasks AS t ON t.RunUUID = subq.UUID").
-		// Join metrics to connect tasks to metrics (no RunUUID on metrics)
-		LeftJoin("metrics AS rm ON rm.TaskID = t.UUID").
+		LeftJoin("metrics AS rm ON subq.UUID=rm.RunUUID").
 		GroupBy("subq.UUID")
-
-	return finalQuery
 }
 
 func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
@@ -724,6 +718,5 @@ func (s *RunStore) addSortByRunMetricToSelect(sqlBuilder sq.SelectBuilder, opts 
 	return sq.
 		Select("selected_runs.*", "rm.NumberValue AS "+metricName).
 		FromSelect(sqlBuilder, "selected_runs").
-		LeftJoin("tasks ON tasks.RunUUID = selected_runs.UUID").
-		LeftJoin("metrics AS rm ON rm.TaskID = tasks.UUID AND rm.Name = '" + metricName + "'")
+		LeftJoin("metrics ON selected_runs.uuid=metrics.runid AND metrics.name='" + opts.SortByFieldName + "'")
 }
