@@ -1241,9 +1241,16 @@ func toApiRunV1(r *model.Run) *apiv1beta1.Run {
 			runtimeConfig = nil
 		}
 	}
-	var metrics []*apiv1beta1.RunMetric
-	if len(metrics) == 0 {
-		metrics = nil
+	var metricsResult []*apiv1beta1.RunMetric
+	if r.Metrics != nil {
+		var v1metrics []*model.RunMetricV1
+		for _, m := range r.Metrics {
+			v1metrics = append(v1metrics, convertModelRunMetricToV1(m))
+		}
+		metricsResult = toApiRunMetricsV1(v1metrics)
+	}
+	if len(metricsResult) == 0 {
+		metricsResult = nil
 	}
 
 	resRefs := toApiResourceReferencesV1(r.ResourceReferences)
@@ -1319,7 +1326,7 @@ func toApiRunV1(r *model.Run) *apiv1beta1.Run {
 	return &apiv1beta1.Run{
 		CreatedAt:      timestamppb.New(time.Unix(r.RunDetails.CreatedAtInSec, 0)),
 		Id:             r.UUID,
-		Metrics:        metrics,
+		Metrics:        metricsResult,
 		Name:           r.DisplayName,
 		ServiceAccount: r.ServiceAccount,
 		StorageState:   apiv1beta1.Run_StorageState(apiv1beta1.Run_StorageState_value[string(r.StorageState.ToV1())]),

@@ -2127,6 +2127,14 @@ func (r *ResourceManager) CreateRunMetric(metric *model.RunMetric) (*model.RunMe
 	return newMetric, nil
 }
 
+func (r *ResourceManager) CreateRunMetrics(metrics []*model.RunMetric) ([]*model.RunMetric, error) {
+	newMetrics, err := r.runMetricStore.CreateRunMetrics(metrics)
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to create run metric")
+	}
+	return newMetrics, nil
+}
+
 // GetRunMetric Fetches a run metric with a given task ID and name.
 func (r *ResourceManager) GetRunMetric(taskID, name string) (*model.RunMetric, error) {
 	metric, err := r.runMetricStore.GetRunMetric(taskID, name)

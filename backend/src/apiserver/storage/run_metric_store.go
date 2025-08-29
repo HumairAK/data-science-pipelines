@@ -43,6 +43,8 @@ type RunMetricStoreInterface interface {
 	// CreateRunMetric Create a metric entry in the database.
 	CreateRunMetric(metric *model.RunMetric) (*model.RunMetric, error)
 
+	CreateRunMetrics(metrics []*model.RunMetric) ([]*model.RunMetric, error)
+
 	// GetRunMetric Fetches a metric with a given task ID and name.
 	GetRunMetric(taskID, name string) (*model.RunMetric, error)
 
@@ -66,51 +68,14 @@ func NewRunMetricStore(db *DB, time util.TimeInterface) *RunMetricStore {
 }
 
 func (s *RunMetricStore) CreateRunMetric(metric *model.RunMetric) (*model.RunMetric, error) {
-	// Set up the new metric
-	newMetric := *metric
-
-	// Set creation timestamp if not provided
-	if newMetric.CreatedAtInSec == 0 {
-		newMetric.CreatedAtInSec = s.time.Now().Unix()
-	}
-
-	// Convert JSON value to driver value for storage
-	var jsonValue driver.Value
-	var err error
-	if newMetric.JsonValue != nil {
-		jsonValue, err = newMetric.JsonValue.Value()
-		if err != nil {
-			return nil, util.NewInternalServerError(err, "Failed to marshal metric JSON value")
-		}
-	}
-
-	toSql, args, err := sq.
-		Insert(runMetricTableName).
-		SetMap(
-			sq.Eq{
-				"TaskID":         newMetric.TaskID,
-				"Name":           newMetric.Name,
-				"NumberValue":    newMetric.NumberValue,
-				"Namespace":      newMetric.Namespace,
-				"JsonValue":      jsonValue,
-				"CreatedAtInSec": newMetric.CreatedAtInSec,
-				"Type":           newMetric.Type,
-				"Schema":         newMetric.Schema,
-			},
-		).
-		ToSql()
+	metrics, err := s.CreateRunMetrics([]*model.RunMetric{metric})
 	if err != nil {
-		return nil, util.NewInternalServerError(err, "Failed to create query to insert metric to run_metrics table: %v",
-			err.Error())
+		return nil, err
 	}
-
-	_, err = s.db.Exec(toSql, args...)
-	if err != nil {
-		return nil, util.NewInternalServerError(err, "Failed to add metric to run_metrics table: %v",
-			err.Error())
+	if len(metrics) == 0 {
+		return nil, util.NewInternalServerError(nil, "Failed to create a metric")
 	}
-
-	return &newMetric, nil
+	return metrics[0], nil
 }
 
 func (s *RunMetricStore) scanRows(rows *sql.Rows) ([]*model.RunMetric, error) {
@@ -276,6 +241,68 @@ func (s *RunMetricStore) ListRunMetrics(filterContexts []*model.FilterContext, o
 
 	npt, err := opts.NextPageToken(metrics[opts.PageSize])
 	return metrics[:opts.PageSize], total_size, npt, err
+}
+
+func (s *RunMetricStore) CreateRunMetrics(metrics []*model.RunMetric) ([]*model.RunMetric, error) {
+	if len(metrics) == 0 {
+		return nil, nil
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to start transaction to create metrics")
+	}
+
+	createdMetrics := make([]*model.RunMetric, 0, len(metrics))
+	for _, metric := range metrics {
+		newMetric := *metric
+		if newMetric.CreatedAtInSec == 0 {
+			newMetric.CreatedAtInSec = s.time.Now().Unix()
+		}
+
+		var jsonValue driver.Value
+		var err error
+		if newMetric.JsonValue != nil {
+			jsonValue, err = newMetric.JsonValue.Value()
+			if err != nil {
+				tx.Rollback()
+				return nil, util.NewInternalServerError(err, "Failed to marshal metric JSON value")
+			}
+		}
+
+		sql, args, err := sq.
+			Insert(runMetricTableName).
+			SetMap(sq.Eq{
+				"TaskID":         newMetric.TaskID,
+				"Name":           newMetric.Name,
+				"NumberValue":    newMetric.NumberValue,
+				"Namespace":      newMetric.Namespace,
+				"JsonValue":      jsonValue,
+				"CreatedAtInSec": newMetric.CreatedAtInSec,
+				"Type":           newMetric.Type,
+				"Schema":         newMetric.Schema,
+			}).
+			ToSql()
+		if err != nil {
+			tx.Rollback()
+			return nil, util.NewInternalServerError(err, "Failed to create query to insert metric")
+		}
+
+		_, err = tx.Exec(sql, args...)
+		if err != nil {
+			tx.Rollback()
+			return nil, util.NewInternalServerError(err, "Failed to insert metric")
+		}
+
+		createdMetrics = append(createdMetrics, &newMetric)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to commit transaction")
+	}
+
+	return createdMetrics, nil
 }
 
 func (s *RunMetricStore) GetRunMetric(taskID, name string) (*model.RunMetric, error) {

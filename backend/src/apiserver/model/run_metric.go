@@ -46,6 +46,15 @@ type RunMetric struct {
 	Task Task `gorm:"foreignKey:TaskID;references:UUID;constraint:fk_run_metrics_tasks,OnDelete:CASCADE,OnUpdate:CASCADE;"`
 }
 
+type RunMetricV1 struct {
+	RunUUID     string
+	NodeID      string
+	Name        string
+	NumberValue float64
+	Format      string
+	Payload     LargeText
+}
+
 func (rm RunMetric) PrimaryKeyColumnName() string {
 	return "TaskID"
 }

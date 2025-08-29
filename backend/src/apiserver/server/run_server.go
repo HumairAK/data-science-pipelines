@@ -17,6 +17,8 @@ package server
 import (
 	"context"
 
+	"github.com/golang/glog"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
@@ -62,6 +64,11 @@ var (
 	unarchiveRunRequests = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "run_server_unarchive_requests",
 		Help: "The total number of UnarchiveRun requests",
+	})
+
+	reportRunMetricsRequests = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "run_server_report_metrics_requests",
+		Help: "The total number of ReportRunMetrics requests",
 	})
 
 	readArtifactRequests = promauto.NewCounter(prometheus.CounterOpts{
@@ -356,6 +363,102 @@ func (s *RunServerV1) DeleteRunV1(ctx context.Context, request *apiv1beta1.Delet
 		}
 	}
 	return &emptypb.Empty{}, nil
+}
+
+// Reports run metrics.
+// Applies common logic on v1beta1 and v2beta1 API.
+func (s *BaseRunServer) reportRunMetricsV1(ctx context.Context, metrics []*model.RunMetricV1, runId string) ([]map[string]string, error) {
+	err := s.canAccessRun(ctx, runId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbReportMetrics})
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to authorize the request")
+	}
+	// Verify that the run exists for single user mode.
+	// Multi-user model will verify this when checking authorization above.
+	if !common.IsMultiUserMode() {
+		if _, err := s.resourceManager.GetRun(runId); err != nil {
+			return nil, util.Wrap(err, "Failed to fetch the requested run")
+		}
+	}
+	results := make([]map[string]string, 0)
+	for _, metric := range metrics {
+		temp := map[string]string{"Name": metric.Name, "NodeId": metric.NodeID, "ErrorCode": "", "ErrorMessage": ""}
+		if err := validateRunMetricV1(metric); err != nil {
+			temp["ErrorCode"] = "invalid"
+			results = append(results, temp)
+			continue
+		}
+		metricV2 := convertModelRunMetricToV2(metric)
+		_, err = s.resourceManager.CreateRunMetric(metricV2)
+		if err == nil {
+			temp["ErrorCode"] = "ok"
+			results = append(results, temp)
+			continue
+		}
+		err, ok := err.(*util.UserError)
+		if !ok {
+			temp["ErrorCode"] = "internal"
+			results = append(results, temp)
+			continue
+		}
+		temp["ErrorMessage"] = err.ExternalMessage()
+		switch err.ExternalStatusCode() {
+		case codes.AlreadyExists:
+			temp["ErrorCode"] = "duplicate"
+		case codes.InvalidArgument:
+			temp["ErrorCode"] = "invalid"
+		default:
+			temp["ErrorCode"] = "internal"
+		}
+		if temp["ErrorCode"] == "internal" {
+			glog.Errorf("Internal error '%v' when reporting metric '%s/%s'", err, metric.NodeID, metric.Name)
+		}
+		results = append(results, temp)
+	}
+	return results, nil
+}
+
+// Reports run metrics.
+// Supports v1beta1 API.
+func (s *RunServerV1) ReportRunMetricsV1(ctx context.Context, request *apiv1beta1.ReportRunMetricsRequest) (*apiv1beta1.ReportRunMetricsResponse, error) {
+	if s.options.CollectMetrics {
+		reportRunMetricsRequests.Inc()
+	}
+
+	if _, err := s.resourceManager.GetRun(request.GetRunId()); err != nil {
+		// Use the standard ResourceNotFoundError so that AssertUserError
+		// sees codes.NotFound and the right error message.
+		return nil, util.NewResourceNotFoundError(
+			"Run %s not found", request.GetRunId(),
+		)
+	}
+
+	// Convert, validate, and report each metric in input order.
+	var apiResults []*apiv1beta1.ReportRunMetricsResponse_ReportRunMetricResult
+	for _, m := range request.GetMetrics() {
+		modelMetric, err := toModelRunMetricV1(m, request.GetRunId())
+		if err != nil {
+			// Conversion error: record as INVALID_ARGUMENT
+			msg := err.Error()
+			if userErr, ok := err.(*util.UserError); ok {
+				msg = userErr.ExternalMessage()
+			}
+			apiResults = append(apiResults, toApiReportMetricsResultV1(
+				m.Name, m.NodeId, "invalid", msg,
+			))
+			continue
+		}
+		// Report this metric
+		results, err := s.reportRunMetricsV1(ctx, []*model.RunMetricV1{modelMetric}, request.GetRunId())
+		if err != nil {
+			return nil, util.Wrap(err, "Failed to report v1beta1 run metrics")
+		}
+		// results slice will have exactly one entry
+		r := results[0]
+		apiResults = append(apiResults, toApiReportMetricsResultV1(
+			r["Name"], r["NodeId"], r["ErrorCode"], r["ErrorMessage"],
+		))
+	}
+	return &apiv1beta1.ReportRunMetricsResponse{Results: apiResults}, nil
 }
 
 // Reads an artifact.

@@ -190,8 +190,9 @@ func (s *RunStore) buildSelectRunsQuery(selectCount bool, opts *list.Options,
 	// If we're not just counting, then also add select columns and perform a left join
 	// to get resource reference information. Also add pagination.
 	if !selectCount {
+		sqlBuilder = s.addSortByRunMetricToSelect(sqlBuilder, opts)
 		sqlBuilder = opts.AddPaginationToSelect(sqlBuilder)
-		sqlBuilder = s.addResourceReferencesAndTasks(sqlBuilder, opts)
+		sqlBuilder = s.addMetricsResourceReferencesAndTasks(sqlBuilder, opts)
 		sqlBuilder = opts.AddSortingToSelect(sqlBuilder)
 	}
 	sql, args, err := sqlBuilder.ToSql()
@@ -203,7 +204,7 @@ func (s *RunStore) buildSelectRunsQuery(selectCount bool, opts *list.Options,
 
 // GetRun Get the run manifest from Workflow CRD.
 func (s *RunStore) GetRun(runId string) (*model.Run, error) {
-	sql, args, err := s.addResourceReferencesAndTasks(
+	sql, args, err := s.addMetricsResourceReferencesAndTasks(
 		sq.Select(runColumns...).
 			From("run_details").
 			Where(sq.Eq{"UUID": runId}).
@@ -241,7 +242,7 @@ func apply(f func(string) string, vs []string) []string {
 	return vsm
 }
 
-func (s *RunStore) addResourceReferencesAndTasks(filteredSelectBuilder sq.SelectBuilder, opts *list.Options) sq.SelectBuilder {
+func (s *RunStore) addMetricsResourceReferencesAndTasks(filteredSelectBuilder sq.SelectBuilder, opts *list.Options) sq.SelectBuilder {
 	var r model.Run
 	resourceRefConcatQuery := s.db.Concat([]string{`"["`, s.db.GroupConcat("rr.Payload", ","), `"]"`}, "")
 	columnsAfterJoiningResourceReferences := append(
@@ -269,7 +270,25 @@ func (s *RunStore) addResourceReferencesAndTasks(filteredSelectBuilder sq.Select
 		FromSelect(subQ, "rdref").
 		LeftJoin("tasks AS tasks ON rdref.UUID=tasks.RunUUID").
 		GroupBy("rdref.UUID")
-	return subQ
+
+	// TODO(jingzhang36): address the case where some runs don't have the metric used in order by.
+	metricConcatQuery := s.db.Concat([]string{`"["`, s.db.GroupConcat("rm.Payload", ","), `"]"`}, "")
+	columnsAfterJoiningRunMetrics := append(
+		apply(func(column string) string { return "subq." + column }, runColumns), // Add prefix "subq." to runColumns
+		"subq.refs",
+		"subq.taskDetails",
+		metricConcatQuery+" AS metrics")
+
+	finalQuery := sq.
+		Select(columnsAfterJoiningRunMetrics...).
+		FromSelect(subQ, "subq").
+		// Join tasks to connect runs to tasks
+		LeftJoin("tasks AS t ON t.RunUUID = subq.UUID").
+		// Join metrics to connect tasks to metrics (no RunUUID on metrics)
+		LeftJoin("metrics AS rm ON rm.TaskID = t.UUID").
+		GroupBy("subq.UUID")
+
+	return finalQuery
 }
 
 func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
@@ -279,7 +298,7 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 			pipelineName, pipelineSpecManifest, workflowSpecManifest, parameters, pipelineRuntimeManifest,
 			workflowRuntimeManifest string
 		var createdAtInSec, scheduledAtInSec, finishedAtInSec, pipelineContextId, pipelineRunContextId sql.NullInt64
-		var resourceReferencesInString, tasksInString, runtimeParameters, pipelineRoot, jobId, state, stateHistory, pipelineVersionId sql.NullString
+		var metricsInString, resourceReferencesInString, tasksInString, runtimeParameters, pipelineRoot, jobId, state, stateHistory, pipelineVersionId sql.NullString
 		err := rows.Scan(
 			&uuid,
 			&experimentUUID,
@@ -310,12 +329,19 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 			&pipelineRunContextId,
 			&resourceReferencesInString,
 			&tasksInString,
+			&metricsInString,
 		)
 		if err != nil {
 			glog.Errorf("Failed to scan row into a run: %v", err)
 			return runs, nil
 		}
-
+		metrics, err := parseMetrics(metricsInString)
+		if err != nil {
+			glog.Errorf("Failed to parse metrics (%v) from DB: %v", metricsInString, err)
+			// Skip the error to allow user to get runs even when metrics data
+			// are invalid.
+			metrics = []*model.RunMetric{}
+		}
 		resourceReferences, err := parseResourceReferences(resourceReferencesInString)
 		if err != nil {
 			// throw internal exception if failed to parse the resource reference.
@@ -347,7 +373,10 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 		runtimeConfig := parseRuntimeConfig(runtimeParameters, pipelineRoot)
 		var stateHistoryNew []*model.RuntimeStatus
 		if stateHistory.Valid {
-			json.Unmarshal([]byte(stateHistory.String), &stateHistoryNew)
+			err := json.Unmarshal([]byte(stateHistory.String), &stateHistoryNew)
+			if err != nil {
+				return nil, err
+			}
 		}
 		run := &model.Run{
 			UUID:           uuid,
@@ -372,6 +401,7 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 				TaskDetails:             tasks,
 				StateHistory:            stateHistoryNew,
 			},
+			Metrics:            metrics,
 			ResourceReferences: resourceReferences,
 			PipelineSpec: model.PipelineSpec{
 				PipelineId:           pipelineId,
@@ -387,6 +417,17 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 		runs = append(runs, run)
 	}
 	return runs, nil
+}
+
+func parseMetrics(metricsInString sql.NullString) ([]*model.RunMetric, error) {
+	if !metricsInString.Valid {
+		return nil, nil
+	}
+	var metrics []*model.RunMetric
+	if err := json.Unmarshal([]byte(metricsInString.String), &metrics); err != nil {
+		return nil, util.Wrapf(err, "Failed to parse a run metric '%s'", metricsInString.String)
+	}
+	return metrics, nil
 }
 
 func parseRuntimeConfig(runtimeParameters sql.NullString, pipelineRoot sql.NullString) model.RuntimeConfig {
@@ -668,4 +709,21 @@ func (s *RunStore) TerminateRun(runId string) error {
 		return util.NewInvalidInputError("Failed to terminate a run %s. Row not found", runId)
 	}
 	return nil
+}
+
+// Add a metric as a new field to the select clause by join the passed-in SQL query with run_metrics table.
+// With the metric as a field in the select clause enable sorting on this metric afterwards.
+// TODO(jingzhang36): example of resulting SQL query and explanation for it.
+func (s *RunStore) addSortByRunMetricToSelect(sqlBuilder sq.SelectBuilder, opts *list.Options) sq.SelectBuilder {
+	var r model.Run
+	if r.IsRegularField(opts.SortByFieldName) {
+		return sqlBuilder
+	}
+	// Join through tasks to metrics because metrics are keyed by TaskID (not RunUUID).
+	metricName := opts.SortByFieldName
+	return sq.
+		Select("selected_runs.*", "rm.NumberValue AS "+metricName).
+		FromSelect(sqlBuilder, "selected_runs").
+		LeftJoin("tasks ON tasks.RunUUID = selected_runs.UUID").
+		LeftJoin("metrics AS rm ON rm.TaskID = tasks.UUID AND rm.Name = '" + metricName + "'")
 }

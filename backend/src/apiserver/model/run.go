@@ -223,6 +223,10 @@ type Run struct {
 	StorageState   StorageState `gorm:"column:StorageState; not null;"`
 	ServiceAccount string       `gorm:"column:ServiceAccount; not null;"`
 
+	// Deprecated, kept here for v1 report metrics backwards compatibility
+	// Remove once v1 apis are removed
+	Metrics []*RunMetric `gorm:"foreignKey:RunUUID;references:UUID;constraint:run_metrics_RunUUID_run_details_UUID_foreign,OnDelete:CASCADE,OnUpdate:CASCADE"` // This 'has-many' relation replaces the legacy AddForeignKey constraint previously defined in client_manager.go
+
 	// ResourceReferences are deprecated. Use Namespace, ExperimentId,
 	// RecurringRunId, PipelineSpec.PipelineId, PipelineSpec.PipelineVersionId
 	// gorm:"-" tag is added to avoid declaring a foreign key. Refer to Job model for reasons.

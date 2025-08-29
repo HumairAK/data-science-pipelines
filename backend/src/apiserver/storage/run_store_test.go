@@ -665,6 +665,15 @@ func TestCreateAndUpdateRun_UpdateSuccess(t *testing.T) {
 				},
 			},
 		},
+		Metrics: []*model.RunMetric{
+			{
+				RunUUID:     "1",
+				NodeID:      "node1",
+				Name:        "dummymetric",
+				NumberValue: 1.0,
+				Format:      "PERCENTAGE",
+			},
+		},
 		PipelineSpec: model.PipelineSpec{
 			RuntimeConfig: model.RuntimeConfig{
 				Parameters:   "[{\"name\":\"param2\",\"value\":\"world1\"}]",
