@@ -796,6 +796,56 @@ func TestToModelResourceReferences_ImpossibleRelationship(t *testing.T) {
 	assert.Contains(t, err.Error(), "Invalid resource-reference relationship")
 }
 
+func TestToModelRunMetric(t *testing.T) {
+	apiRunMetric := &apiv1beta1.RunMetric{
+		Name:   "metric-1",
+		NodeId: "node-1",
+		Value: &apiv1beta1.RunMetric_NumberValue{
+			NumberValue: 0.88,
+		},
+		Format: apiv1beta1.RunMetric_RAW,
+	}
+
+	actualModelRunMetric, err := toModelRunMetricV1(apiRunMetric, "run-1")
+	assert.Nil(t, err)
+	expectedModelRunMetric := &model.RunMetricV1{
+		RunUUID:     "run-1",
+		Name:        "metric-1",
+		NodeID:      "node-1",
+		NumberValue: 0.88,
+		Format:      "RAW",
+	}
+	assert.Equal(t, expectedModelRunMetric, actualModelRunMetric)
+
+	// Test Name length overflow
+	{
+		longName := strings.Repeat("a", 192)
+		apiRunMetric := &apiv1beta1.RunMetric{
+			Name:   longName,
+			NodeId: "node-1",
+			Value:  &apiv1beta1.RunMetric_NumberValue{NumberValue: 0.88},
+			Format: apiv1beta1.RunMetric_RAW,
+		}
+		_, err := toModelRunMetricV1(apiRunMetric, "run-1")
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "RunMetricV1.Name length cannot exceed 191")
+	}
+
+	// Test NodeID length overflow
+	{
+		longNodeID := strings.Repeat("a", 192)
+		apiRunMetric := &apiv1beta1.RunMetric{
+			Name:   "metric-1",
+			NodeId: longNodeID,
+			Value:  &apiv1beta1.RunMetric_NumberValue{NumberValue: 0.88},
+			Format: apiv1beta1.RunMetric_RAW,
+		}
+		_, err := toModelRunMetricV1(apiRunMetric, "run-1")
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "RunMetricV1.NodeID length cannot exceed 191")
+	}
+}
+
 func TestToModelPipelineVersion(t *testing.T) {
 	tests := []struct {
 		name                    string
@@ -1393,6 +1443,30 @@ func TestToApiRunDetailV1_V1Params(t *testing.T) {
 }
 
 func TestToApiRunsV1(t *testing.T) {
+	metric1 := &model.RunMetricV1{
+		Name:        "metric-1",
+		NodeID:      "node-1",
+		NumberValue: 0.88,
+		Format:      "RAW",
+	}
+	metric2 := &model.RunMetricV1{
+		Name:        "metric-2",
+		NodeID:      "node-2",
+		NumberValue: 0.99,
+		Format:      "PERCENTAGE",
+	}
+	apiMetric1 := &apiv1beta1.RunMetric{
+		Name:   metric1.Name,
+		NodeId: metric1.NodeID,
+		Value:  &apiv1beta1.RunMetric_NumberValue{NumberValue: metric1.NumberValue},
+		Format: apiv1beta1.RunMetric_RAW,
+	}
+	apiMetric2 := &apiv1beta1.RunMetric{
+		Name:   metric2.Name,
+		NodeId: metric2.NodeID,
+		Value:  &apiv1beta1.RunMetric_NumberValue{NumberValue: metric2.NumberValue},
+		Format: apiv1beta1.RunMetric_PERCENTAGE,
+	}
 	modelRun1 := model.Run{
 		UUID:         "run1",
 		K8SName:      "name1",
@@ -1408,6 +1482,10 @@ func TestToApiRunsV1(t *testing.T) {
 			WorkflowSpecManifest: "manifest",
 		},
 		RecurringRunId: "job1",
+		Metrics: []*model.RunMetric{
+			convertModelRunMetricToV2(metric1),
+			convertModelRunMetricToV2(metric2),
+		},
 	}
 	modelRun2 := model.Run{
 		UUID:         "run2",
@@ -1424,6 +1502,7 @@ func TestToApiRunsV1(t *testing.T) {
 			WorkflowSpecManifest: "manifest",
 		},
 		RecurringRunId: "job2",
+		Metrics:        []*model.RunMetric{convertModelRunMetricToV2(metric2)},
 	}
 	apiRuns := toApiRunsV1([]*model.Run{&modelRun1, &modelRun2})
 	expectedApiRun := []*apiv1beta1.Run{
@@ -1448,6 +1527,10 @@ func TestToApiRunsV1(t *testing.T) {
 					Relationship: apiv1beta1.Relationship_CREATOR,
 				},
 			},
+			Metrics: []*apiv1beta1.RunMetric{
+				apiMetric1,
+				apiMetric2,
+			},
 		},
 		{
 			Id:           "run2",
@@ -1470,6 +1553,7 @@ func TestToApiRunsV1(t *testing.T) {
 			PipelineSpec: &apiv1beta1.PipelineSpec{
 				WorkflowManifest: "manifest",
 			},
+			Metrics: []*apiv1beta1.RunMetric{apiMetric2},
 		},
 	}
 	assert.Equal(t, expectedApiRun, apiRuns)
@@ -1831,6 +1915,50 @@ func TestToApiJobs(t *testing.T) {
 		},
 	}
 	assert.Equal(t, expectedJobs, apiJobs)
+}
+
+func TestToApiRunMetric(t *testing.T) {
+	modelRunMetric := &model.RunMetricV1{
+		Name:        "metric-1",
+		NodeID:      "node-1",
+		NumberValue: 0.88,
+		Format:      "RAW",
+	}
+
+	actualAPIRunMetric := toApiRunMetricV1(modelRunMetric)
+
+	expectedAPIRunMetric := &apiv1beta1.RunMetric{
+		Name:   "metric-1",
+		NodeId: "node-1",
+		Value: &apiv1beta1.RunMetric_NumberValue{
+			NumberValue: 0.88,
+		},
+		Format: apiv1beta1.RunMetric_RAW,
+	}
+	assert.Equal(t, expectedAPIRunMetric, actualAPIRunMetric)
+}
+
+func TestToApiRunMetric_UnknownFormat(t *testing.T) {
+	// This can happen if we accidentally remove an existing format value from proto.
+	modelRunMetric := &model.RunMetricV1{
+		Name:        "metric-1",
+		NodeID:      "node-1",
+		NumberValue: 0.88,
+		Format:      "NotExistValue",
+	}
+
+	actualAPIRunMetric := toApiRunMetricV1(modelRunMetric)
+
+	expectedAPIRunMetric := &apiv1beta1.RunMetric{
+		Name:   "metric-1",
+		NodeId: "node-1",
+		Value: &apiv1beta1.RunMetric_NumberValue{
+			NumberValue: 0.88,
+		},
+		// Expect return UNSPECIFIED for unknown format
+		Format: apiv1beta1.RunMetric_UNSPECIFIED,
+	}
+	assert.Equal(t, expectedAPIRunMetric, actualAPIRunMetric)
 }
 
 func TestToApiResourceReferences(t *testing.T) {
@@ -2946,7 +3074,6 @@ func TestToModelRun(t *testing.T) {
 				RunDetails: &apiv2beta1.RunDetails{
 					PipelineContextId:    10,
 					PipelineRunContextId: 11,
-					TaskDetails:          []*apiv2beta1.PipelineTaskDetail{},
 				},
 				RecurringRunId: "job1",
 				StateHistory: []*apiv2beta1.RuntimeStatus{
@@ -2987,7 +3114,6 @@ func TestToModelRun(t *testing.T) {
 					FinishedAtInSec:      3,
 					PipelineContextId:    0,
 					PipelineRunContextId: 0,
-					TaskDetails:          []*model.Task{},
 				},
 				ResourceReferences: nil,
 				Namespace:          "",
@@ -3435,6 +3561,7 @@ func Test_toApiRun(t *testing.T) {
 					TaskDetails:          []*model.Task{},
 				},
 				ResourceReferences: nil,
+				Metrics:            nil,
 				Namespace:          "",
 				K8SName:            "",
 			},

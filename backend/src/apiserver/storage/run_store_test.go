@@ -43,13 +43,18 @@ func (r RunMetricSorter) Len() int           { return len(r) }
 func (r RunMetricSorter) Less(i, j int) bool { return r[i].Name < r[j].Name }
 func (r RunMetricSorter) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
 
-func initializeRunStore() (*DB, *RunStore) {
+func floatPTR(f float64) *float64 {
+	return &f
+}
+
+func initializeRunStore() (*DB, *RunStore, *RunMetricStore) {
 	db := NewFakeDBOrFatal()
 	expStore := NewExperimentStore(db, util.NewFakeTimeForEpoch(), util.NewFakeUUIDGeneratorOrFatal(defaultFakeExpId, nil))
 	expStore.CreateExperiment(&model.Experiment{Name: "exp1"})
 	expStore = NewExperimentStore(db, util.NewFakeTimeForEpoch(), util.NewFakeUUIDGeneratorOrFatal(defaultFakeExpIdTwo, nil))
 	expStore.CreateExperiment(&model.Experiment{Name: "exp2"})
 	runStore := NewRunStore(db, util.NewFakeTimeForEpoch())
+	runMetricStore := NewRunMetricStore(db, util.NewFakeTimeForEpoch())
 
 	run1 := &model.Run{
 		UUID:         "1",
@@ -119,11 +124,32 @@ func initializeRunStore() (*DB, *RunStore) {
 	runStore.CreateRun(run2)
 	runStore.CreateRun(run3)
 
-	return db, runStore
+	metric1 := &model.RunMetric{
+		TaskID:      "1",
+		Name:        "dummymetric",
+		NumberValue: floatPTR(1.0),
+		Type:        model.MetricTypeOutput,
+	}
+	metric2 := &model.RunMetric{
+		TaskID:      "2",
+		Name:        "dummymetric",
+		NumberValue: floatPTR(2.0),
+		Type:        model.MetricTypeOutput,
+	}
+	_, err := runMetricStore.CreateRunMetric(metric1)
+	if err != nil {
+		return nil, nil, nil
+	}
+	_, err = runMetricStore.CreateRunMetric(metric2)
+	if err != nil {
+		return nil, nil, nil
+	}
+
+	return db, runStore, runMetricStore
 }
 
 func TestListRuns_Pagination(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 
 	expectedFirstPageRuns := []*model.Run{
@@ -145,6 +171,14 @@ func TestListRuns_Pagination(t *testing.T) {
 						UpdateTimeInSec: 1,
 						State:           model.RuntimeStateRunning,
 					},
+				},
+			},
+			Metrics: []*model.RunMetric{
+				{
+					TaskID:      "1",
+					Name:        "dummymetric",
+					NumberValue: floatPTR(1.0),
+					Type:        model.MetricTypeOutput,
 				},
 			},
 			PipelineSpec: model.PipelineSpec{
@@ -176,6 +210,14 @@ func TestListRuns_Pagination(t *testing.T) {
 						UpdateTimeInSec: 2,
 						State:           model.RuntimeStateSucceeded,
 					},
+				},
+			},
+			Metrics: []*model.RunMetric{
+				{
+					TaskID:      "2",
+					Name:        "dummymetric",
+					NumberValue: floatPTR(1.0),
+					Type:        model.MetricTypeOutput,
 				},
 			},
 			PipelineSpec: model.PipelineSpec{
@@ -211,7 +253,7 @@ func TestListRuns_Pagination(t *testing.T) {
 }
 
 func TestListRuns_Pagination_WithSortingOnMetrics(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 
 	expectedFirstPageRuns := []*model.Run{
@@ -233,6 +275,14 @@ func TestListRuns_Pagination_WithSortingOnMetrics(t *testing.T) {
 						UpdateTimeInSec: 1,
 						State:           model.RuntimeStateRunning,
 					},
+				},
+			},
+			Metrics: []*model.RunMetric{
+				{
+					TaskID:      "1",
+					Name:        "dummymetric",
+					NumberValue: floatPTR(1.0),
+					Type:        model.MetricTypeOutput,
 				},
 			},
 			PipelineSpec: model.PipelineSpec{
@@ -263,6 +313,14 @@ func TestListRuns_Pagination_WithSortingOnMetrics(t *testing.T) {
 						UpdateTimeInSec: 2,
 						State:           model.RuntimeStateSucceeded,
 					},
+				},
+			},
+			Metrics: []*model.RunMetric{
+				{
+					TaskID:      "2",
+					Name:        "dummymetric",
+					NumberValue: floatPTR(2.0),
+					Type:        model.MetricTypeOutput,
 				},
 			},
 			PipelineSpec: model.PipelineSpec{
@@ -321,7 +379,7 @@ func TestListRuns_Pagination_WithSortingOnMetrics(t *testing.T) {
 }
 
 func TestListRuns_TotalSizeWithNoFilter(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 
 	opts, _ := list.NewOptions(&model.Run{}, 4, "", nil)
@@ -334,7 +392,7 @@ func TestListRuns_TotalSizeWithNoFilter(t *testing.T) {
 }
 
 func TestListRuns_TotalSizeWithFilter(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 
 	// Add a filter
@@ -360,7 +418,7 @@ func TestListRuns_TotalSizeWithFilter(t *testing.T) {
 }
 
 func TestListRuns_Pagination_Descend(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 
 	expectedFirstPageRuns := []*model.Run{
@@ -382,6 +440,14 @@ func TestListRuns_Pagination_Descend(t *testing.T) {
 						UpdateTimeInSec: 2,
 						State:           model.RuntimeStateSucceeded,
 					},
+				},
+			},
+			Metrics: []*model.RunMetric{
+				{
+					TaskID:      "2",
+					Name:        "dummymetric",
+					NumberValue: floatPTR(2.0),
+					Type:        model.MetricTypeOutput,
 				},
 			},
 			PipelineSpec: model.PipelineSpec{
@@ -412,6 +478,14 @@ func TestListRuns_Pagination_Descend(t *testing.T) {
 						UpdateTimeInSec: 1,
 						State:           model.RuntimeStateRunning,
 					},
+				},
+			},
+			Metrics: []*model.RunMetric{
+				{
+					TaskID:      "1",
+					Name:        "dummymetric",
+					NumberValue: floatPTR(1.0),
+					Type:        model.MetricTypeOutput,
 				},
 			},
 			PipelineSpec: model.PipelineSpec{
@@ -450,7 +524,7 @@ func TestListRuns_Pagination_Descend(t *testing.T) {
 }
 
 func TestListRuns_Pagination_LessThanPageSize(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 
 	expectedRuns := []*model.Run{
@@ -473,6 +547,14 @@ func TestListRuns_Pagination_LessThanPageSize(t *testing.T) {
 						UpdateTimeInSec: 1,
 						State:           model.RuntimeStateRunning,
 					},
+				},
+			},
+			Metrics: []*model.RunMetric{
+				{
+					TaskID:      "1",
+					Name:        "dummymetric",
+					NumberValue: floatPTR(1.0),
+					Type:        model.MetricTypeOutput,
 				},
 			},
 			PipelineSpec: model.PipelineSpec{
@@ -503,6 +585,14 @@ func TestListRuns_Pagination_LessThanPageSize(t *testing.T) {
 					},
 				},
 			},
+			Metrics: []*model.RunMetric{
+				{
+					TaskID:      "2",
+					Name:        "dummymetric",
+					NumberValue: floatPTR(2.0),
+					Type:        model.MetricTypeOutput,
+				},
+			},
 			PipelineSpec: model.PipelineSpec{
 				RuntimeConfig: model.RuntimeConfig{
 					Parameters:   "[{\"name\":\"param2\",\"value\":\"world2\"}]",
@@ -528,7 +618,7 @@ func TestListRuns_Pagination_LessThanPageSize(t *testing.T) {
 }
 
 func TestListRunsError(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	db.Close()
 
 	opts, err := list.NewOptions(&model.Run{}, 1, "", nil)
@@ -539,7 +629,7 @@ func TestListRunsError(t *testing.T) {
 }
 
 func TestGetRun(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 
 	expectedRun := &model.Run{
@@ -560,6 +650,14 @@ func TestGetRun(t *testing.T) {
 					UpdateTimeInSec: 1,
 					State:           model.RuntimeStateRunning,
 				},
+			},
+		},
+		Metrics: []*model.RunMetric{
+			{
+				TaskID:      "1",
+				Name:        "dummymetric",
+				NumberValue: floatPTR(1.0),
+				Type:        model.MetricTypeOutput,
 			},
 		},
 		PipelineSpec: model.PipelineSpec{
@@ -576,7 +674,7 @@ func TestGetRun(t *testing.T) {
 }
 
 func TestGetRun_NotFoundError(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 
 	_, err := runStore.GetRun("notfound")
@@ -585,7 +683,7 @@ func TestGetRun_NotFoundError(t *testing.T) {
 }
 
 func TestGetRun_InternalError(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	db.Close()
 
 	_, err := runStore.GetRun("1")
@@ -594,7 +692,7 @@ func TestGetRun_InternalError(t *testing.T) {
 }
 
 func TestCreateAndUpdateRun_UpdateSuccess(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 
 	expectedRun := &model.Run{
@@ -615,6 +713,14 @@ func TestCreateAndUpdateRun_UpdateSuccess(t *testing.T) {
 					UpdateTimeInSec: 1,
 					State:           model.RuntimeStateRunning,
 				},
+			},
+		},
+		Metrics: []*model.RunMetric{
+			{
+				TaskID:      "1",
+				Name:        "dummymetric",
+				NumberValue: floatPTR(1.0),
+				Type:        model.MetricTypeOutput,
 			},
 		},
 		PipelineSpec: model.PipelineSpec{
@@ -667,11 +773,10 @@ func TestCreateAndUpdateRun_UpdateSuccess(t *testing.T) {
 		},
 		Metrics: []*model.RunMetric{
 			{
-				RunUUID:     "1",
-				NodeID:      "node1",
+				TaskID:      "1",
 				Name:        "dummymetric",
-				NumberValue: 1.0,
-				Format:      "PERCENTAGE",
+				NumberValue: floatPTR(1.0),
+				Type:        model.MetricTypeOutput,
 			},
 		},
 		PipelineSpec: model.PipelineSpec{
@@ -688,7 +793,7 @@ func TestCreateAndUpdateRun_UpdateSuccess(t *testing.T) {
 }
 
 func TestCreateAndUpdateRun_CreateSuccess(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 	expStore := NewExperimentStore(db, util.NewFakeTimeForEpoch(), util.NewFakeUUIDGeneratorOrFatal(defaultFakeExpId, nil))
 	expStore.CreateExperiment(&model.Experiment{Name: "exp1"})
@@ -746,7 +851,7 @@ func TestCreateAndUpdateRun_CreateSuccess(t *testing.T) {
 }
 
 func TestCreateAndUpdateRun_UpdateNotFound(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	db.Close()
 
 	run := &model.Run{
@@ -765,7 +870,7 @@ func TestCreateAndUpdateRun_UpdateNotFound(t *testing.T) {
 }
 
 func TestCreateOrUpdateRun_NoStorageStateValue(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 
 	runDetail := &model.Run{
@@ -788,7 +893,7 @@ func TestCreateOrUpdateRun_NoStorageStateValue(t *testing.T) {
 }
 
 func TestCreateOrUpdateRun_DuplicateUUID(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 
 	runDetail := &model.Run{
@@ -806,11 +911,10 @@ func TestCreateOrUpdateRun_DuplicateUUID(t *testing.T) {
 		},
 		Metrics: []*model.RunMetric{
 			{
-				RunUUID:     "1",
-				NodeID:      "node1",
+				TaskID:      "1",
 				Name:        "dummymetric",
-				NumberValue: 1.0,
-				Format:      "PERCENTAGE",
+				NumberValue: floatPTR(1.0),
+				Type:        model.MetricTypeOutput,
 			},
 		},
 	}
@@ -821,7 +925,7 @@ func TestCreateOrUpdateRun_DuplicateUUID(t *testing.T) {
 }
 
 func TestUpdateRun_RunNotExist(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 
 	err := runStore.UpdateRun(&model.Run{UUID: "not-exist", RunDetails: model.RunDetails{State: model.RuntimeStateSucceeded}})
@@ -831,7 +935,7 @@ func TestUpdateRun_RunNotExist(t *testing.T) {
 }
 
 func TestTerminateRun(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 
 	err := runStore.TerminateRun("1")
@@ -859,11 +963,10 @@ func TestTerminateRun(t *testing.T) {
 		},
 		Metrics: []*model.RunMetric{
 			{
-				RunUUID:     "1",
-				NodeID:      "node1",
+				TaskID:      "1",
 				Name:        "dummymetric",
-				NumberValue: 1.0,
-				Format:      "PERCENTAGE",
+				NumberValue: floatPTR(1.0),
+				Type:        model.MetricTypeOutput,
 			},
 		},
 		PipelineSpec: model.PipelineSpec{
@@ -880,7 +983,7 @@ func TestTerminateRun(t *testing.T) {
 }
 
 func TestTerminateRun_RunDoesNotExist(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 
 	err := runStore.TerminateRun("does-not-exist")
@@ -889,7 +992,7 @@ func TestTerminateRun_RunDoesNotExist(t *testing.T) {
 }
 
 func TestTerminateRun_RunHasAlreadyFinished(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 
 	err := runStore.TerminateRun("2")
@@ -898,17 +1001,17 @@ func TestTerminateRun_RunHasAlreadyFinished(t *testing.T) {
 }
 
 func TestCreateMetric_Success(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, runMetricStore := initializeRunStore()
 	defer db.Close()
 
 	metric := &model.RunMetric{
-		RunUUID:     "1",
-		NodeID:      "node1",
+		TaskID:      "1",
 		Name:        "acurracy",
-		NumberValue: 0.77,
-		Format:      "PERCENTAGE",
+		NumberValue: floatPTR(0.77),
+		Type:        model.MetricTypeOutput,
 	}
-	runStore.CreateMetric(metric)
+	_, err := runMetricStore.CreateRunMetric(metric)
+	assert.Nil(t, err)
 
 	runDetail, err := runStore.GetRun("1")
 	assert.Nil(t, err, "Got error: %+v", err)
@@ -916,42 +1019,42 @@ func TestCreateMetric_Success(t *testing.T) {
 	assert.Equal(t, []*model.RunMetric{
 		metric,
 		{
-			RunUUID:     "1",
-			NodeID:      "node1",
+			TaskID:      "1",
 			Name:        "dummymetric",
-			NumberValue: 1.0,
-			Format:      "PERCENTAGE",
+			NumberValue: floatPTR(1.0),
+			Type:        model.MetricTypeOutput,
 		},
 	}, runDetail.Metrics)
 }
 
 func TestCreateMetric_DupReports_Fail(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, _, runMetricStore := initializeRunStore()
 	defer db.Close()
 
 	metric1 := &model.RunMetric{
-		RunUUID:     "1",
-		NodeID:      "node1",
+		TaskID:      "1",
 		Name:        "acurracy",
-		NumberValue: 0.77,
-		Format:      "PERCENTAGE",
+		NumberValue: floatPTR(0.77),
+		Type:        model.MetricTypeOutput,
 	}
 	metric2 := &model.RunMetric{
-		RunUUID:     "1",
-		NodeID:      "node1",
+		TaskID:      "1",
 		Name:        "acurracy",
-		NumberValue: 0.88,
-		Format:      "PERCENTAGE",
+		NumberValue: floatPTR(0.88),
+		Type:        model.MetricTypeOutput,
 	}
-	runStore.CreateMetric(metric1)
+	_, err := runMetricStore.CreateRunMetric(metric1)
+	assert.Nil(t, err)
 
-	err := runStore.CreateMetric(metric2)
+	_, err = runMetricStore.CreateRunMetric(metric2)
+	assert.Nil(t, err)
+
 	_, ok := err.(*util.UserError)
 	assert.True(t, ok)
 }
 
 func TestGetRun_InvalidMetricPayload_Ignore(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 	sql, args, _ := sq.
 		Insert("run_metrics").
@@ -971,32 +1074,32 @@ func TestGetRun_InvalidMetricPayload_Ignore(t *testing.T) {
 }
 
 func TestListRuns_WithMetrics(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, runMetricStore := initializeRunStore()
 	defer db.Close()
 	metric1 := &model.RunMetric{
-		RunUUID:     "1",
-		NodeID:      "node1",
+		TaskID:      "1",
 		Name:        "acurracy",
-		NumberValue: 0.77,
-		Format:      "PERCENTAGE",
+		NumberValue: floatPTR(0.77),
+		Type:        model.MetricTypeOutput,
 	}
 	metric2 := &model.RunMetric{
-		RunUUID:     "1",
-		NodeID:      "node2",
+		TaskID:      "1",
 		Name:        "logloss",
-		NumberValue: -1.2,
-		Format:      "RAW",
+		NumberValue: floatPTR(-1.2),
+		Type:        model.MetricTypeOutput,
 	}
 	metric3 := &model.RunMetric{
-		RunUUID:     "2",
-		NodeID:      "node2",
+		TaskID:      "2",
 		Name:        "logloss",
-		NumberValue: -1.3,
-		Format:      "RAW",
+		NumberValue: floatPTR(-1.3),
+		Type:        model.MetricTypeOutput,
 	}
-	runStore.CreateMetric(metric1)
-	runStore.CreateMetric(metric2)
-	runStore.CreateMetric(metric3)
+	_, err := runMetricStore.CreateRunMetric(metric1)
+	assert.Nil(t, err)
+	_, err = runMetricStore.CreateRunMetric(metric2)
+	assert.Nil(t, err)
+	_, err = runMetricStore.CreateRunMetric(metric3)
+	assert.Nil(t, err)
 
 	expectedRuns := []*model.Run{
 		{
@@ -1027,11 +1130,10 @@ func TestListRuns_WithMetrics(t *testing.T) {
 			},
 			Metrics: []*model.RunMetric{
 				{
-					RunUUID:     "1",
-					NodeID:      "node1",
+					TaskID:      "1",
 					Name:        "dummymetric",
-					NumberValue: 1.0,
-					Format:      "PERCENTAGE",
+					NumberValue: floatPTR(1.0),
+					Type:        model.MetricTypeOutput,
 				},
 				metric1,
 				metric2,
@@ -1066,11 +1168,10 @@ func TestListRuns_WithMetrics(t *testing.T) {
 			},
 			Metrics: []*model.RunMetric{
 				{
-					RunUUID:     "2",
-					NodeID:      "node2",
+					TaskID:      "2",
 					Name:        "dummymetric",
-					NumberValue: 2.0,
-					Format:      "PERCENTAGE",
+					NumberValue: floatPTR(2.0),
+					Type:        model.MetricTypeOutput,
 				},
 				metric3,
 			},
@@ -1096,7 +1197,7 @@ func TestListRuns_WithMetrics(t *testing.T) {
 }
 
 func TestArchiveRun(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 	resourceReferenceStore := NewResourceReferenceStore(db, nil)
 	// Check resource reference exists
@@ -1117,7 +1218,7 @@ func TestArchiveRun(t *testing.T) {
 }
 
 func TestArchiveRun_InternalError(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 
 	db.Close()
@@ -1128,7 +1229,7 @@ func TestArchiveRun_InternalError(t *testing.T) {
 }
 
 func TestUnarchiveRun(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 	resourceReferenceStore := NewResourceReferenceStore(db, nil)
 	// Check resource reference exists
@@ -1156,7 +1257,7 @@ func TestUnarchiveRun(t *testing.T) {
 }
 
 func TestUnarchiveRun_InternalError(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 
 	db.Close()
@@ -1167,7 +1268,7 @@ func TestUnarchiveRun_InternalError(t *testing.T) {
 }
 
 func TestArchiveRun_IncludedInRunList(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 
 	// Archive run
@@ -1201,11 +1302,10 @@ func TestArchiveRun_IncludedInRunList(t *testing.T) {
 			},
 			Metrics: []*model.RunMetric{
 				{
-					RunUUID:     "1",
-					NodeID:      "node1",
+					TaskID:      "1",
 					Name:        "dummymetric",
-					NumberValue: 1.0,
-					Format:      "PERCENTAGE",
+					NumberValue: floatPTR(1.0),
+					Type:        model.MetricTypeOutput,
 				},
 			},
 			PipelineSpec: model.PipelineSpec{
@@ -1228,7 +1328,7 @@ func TestArchiveRun_IncludedInRunList(t *testing.T) {
 }
 
 func TestDeleteRun(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	defer db.Close()
 	resourceReferenceStore := NewResourceReferenceStore(db, nil)
 	// Check resource reference exists
@@ -1250,7 +1350,7 @@ func TestDeleteRun(t *testing.T) {
 }
 
 func TestDeleteRun_InternalError(t *testing.T) {
-	db, runStore := initializeRunStore()
+	db, runStore, _ := initializeRunStore()
 	db.Close()
 
 	err := runStore.DeleteRun("1")
@@ -1261,11 +1361,10 @@ func TestDeleteRun_InternalError(t *testing.T) {
 func TestParseMetrics(t *testing.T) {
 	expectedModelRunMetrics := []*model.RunMetric{
 		{
-			RunUUID:     "run-1",
+			TaskID:      "run-1",
 			Name:        "metric-1",
-			NodeID:      "node-1",
-			NumberValue: 0.88,
-			Format:      "RAW",
+			NumberValue: floatPTR(0.88),
+			Type:        model.MetricTypeOutput,
 		},
 	}
 	metricsByte, _ := json.Marshal(expectedModelRunMetrics)
