@@ -51,6 +51,10 @@ type RunMetric struct {
 	Task Task `gorm:"foreignKey:TaskID;references:UUID;constraint:fk_run_metrics_tasks,OnDelete:CASCADE,OnUpdate:CASCADE;"`
 }
 
+func (RunMetric) TableName() string {
+	return "metrics"
+}
+
 type RunMetricV1 struct {
 	RunUUID     string    `gorm:"column:RunUUID; not null; primaryKey; type:varchar(191);"`
 	NodeID      string    `gorm:"column:NodeID; not null; primaryKey; type:varchar(191);"`
@@ -58,6 +62,10 @@ type RunMetricV1 struct {
 	NumberValue float64   `gorm:"column:NumberValue;"`
 	Format      string    `gorm:"column:Format;"`
 	Payload     LargeText `gorm:"column:Payload; not null;"`
+}
+
+func (RunMetricV1) TableName() string {
+	return "run_metrics"
 }
 
 func (rm RunMetric) PrimaryKeyColumnName() string {

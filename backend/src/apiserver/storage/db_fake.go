@@ -37,6 +37,7 @@ func NewFakeDB() (*DB, error) {
 		&model.ResourceReference{},
 		&model.Run{},
 		&model.RunMetric{},
+		&model.RunMetricV1{},
 		&model.Task{},
 		&model.DBStatus{},
 		&model.DefaultExperiment{},

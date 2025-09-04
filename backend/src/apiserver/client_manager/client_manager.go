@@ -578,6 +578,7 @@ func autoMigrate(db *gorm.DB) error {
 		&model.Job{},
 		&model.Run{},
 		&model.RunMetric{},
+		&model.RunMetricV1{},
 		&model.Task{},
 		&model.ResourceReference{},
 	); err != nil {
