@@ -134,27 +134,22 @@ func (t Task) GetKeyFieldPrefix() string {
 }
 
 var taskAPIToModelFieldMap = map[string]string{
-	"name":         "Name",
-	"display_name": "DisplayName",
-	"task_id":      "UUID",
-	"run_id":       "RunUUID",
-
-	"namespace":         "Namespace",
-	"pipeline_name":     "PipelineName",
-	"create_time":       "CreatedAtInSec", // v2beta1 API
+	"name":              "Name",
+	"display_name":      "DisplayName",
+	"task_id":           "UUID",
+	"run_id":            "RunUUID",
+	"pods":              "Pods",
+	"cache_fingerprint": "Fingerprint",
+	"create_time":       "CreatedAtInSec",
 	"start_time":        "StartedInSec",
-	"end_time":          "FinishedInSec", // v2beta1 API
-	"fingerprint":       "Fingerprint",
+	"end_time":          "FinishedInSec",
 	"status":            "Status",
-	"status_metadata":   "StatusMetadata", // v2beta1 API
+	"status_metadata":   "StatusMetadata",
 	"state_history":     "StateHistory",
-	"parent_task_id":    "ParentTaskUUID",
-	"created_at":        "CreatedAtInSec",
-	"finished_at":       "FinishedInSec",
-	"input_parameters":  "InputParameters",
-	"output_parameters": "OutputParameters",
 	"type":              "Type",
-	"type_attrs":        "TypeAttrs",
+	"parent_task_id":    "ParentTaskUUID",
+	"inputs":            "InputParameters",
+	"outputs":           "OutputParameters",
 }
 
 func (t Task) GetField(name string) (string, bool) {
