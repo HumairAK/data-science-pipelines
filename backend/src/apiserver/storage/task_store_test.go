@@ -24,6 +24,12 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
+const (
+	testUUID1 = "123e4567-e89b-12d3-a456-426655441011"
+	testUUID2 = "123e4567-e89b-12d3-a456-426655441012"
+	testUUID3 = "123e4567-e89b-12d3-a456-426655441013"
+)
+
 // initializeTaskStore sets up a fake DB with a couple of runs and returns a TaskStore ready for testing.
 func initializeTaskStore() (*DB, *TaskStore, *RunStore) {
 	db := NewFakeDBOrFatal()
@@ -62,7 +68,7 @@ func initializeTaskStore() (*DB, *TaskStore, *RunStore) {
 	_, _ = runStore.CreateRun(run2)
 
 	// Create task store with controllable UUID generator
-	taskStore := NewTaskStore(db, fakeTime, util.NewFakeUUIDGeneratorOrFatal("task-uuid-1", nil))
+	taskStore := NewTaskStore(db, fakeTime, util.NewFakeUUIDGeneratorOrFatal(testUUID1, nil))
 	return db, taskStore, runStore
 }
 
@@ -81,7 +87,7 @@ func TestCreateTask_Success(t *testing.T) {
 		Namespace:        "ns1",
 		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
-		PodNames:         model.PodNames{"pod-a", "pod-b"},
+		Pods:             model.JSONData{"pods": []interface{}{"pod-a", "pod-b"}},
 		Fingerprint:      "fp-1",
 		Name:             "taskA",
 		ParentTaskUUID:   "",
@@ -95,7 +101,7 @@ func TestCreateTask_Success(t *testing.T) {
 
 	created, err := taskStore.CreateTask(task)
 	assert.NoError(t, err)
-	assert.Equal(t, "task-uuid-1", created.UUID)
+	assert.Equal(t, testUUID1, created.UUID)
 	// CreatedAt and StartedInSec should be auto-populated to the same timestamp (fake time starts from 0 -> 1)
 	assert.Equal(t, created.CreatedAtInSec, created.StartedInSec)
 	assert.Greater(t, created.CreatedAtInSec, int64(0))
@@ -107,7 +113,7 @@ func TestCreateTask_Success(t *testing.T) {
 	assert.Equal(t, "ns1", fetched.Namespace)
 	assert.Equal(t, "pipeA", fetched.PipelineName)
 	assert.Equal(t, "run-1", fetched.RunUUID)
-	assert.ElementsMatch(t, []string{"pod-a", "pod-b"}, []string(fetched.PodNames))
+	assert.Equal(t, []interface{}{"pod-a", "pod-b"}, fetched.Pods["pods"])
 	assert.Equal(t, "fp-1", fetched.Fingerprint)
 	assert.Equal(t, "taskA", fetched.Name)
 	assert.Equal(t, int32(1), fetched.Status)
@@ -117,7 +123,7 @@ func TestCreateTask_Success(t *testing.T) {
 func TestGetTask_NotFound(t *testing.T) {
 	db, taskStore, _ := initializeTaskStore()
 	defer db.Close()
-	_, err := taskStore.GetTask("does-not-exist")
+	_, err := taskStore.GetTask(testUUID1)
 	assert.Equal(t, codes.NotFound, err.(*util.UserError).ExternalStatusCode())
 }
 
@@ -126,53 +132,53 @@ func TestListTasks_BasicAndFilters(t *testing.T) {
 	defer db.Close()
 
 	// Create a parent task and two child tasks under different runs/pipelines
-	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal("parent-task", nil)
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID1, nil)
 	parent, err := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
 		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
-		PodNames:         model.PodNames{"p"},
+		Pods:             model.JSONData{"pods": []interface{}{"p"}},
 		Fingerprint:      "fp-parent",
 		Status:           1,
-		StateHistory:     model.JSONData(map[string]interface{}{}),
-		InputParameters:  model.JSONData(map[string]interface{}{}),
-		OutputParameters: model.JSONData(map[string]interface{}{}),
+		StateHistory:     map[string]interface{}{},
+		InputParameters:  map[string]interface{}{},
+		OutputParameters: map[string]interface{}{},
 		Type:             0,
-		TypeAttrs:        model.JSONData(map[string]interface{}{}),
+		TypeAttrs:        map[string]interface{}{},
 	})
 	assert.NoError(t, err)
 
-	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal("child-1", nil)
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID2, nil)
 	_, err = taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
 		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
 		ParentTaskUUID:   parent.UUID,
-		PodNames:         model.PodNames{"c1"},
+		Pods:             model.JSONData{"pods": []interface{}{"c1"}},
 		Fingerprint:      "fp-c1",
 		Status:           1,
-		StateHistory:     model.JSONData(map[string]interface{}{}),
-		InputParameters:  model.JSONData(map[string]interface{}{}),
-		OutputParameters: model.JSONData(map[string]interface{}{}),
+		StateHistory:     map[string]interface{}{},
+		InputParameters:  map[string]interface{}{},
+		OutputParameters: map[string]interface{}{},
 		Type:             0,
-		TypeAttrs:        model.JSONData(map[string]interface{}{}),
+		TypeAttrs:        map[string]interface{}{},
 	})
 	assert.NoError(t, err)
 
-	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal("child-2", nil)
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID3, nil)
 	_, err = taskStore.CreateTask(&model.Task{
 		Namespace:        "ns2",
 		PipelineName:     "pipeB",
 		RunUUID:          "run-2",
 		ParentTaskUUID:   parent.UUID,
-		PodNames:         model.PodNames{"c2"},
+		Pods:             model.JSONData{"pods": []interface{}{"c2"}},
 		Fingerprint:      "fp-c2",
 		Status:           1,
-		StateHistory:     model.JSONData(map[string]interface{}{}),
-		InputParameters:  model.JSONData(map[string]interface{}{}),
-		OutputParameters: model.JSONData(map[string]interface{}{}),
+		StateHistory:     map[string]interface{}{},
+		InputParameters:  map[string]interface{}{},
+		OutputParameters: map[string]interface{}{},
 		Type:             0,
-		TypeAttrs:        model.JSONData(map[string]interface{}{}),
+		TypeAttrs:        map[string]interface{}{},
 	})
 	assert.NoError(t, err)
 
@@ -200,9 +206,9 @@ func TestListTasks_BasicAndFilters(t *testing.T) {
 
 	// Filter by ParentTaskUUID (child tasks)
 	opts4, _ := list.NewOptions(&model.Task{}, 10, "", nil)
-	childs, total4, _, err := taskStore.ListTasks(&model.FilterContext{ReferenceKey: &model.ReferenceKey{Type: model.TaskResourceType, ID: parent.UUID}}, opts4)
+	children, total4, _, err := taskStore.ListTasks(&model.FilterContext{ReferenceKey: &model.ReferenceKey{Type: model.TaskResourceType, ID: parent.UUID}}, opts4)
 	assert.NoError(t, err)
-	assert.Equal(t, 2, len(childs))
+	assert.Equal(t, 2, len(children))
 	assert.Equal(t, 2, total4)
 }
 
@@ -211,33 +217,33 @@ func TestUpdateTask_Success(t *testing.T) {
 	defer db.Close()
 
 	// Create a task
-	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal("upd-task", nil)
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID1, nil)
 	created, err := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
 		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
-		PodNames:         model.PodNames{"p1"},
+		Pods:             model.JSONData{"pods": []interface{}{"p1"}},
 		Fingerprint:      "fp-0",
 		Status:           1,
-		StateHistory:     model.JSONData(map[string]interface{}{}),
-		InputParameters:  model.JSONData(map[string]interface{}{}),
-		OutputParameters: model.JSONData(map[string]interface{}{}),
+		StateHistory:     map[string]interface{}{},
+		InputParameters:  map[string]interface{}{},
+		OutputParameters: map[string]interface{}{},
 		Type:             0,
-		TypeAttrs:        model.JSONData(map[string]interface{}{}),
+		TypeAttrs:        map[string]interface{}{},
 	})
 	assert.NoError(t, err)
 
 	// Update some fields
 	created.Name = "updatedName"
 	created.Fingerprint = "fp-1"
-	created.PodNames = model.PodNames{"p2", "p3"}
+	created.Pods = model.JSONData{"pods": []interface{}{"p2", "p3"}}
 	created.Status = 2
 	updated, err := taskStore.UpdateTask(created)
 	assert.NoError(t, err)
 	assert.Equal(t, created.UUID, updated.UUID)
 	assert.Equal(t, "updatedName", updated.Name)
 	assert.Equal(t, "fp-1", updated.Fingerprint)
-	assert.ElementsMatch(t, []string{"p2", "p3"}, []string(updated.PodNames))
+	assert.Equal(t, []interface{}{"p2", "p3"}, updated.Pods["pods"])
 	assert.Equal(t, int32(2), updated.Status)
 }
 
@@ -245,53 +251,53 @@ func TestGetChildTasks_ReturnsChildren(t *testing.T) {
 	db, taskStore, _ := initializeTaskStore()
 	defer db.Close()
 
-	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal("parent-x", nil)
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID1, nil)
 	parent, err := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
 		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
-		PodNames:         model.PodNames{"p"},
+		Pods:             model.JSONData{"pods": []interface{}{"p"}},
 		Fingerprint:      "fp-p",
 		Status:           1,
-		StateHistory:     model.JSONData(map[string]interface{}{}),
-		InputParameters:  model.JSONData(map[string]interface{}{}),
-		OutputParameters: model.JSONData(map[string]interface{}{}),
+		StateHistory:     map[string]interface{}{},
+		InputParameters:  map[string]interface{}{},
+		OutputParameters: map[string]interface{}{},
 		Type:             0,
-		TypeAttrs:        model.JSONData(map[string]interface{}{}),
+		TypeAttrs:        map[string]interface{}{},
 	})
 	assert.NoError(t, err)
 
-	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal("ch-a", nil)
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID2, nil)
 	_, err = taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
 		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
 		ParentTaskUUID:   parent.UUID,
-		PodNames:         model.PodNames{"c1"},
+		Pods:             model.JSONData{"pods": []interface{}{"c1"}},
 		Fingerprint:      "fp-a",
 		Status:           1,
-		StateHistory:     model.JSONData(map[string]interface{}{}),
-		InputParameters:  model.JSONData(map[string]interface{}{}),
-		OutputParameters: model.JSONData(map[string]interface{}{}),
+		StateHistory:     map[string]interface{}{},
+		InputParameters:  model.JSONData(map[string]interface{}{"parameters": []interface{}{}, "artifacts": []interface{}{}, "metrics": []interface{}{}}),
+		OutputParameters: model.JSONData(map[string]interface{}{"parameters": []interface{}{}, "artifacts": []interface{}{}, "metrics": []interface{}{}}),
 		Type:             0,
-		TypeAttrs:        model.JSONData(map[string]interface{}{}),
+		TypeAttrs:        map[string]interface{}{},
 	})
 	assert.NoError(t, err)
 
-	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal("ch-b", nil)
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID3, nil)
 	_, err = taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
 		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
 		ParentTaskUUID:   parent.UUID,
-		PodNames:         model.PodNames{"c2"},
+		Pods:             model.JSONData{"pods": []interface{}{"c2"}},
 		Fingerprint:      "fp-b",
 		Status:           1,
-		StateHistory:     model.JSONData(map[string]interface{}{}),
-		InputParameters:  model.JSONData(map[string]interface{}{}),
-		OutputParameters: model.JSONData(map[string]interface{}{}),
+		StateHistory:     map[string]interface{}{},
+		InputParameters:  model.JSONData(map[string]interface{}{"parameters": []interface{}{}, "artifacts": []interface{}{}, "metrics": []interface{}{}}),
+		OutputParameters: model.JSONData(map[string]interface{}{"parameters": []interface{}{}, "artifacts": []interface{}{}, "metrics": []interface{}{}}),
 		Type:             0,
-		TypeAttrs:        model.JSONData(map[string]interface{}{}),
+		TypeAttrs:        map[string]interface{}{},
 	})
 	assert.NoError(t, err)
 

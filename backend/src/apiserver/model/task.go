@@ -76,14 +76,13 @@ func (p *PodNames) Value() (driver.Value, error) {
 }
 
 type Task struct {
-	UUID           string   `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
-	Namespace      string   `gorm:"column:Namespace; not null; type:varchar(63);"`
-	PipelineName   string   `gorm:"column:PipelineName; not null; type:varchar(128); index:idx_pipeline_name;"`
-	RunUUID        string   `gorm:"column:RunUUID; type:varchar(191); not null; index:idx_parent_run,priority:1;"`
-	Run            Run      `gorm:"foreignKey:RunUUID;references:UUID;constraint:tasks_RunUUID_run_details_UUID_foreign,OnDelete:CASCADE,OnUpdate:CASCADE;"`
-	Pods           JSONData `gorm:"column:pods; not null; type:json;"`
-	CreatedAtInSec int64    `gorm:"column:CreatedAtInSec; not null; index:idx_task_created_timestamp;"`
-
+	UUID             string   `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
+	Namespace        string   `gorm:"column:Namespace; not null; type:varchar(63);"`
+	PipelineName     string   `gorm:"column:PipelineName; not null; type:varchar(128); index:idx_pipeline_name;"`
+	RunUUID          string   `gorm:"column:RunUUID; type:varchar(191); not null; index:idx_parent_run,priority:1;"`
+	Run              Run      `gorm:"foreignKey:RunUUID;references:UUID;constraint:tasks_RunUUID_run_details_UUID_foreign,OnDelete:CASCADE,OnUpdate:CASCADE;"`
+	Pods             JSONData `gorm:"column:pods; not null; type:json;"`
+	CreatedAtInSec   int64    `gorm:"column:CreatedAtInSec; not null; index:idx_task_created_timestamp;"`
 	StartedInSec     int64    `gorm:"column:StartedInSec; default:0; index:idx_task_started_timestamp;"`
 	FinishedInSec    int64    `gorm:"column:FinishedInSec; default:0; index:idx_task_finished_timestamp;"`
 	Fingerprint      string   `gorm:"column:Fingerprint; not null; type:varchar(255);"`
@@ -96,7 +95,7 @@ type Task struct {
 	StateHistory     JSONData `gorm:"column:StateHistory; type:json;"`
 	InputParameters  JSONData `gorm:"column:InputParameters; type:json;"`
 	OutputParameters JSONData `gorm:"column:OutputParameters; type:json;"`
-	Type             int32    `gorm:"column:Type; not null; type:varchar(64); index:idx_task_type;"`
+	Type             int32    `gorm:"column:Type; not null; index:idx_task_type;"`
 	TypeAttrs        JSONData `gorm:"column:TypeAttrs; not null; type:json;"`
 }
 

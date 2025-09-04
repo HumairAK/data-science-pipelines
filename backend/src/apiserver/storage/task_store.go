@@ -87,6 +87,106 @@ func NewTaskStore(db *DB, time util.TimeInterface, uuid util.UUIDGeneratorInterf
 	}
 }
 
+func (s *TaskStore) scanRows(rows *sql.Rows) ([]*model.Task, error) {
+	var tasks []*model.Task
+	for rows.Next() {
+		var uuid, namespace, pipelineName, runUUID, fingerprint string
+		var name, displayName, parentTaskId, pods, statusMetadata, stateHistory, inputParams, outputParams, typeAttrs sql.NullString
+		var createdAtInSec, startedInSec, finishedInSec sql.NullInt64
+		var taskStatus, taskType int32
+		err := rows.Scan(
+			&uuid,
+			&namespace,
+			&pipelineName,
+			&runUUID,
+			&pods,
+			&createdAtInSec,
+			&startedInSec,
+			&finishedInSec,
+			&fingerprint,
+			&name,
+			&displayName,
+			&parentTaskId,
+			&taskStatus,
+			&statusMetadata,
+			&stateHistory,
+			&inputParams,
+			&outputParams,
+			&taskType,
+			&typeAttrs,
+		)
+		if err != nil {
+			fmt.Printf("scan error is %v", err)
+			return tasks, err
+		}
+		var statusMetadataNew model.JSONData
+		if statusMetadata.Valid {
+			err := json.Unmarshal([]byte(statusMetadata.String), &statusMetadataNew)
+			if err != nil {
+				return nil, err
+			}
+		}
+		var stateHistoryNew model.JSONData
+		if stateHistory.Valid {
+			err := json.Unmarshal([]byte(stateHistory.String), &stateHistoryNew)
+			if err != nil {
+				return nil, err
+			}
+		}
+		var podsNew model.JSONData
+		if pods.Valid {
+			err := json.Unmarshal([]byte(pods.String), &podsNew)
+			if err != nil {
+				return nil, err
+			}
+		}
+		var inputParameters model.JSONData
+		if inputParams.Valid {
+			err := json.Unmarshal([]byte(inputParams.String), &inputParameters)
+			if err != nil {
+				return nil, err
+			}
+		}
+		var outputParameters model.JSONData
+		if outputParams.Valid {
+			err := json.Unmarshal([]byte(outputParams.String), &outputParameters)
+			if err != nil {
+				return nil, err
+			}
+		}
+		var typeAttrsData model.JSONData
+		if typeAttrs.Valid {
+			err := json.Unmarshal([]byte(typeAttrs.String), &typeAttrsData)
+			if err != nil {
+				return nil, err
+			}
+		}
+		task := &model.Task{
+			UUID:             uuid,
+			Namespace:        namespace,
+			PipelineName:     pipelineName,
+			RunUUID:          runUUID,
+			Pods:             podsNew,
+			CreatedAtInSec:   createdAtInSec.Int64,
+			StartedInSec:     startedInSec.Int64,
+			FinishedInSec:    finishedInSec.Int64,
+			Fingerprint:      fingerprint,
+			Name:             name.String,
+			DisplayName:      displayName.String,
+			ParentTaskUUID:   parentTaskId.String,
+			Status:           taskStatus,
+			StatusMetadata:   statusMetadataNew,
+			StateHistory:     stateHistoryNew,
+			InputParameters:  inputParameters,
+			OutputParameters: outputParameters,
+			Type:             taskType,
+			TypeAttrs:        typeAttrsData,
+		}
+		tasks = append(tasks, task)
+	}
+	return tasks, nil
+}
+
 func (s *TaskStore) CreateTask(task *model.Task) (*model.Task, error) {
 	// Set up UUID for task.
 	newTask := *task
@@ -160,7 +260,7 @@ func (s *TaskStore) CreateTask(task *model.Task) (*model.Task, error) {
 				"StateHistory":     stateHistoryString,
 				"InputParameters":  inputParamsString,
 				"OutputParameters": outputParamsString,
-				"Type":             string(newTask.Type),
+				"Type":             newTask.Type,
 				"TypeAttrs":        typeAttrsString,
 			},
 		).
@@ -175,104 +275,6 @@ func (s *TaskStore) CreateTask(task *model.Task) (*model.Task, error) {
 			err.Error())
 	}
 	return &newTask, nil
-}
-
-func (s *TaskStore) scanRows(rows *sql.Rows) ([]*model.Task, error) {
-	var tasks []*model.Task
-	for rows.Next() {
-		var uuid, namespace, pipelineName, runUUID, fingerprint string
-		var name, parentTaskId, pods, statusMetadata, stateHistory, inputParams, outputParams, typeAttrs sql.NullString
-		var createdAtInSec, startedInSec, finishedInSec sql.NullInt64
-		var taskStatus, taskType int32
-		err := rows.Scan(
-			&uuid,
-			&namespace,
-			&pipelineName,
-			&runUUID,
-			&pods,
-			&createdAtInSec,
-			&startedInSec,
-			&finishedInSec,
-			&fingerprint,
-			&name,
-			&parentTaskId,
-			&taskStatus,
-			&statusMetadata,
-			&stateHistory,
-			&inputParams,
-			&outputParams,
-			&taskType,
-			&typeAttrs,
-		)
-		if err != nil {
-			fmt.Printf("scan error is %v", err)
-			return tasks, err
-		}
-		var statusMetadataNew model.JSONData
-		if statusMetadata.Valid {
-			err := json.Unmarshal([]byte(statusMetadata.String), &statusMetadataNew)
-			if err != nil {
-				return nil, err
-			}
-		}
-		var stateHistoryNew model.JSONData
-		if stateHistory.Valid {
-			err := json.Unmarshal([]byte(stateHistory.String), &stateHistoryNew)
-			if err != nil {
-				return nil, err
-			}
-		}
-		var podsNew model.JSONData
-		if pods.Valid {
-			err := json.Unmarshal([]byte(pods.String), &podsNew)
-			if err != nil {
-				return nil, err
-			}
-		}
-		var inputParameters model.JSONData
-		if inputParams.Valid {
-			err := json.Unmarshal([]byte(inputParams.String), &inputParameters)
-			if err != nil {
-				return nil, err
-			}
-		}
-		var outputParameters model.JSONData
-		if outputParams.Valid {
-			err := json.Unmarshal([]byte(outputParams.String), &outputParameters)
-			if err != nil {
-				return nil, err
-			}
-		}
-		var typeAttrsData model.JSONData
-		if typeAttrs.Valid {
-			err := json.Unmarshal([]byte(typeAttrs.String), &typeAttrsData)
-			if err != nil {
-				return nil, err
-			}
-		}
-		task := &model.Task{
-			UUID:             uuid,
-			Namespace:        namespace,
-			PipelineName:     pipelineName,
-			RunUUID:          runUUID,
-			Pods:             podsNew,
-			CreatedAtInSec:   createdAtInSec.Int64,
-			StartedInSec:     startedInSec.Int64,
-			FinishedInSec:    finishedInSec.Int64,
-			Fingerprint:      fingerprint,
-			Name:             name.String,
-			ParentTaskUUID:   parentTaskId.String,
-			Status:           taskStatus,
-			StatusMetadata:   statusMetadataNew,
-			StateHistory:     stateHistoryNew,
-			InputParameters:  inputParameters,
-			OutputParameters: outputParameters,
-			Type:             taskType,
-			TypeAttrs:        typeAttrsData,
-		}
-		tasks = append(tasks, task)
-	}
-	return tasks, nil
 }
 
 // ListTasks Runs two SQL queries in a transaction to return a list of matching experiments, as well as their
@@ -465,7 +467,7 @@ func (s *TaskStore) UpdateTask(task *model.Task) (*model.Task, error) {
 			"StateHistory":     stateHistoryString,
 			"InputParameters":  inputParamsString,
 			"OutputParameters": outputParamsString,
-			"Type":             string(task.Type),
+			"Type":             task.Type,
 			"TypeAttrs":        typeAttrsString,
 		}).
 		Where(sq.Eq{"UUID": task.UUID}).
