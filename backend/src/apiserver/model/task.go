@@ -81,7 +81,7 @@ type Task struct {
 	PipelineName   string   `gorm:"column:PipelineName; not null; type:varchar(128); index:idx_pipeline_name;"`
 	RunUUID        string   `gorm:"column:RunUUID; type:varchar(191); not null; index:idx_parent_run,priority:1;"`
 	Run            Run      `gorm:"foreignKey:RunUUID;references:UUID;constraint:tasks_RunUUID_run_details_UUID_foreign,OnDelete:CASCADE,OnUpdate:CASCADE;"`
-	PodNames       PodNames `gorm:"column:PodNames; not null; type:json;"`
+	Pods           JSONData `gorm:"column:pods; not null; type:json;"`
 	CreatedAtInSec int64    `gorm:"column:CreatedAtInSec; not null; index:idx_task_created_timestamp;"`
 
 	StartedInSec     int64    `gorm:"column:StartedInSec; default:0; index:idx_task_started_timestamp;"`
@@ -134,25 +134,23 @@ func (t Task) GetKeyFieldPrefix() string {
 }
 
 var taskAPIToModelFieldMap = map[string]string{
-	"task_id":           "UUID", // v2beta1 API
-	"id":                "UUID", // v1beta1 API
+	"name":         "Name",
+	"display_name": "DisplayName",
+	"task_id":      "UUID",
+	"run_id":       "RunUUID",
+
 	"namespace":         "Namespace",
-	"name":              "Name",           // v2beta1 API
-	"display_name":      "DisplayName",    // v2beta1 API
-	"pipeline_name":     "PipelineName",   // v2beta1 API
-	"pipelineName":      "PipelineName",   // v1beta1 API
-	"run_id":            "RunUUID",        // v2beta1 API
-	"runId":             "RunUUID",        // v1beta1 API
+	"pipeline_name":     "PipelineName",
 	"create_time":       "CreatedAtInSec", // v2beta1 API
-	"start_time":        "StartedInSec",   // v2beta1 API
-	"end_time":          "FinishedInSec",  // v2beta1 API
+	"start_time":        "StartedInSec",
+	"end_time":          "FinishedInSec", // v2beta1 API
 	"fingerprint":       "Fingerprint",
-	"status":            "Status",         // v2beta1 API
+	"status":            "Status",
 	"status_metadata":   "StatusMetadata", // v2beta1 API
-	"state_history":     "StateHistory",   // v2beta1 API
-	"parent_task_id":    "ParentTaskUUID", // v2beta1 API
-	"created_at":        "CreatedAtInSec", // v1beta1 API
-	"finished_at":       "FinishedInSec",  // v1beta1 API
+	"state_history":     "StateHistory",
+	"parent_task_id":    "ParentTaskUUID",
+	"created_at":        "CreatedAtInSec",
+	"finished_at":       "FinishedInSec",
 	"input_parameters":  "InputParameters",
 	"output_parameters": "OutputParameters",
 	"type":              "Type",

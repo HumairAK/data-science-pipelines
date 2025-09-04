@@ -61,9 +61,8 @@ type V2beta1PipelineTaskDetail struct {
 	// Empty if the task is at the root level.
 	ParentTaskID string `json:"parent_task_id,omitempty"`
 
-	// Name of the corresponding pod assigned by the orchestration engine.
-	// Also known as node_id.
-	PodName string `json:"pod_name,omitempty"`
+	// pods
+	Pods []*PipelineTaskDetailTaskPod `json:"pods"`
 
 	// ID of the parent run.
 	RunID string `json:"run_id,omitempty"`
@@ -115,6 +114,10 @@ func (m *V2beta1PipelineTaskDetail) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateOutputs(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validatePods(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -247,6 +250,32 @@ func (m *V2beta1PipelineTaskDetail) validateOutputs(formats strfmt.Registry) err
 	return nil
 }
 
+func (m *V2beta1PipelineTaskDetail) validatePods(formats strfmt.Registry) error {
+	if swag.IsZero(m.Pods) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.Pods); i++ {
+		if swag.IsZero(m.Pods[i]) { // not required
+			continue
+		}
+
+		if m.Pods[i] != nil {
+			if err := m.Pods[i].Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("pods" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("pods" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
 func (m *V2beta1PipelineTaskDetail) validateStartTime(formats strfmt.Registry) error {
 	if swag.IsZero(m.StartTime) { // not required
 		return nil
@@ -340,6 +369,10 @@ func (m *V2beta1PipelineTaskDetail) ContextValidate(ctx context.Context, formats
 	}
 
 	if err := m.contextValidateOutputs(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidatePods(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -444,6 +477,31 @@ func (m *V2beta1PipelineTaskDetail) contextValidateOutputs(ctx context.Context, 
 			}
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *V2beta1PipelineTaskDetail) contextValidatePods(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.Pods); i++ {
+
+		if m.Pods[i] != nil {
+
+			if swag.IsZero(m.Pods[i]) { // not required
+				return nil
+			}
+
+			if err := m.Pods[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("pods" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("pods" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
 	}
 
 	return nil

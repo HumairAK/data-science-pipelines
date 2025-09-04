@@ -336,14 +336,24 @@ message PipelineTaskDetail {
   // [Pipeline.spec][].
   string display_name = 2;
 
-  // Name of the corresponding pod assigned by the orchestration engine.
-  // Also known as node_id.
-  string pod_name = 3;
+  // System-generated ID of a task.
+  string task_id = 3;
 
   // ID of the parent run.
   string run_id = 4;
-  // System-generated ID of a task.
-  string task_id = 5;
+
+  // Name of the corresponding pod assigned by the orchestration engine.
+  // Also known as node_id.
+  enum TaskPodType {
+    DRIVER = 0;
+    EXECUTOR = 1;
+  }
+  message TaskPod {
+    string name = 1;
+    string uid = 2;
+    string type = 3;
+  }
+  repeated TaskPod pods = 5;
 
   string cache_fingerprint = 6;
 
@@ -402,9 +412,11 @@ message PipelineTaskDetail {
     // System-generated ID of a task.
     string task_id = 1;
 
+    string name = 2;
+
     // Name of the corresponding pod assigned by the orchestration engine.
     // Also known as node_id.
-    repeated string pod_names = 2;
+    repeated TaskPod pods = 3;
   }
 
   // Sequence of dependen tasks.

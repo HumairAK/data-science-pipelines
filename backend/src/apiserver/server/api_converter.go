@@ -2426,7 +2426,16 @@ func toModelTask(apiTask *apiv2beta1.PipelineTaskDetail) (*model.Task, error) {
 		Name:           apiTask.GetName(),
 		DisplayName:    apiTask.GetDisplayName(),
 		Fingerprint:    apiTask.GetCacheFingerprint(),
-		PodNames:       model.PodNames{apiTask.GetPodName()},
+	}
+
+	if apiTask.GetPods() != nil {
+		pods, err := apiTaskPodsToModel(apiTask.GetPods())
+		if err != nil {
+			return nil, util.Wrap(err, "Failed to convert API PipelineTaskDetail to its internal representation")
+		}
+		if pods != nil {
+			task.Pods = *pods
+		}
 	}
 
 	// Convert timestamps
@@ -2545,11 +2554,6 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 		CacheFingerprint: modelTask.Fingerprint,
 	}
 
-	// Set pod name from the first pod in PodNames array
-	if len(modelTask.PodNames) > 0 {
-		apiTask.PodName = modelTask.PodNames[0]
-	}
-
 	// Convert timestamps
 	if modelTask.CreatedAtInSec > 0 {
 		apiTask.CreateTime = &timestamppb.Timestamp{Seconds: modelTask.CreatedAtInSec}
@@ -2566,6 +2570,15 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 
 	// Convert task type
 	apiTask.Type = apiv2beta1.PipelineTaskDetail_TaskType(modelTask.Type)
+
+	// Set pod name from the first pod in PodNames array
+	if modelTask.Pods != nil {
+		podsStruct, err2 := modelTaskPodsToAPI(&modelTask.Pods)
+		if err2 != nil {
+			return nil, err2
+		}
+		apiTask.Pods = podsStruct
+	}
 
 	// Convert status metadata using the reverse of toModelArtifact pattern
 	if modelTask.StatusMetadata != nil {
@@ -2660,9 +2673,19 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 		if childTask.ParentTaskUUID != modelTask.UUID {
 			return nil, util.NewInternalServerError(nil, "Child task %s has invalid parent task UUID %s", childTask.UUID, childTask.ParentTaskUUID)
 		}
+
+		var childPods []*apiv2beta1.PipelineTaskDetail_TaskPod
+		if childTask.Pods != nil {
+			podsStruct, err2 := modelTaskPodsToAPI(&childTask.Pods)
+			if err2 != nil {
+				return nil, err2
+			}
+			childPods = podsStruct
+		}
 		childTaskAPI := &apiv2beta1.PipelineTaskDetail_ChildTask{
-			TaskId:   childTask.UUID,
-			PodNames: childTask.PodNames,
+			TaskId: childTask.UUID,
+			Name:   childTask.Name,
+			Pods:   childPods,
 		}
 		apiChildTasks = append(apiChildTasks, childTaskAPI)
 	}
@@ -2671,6 +2694,60 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 	}
 
 	return apiTask, nil
+}
+
+func apiTaskPodsToModel(pods []*apiv2beta1.PipelineTaskDetail_TaskPod) (*model.JSONData, error) {
+	if len(pods) == 0 {
+		return nil, nil
+	}
+
+	// Marshal each pod to JSON
+	podsJSON := make([]json.RawMessage, 0, len(pods))
+	for _, pod := range pods {
+		podBytes, err := protojson.Marshal(pod)
+		if err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to marshal task pod to JSON")
+		}
+		podsJSON = append(podsJSON, podBytes)
+	}
+
+	// Marshal the array of pods to JSON
+	jsonBytes, err := json.Marshal(podsJSON)
+	if err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to marshal pods array to JSON")
+	}
+
+	// Create and populate the JSONData
+	var jsonData model.JSONData
+	if err := json.Unmarshal(jsonBytes, &jsonData); err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to unmarshal pods JSON into JSONData")
+	}
+
+	return &jsonData, nil
+}
+
+func modelTaskPodsToAPI(pods *model.JSONData) ([]*apiv2beta1.PipelineTaskDetail_TaskPod, error) {
+	jsonDataBytes, err := json.Marshal(pods)
+	if err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to marshal pods to JSON")
+	}
+
+	// First unmarshal into a list of raw JSON messages
+	var rawPods []json.RawMessage
+	if err := json.Unmarshal(jsonDataBytes, &rawPods); err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to unmarshal pods JSON into raw list")
+	}
+
+	// Then unmarshal each element into the protobuf message
+	podsStruct := make([]*apiv2beta1.PipelineTaskDetail_TaskPod, 0, len(rawPods))
+	for _, raw := range rawPods {
+		pod := &apiv2beta1.PipelineTaskDetail_TaskPod{}
+		if err := protojson.Unmarshal(raw, pod); err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to unmarshal task pod JSON into protobuf message")
+		}
+		podsStruct = append(podsStruct, pod)
+	}
+	return podsStruct, nil
 }
 
 func convertValueToJSONData(value *structpb.Value) (model.JSONData, error) {

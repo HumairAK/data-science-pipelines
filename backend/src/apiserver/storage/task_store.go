@@ -33,12 +33,13 @@ var taskColumns = []string{
 	"Namespace",
 	"PipelineName",
 	"RunUUID",
-	"PodNames",
+	"Pods",
 	"CreatedAtInSec",
 	"StartedInSec",
 	"FinishedInSec",
 	"Fingerprint",
 	"Name",
+	"DisplayName",
 	"ParentTaskUUID",
 	"Status",
 	"StatusMetadata",
@@ -112,9 +113,9 @@ func (s *TaskStore) CreateTask(task *model.Task) (*model.Task, error) {
 		return nil, util.NewInternalServerError(err, "Failed to marshal state history in a new run")
 	}
 
-	podNamesString := ""
-	if podNames, err := json.Marshal(newTask.PodNames); err == nil {
-		podNamesString = string(podNames)
+	podsString := ""
+	if podNames, err := json.Marshal(newTask.Pods); err == nil {
+		podsString = string(podNames)
 	} else {
 		return nil, util.NewInternalServerError(err, "Failed to marshal pod names in a new task")
 	}
@@ -148,7 +149,7 @@ func (s *TaskStore) CreateTask(task *model.Task) (*model.Task, error) {
 				"Namespace":        newTask.Namespace,
 				"PipelineName":     newTask.PipelineName,
 				"RunUUID":          newTask.RunUUID,
-				"PodNames":         podNamesString,
+				"Pods":             podsString,
 				"CreatedAtInSec":   newTask.CreatedAtInSec,
 				"StartedInSec":     newTask.StartedInSec,
 				"FinishedInSec":    newTask.FinishedInSec,
@@ -180,16 +181,15 @@ func (s *TaskStore) scanRows(rows *sql.Rows) ([]*model.Task, error) {
 	var tasks []*model.Task
 	for rows.Next() {
 		var uuid, namespace, pipelineName, runUUID, fingerprint string
-		var name, parentTaskId, statusMetadata, stateHistory, inputParams, outputParams, typeAttrs sql.NullString
+		var name, parentTaskId, pods, statusMetadata, stateHistory, inputParams, outputParams, typeAttrs sql.NullString
 		var createdAtInSec, startedInSec, finishedInSec sql.NullInt64
 		var taskStatus, taskType int32
-		var podNamesBytes []byte
 		err := rows.Scan(
 			&uuid,
 			&namespace,
 			&pipelineName,
 			&runUUID,
-			&podNamesBytes,
+			&pods,
 			&createdAtInSec,
 			&startedInSec,
 			&finishedInSec,
@@ -222,9 +222,9 @@ func (s *TaskStore) scanRows(rows *sql.Rows) ([]*model.Task, error) {
 				return nil, err
 			}
 		}
-		var podNames []string
-		if podNamesBytes != nil {
-			err := json.Unmarshal(podNamesBytes, &podNames)
+		var podsNew model.JSONData
+		if pods.Valid {
+			err := json.Unmarshal([]byte(pods.String), &podsNew)
 			if err != nil {
 				return nil, err
 			}
@@ -255,7 +255,7 @@ func (s *TaskStore) scanRows(rows *sql.Rows) ([]*model.Task, error) {
 			Namespace:        namespace,
 			PipelineName:     pipelineName,
 			RunUUID:          runUUID,
-			PodNames:         podNames,
+			Pods:             podsNew,
 			CreatedAtInSec:   createdAtInSec.Int64,
 			StartedInSec:     startedInSec.Int64,
 			FinishedInSec:    finishedInSec.Int64,
@@ -419,9 +419,9 @@ func (s *TaskStore) UpdateTask(task *model.Task) (*model.Task, error) {
 		return nil, util.NewInternalServerError(err, "Failed to marshal status metadata in an updated task")
 	}
 
-	podNamesString := ""
-	if podNames, err := json.Marshal(task.PodNames); err == nil {
-		podNamesString = string(podNames)
+	podsString := ""
+	if pods, err := json.Marshal(task.Pods); err == nil {
+		podsString = string(pods)
 	} else {
 		return nil, util.NewInternalServerError(err, "Failed to marshal pod names in an updated task")
 	}
@@ -454,7 +454,7 @@ func (s *TaskStore) UpdateTask(task *model.Task) (*model.Task, error) {
 			"Namespace":        task.Namespace,
 			"PipelineName":     task.PipelineName,
 			"RunUUID":          task.RunUUID,
-			"PodNames":         podNamesString,
+			"Pods":             podsString,
 			"StartedInSec":     task.StartedInSec,
 			"FinishedInSec":    task.FinishedInSec,
 			"Fingerprint":      task.Fingerprint,

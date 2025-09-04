@@ -644,10 +644,14 @@
           "type": "string",
           "description": "System-generated ID of a task."
         },
-        "pod_names": {
+        "name": {
+          "type": "string"
+        },
+        "pods": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "object",
+            "$ref": "#/definitions/PipelineTaskDetailTaskPod"
           },
           "description": "Name of the corresponding pod assigned by the orchestration engine.\nAlso known as node_id."
         }
@@ -688,6 +692,20 @@
         "PipelineChannel"
       ],
       "default": "ResolvedValue"
+    },
+    "PipelineTaskDetailTaskPod": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "uid": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      }
     },
     "PipelineTaskDetailTaskType": {
       "type": "string",
@@ -883,17 +901,20 @@
           "type": "string",
           "description": "User specified name of a task that is defined in\n[Pipeline.spec][]."
         },
-        "pod_name": {
+        "task_id": {
           "type": "string",
-          "description": "Name of the corresponding pod assigned by the orchestration engine.\nAlso known as node_id."
+          "description": "System-generated ID of a task."
         },
         "run_id": {
           "type": "string",
           "description": "ID of the parent run."
         },
-        "task_id": {
-          "type": "string",
-          "description": "System-generated ID of a task."
+        "pods": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/PipelineTaskDetailTaskPod"
+          }
         },
         "cache_fingerprint": {
           "type": "string"
