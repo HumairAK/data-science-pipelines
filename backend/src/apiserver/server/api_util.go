@@ -16,11 +16,13 @@ package server
 
 import (
 	"encoding/json"
+	"regexp"
 	"strings"
 
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/resource"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/template"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
@@ -429,4 +431,26 @@ func apiParametersToStringV1(params []*apiv1beta1.Parameter) string {
 		s.WriteString(p.String())
 	}
 	return s.String()
+}
+
+// Validates a run metric fields from request.
+func validateRunMetricV1(metric *model.RunMetricV1) error {
+	matched, err := regexp.MatchString(metricNamePattern, metric.Name)
+	if err != nil {
+		// This should never happen.
+		return util.NewInternalServerError(
+			err, "failed to compile pattern '%s'", metricNamePattern)
+	}
+	if !matched {
+		return util.NewInvalidInputError(
+			"metric.name '%s' doesn't match with the pattern '%s'", metric.Name, metricNamePattern)
+	}
+	if metric.NodeID == "" {
+		return util.NewInvalidInputError("metric.node_id must not be empty")
+	}
+	if len(metric.NodeID) > 128 {
+		return util.NewInvalidInputError(
+			"metric.node_id '%s' cannot be longer than 128 characters", metric.NodeID)
+	}
+	return nil
 }

@@ -58,6 +58,15 @@ var runColumns = []string{
 	"PipelineRunContextId",
 }
 
+var v1RunMetricsColumns = []string{
+	"RunUUID",
+	"NodeID",
+	"Name",
+	"NumberValue",
+	"Format",
+	"Payload",
+}
+
 type RunStoreInterface interface {
 	// Creates a run entry. Does not create children tasks.
 	CreateRun(run *model.Run) (*model.Run, error)
@@ -80,6 +89,9 @@ type RunStoreInterface interface {
 
 	// Deletes a run.
 	DeleteRun(runId string) error
+
+	// Creates a new metric entry.
+	CreateV1Metric(metric *model.RunMetricV1) (err error)
 
 	// Terminates a run.
 	TerminateRun(runId string) error
@@ -271,7 +283,7 @@ func (s *RunStore) addMetricsResourceReferencesAndTasks(filteredSelectBuilder sq
 		LeftJoin("tasks AS tasks ON rdref.UUID=tasks.RunUUID").
 		GroupBy("rdref.UUID")
 
-	// TODO(jingzhang36): address the case where some runs don't have the metric used in order by.
+	// TODO(HumairAK): Remove this join on metrics when v1 is removed
 	metricConcatQuery := s.db.Concat([]string{`"["`, s.db.GroupConcat("rm.Payload", ","), `"]"`}, "")
 	columnsAfterJoiningRunMetrics := append(
 		apply(func(column string) string { return "subq." + column }, runColumns), // Add prefix "subq." to runColumns
@@ -281,7 +293,7 @@ func (s *RunStore) addMetricsResourceReferencesAndTasks(filteredSelectBuilder sq
 	return sq.
 		Select(columnsAfterJoiningRunMetrics...).
 		FromSelect(subQ, "subq").
-		LeftJoin("metrics AS rm ON subq.UUID=rm.RunUUID").
+		LeftJoin("run_metrics AS rm ON subq.UUID=rm.RunUUID").
 		GroupBy("subq.UUID")
 }
 
@@ -334,7 +346,7 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 			glog.Errorf("Failed to parse metrics (%v) from DB: %v", metricsInString, err)
 			// Skip the error to allow user to get runs even when metrics data
 			// are invalid.
-			metrics = []*model.RunMetric{}
+			metrics = []*model.RunMetricV1{}
 		}
 		resourceReferences, err := parseResourceReferences(resourceReferencesInString)
 		if err != nil {
@@ -413,11 +425,11 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 	return runs, nil
 }
 
-func parseMetrics(metricsInString sql.NullString) ([]*model.RunMetric, error) {
+func parseMetrics(metricsInString sql.NullString) ([]*model.RunMetricV1, error) {
 	if !metricsInString.Valid {
 		return nil, nil
 	}
-	var metrics []*model.RunMetric
+	var metrics []*model.RunMetricV1
 	if err := json.Unmarshal([]byte(metricsInString.String), &metrics); err != nil {
 		return nil, util.Wrapf(err, "Failed to parse a run metric '%s'", metricsInString.String)
 	}
@@ -671,7 +683,39 @@ func (s *RunStore) DeleteRun(id string) error {
 	return nil
 }
 
-// NewRunStore returns a new RunStore.
+// Creates a new metric in run_metrics table if does not exist.
+func (s *RunStore) CreateV1Metric(metric *model.RunMetricV1) error {
+	payloadBytes, err := json.Marshal(metric)
+	if err != nil {
+		return util.NewInternalServerError(err,
+			"Failed to marshal a run metric to json: %+v", metric)
+	}
+	sql, args, err := sq.
+		Insert("run_metrics").
+		SetMap(sq.Eq{
+			"RunUUID":     metric.RunUUID,
+			"NodeID":      metric.NodeID,
+			"Name":        metric.Name,
+			"NumberValue": metric.NumberValue,
+			"Format":      metric.Format,
+			"Payload":     string(payloadBytes),
+		}).ToSql()
+	if err != nil {
+		return util.NewInternalServerError(err,
+			"Failed to create query for inserting a run metric: %+v", metric)
+	}
+	_, err = s.db.Exec(sql, args...)
+	if err != nil {
+		if s.db.IsDuplicateError(err) {
+			return util.NewAlreadyExistError(
+				"Failed to create a run metric. Same metric has been reported before: %s/%s", metric.NodeID, metric.Name)
+		}
+		return util.NewInternalServerError(err, "Failed to insert a run metric: %v", metric)
+	}
+	return nil
+}
+
+// NewRunStore Returns a new RunStore.
 func NewRunStore(db *DB, time util.TimeInterface) *RunStore {
 	return &RunStore{
 		db:                     db,
@@ -713,10 +757,42 @@ func (s *RunStore) addSortByRunMetricToSelect(sqlBuilder sq.SelectBuilder, opts 
 	if r.IsRegularField(opts.SortByFieldName) {
 		return sqlBuilder
 	}
-	// Join through tasks to metrics because metrics are keyed by TaskID (not RunUUID).
-	metricName := opts.SortByFieldName
+	// TODO(jingzhang36): address the case where runs doesn't have the specified metric.
 	return sq.
-		Select("selected_runs.*", "rm.NumberValue AS "+metricName).
+		Select("selected_runs.*, run_metrics.numbervalue as "+opts.SortByFieldName).
 		FromSelect(sqlBuilder, "selected_runs").
-		LeftJoin("metrics ON selected_runs.uuid=metrics.runid AND metrics.name='" + opts.SortByFieldName + "'")
+		LeftJoin("run_metrics ON selected_runs.uuid=run_metrics.runuuid AND run_metrics.name='" + opts.SortByFieldName + "'")
+}
+
+func (s *RunStore) scanRowsToV1RunMetrics(rows *sql.Rows) ([]*model.RunMetricV1, error) {
+	var metrics []*model.RunMetricV1
+	for rows.Next() {
+		var runId, nodeId, name, form, payload string
+		var val float64
+		err := rows.Scan(
+			&runId,
+			&nodeId,
+			&name,
+			&val,
+			&form,
+			&payload,
+		)
+		if err != nil {
+			glog.Errorf("Failed to scan row into a run metric: %v", err)
+			return metrics, nil
+		}
+
+		metrics = append(
+			metrics,
+			&model.RunMetricV1{
+				RunUUID:     runId,
+				NodeID:      nodeId,
+				Name:        name,
+				NumberValue: val,
+				Format:      form,
+				Payload:     model.LargeText(payload),
+			},
+		)
+	}
+	return metrics, nil
 }

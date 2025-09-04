@@ -20,9 +20,11 @@ import (
 	"testing"
 
 	apiv1beta1 "github.com/kubeflow/pipelines/backend/api/v1beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/resource"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 	"sigs.k8s.io/yaml"
@@ -323,6 +325,55 @@ func TestGetExperimentIDFromResourceReferences(t *testing.T) {
 		assert.Equal(t, tc.expectedExperimentID, experimentID,
 			"TestGetExperimentIDFromResourceReferences(%v) has unexpected result", tc.name)
 	}
+}
+
+func TestValidateRunMetric_Pass(t *testing.T) {
+	metric := &model.RunMetricV1{
+		Name:   "foo",
+		NodeID: "node-1",
+	}
+	err := validateRunMetricV1(metric)
+
+	assert.Nil(t, err)
+}
+
+func TestValidateRunMetric_InvalidNames(t *testing.T) {
+	metric := &model.RunMetricV1{
+		NodeID: "node-1",
+	}
+
+	// Empty name
+	err := validateRunMetricV1(metric)
+	AssertUserError(t, err, codes.InvalidArgument)
+
+	// Unallowed character
+	metric.Name = "$"
+	err = validateRunMetricV1(metric)
+	AssertUserError(t, err, codes.InvalidArgument)
+
+	// Name is too long
+	bytes := make([]byte, 65)
+	for i := range bytes {
+		bytes[i] = 'a'
+	}
+	metric.Name = string(bytes)
+	err = validateRunMetricV1(metric)
+	AssertUserError(t, err, codes.InvalidArgument)
+}
+
+func TestvalidateRunMetricV1_InvalidNodeIDs(t *testing.T) {
+	metric := &model.RunMetricV1{
+		Name: "a",
+	}
+
+	// Empty node ID
+	err := validateRunMetricV1(metric)
+	AssertUserError(t, err, codes.InvalidArgument)
+
+	// Node ID is too long
+	metric.NodeID = string(make([]byte, 129))
+	err = validateRunMetricV1(metric)
+	AssertUserError(t, err, codes.InvalidArgument)
 }
 
 func loadYaml(t *testing.T, path string) string {

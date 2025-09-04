@@ -387,8 +387,7 @@ func (s *BaseRunServer) reportRunMetricsV1(ctx context.Context, metrics []*model
 			results = append(results, temp)
 			continue
 		}
-		metricV2 := convertModelRunMetricToV2(metric)
-		_, err = s.resourceManager.CreateRunMetric(metricV2)
+		err = s.resourceManager.ReportMetric(metric)
 		if err == nil {
 			temp["ErrorCode"] = "ok"
 			results = append(results, temp)

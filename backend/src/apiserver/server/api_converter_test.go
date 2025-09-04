@@ -1482,10 +1482,7 @@ func TestToApiRunsV1(t *testing.T) {
 			WorkflowSpecManifest: "manifest",
 		},
 		RecurringRunId: "job1",
-		Metrics: []*model.RunMetric{
-			convertModelRunMetricToV2(metric1),
-			convertModelRunMetricToV2(metric2),
-		},
+		Metrics:        []*model.RunMetricV1{metric1, metric2},
 	}
 	modelRun2 := model.Run{
 		UUID:         "run2",
@@ -1502,7 +1499,7 @@ func TestToApiRunsV1(t *testing.T) {
 			WorkflowSpecManifest: "manifest",
 		},
 		RecurringRunId: "job2",
-		Metrics:        []*model.RunMetric{convertModelRunMetricToV2(metric2)},
+		Metrics:        []*model.RunMetricV1{metric2},
 	}
 	apiRuns := toApiRunsV1([]*model.Run{&modelRun1, &modelRun2})
 	expectedApiRun := []*apiv1beta1.Run{
@@ -1527,10 +1524,7 @@ func TestToApiRunsV1(t *testing.T) {
 					Relationship: apiv1beta1.Relationship_CREATOR,
 				},
 			},
-			Metrics: []*apiv1beta1.RunMetric{
-				apiMetric1,
-				apiMetric2,
-			},
+			Metrics: []*apiv1beta1.RunMetric{apiMetric1, apiMetric2},
 		},
 		{
 			Id:           "run2",

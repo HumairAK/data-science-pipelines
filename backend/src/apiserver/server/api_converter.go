@@ -1023,6 +1023,121 @@ func toApiRuntimeConfig(modelRuntime model.RuntimeConfig) *apiv2beta1.RuntimeCon
 	return &apiRuntimeConfig
 }
 
+// Converts API run metric to its internal representation.
+// Supports both v1beta1 and v2beta1 API.
+func toModelRunMetricV1(m interface{}, runId string) (*model.RunMetricV1, error) {
+	var name, nodeId, format string
+	var val float64
+	switch apiRunMetric := m.(type) {
+	case *apiv1beta1.RunMetric:
+		name = apiRunMetric.GetName()
+		nodeId = apiRunMetric.GetNodeId()
+		val = apiRunMetric.GetNumberValue()
+		format = apiRunMetric.GetFormat().String()
+	default:
+		return nil, util.NewUnknownApiVersionError("RunMetric", m)
+	}
+	modelMetric := &model.RunMetricV1{
+		RunUUID:     runId,
+		Name:        name,
+		NodeID:      nodeId,
+		NumberValue: val,
+		Format:      format,
+	}
+	if err := validation.ValidateModel(modelMetric); err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to convert API run metric to internal representation")
+	}
+	return modelMetric, nil
+
+}
+
+// Converts internal run metric representation to its API counterpart.
+// Supports v1beta1 API.
+func toApiRunMetricV1(metric *model.RunMetricV1) *apiv1beta1.RunMetric {
+	return &apiv1beta1.RunMetric{
+		Name:   metric.Name,
+		NodeId: metric.NodeID,
+		Value: &apiv1beta1.RunMetric_NumberValue{
+			NumberValue: metric.NumberValue,
+		},
+		Format: apiv1beta1.RunMetric_Format(apiv1beta1.RunMetric_Format_value[metric.Format]),
+	}
+}
+
+// Converts an array of internal run metric representations to an array of their API counterparts.
+// Supports v1beta1 API.
+func toApiRunMetricsV1(m []*model.RunMetricV1) []*apiv1beta1.RunMetric {
+	apiMetrics := make([]*apiv1beta1.RunMetric, 0)
+	for _, metric := range m {
+		apiMetrics = append(apiMetrics, toApiRunMetricV1(metric))
+	}
+	return apiMetrics
+}
+
+// Convert results of run metrics creation to API response.
+// Supports v1beta1 API.
+// Return nil if a parsing error occurs.
+func toApiReportMetricsResultV1(metricName string, nodeId string, status string, message string) *apiv1beta1.ReportRunMetricsResponse_ReportRunMetricResult {
+	apiResultV1 := &apiv1beta1.ReportRunMetricsResponse_ReportRunMetricResult{
+		MetricName:   metricName,
+		MetricNodeId: nodeId,
+		Message:      message,
+	}
+	switch status {
+	case "ok":
+		apiResultV1.Status = apiv1beta1.ReportRunMetricsResponse_ReportRunMetricResult_OK
+	case "internal":
+		apiResultV1.Status = apiv1beta1.ReportRunMetricsResponse_ReportRunMetricResult_INTERNAL_ERROR
+	case "invalid":
+		apiResultV1.Status = apiv1beta1.ReportRunMetricsResponse_ReportRunMetricResult_INVALID_ARGUMENT
+	case "duplicate":
+		apiResultV1.Status = apiv1beta1.ReportRunMetricsResponse_ReportRunMetricResult_DUPLICATE_REPORTING
+	default:
+		return nil
+	}
+	return apiResultV1
+}
+
+// Converts API run or run details to internal run details representation.
+// Supports both v1beta1 and v2beta1 API.
+// TODO(gkcalat): update this to extend run details.
+func toModelRunDetails(r interface{}) (*model.RunDetails, error) {
+	switch r := r.(type) {
+	case *apiv2beta1.Run:
+		apiRunV2 := r
+		modelRunDetails := &model.RunDetails{
+			CreatedAtInSec:       apiRunV2.GetCreatedAt().GetSeconds(),
+			ScheduledAtInSec:     apiRunV2.GetScheduledAt().GetSeconds(),
+			FinishedAtInSec:      apiRunV2.GetFinishedAt().GetSeconds(),
+			State:                model.RuntimeState(apiRunV2.GetState().String()),
+			PipelineContextId:    apiRunV2.GetRunDetails().GetPipelineContextId(),
+			PipelineRunContextId: apiRunV2.GetRunDetails().GetPipelineRunContextId(),
+		}
+		if apiRunV2.GetPipelineSpec() != nil {
+			spec, err := pipelineSpecStructToYamlString(apiRunV2.GetPipelineSpec())
+			if err != nil {
+				return nil, util.NewInternalServerError(err, "Failed to convert a API run to internal run details representation due to pipeline spec parsing error")
+			}
+			modelRunDetails.PipelineRuntimeManifest = model.LargeText(spec)
+		}
+		return modelRunDetails, nil
+	case *apiv2beta1.RunDetails:
+		return toModelRunDetails(apiv2beta1.Run{RunDetails: r})
+	case *apiv1beta1.RunDetail:
+		apiRunV1 := r.GetRun()
+		modelRunDetails, err := toModelRunDetails(apiRunV1)
+		if err != nil {
+			return nil, util.Wrap(err, "Failed to convert v1beta1 API run detail to its internal representation")
+		}
+		apiRuntimeV1 := r.GetPipelineRuntime()
+		modelRunDetails.PipelineRuntimeManifest = model.LargeText(apiRuntimeV1.GetPipelineManifest())
+		modelRunDetails.WorkflowRuntimeManifest = model.LargeText(apiRuntimeV1.GetWorkflowManifest())
+		return modelRunDetails, nil
+	default:
+		return nil, util.NewUnknownApiVersionError("RunDetails", r)
+	}
+}
+
 // Converts API run to its internal representation.
 // Supports both v1beta1 and v2beta1 API.
 func toModelRun(r interface{}) (*model.Run, error) {
@@ -1034,6 +1149,7 @@ func toModelRun(r interface{}) (*model.Run, error) {
 	var pipelineSpec, workflowSpec, runtimePipelineSpec, runtimeWorkflowSpec string
 	var pipelineRoot, storageState, serviceAcc string
 	var createTime, scheduleTime, finishTime int64
+	var modelMetrics []*model.RunMetricV1
 	var state model.RuntimeState
 	var stateHistory []*model.RuntimeStatus
 	switch r := r.(type) {
@@ -1072,6 +1188,15 @@ func toModelRun(r interface{}) (*model.Run, error) {
 		createTime = apiRunV1.GetCreatedAt().GetSeconds()
 		scheduleTime = apiRunV1.GetScheduledAt().GetSeconds()
 		finishTime = apiRunV1.GetFinishedAt().GetSeconds()
+		if len(apiRunV1.GetMetrics()) > 0 {
+			modelMetrics = make([]*model.RunMetricV1, 0)
+			for _, metric := range apiRunV1.GetMetrics() {
+				modelMetric, err := toModelRunMetricV1(metric, runId)
+				if err == nil {
+					modelMetrics = append(modelMetrics, modelMetric)
+				}
+			}
+		}
 
 		params, err := toModelParameters(apiRunV1.GetPipelineSpec().GetParameters())
 		if err != nil {
@@ -1182,6 +1307,7 @@ func toModelRun(r interface{}) (*model.Run, error) {
 		RecurringRunId: recRunId,
 		StorageState:   model.StorageState(storageState),
 		ServiceAccount: serviceAcc,
+		Metrics:        modelMetrics,
 		PipelineSpec: model.PipelineSpec{
 			PipelineId:           pipelineId,
 			PipelineVersionId:    pipelineVersionId,
@@ -1241,16 +1367,12 @@ func toApiRunV1(r *model.Run) *apiv1beta1.Run {
 			runtimeConfig = nil
 		}
 	}
-	var metricsResult []*apiv1beta1.RunMetric
+	var metrics []*apiv1beta1.RunMetric
 	if r.Metrics != nil {
-		var v1metrics []*model.RunMetricV1
-		for _, m := range r.Metrics {
-			v1metrics = append(v1metrics, convertModelRunMetricToV1(m))
-		}
-		metricsResult = toApiRunMetricsV1(v1metrics)
+		metrics = toApiRunMetricsV1(r.Metrics)
 	}
-	if len(metricsResult) == 0 {
-		metricsResult = nil
+	if len(metrics) == 0 {
+		metrics = nil
 	}
 
 	resRefs := toApiResourceReferencesV1(r.ResourceReferences)
@@ -1326,7 +1448,7 @@ func toApiRunV1(r *model.Run) *apiv1beta1.Run {
 	return &apiv1beta1.Run{
 		CreatedAt:      timestamppb.New(time.Unix(r.RunDetails.CreatedAtInSec, 0)),
 		Id:             r.UUID,
-		Metrics:        metricsResult,
+		Metrics:        metrics,
 		Name:           r.DisplayName,
 		ServiceAccount: r.ServiceAccount,
 		StorageState:   apiv1beta1.Run_StorageState(apiv1beta1.Run_StorageState_value[string(r.StorageState.ToV1())]),

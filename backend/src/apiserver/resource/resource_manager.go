@@ -1617,6 +1617,17 @@ func (r *ResourceManager) CreateDefaultExperiment(namespace string) (string, err
 	return defaultExperiment.UUID, nil
 }
 
+// ReportMetric Read metrics as ordinary artifacts instead.
+// Creates a run metric entry.
+// Deprecated
+func (r *ResourceManager) ReportMetric(metric *model.RunMetricV1) error {
+	err := r.runStore.CreateV1Metric(metric)
+	if err != nil {
+		return util.Wrap(err, "Failed to report a run metric")
+	}
+	return nil
+}
+
 // Updates a task entry.
 func (r *ResourceManager) UpdateTask(task *model.Task) (*model.Task, error) {
 	// Verify task exists
