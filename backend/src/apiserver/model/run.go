@@ -225,7 +225,7 @@ type Run struct {
 
 	// Deprecated, kept here for v1 report metrics backwards compatibility
 	// Remove this field from this Struct (and tag the FK in RunMetric struct, so the FK is unaffected)
-	Metrics []*RunMetricV1 `gorm:"foreignKey:RunID;references:UUID;constraint:metrics_RunID_run_details_UUID_foreign,OnDelete:CASCADE,OnUpdate:CASCADE"` // This 'has-many' relation replaces the legacy AddForeignKey constraint previously defined in client_manager.go
+	Metrics []*RunMetricV1 `gorm:"foreignKey:RunUUID;references:UUID;constraint:run_metrics_RunUUID_run_details_UUID_foreign,OnDelete:CASCADE,OnUpdate:CASCADE"` // This 'has-many' relation replaces the legacy AddForeignKey constraint previously defined in client_manager.go
 
 	// ResourceReferences are deprecated. Use Namespace, ExperimentId,
 	// RecurringRunId, PipelineSpec.PipelineId, PipelineSpec.PipelineVersionId

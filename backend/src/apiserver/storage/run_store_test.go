@@ -37,7 +37,7 @@ const (
 	defaultFakeRunIdThree = "123e4567-e89b-12d3-a456-426655440023"
 )
 
-type RunMetricSorter []*model.RunMetric
+type RunMetricSorter []*model.RunMetricV1
 
 func (r RunMetricSorter) Len() int           { return len(r) }
 func (r RunMetricSorter) Less(i, j int) bool { return r[i].Name < r[j].Name }
@@ -47,7 +47,7 @@ func floatPTR(f float64) *float64 {
 	return &f
 }
 
-func initializeRunStore() (*DB, *RunStore, *RunMetricStore) {
+func initializeRunStore() (*DB, *RunStore) {
 	db := NewFakeDBOrFatal()
 	expStore := NewExperimentStore(db, util.NewFakeTimeForEpoch(), util.NewFakeUUIDGeneratorOrFatal(defaultFakeExpId, nil))
 	expStore.CreateExperiment(&model.Experiment{Name: "exp1"})
@@ -123,22 +123,22 @@ func initializeRunStore() (*DB, *RunStore, *RunMetricStore) {
 	runStore.CreateRun(run2)
 	runStore.CreateRun(run3)
 
-	metric1 := &model.RunMetric{
+	metric1 := &model.RunMetricV1{
 		RunUUID:     "1",
 		NodeID:      "node1",
 		Name:        "dummymetric",
 		NumberValue: 1.0,
 		Format:      "PERCENTAGE",
 	}
-	metric2 := &model.RunMetric{
+	metric2 := &model.RunMetricV1{
 		RunUUID:     "2",
 		NodeID:      "node2",
 		Name:        "dummymetric",
 		NumberValue: 2.0,
 		Format:      "PERCENTAGE",
 	}
-	runStore.CreateMetric(metric1)
-	runStore.CreateMetric(metric2)
+	runStore.CreateV1Metric(metric1)
+	runStore.CreateV1Metric(metric2)
 
 	return db, runStore
 }
@@ -168,7 +168,7 @@ func TestListRuns_Pagination(t *testing.T) {
 					},
 				},
 			},
-			Metrics: []*model.RunMetric{
+			Metrics: []*model.RunMetricV1{
 				{
 					RunUUID:     "1",
 					NodeID:      "node1",
@@ -208,7 +208,7 @@ func TestListRuns_Pagination(t *testing.T) {
 					},
 				},
 			},
-			Metrics: []*model.RunMetric{
+			Metrics: []*model.RunMetricV1{
 				{
 					RunUUID:     "2",
 					NodeID:      "node2",
@@ -274,7 +274,7 @@ func TestListRuns_Pagination_WithSortingOnMetrics(t *testing.T) {
 					},
 				},
 			},
-			Metrics: []*model.RunMetric{
+			Metrics: []*model.RunMetricV1{
 				{
 					RunUUID:     "1",
 					NodeID:      "node1",
@@ -313,7 +313,7 @@ func TestListRuns_Pagination_WithSortingOnMetrics(t *testing.T) {
 					},
 				},
 			},
-			Metrics: []*model.RunMetric{
+			Metrics: []*model.RunMetricV1{
 				{
 					RunUUID:     "2",
 					NodeID:      "node2",
@@ -441,7 +441,7 @@ func TestListRuns_Pagination_Descend(t *testing.T) {
 					},
 				},
 			},
-			Metrics: []*model.RunMetric{
+			Metrics: []*model.RunMetricV1{
 				{
 					RunUUID:     "2",
 					NodeID:      "node2",
@@ -480,7 +480,7 @@ func TestListRuns_Pagination_Descend(t *testing.T) {
 					},
 				},
 			},
-			Metrics: []*model.RunMetric{
+			Metrics: []*model.RunMetricV1{
 				{
 					RunUUID:     "1",
 					NodeID:      "node1",
@@ -550,7 +550,7 @@ func TestListRuns_Pagination_LessThanPageSize(t *testing.T) {
 					},
 				},
 			},
-			Metrics: []*model.RunMetric{
+			Metrics: []*model.RunMetricV1{
 				{
 					RunUUID:     "1",
 					NodeID:      "node1",
@@ -587,7 +587,7 @@ func TestListRuns_Pagination_LessThanPageSize(t *testing.T) {
 					},
 				},
 			},
-			Metrics: []*model.RunMetric{
+			Metrics: []*model.RunMetricV1{
 				{
 					RunUUID:     "2",
 					NodeID:      "node2",
@@ -655,7 +655,7 @@ func TestGetRun(t *testing.T) {
 				},
 			},
 		},
-		Metrics: []*model.RunMetric{
+		Metrics: []*model.RunMetricV1{
 			{
 				RunUUID:     "1",
 				NodeID:      "node1",
@@ -719,7 +719,7 @@ func TestCreateAndUpdateRun_UpdateSuccess(t *testing.T) {
 				},
 			},
 		},
-		Metrics: []*model.RunMetric{
+		Metrics: []*model.RunMetricV1{
 			{
 				RunUUID:     "1",
 				NodeID:      "node1",
@@ -776,7 +776,7 @@ func TestCreateAndUpdateRun_UpdateSuccess(t *testing.T) {
 				},
 			},
 		},
-		Metrics: []*model.RunMetric{
+		Metrics: []*model.RunMetricV1{
 			{
 				RunUUID:     "1",
 				NodeID:      "node1",
@@ -915,7 +915,7 @@ func TestCreateOrUpdateRun_DuplicateUUID(t *testing.T) {
 			WorkflowRuntimeManifest: "workflow1",
 			State:                   model.RuntimeStateRunning,
 		},
-		Metrics: []*model.RunMetric{
+		Metrics: []*model.RunMetricV1{
 			{
 				RunUUID:     "1",
 				NodeID:      "node1",
@@ -968,7 +968,7 @@ func TestTerminateRun(t *testing.T) {
 				},
 			},
 		},
-		Metrics: []*model.RunMetric{
+		Metrics: []*model.RunMetricV1{
 			{
 				RunUUID:     "1",
 				NodeID:      "node1",
@@ -1012,19 +1012,19 @@ func TestCreateMetric_Success(t *testing.T) {
 	db, runStore := initializeRunStore()
 	defer db.Close()
 
-	metric := &model.RunMetric{
+	metric := &model.RunMetricV1{
 		RunUUID:     "1",
 		NodeID:      "node1",
 		Name:        "acurracy",
 		NumberValue: 0.77,
 		Format:      "PERCENTAGE",
 	}
-	runStore.CreateMetric(metric)
+	runStore.CreateV1Metric(metric)
 
 	runDetail, err := runStore.GetRun("1")
 	assert.Nil(t, err, "Got error: %+v", err)
 	sort.Sort(RunMetricSorter(runDetail.Metrics))
-	assert.Equal(t, []*model.RunMetric{
+	assert.Equal(t, []*model.RunMetricV1{
 		metric,
 		{
 			RunUUID:     "1",
@@ -1040,23 +1040,23 @@ func TestCreateMetric_DupReports_Fail(t *testing.T) {
 	db, runStore := initializeRunStore()
 	defer db.Close()
 
-	metric1 := &model.RunMetric{
+	metric1 := &model.RunMetricV1{
 		RunUUID:     "1",
 		NodeID:      "node1",
 		Name:        "acurracy",
 		NumberValue: 0.77,
 		Format:      "PERCENTAGE",
 	}
-	metric2 := &model.RunMetric{
+	metric2 := &model.RunMetricV1{
 		RunUUID:     "1",
 		NodeID:      "node1",
 		Name:        "acurracy",
 		NumberValue: 0.88,
 		Format:      "PERCENTAGE",
 	}
-	runStore.CreateMetric(metric1)
+	runStore.CreateV1Metric(metric1)
 
-	err := runStore.CreateMetric(metric2)
+	err := runStore.CreateV1Metric(metric2)
 	_, ok := err.(*util.UserError)
 	assert.True(t, ok)
 }
@@ -1084,30 +1084,30 @@ func TestGetRun_InvalidMetricPayload_Ignore(t *testing.T) {
 func TestListRuns_WithMetrics(t *testing.T) {
 	db, runStore := initializeRunStore()
 	defer db.Close()
-	metric1 := &model.RunMetric{
+	metric1 := &model.RunMetricV1{
 		RunUUID:     "1",
 		NodeID:      "node1",
 		Name:        "acurracy",
 		NumberValue: 0.77,
 		Format:      "PERCENTAGE",
 	}
-	metric2 := &model.RunMetric{
+	metric2 := &model.RunMetricV1{
 		RunUUID:     "1",
 		NodeID:      "node2",
 		Name:        "logloss",
 		NumberValue: -1.2,
 		Format:      "RAW",
 	}
-	metric3 := &model.RunMetric{
+	metric3 := &model.RunMetricV1{
 		RunUUID:     "2",
 		NodeID:      "node2",
 		Name:        "logloss",
 		NumberValue: -1.3,
 		Format:      "RAW",
 	}
-	runStore.CreateMetric(metric1)
-	runStore.CreateMetric(metric2)
-	runStore.CreateMetric(metric3)
+	runStore.CreateV1Metric(metric1)
+	runStore.CreateV1Metric(metric2)
+	runStore.CreateV1Metric(metric3)
 
 	expectedRuns := []*model.Run{
 		{
@@ -1136,7 +1136,7 @@ func TestListRuns_WithMetrics(t *testing.T) {
 					PipelineRoot: "gs://my-bucket/path/to/root/run1",
 				},
 			},
-			Metrics: []*model.RunMetric{
+			Metrics: []*model.RunMetricV1{
 				{
 					RunUUID:     "1",
 					NodeID:      "node1",
@@ -1175,7 +1175,7 @@ func TestListRuns_WithMetrics(t *testing.T) {
 					PipelineRoot: "gs://my-bucket/path/to/root/run2",
 				},
 			},
-			Metrics: []*model.RunMetric{
+			Metrics: []*model.RunMetricV1{
 				{
 					RunUUID:     "2",
 					NodeID:      "node2",
@@ -1310,7 +1310,7 @@ func TestArchiveRun_IncludedInRunList(t *testing.T) {
 					},
 				},
 			},
-			Metrics: []*model.RunMetric{
+			Metrics: []*model.RunMetricV1{
 				{
 					RunUUID:     "1",
 					NodeID:      "node1",
@@ -1370,7 +1370,7 @@ func TestDeleteRun_InternalError(t *testing.T) {
 }
 
 func TestParseMetrics(t *testing.T) {
-	expectedModelRunMetrics := []*model.RunMetric{
+	expectedModelRunMetrics := []*model.RunMetricV1{
 		{
 			RunUUID:     "run-1",
 			Name:        "metric-1",

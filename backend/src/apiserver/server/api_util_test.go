@@ -361,7 +361,7 @@ func TestValidateRunMetric_InvalidNames(t *testing.T) {
 	AssertUserError(t, err, codes.InvalidArgument)
 }
 
-func TestvalidateRunMetricV1_InvalidNodeIDs(t *testing.T) {
+func TestValidateRunMetricV1_InvalidNodeIDs(t *testing.T) {
 	metric := &model.RunMetricV1{
 		Name: "a",
 	}
