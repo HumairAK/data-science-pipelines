@@ -68,32 +68,33 @@ var v1RunMetricsColumns = []string{
 }
 
 type RunStoreInterface interface {
-	// Creates a run entry. Does not create children tasks.
+	// CreateRun creates a run entry. Does not create children tasks.
 	CreateRun(run *model.Run) (*model.Run, error)
 
-	// Fetches a run.
+	// GetRun fetches a run.
 	GetRun(runId string) (*model.Run, error)
 
-	// Fetches runs with specified options. Joins with children tasks.
+	// ListRuns fetches runs with specified options. Joins with children tasks.
 	ListRuns(filterContext *model.FilterContext, opts *list.Options) ([]*model.Run, int, string, error)
 
-	// Updates a run.
+	// UpdateRun updates a run.
 	// Note: only state, runtime manifest can be updated. Does not update dependent tasks.
 	UpdateRun(run *model.Run) (err error)
 
-	// Archives a run.
+	// ArchiveRun archives a run.
 	ArchiveRun(runId string) error
 
-	// Un-archives a run.
+	// UnarchiveRun un-archives a run.
 	UnarchiveRun(runId string) error
 
-	// Deletes a run.
+	// DeleteRun deletes a run.
 	DeleteRun(runId string) error
 
-	// Creates a new metric entry.
+	// CreateV1Metric Creates a new metric entry.
+	// Deprecated: use CreateMetric instead.
 	CreateV1Metric(metric *model.RunMetricV1) (err error)
 
-	// Terminates a run.
+	// TerminateRun terminates a run.
 	TerminateRun(runId string) error
 }
 
@@ -676,7 +677,7 @@ func (s *RunStore) DeleteRun(id string) error {
 	return nil
 }
 
-// Creates a new metric in run_metrics table if does not exist.
+// CreateV1Metric Creates a new metric in run_metrics table if does not exist.
 func (s *RunStore) CreateV1Metric(metric *model.RunMetricV1) error {
 	payloadBytes, err := json.Marshal(metric)
 	if err != nil {
@@ -755,37 +756,4 @@ func (s *RunStore) addSortByRunMetricToSelect(sqlBuilder sq.SelectBuilder, opts 
 		Select("selected_runs.*, run_metrics.numbervalue as "+opts.SortByFieldName).
 		FromSelect(sqlBuilder, "selected_runs").
 		LeftJoin("run_metrics ON selected_runs.uuid=run_metrics.runuuid AND run_metrics.name='" + opts.SortByFieldName + "'")
-}
-
-func (s *RunStore) scanRowsToV1RunMetrics(rows *sql.Rows) ([]*model.RunMetricV1, error) {
-	var metrics []*model.RunMetricV1
-	for rows.Next() {
-		var runId, nodeId, name, form, payload string
-		var val float64
-		err := rows.Scan(
-			&runId,
-			&nodeId,
-			&name,
-			&val,
-			&form,
-			&payload,
-		)
-		if err != nil {
-			glog.Errorf("Failed to scan row into a run metric: %v", err)
-			return metrics, nil
-		}
-
-		metrics = append(
-			metrics,
-			&model.RunMetricV1{
-				RunUUID:     runId,
-				NodeID:      nodeId,
-				Name:        name,
-				NumberValue: val,
-				Format:      form,
-				Payload:     model.LargeText(payload),
-			},
-		)
-	}
-	return metrics, nil
 }

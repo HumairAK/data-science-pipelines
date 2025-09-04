@@ -1618,8 +1618,7 @@ func (r *ResourceManager) CreateDefaultExperiment(namespace string) (string, err
 }
 
 // ReportMetric Read metrics as ordinary artifacts instead.
-// Creates a run metric entry.
-// Deprecated
+// Creates a run metric entry. Deprecated.
 func (r *ResourceManager) ReportMetric(metric *model.RunMetricV1) error {
 	err := r.runStore.CreateV1Metric(metric)
 	if err != nil {

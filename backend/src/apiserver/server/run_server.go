@@ -416,8 +416,8 @@ func (s *BaseRunServer) reportRunMetricsV1(ctx context.Context, metrics []*model
 	return results, nil
 }
 
-// Reports run metrics.
-// Supports v1beta1 API.
+// ReportRunMetricsV1 reports run metrics.
+// Supports v1beta1 API. Deprecated.
 func (s *RunServerV1) ReportRunMetricsV1(ctx context.Context, request *apiv1beta1.ReportRunMetricsRequest) (*apiv1beta1.ReportRunMetricsResponse, error) {
 	if s.options.CollectMetrics {
 		reportRunMetricsRequests.Inc()
