@@ -270,20 +270,6 @@ func (s *RunStore) addMetricsResourceReferencesAndTasks(filteredSelectBuilder sq
 		LeftJoin("resource_references AS rr ON rr.ResourceType='Run' AND rd.UUID=rr.ResourceUUID").
 		GroupBy("rd.UUID")
 
-	//tasksConcatQuery := s.db.Concat([]string{`"["`, s.db.GroupConcat("tasks.Payload", ","), `"]"`}, "")
-	//columnsAfterJoiningTasks := append(
-	//	apply(func(column string) string { return "rdref." + column }, runColumns),
-	//	"rdref.refs",
-	//	tasksConcatQuery+" AS taskDetails")
-	//if opts != nil && !r.IsRegularField(opts.SortByFieldName) {
-	//	columnsAfterJoiningTasks = append(columnsAfterJoiningTasks, "rdref."+opts.SortByFieldName)
-	//}
-	//subQ = sq.
-	//	Select(columnsAfterJoiningTasks...).
-	//	FromSelect(subQ, "rdref").
-	//	LeftJoin("tasks AS tasks ON rdref.UUID=tasks.RunUUID").
-	//	GroupBy("rdref.UUID")
-
 	// TODO(HumairAK): Remove this join on metrics when v1 is removed
 	metricConcatQuery := s.db.Concat([]string{`"["`, s.db.GroupConcat("rm.Payload", ","), `"]"`}, "")
 	columnsAfterJoiningRunMetrics := append(
