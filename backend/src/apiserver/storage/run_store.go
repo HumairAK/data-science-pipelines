@@ -438,17 +438,6 @@ func parseResourceReferences(resourceRefString sql.NullString) ([]*model.Resourc
 	return refs, nil
 }
 
-func parseTaskDetails(tasksInString sql.NullString) ([]*model.Task, error) {
-	if !tasksInString.Valid {
-		return nil, nil
-	}
-	var taskDetails []*model.Task
-	if err := json.Unmarshal([]byte(tasksInString.String), &taskDetails); err != nil {
-		return nil, util.Wrapf(err, "Failed to parse task details '%s'", tasksInString.String)
-	}
-	return taskDetails, nil
-}
-
 func (s *RunStore) CreateRun(r *model.Run) (*model.Run, error) {
 	r = r.ToV1().ToV2()
 	if r.StorageState == "" || r.StorageState == model.StorageStateUnspecified || r.StorageState == model.StorageStateUnspecifiedV1 {
