@@ -58,15 +58,6 @@ var runColumns = []string{
 	"PipelineRunContextId",
 }
 
-var v1RunMetricsColumns = []string{
-	"RunUUID",
-	"NodeID",
-	"Name",
-	"NumberValue",
-	"Format",
-	"Payload",
-}
-
 type RunStoreInterface interface {
 	// CreateRun creates a run entry. Does not create children tasks.
 	CreateRun(run *model.Run) (*model.Run, error)
