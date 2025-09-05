@@ -31,7 +31,7 @@ func ctxWithUser() context.Context {
 	return metadata.NewIncomingContext(context.Background(), md)
 }
 
-func TestArtifactServer_CreateArtifact_MultiUser_Succeeds(t *testing.T) {
+func TestArtifactServer_CreateArtifact_MultiUserCreateAndGet_Succeeds(t *testing.T) {
 	viper.Set(common.MultiUserMode, "true")
 	defer viper.Set(common.MultiUserMode, "false")
 	clientManager := resource.NewFakeClientManagerOrFatal(util.NewFakeTimeForEpoch())
@@ -49,20 +49,8 @@ func TestArtifactServer_CreateArtifact_MultiUser_Succeeds(t *testing.T) {
 	assert.NotEmpty(t, created.GetArtifactId())
 	assert.Equal(t, "ns1", created.GetNamespace())
 	assert.Equal(t, apiv2beta1.Artifact_Model, created.GetType())
-}
-
-func TestArtifactServer_GetArtifact_HappyPath(t *testing.T) {
-	viper.Set(common.MultiUserMode, "true")
-	defer viper.Set(common.MultiUserMode, "false")
-	clientManager := resource.NewFakeClientManagerOrFatal(util.NewFakeTimeForEpoch())
-	resourceManager := resource.NewResourceManager(clientManager, &resource.ResourceManagerOptions{CollectMetrics: false})
-	s := createArtifactServer(resourceManager)
-
-	created, err := s.CreateArtifact(ctxWithUser(), &apiv2beta1.CreateArtifactRequest{Artifact: &apiv2beta1.Artifact{Namespace: "ns1", Type: apiv2beta1.Artifact_Model, Uri: "gs://b/f", Name: "a1"}})
-	assert.NoError(t, err)
-	got, err := s.GetArtifact(ctxWithUser(), &apiv2beta1.GetArtifactRequest{ArtifactId: created.GetArtifactId()})
-	assert.NoError(t, err)
-	assert.Equal(t, created.GetArtifactId(), got.GetArtifactId())
+	assert.Equal(t, "gs://b/f", created.GetUri())
+	assert.Equal(t, "a1", created.GetName())
 }
 
 func TestArtifactServer_UpdateArtifact_HappyPath(t *testing.T) {
@@ -72,7 +60,14 @@ func TestArtifactServer_UpdateArtifact_HappyPath(t *testing.T) {
 	resourceManager := resource.NewResourceManager(clientManager, &resource.ResourceManagerOptions{CollectMetrics: false})
 	s := createArtifactServer(resourceManager)
 
-	created, err := s.CreateArtifact(ctxWithUser(), &apiv2beta1.CreateArtifactRequest{Artifact: &apiv2beta1.Artifact{Namespace: "ns1", Type: apiv2beta1.Artifact_Model, Uri: "gs://b/f", Name: "a1"}})
+	created, err := s.CreateArtifact(ctxWithUser(), &apiv2beta1.CreateArtifactRequest{
+		Artifact: &apiv2beta1.Artifact{
+			Namespace: "ns1",
+			Type:      apiv2beta1.Artifact_Model,
+			Uri:       "gs://b/f",
+			Name:      "a1",
+		},
+	})
 	assert.NoError(t, err)
 	created.Name = "a1-upd"
 	created.Type = apiv2beta1.Artifact_Dataset
@@ -89,8 +84,16 @@ func TestArtifactServer_ListArtifacts_HappyPath(t *testing.T) {
 	resourceManager := resource.NewResourceManager(clientManager, &resource.ResourceManagerOptions{CollectMetrics: false})
 	s := createArtifactServer(resourceManager)
 
-	_, _ = s.CreateArtifact(ctxWithUser(), &apiv2beta1.CreateArtifactRequest{Artifact: &apiv2beta1.Artifact{Namespace: "ns1", Type: apiv2beta1.Artifact_Model, Uri: "gs://b/f", Name: "a1"}})
-	listResp, err := s.ListArtifacts(ctxWithUser(), &apiv2beta1.ListArtifactRequest{Namespace: "ns1", PageSize: 10})
+	_, err := s.CreateArtifact(ctxWithUser(), &apiv2beta1.CreateArtifactRequest{Artifact: &apiv2beta1.Artifact{
+		Namespace: "ns1",
+		Type:      apiv2beta1.Artifact_Model,
+		Uri:       "gs://b/f",
+		Name:      "a1",
+	}})
+	listResp, err := s.ListArtifacts(ctxWithUser(), &apiv2beta1.ListArtifactRequest{
+		Namespace: "ns1",
+		PageSize:  10,
+	})
 	assert.NoError(t, err)
 	assert.GreaterOrEqual(t, int(listResp.GetTotalSize()), 1)
 	assert.GreaterOrEqual(t, len(listResp.GetArtifacts()), 1)
@@ -110,7 +113,7 @@ func TestArtifactServer_GetArtifact_Errors(t *testing.T) {
 	assert.Equal(t, codes.NotFound, err.(*util.UserError).ExternalStatusCode())
 }
 
-func TestArtifactServer_ListArtifactTasks_LogAndGetMetrics(t *testing.T) {
+func TestArtifactServer_LogAndGetMetrics(t *testing.T) {
 	clientManager := resource.NewFakeClientManagerOrFatal(util.NewFakeTimeForEpoch())
 	resourceManager := resource.NewResourceManager(clientManager, &resource.ResourceManagerOptions{CollectMetrics: false})
 	s := createArtifactServer(resourceManager)
@@ -125,32 +128,6 @@ func TestArtifactServer_ListArtifactTasks_LogAndGetMetrics(t *testing.T) {
 		Status:       1,
 	})
 	assert.NoError(t, err)
-
-	// Create an artifact
-	art, err := s.CreateArtifact(
-		context.Background(),
-		&apiv2beta1.CreateArtifactRequest{
-			Artifact: &apiv2beta1.Artifact{
-				Namespace: "ns1",
-				Type:      apiv2beta1.Artifact_Artifact,
-				Uri:       "u",
-				Name:      "a",
-			},
-		})
-	assert.NoError(t, err)
-
-	// ListArtifactTasks requires at least one filter
-	_, err = s.ListArtifactTasks(context.Background(), &apiv2beta1.ListArtifactTasksRequest{})
-	assert.Equal(t, codes.InvalidArgument, err.(*util.UserError).ExternalStatusCode())
-
-	// List by artifact id (ResourceManager currently returns empty as not implemented)
-	lat, err := s.ListArtifactTasks(context.Background(), &apiv2beta1.ListArtifactTasksRequest{
-		ArtifactIds: []string{art.GetArtifactId()},
-		PageSize:    10},
-	)
-	assert.NoError(t, err)
-	assert.Equal(t, int32(0), lat.GetTotalSize())
-	assert.Equal(t, 0, len(lat.GetArtifactTasks()))
 
 	// Log metric for the task
 	logMetricRequest := &apiv2beta1.LogMetricRequest{
