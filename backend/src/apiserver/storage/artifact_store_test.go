@@ -103,6 +103,7 @@ func TestUpdateArtifact_Success(t *testing.T) {
 	assert.Equal(t, "n2", updated.Name)
 	assert.GreaterOrEqual(t, updated.LastUpdateInSec, created.CreatedAtInSec)
 	assert.Equal(t, "x", updated.Metadata["b"])
+
 }
 
 func TestListArtifacts_BasicFiltersAndPagination(t *testing.T) {
