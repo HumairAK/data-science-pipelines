@@ -570,6 +570,7 @@ func autoMigrate(db *gorm.DB) error {
 	glog.Infof("Running AutoMigrate.")
 
 	if err := db.AutoMigrate(
+		&model.Artifact{},
 		&model.DBStatus{},
 		&model.DefaultExperiment{},
 		&model.Experiment{},
