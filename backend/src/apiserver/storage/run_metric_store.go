@@ -26,8 +26,6 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 )
 
-const runMetricTableName = "run_metrics"
-
 var runMetricColumns = []string{
 	"RunID",
 	"TaskID",
@@ -153,12 +151,12 @@ func (s *RunMetricStore) applyFilterContextsToQuery(sqlBuilder sq.SelectBuilder,
 
 		switch filterContext.ReferenceKey.Type {
 		case model.NamespaceResourceType:
-			sqlBuilder = sqlBuilder.Where(sq.Eq{"run_metrics.Namespace": filterContext.ReferenceKey.ID})
+			sqlBuilder = sqlBuilder.Where(sq.Eq{"metrics.Namespace": filterContext.ReferenceKey.ID})
 		case model.TaskResourceType:
-			sqlBuilder = sqlBuilder.Where(sq.Eq{"run_metrics.TaskID": filterContext.ReferenceKey.ID})
+			sqlBuilder = sqlBuilder.Where(sq.Eq{"metrics.TaskID": filterContext.ReferenceKey.ID})
 		case model.RunResourceType:
-			// Filter directly by RunID field on run_metrics table
-			sqlBuilder = sqlBuilder.Where(sq.Eq{"run_metrics.RunID": filterContext.ReferenceKey.ID})
+			// Filter directly by RunID field on metrics table
+			sqlBuilder = sqlBuilder.Where(sq.Eq{"metrics.RunID": filterContext.ReferenceKey.ID})
 		}
 	}
 
@@ -171,7 +169,7 @@ func (s *RunMetricStore) ListRunMetrics(filterContexts []*model.FilterContext, o
 	}
 
 	// SQL for getting the filtered and paginated rows
-	sqlBuilder := sq.Select(runMetricColumns...).From(runMetricTableName)
+	sqlBuilder := sq.Select(runMetricColumns...).From(model.RunMetricTableName)
 	sqlBuilder = s.applyFilterContextsToQuery(sqlBuilder, filterContexts)
 	sqlBuilder = opts.AddFilterToSelect(sqlBuilder)
 
@@ -181,7 +179,7 @@ func (s *RunMetricStore) ListRunMetrics(filterContexts []*model.FilterContext, o
 	}
 
 	// SQL for getting total size
-	countBuilder := sq.Select("count(*)").From(runMetricTableName)
+	countBuilder := sq.Select("count(*)").From(model.RunMetricTableName)
 	countBuilder = s.applyFilterContextsToQuery(countBuilder, filterContexts)
 	sizeSql, sizeArgs, err := opts.AddFilterToSelect(countBuilder).ToSql()
 	if err != nil {
@@ -269,7 +267,7 @@ func (s *RunMetricStore) CreateRunMetrics(metrics []*model.RunMetric) ([]*model.
 		}
 
 		sql, args, err := sq.
-			Insert(runMetricTableName).
+			Insert(metric.TableName()).
 			SetMap(sq.Eq{
 				"RunID":          newMetric.RunID,
 				"TaskID":         newMetric.TaskID,
@@ -307,7 +305,7 @@ func (s *RunMetricStore) CreateRunMetrics(metrics []*model.RunMetric) ([]*model.
 func (s *RunMetricStore) GetRunMetric(taskID, name string) (*model.RunMetric, error) {
 	sql, args, err := sq.
 		Select(runMetricColumns...).
-		From(runMetricTableName).
+		From(model.RunMetricTableName).
 		Where(sq.Eq{"TaskID": taskID, "Name": name}).
 		Limit(1).ToSql()
 	if err != nil {

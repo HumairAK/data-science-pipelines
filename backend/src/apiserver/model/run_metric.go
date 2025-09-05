@@ -51,8 +51,10 @@ type RunMetric struct {
 	Task Task `gorm:"foreignKey:TaskID;references:UUID;constraint:fk_run_metrics_tasks,OnDelete:CASCADE,OnUpdate:CASCADE;"`
 }
 
+const RunMetricTableName = "metrics"
+
 func (RunMetric) TableName() string {
-	return "metrics"
+	return RunMetricTableName
 }
 
 type RunMetricV1 struct {
