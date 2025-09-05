@@ -31,43 +31,65 @@ func ctxWithUser() context.Context {
 	return metadata.NewIncomingContext(context.Background(), md)
 }
 
-func TestArtifactServer_CreateGetUpdateListArtifacts(t *testing.T) {
-	// Enable multi-user mode so namespace is honored
+func TestArtifactServer_CreateArtifact_MultiUser_Succeeds(t *testing.T) {
 	viper.Set(common.MultiUserMode, "true")
 	defer viper.Set(common.MultiUserMode, "false")
-
 	clientManager := resource.NewFakeClientManagerOrFatal(util.NewFakeTimeForEpoch())
 	resourceManager := resource.NewResourceManager(clientManager, &resource.ResourceManagerOptions{CollectMetrics: false})
 	s := createArtifactServer(resourceManager)
 
-	// Create
-	createReq := &apiv2beta1.CreateArtifactRequest{Artifact: &apiv2beta1.Artifact{
+	req := &apiv2beta1.CreateArtifactRequest{Artifact: &apiv2beta1.Artifact{
 		Namespace: "ns1",
 		Type:      apiv2beta1.Artifact_Model,
 		Uri:       "gs://b/f",
 		Name:      "a1",
 	}}
-
-	created, err := s.CreateArtifact(ctxWithUser(), createReq)
+	created, err := s.CreateArtifact(ctxWithUser(), req)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, created.GetArtifactId())
 	assert.Equal(t, "ns1", created.GetNamespace())
 	assert.Equal(t, apiv2beta1.Artifact_Model, created.GetType())
+}
 
-	// Get
+func TestArtifactServer_GetArtifact_HappyPath(t *testing.T) {
+	viper.Set(common.MultiUserMode, "true")
+	defer viper.Set(common.MultiUserMode, "false")
+	clientManager := resource.NewFakeClientManagerOrFatal(util.NewFakeTimeForEpoch())
+	resourceManager := resource.NewResourceManager(clientManager, &resource.ResourceManagerOptions{CollectMetrics: false})
+	s := createArtifactServer(resourceManager)
+
+	created, err := s.CreateArtifact(ctxWithUser(), &apiv2beta1.CreateArtifactRequest{Artifact: &apiv2beta1.Artifact{Namespace: "ns1", Type: apiv2beta1.Artifact_Model, Uri: "gs://b/f", Name: "a1"}})
+	assert.NoError(t, err)
 	got, err := s.GetArtifact(ctxWithUser(), &apiv2beta1.GetArtifactRequest{ArtifactId: created.GetArtifactId()})
 	assert.NoError(t, err)
 	assert.Equal(t, created.GetArtifactId(), got.GetArtifactId())
+}
 
-	// Update
-	got.Name = "a1-upd"
-	got.Type = apiv2beta1.Artifact_Dataset
-	upd, err := s.UpdateArtifact(ctxWithUser(), &apiv2beta1.UpdateArtifactRequest{Artifact: got})
+func TestArtifactServer_UpdateArtifact_HappyPath(t *testing.T) {
+	viper.Set(common.MultiUserMode, "true")
+	defer viper.Set(common.MultiUserMode, "false")
+	clientManager := resource.NewFakeClientManagerOrFatal(util.NewFakeTimeForEpoch())
+	resourceManager := resource.NewResourceManager(clientManager, &resource.ResourceManagerOptions{CollectMetrics: false})
+	s := createArtifactServer(resourceManager)
+
+	created, err := s.CreateArtifact(ctxWithUser(), &apiv2beta1.CreateArtifactRequest{Artifact: &apiv2beta1.Artifact{Namespace: "ns1", Type: apiv2beta1.Artifact_Model, Uri: "gs://b/f", Name: "a1"}})
+	assert.NoError(t, err)
+	created.Name = "a1-upd"
+	created.Type = apiv2beta1.Artifact_Dataset
+	upd, err := s.UpdateArtifact(ctxWithUser(), &apiv2beta1.UpdateArtifactRequest{Artifact: created})
 	assert.NoError(t, err)
 	assert.Equal(t, "a1-upd", upd.GetName())
 	assert.Equal(t, apiv2beta1.Artifact_Dataset, upd.GetType())
+}
 
-	// List
+func TestArtifactServer_ListArtifacts_HappyPath(t *testing.T) {
+	viper.Set(common.MultiUserMode, "true")
+	defer viper.Set(common.MultiUserMode, "false")
+	clientManager := resource.NewFakeClientManagerOrFatal(util.NewFakeTimeForEpoch())
+	resourceManager := resource.NewResourceManager(clientManager, &resource.ResourceManagerOptions{CollectMetrics: false})
+	s := createArtifactServer(resourceManager)
+
+	_, _ = s.CreateArtifact(ctxWithUser(), &apiv2beta1.CreateArtifactRequest{Artifact: &apiv2beta1.Artifact{Namespace: "ns1", Type: apiv2beta1.Artifact_Model, Uri: "gs://b/f", Name: "a1"}})
 	listResp, err := s.ListArtifacts(ctxWithUser(), &apiv2beta1.ListArtifactRequest{Namespace: "ns1", PageSize: 10})
 	assert.NoError(t, err)
 	assert.GreaterOrEqual(t, int(listResp.GetTotalSize()), 1)
