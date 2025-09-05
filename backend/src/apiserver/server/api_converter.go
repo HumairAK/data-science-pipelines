@@ -2379,19 +2379,11 @@ func toApiArtifactTask(artifactTask *model.ArtifactTask) *apiv2beta1.ArtifactTas
 	if artifactTask == nil {
 		return &apiv2beta1.ArtifactTask{}
 	}
-
-	var taskType apiv2beta1.ArtifactTaskType
-	if artifactTask.Type == model.ArtifactTaskTypeInput {
-		taskType = apiv2beta1.ArtifactTaskType_INPUT
-	} else {
-		taskType = apiv2beta1.ArtifactTaskType_OUTPUT
-	}
-
 	return &apiv2beta1.ArtifactTask{
 		Id:         artifactTask.UUID,
 		ArtifactId: artifactTask.ArtifactID,
 		TaskId:     artifactTask.TaskID,
-		Type:       taskType,
+		Type:       artifactTask.Type,
 	}
 }
 
@@ -2403,6 +2395,19 @@ func toApiArtifactTasks(artifactTasks []*model.ArtifactTask) []*apiv2beta1.Artif
 		apiArtifactTasks = append(apiArtifactTasks, toApiArtifactTask(artifactTask))
 	}
 	return apiArtifactTasks
+}
+
+// Converts API v2beta1 ArtifactTask to its internal representation.
+func toModelArtifactTask(apiAT *apiv2beta1.ArtifactTask) (*model.ArtifactTask, error) {
+	if apiAT == nil {
+		return nil, util.NewInvalidInputError("ArtifactTask cannot be nil")
+	}
+	return &model.ArtifactTask{
+		UUID:       apiAT.GetId(),
+		ArtifactID: apiAT.GetArtifactId(),
+		TaskID:     apiAT.GetTaskId(),
+		Type:       apiAT.GetType(),
+	}, nil
 }
 
 // TaskStateHistoryEntry represents a single entry in task state history

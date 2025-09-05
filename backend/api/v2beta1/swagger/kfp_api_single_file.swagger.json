@@ -123,6 +123,37 @@
         "tags": [
           "ArtifactService"
         ]
+      },
+      "post": {
+        "summary": "Creates an artifact-task relationship.",
+        "operationId": "create_artifact_task",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v2beta1ArtifactTask"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v2beta1CreateArtifactTaskRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ArtifactService"
+        ]
       }
     },
     "/apis/v2beta1/artifacts": {
@@ -2309,7 +2340,9 @@
       "type": "object",
       "properties": {
         "id": {
-          "type": "string"
+          "type": "string",
+          "description": "Output only. The unique server generated id of the ArtifactTask.",
+          "readOnly": true
         },
         "artifact_id": {
           "type": "string"
@@ -2338,6 +2371,16 @@
           "description": "Required. The artifact to create."
         }
       }
+    },
+    "v2beta1CreateArtifactTaskRequest": {
+      "type": "object",
+      "properties": {
+        "artifact_task": {
+          "$ref": "#/definitions/v2beta1ArtifactTask",
+          "description": "Required. The artifact-task relationship to create."
+        }
+      },
+      "title": "Request to create an artifact-task relationship"
     },
     "v2beta1ListArtifactResponse": {
       "type": "object",

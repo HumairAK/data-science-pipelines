@@ -56,6 +56,8 @@ type ClientOption func(*runtime.ClientOperation)
 type ClientService interface {
 	CreateArtifact(params *CreateArtifactParams, opts ...ClientOption) (*CreateArtifactOK, error)
 
+	CreateArtifactTask(params *CreateArtifactTaskParams, opts ...ClientOption) (*CreateArtifactTaskOK, error)
+
 	GetArtifact(params *GetArtifactParams, opts ...ClientOption) (*GetArtifactOK, error)
 
 	GetMetric(params *GetMetricParams, opts ...ClientOption) (*GetMetricOK, error)
@@ -107,6 +109,43 @@ func (a *Client) CreateArtifact(params *CreateArtifactParams, opts ...ClientOpti
 	}
 	// unexpected success response
 	unexpectedSuccess := result.(*CreateArtifactDefault)
+	return nil, runtime.NewAPIError("unexpected success response: content available as default response in error", unexpectedSuccess, unexpectedSuccess.Code())
+}
+
+/*
+CreateArtifactTask creates an artifact task relationship
+*/
+func (a *Client) CreateArtifactTask(params *CreateArtifactTaskParams, opts ...ClientOption) (*CreateArtifactTaskOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewCreateArtifactTaskParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "create_artifact_task",
+		Method:             "POST",
+		PathPattern:        "/apis/v2beta1/artifact_tasks",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http", "https"},
+		Params:             params,
+		Reader:             &CreateArtifactTaskReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+	success, ok := result.(*CreateArtifactTaskOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	unexpectedSuccess := result.(*CreateArtifactTaskDefault)
 	return nil, runtime.NewAPIError("unexpected success response: content available as default response in error", unexpectedSuccess, unexpectedSuccess.Code())
 }
 

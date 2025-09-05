@@ -100,6 +100,19 @@ service ArtifactService {
     };
   }
 
+  // Creates an artifact-task relationship.
+  rpc CreateArtifactTask(CreateArtifactTaskRequest) returns (ArtifactTask) {
+    option (google.api.http) = {
+      post: "/apis/v2beta1/artifact_tasks"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      operation_id: "create_artifact_task"
+      summary: "Creates an artifact-task relationship."
+      tags: "ArtifactService"
+    };
+  }
+
   // Creates a new artifact.
   rpc CreateArtifact(CreateArtifactRequest) returns (Artifact) {
     option (google.api.http) = {
@@ -225,6 +238,12 @@ message ListArtifactTasksResponse {
   string next_page_token = 3;
 }
 
+// Request to create an artifact-task relationship
+message CreateArtifactTaskRequest {
+  // Required. The artifact-task relationship to create.
+  ArtifactTask artifact_task = 1;
+}
+
 message LogMetricRequest {
   // Required. The metric to log.
   Metric metric = 1;
@@ -269,6 +288,7 @@ enum ArtifactTaskType {
 }
 
 message ArtifactTask {
+  // Output only. The unique server generated id of the ArtifactTask.
   string id = 1;
   string artifact_id = 2;
   string task_id = 3;

@@ -97,6 +97,7 @@ type ClientManager struct {
 	taskStore                 storage.TaskStoreInterface
 	runMetricStore            storage.RunMetricStoreInterface
 	artifactStore             storage.ArtifactStoreInterface
+	artifactTaskStore         storage.ArtifactTaskStoreInterface
 	resourceReferenceStore    storage.ResourceReferenceStoreInterface
 	dBStatusStore             storage.DBStatusStoreInterface
 	defaultExperimentStore    storage.DefaultExperimentStoreInterface
@@ -156,6 +157,10 @@ func (c *ClientManager) RunMetricStore() storage.RunMetricStoreInterface {
 
 func (c *ClientManager) ArtifactStore() storage.ArtifactStoreInterface {
 	return c.artifactStore
+}
+
+func (c *ClientManager) ArtifactTaskStore() storage.ArtifactTaskStoreInterface {
+	return c.artifactTaskStore
 }
 
 func (c *ClientManager) ResourceReferenceStore() storage.ResourceReferenceStoreInterface {
@@ -312,6 +317,7 @@ func (c *ClientManager) init(options *Options) error {
 	c.runStore = runStore
 	c.runMetricStore = storage.NewRunMetricStore(db, c.time)
 	c.artifactStore = storage.NewArtifactStore(db, c.time, c.uuid)
+	c.artifactTaskStore = storage.NewArtifactTaskStore(db, c.uuid)
 
 	// Log archive
 	c.logArchive = initLogArchive()
@@ -571,6 +577,7 @@ func autoMigrate(db *gorm.DB) error {
 
 	if err := db.AutoMigrate(
 		&model.Artifact{},
+		&model.ArtifactTask{},
 		&model.DBStatus{},
 		&model.DefaultExperiment{},
 		&model.Experiment{},

@@ -14,6 +14,8 @@
 
 package model
 
+import apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+
 // ArtifactTaskType represents the type of artifact-task relationship
 type ArtifactTaskType int
 
@@ -24,14 +26,14 @@ const (
 
 // ArtifactTask represents the relationship between artifacts and tasks (replaces MLMD Events)
 type ArtifactTask struct {
-	UUID            string            `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
-	ArtifactID      string            `gorm:"column:ArtifactID; not null; type:varchar(191); index:idx_link_artifact_id; uniqueIndex:UniqueLink,priority:1;"`
-	TaskID          string            `gorm:"column:TaskID; not null; type:varchar(191); index:idx_link_task_id; uniqueIndex:UniqueLink,priority:2;"`
-	Type            ArtifactTaskType  `gorm:"column:Type; not null; uniqueIndex:UniqueLink,priority:3;"`
-	
+	UUID       string                      `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
+	ArtifactID string                      `gorm:"column:ArtifactID; not null; type:varchar(191); index:idx_link_artifact_id; uniqueIndex:UniqueLink,priority:1;"`
+	TaskID     string                      `gorm:"column:TaskID; not null; type:varchar(191); index:idx_link_task_id; uniqueIndex:UniqueLink,priority:2;"`
+	Type       apiv2beta1.ArtifactTaskType `gorm:"column:Type; not null; uniqueIndex:UniqueLink,priority:3;"`
+
 	// Relationships
-	Artifact        Artifact          `gorm:"foreignKey:ArtifactID;references:UUID;constraint:fk_artifact_tasks_artifacts,OnDelete:CASCADE,OnUpdate:CASCADE;"`
-	Task            Task              `gorm:"foreignKey:TaskID;references:UUID;constraint:fk_artifact_tasks_tasks,OnDelete:CASCADE,OnUpdate:CASCADE;"`
+	Artifact Artifact `gorm:"foreignKey:ArtifactID;references:UUID;constraint:fk_artifact_tasks_artifacts,OnDelete:CASCADE,OnUpdate:CASCADE;"`
+	Task     Task     `gorm:"foreignKey:TaskID;references:UUID;constraint:fk_artifact_tasks_tasks,OnDelete:CASCADE,OnUpdate:CASCADE;"`
 }
 
 func (at ArtifactTask) PrimaryKeyColumnName() string {
@@ -59,10 +61,10 @@ func (at ArtifactTask) GetKeyFieldPrefix() string {
 }
 
 var artifactTaskAPIToModelFieldMap = map[string]string{
-	"id":           "UUID",
-	"artifact_id":  "ArtifactID",
-	"task_id":      "TaskID",
-	"type":         "Type",
+	"id":          "UUID",
+	"artifact_id": "ArtifactID",
+	"task_id":     "TaskID",
+	"type":        "Type",
 }
 
 func (at ArtifactTask) GetField(name string) (string, bool) {

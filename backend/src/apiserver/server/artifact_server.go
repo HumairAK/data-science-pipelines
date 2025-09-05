@@ -170,6 +170,55 @@ func (s *ArtifactServer) ListArtifacts(ctx context.Context, request *apiv2beta1.
 	}, nil
 }
 
+// CreateArtifactTask creates an artifact-task relationship.
+func (s *ArtifactServer) CreateArtifactTask(ctx context.Context, request *apiv2beta1.CreateArtifactTaskRequest) (*apiv2beta1.ArtifactTask, error) {
+	if request == nil || request.GetArtifactTask() == nil {
+		return nil, util.NewInvalidInputError("CreateArtifactTaskRequest and artifact_task are required")
+	}
+	at := request.GetArtifactTask()
+	if at.GetArtifactId() == "" {
+		return nil, util.NewInvalidInputError("artifact_task.artifact_id is required")
+	}
+	if at.GetTaskId() == "" {
+		return nil, util.NewInvalidInputError("artifact_task.task_id is required")
+	}
+
+	// Fetch task and artifact for validation and authorization
+	task, err := s.resourceManager.GetTask(at.GetTaskId())
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to fetch task for CreateArtifactTask")
+	}
+	artifact, err := s.resourceManager.GetArtifact(at.GetArtifactId())
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to fetch artifact for CreateArtifactTask")
+	}
+
+	// Optional: enforce same-namespace linkage
+	if common.IsMultiUserMode() && task.Namespace != "" && artifact.Namespace != "" && task.Namespace != artifact.Namespace {
+		return nil, util.NewInvalidInputError("artifact and task must be in the same namespace: artifact=%s task=%s", artifact.Namespace, task.Namespace)
+	}
+
+	// Authorize create in the task's namespace
+	resourceAttributes := &authorizationv1.ResourceAttributes{
+		Namespace: task.Namespace,
+		Verb:      common.RbacResourceVerbCreate,
+	}
+	if err = s.canAccessRun(ctx, "", resourceAttributes); err != nil {
+		return nil, util.Wrap(err, "Failed to authorize the request")
+	}
+
+	modelAT, err := toModelArtifactTask(at)
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to convert artifact_task")
+	}
+
+	created, err := s.resourceManager.CreateArtifactTask(modelAT)
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to create artifact-task")
+	}
+	return toApiArtifactTask(created), nil
+}
+
 // ListArtifactTasks lists artifact-task relationships.
 func (s *ArtifactServer) ListArtifactTasks(ctx context.Context, request *apiv2beta1.ListArtifactTasksRequest) (*apiv2beta1.ListArtifactTasksResponse, error) {
 	opts, err := validatedListOptions(&model.ArtifactTask{}, request.PageToken, int(request.PageSize), request.SortBy, request.Filter, "v2beta1")

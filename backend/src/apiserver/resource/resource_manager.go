@@ -87,6 +87,7 @@ type ClientManagerInterface interface {
 	TaskStore() storage.TaskStoreInterface
 	RunMetricStore() storage.RunMetricStoreInterface
 	ArtifactStore() storage.ArtifactStoreInterface
+	ArtifactTaskStore() storage.ArtifactTaskStoreInterface
 	ResourceReferenceStore() storage.ResourceReferenceStoreInterface
 	DBStatusStore() storage.DBStatusStoreInterface
 	DefaultExperimentStore() storage.DefaultExperimentStoreInterface
@@ -109,28 +110,29 @@ type ResourceManagerOptions struct {
 }
 
 type ResourceManager struct {
-	experimentStore           storage.ExperimentStoreInterface
-	pipelineStore             storage.PipelineStoreInterface
-	jobStore                  storage.JobStoreInterface
-	runStore                  storage.RunStoreInterface
-	taskStore                 storage.TaskStoreInterface
-	runMetricStore            storage.RunMetricStoreInterface
-	artifactStore             storage.ArtifactStoreInterface
-	resourceReferenceStore    storage.ResourceReferenceStoreInterface
-	dBStatusStore             storage.DBStatusStoreInterface
-	defaultExperimentStore    storage.DefaultExperimentStoreInterface
-	objectStore               storage.ObjectStoreInterface
-	execClient                util.ExecutionClient
-	swfClient                 client.SwfClientInterface
-	k8sCoreClient             client.KubernetesCoreInterface
-	subjectAccessReviewClient client.SubjectAccessReviewInterface
-	tokenReviewClient         client.TokenReviewInterface
-	logArchive                archive.LogArchiveInterface
-	time                      util.TimeInterface
-	uuid                      util.UUIDGeneratorInterface
-	authenticators            []kfpauth.Authenticator
-	options                   *ResourceManagerOptions
-}
+		experimentStore           storage.ExperimentStoreInterface
+		pipelineStore             storage.PipelineStoreInterface
+		jobStore                  storage.JobStoreInterface
+		runStore                  storage.RunStoreInterface
+		taskStore                 storage.TaskStoreInterface
+		runMetricStore            storage.RunMetricStoreInterface
+		artifactStore             storage.ArtifactStoreInterface
+		artifactTaskStore         storage.ArtifactTaskStoreInterface
+		resourceReferenceStore    storage.ResourceReferenceStoreInterface
+		dBStatusStore             storage.DBStatusStoreInterface
+		defaultExperimentStore    storage.DefaultExperimentStoreInterface
+		objectStore               storage.ObjectStoreInterface
+		execClient                util.ExecutionClient
+		swfClient                 client.SwfClientInterface
+		k8sCoreClient             client.KubernetesCoreInterface
+		subjectAccessReviewClient client.SubjectAccessReviewInterface
+		tokenReviewClient         client.TokenReviewInterface
+		logArchive                archive.LogArchiveInterface
+		time                      util.TimeInterface
+		uuid                      util.UUIDGeneratorInterface
+		authenticators            []kfpauth.Authenticator
+		options                   *ResourceManagerOptions
+	}
 
 func NewResourceManager(clientManager ClientManagerInterface, options *ResourceManagerOptions) *ResourceManager {
 	return &ResourceManager{
@@ -141,6 +143,7 @@ func NewResourceManager(clientManager ClientManagerInterface, options *ResourceM
 		taskStore:                 clientManager.TaskStore(),
 		runMetricStore:            clientManager.RunMetricStore(),
 		artifactStore:             clientManager.ArtifactStore(),
+		artifactTaskStore:         clientManager.ArtifactTaskStore(),
 		resourceReferenceStore:    clientManager.ResourceReferenceStore(),
 		dBStatusStore:             clientManager.DBStatusStore(),
 		defaultExperimentStore:    clientManager.DefaultExperimentStore(),
@@ -2081,9 +2084,20 @@ func (r *ResourceManager) GetTaskChildren(taskId string) ([]*model.Task, error) 
 
 // ListArtifactTasks Fetches artifact tasks with given filtering and listing options.
 func (r *ResourceManager) ListArtifactTasks(filterContexts []*model.FilterContext, opts *list.Options) ([]*model.ArtifactTask, int, string, error) {
-	// This would require implementing an ArtifactTaskStore - for now return empty
-	// TODO: Implement artifact task management when the feature is fully specified
-	return []*model.ArtifactTask{}, 0, "", nil
+ artifactTasks, totalSize, nextPageToken, err := r.artifactTaskStore.ListArtifactTasks(filterContexts, opts)
+	if err != nil {
+		return nil, 0, "", util.Wrap(err, "Failed to list artifact tasks")
+	}
+	return artifactTasks, totalSize, nextPageToken, nil
+}
+
+// CreateArtifactTask Creates an artifact-task relationship entry.
+func (r *ResourceManager) CreateArtifactTask(artifactTask *model.ArtifactTask) (*model.ArtifactTask, error) {
+	newAT, err := r.artifactTaskStore.CreateArtifactTask(artifactTask)
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to create artifact-task relationship")
+	}
+	return newAT, nil
 }
 
 // GetArtifact Fetches an artifact with a given id.

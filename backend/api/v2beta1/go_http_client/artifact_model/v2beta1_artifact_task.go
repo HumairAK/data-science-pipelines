@@ -11,6 +11,7 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
+	"github.com/go-openapi/validate"
 )
 
 // V2beta1ArtifactTask v2beta1 artifact task
@@ -21,7 +22,8 @@ type V2beta1ArtifactTask struct {
 	// artifact id
 	ArtifactID string `json:"artifact_id,omitempty"`
 
-	// id
+	// Output only. The unique server generated id of the ArtifactTask.
+	// Read Only: true
 	ID string `json:"id,omitempty"`
 
 	// task id
@@ -68,6 +70,10 @@ func (m *V2beta1ArtifactTask) validateType(formats strfmt.Registry) error {
 func (m *V2beta1ArtifactTask) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.contextValidateID(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.contextValidateType(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -75,6 +81,15 @@ func (m *V2beta1ArtifactTask) ContextValidate(ctx context.Context, formats strfm
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *V2beta1ArtifactTask) contextValidateID(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := validate.ReadOnly(ctx, "id", "body", string(m.ID)); err != nil {
+		return err
+	}
+
 	return nil
 }
 
