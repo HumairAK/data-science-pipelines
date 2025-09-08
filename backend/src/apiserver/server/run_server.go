@@ -565,16 +565,7 @@ func (s *RunServer) GetRun(ctx context.Context, request *apiv2beta1.GetRunReques
 		return nil, util.Wrap(err, "Failed to get a run")
 	}
 
-	apiRun := toApiRun(run)
-
-	// Build task details for this run, including input/output artifact references
-	tasks, err := s.buildRunTasks(ctx, request.RunId)
-	if err != nil {
-		glog.Warningf("Failed to build tasks for run %s: %v", request.RunId, err)
-	} else if len(tasks) > 0 {
-		apiRun.Tasks = tasks
-	}
-	return apiRun, nil
+	return toApiRun(run), nil
 }
 
 // Fetches runs given query parameters.
@@ -683,101 +674,6 @@ func (s *RunServer) RetryRun(ctx context.Context, request *apiv2beta1.RetryRunRe
 	}
 
 	return &emptypb.Empty{}, nil
-}
-
-// buildRunTasks assembles PipelineTaskDetail entries for a run, and enriches them with
-// input/output artifact references using the ArtifactTasks table. It minimizes queries by
-// fetching all tasks and all artifact-task links for the run in batches.
-func (s *RunServer) buildRunTasks(ctx context.Context, runId string) ([]*apiv2beta1.PipelineTaskDetail, error) {
-	// Authorization already performed in GetRun; we only need to ensure the run exists for namespace validation if needed.
-	// List all tasks for this run (single page with a high limit to avoid multiple round trips)
-	opts, err := validatedListOptions(&model.Task{}, "", 10000, "create_time desc", "", "v2beta1")
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to create list options for tasks")
-	}
-	// Fetch tasks under the run
-	tasks, _, _, err := s.resourceManager.ListTasks(runId, "", opts)
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to list tasks for run")
-	}
-	if len(tasks) == 0 {
-		return []*apiv2beta1.PipelineTaskDetail{}, nil
-	}
-
-	// Build parent->children map and roots
-	childrenByParent := make(map[string][]*model.Task)
-	roots := make([]*model.Task, 0)
-	for _, t := range tasks {
-		p := t.ParentTaskUUID
-		if p == "" {
-			roots = append(roots, t)
-		} else {
-			childrenByParent[p] = append(childrenByParent[p], t)
-		}
-	}
-
-	// Fetch artifact-task links for all tasks in this run in a single call filtered by run id
-	atOpts, err := validatedListOptions(&model.ArtifactTask{}, "", 10000, "id", "", "v2beta1")
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to create list options for artifact tasks")
-	}
-	filterContexts := []*model.FilterContext{{ReferenceKey: &model.ReferenceKey{Type: model.RunResourceType, ID: runId}}}
-	artifactTasks, _, _, err := s.resourceManager.ListArtifactTasks(filterContexts, atOpts)
-	if err != nil {
-		// Non-fatal: return tasks without artifacts
-		glog.Warningf("ListArtifactTasks failed for run %s: %v", runId, err)
-		artifactTasks = nil
-	}
-	// Build mapping taskID -> input/output artifact IDs
-	inputArtifactIDs := make(map[string][]string)
-	outputArtifactIDs := make(map[string][]string)
-	for _, at := range artifactTasks {
-		if at == nil {
-			continue
-		}
-		// Types: 0=input, 1=output
-		if at.Type == 0 {
-			inputArtifactIDs[at.TaskID] = append(inputArtifactIDs[at.TaskID], at.ArtifactID)
-		} else {
-			outputArtifactIDs[at.TaskID] = append(outputArtifactIDs[at.TaskID], at.ArtifactID)
-		}
-	}
-
-	// Convert tasks to API and enrich with artifact refs
-	apiTasks := make([]*apiv2beta1.PipelineTaskDetail, 0, len(roots))
-	for _, root := range roots {
-		childs := childrenByParent[root.UUID]
-		apiTask, err := toApiTask(root, childs)
-		if err != nil {
-			return nil, util.Wrap(err, "Failed to convert task to API")
-		}
-		// Enrich inputs
-		if ids := inputArtifactIDs[root.UUID]; len(ids) > 0 {
-			if apiTask.Inputs == nil {
-				apiTask.Inputs = &apiv2beta1.PipelineTaskDetail_InputOutputs{}
-			}
-			for _, id := range ids {
-				apiTask.Inputs.Artifacts = append(apiTask.Inputs.Artifacts, &apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact{
-					InputType: apiv2beta1.PipelineTaskDetail_ResolvedValue,
-					Value:     &apiv2beta1.Artifact{ArtifactId: id},
-				})
-			}
-		}
-		// Enrich outputs
-		if ids := outputArtifactIDs[root.UUID]; len(ids) > 0 {
-			if apiTask.Outputs == nil {
-				apiTask.Outputs = &apiv2beta1.PipelineTaskDetail_InputOutputs{}
-			}
-			for _, id := range ids {
-				apiTask.Outputs.Artifacts = append(apiTask.Outputs.Artifacts, &apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact{
-					InputType: apiv2beta1.PipelineTaskDetail_ResolvedValue,
-					Value:     &apiv2beta1.Artifact{ArtifactId: id},
-				})
-			}
-		}
-		apiTasks = append(apiTasks, apiTask)
-	}
-	return apiTasks, nil
 }
 
 // CreateTask Task management methods for MLMD replacement
