@@ -206,12 +206,173 @@ func TestArtifactServer_SingleUserNamespaceEmpty(t *testing.T) {
 	s := createArtifactServer(resourceManager)
 
 	// Even if request carries a namespace, in single-user mode it should be cleared/empty in stored artifact
-	created, err := s.CreateArtifact(context.Background(), &apiv2beta1.CreateArtifactRequest{Artifact: &apiv2beta1.Artifact{
-		Namespace: "ns1",
-		Type:      apiv2beta1.Artifact_Artifact,
-		Uri:       "u",
-		Name:      "a",
-	}})
+	created, err := s.CreateArtifact(context.Background(), &apiv2beta1.CreateArtifactRequest{
+		Artifact: &apiv2beta1.Artifact{
+			Namespace: "ns1",
+			Type:      apiv2beta1.Artifact_Artifact,
+			Uri:       "u",
+			Name:      "a",
+		},
+	})
 	assert.NoError(t, err)
 	assert.Equal(t, "", created.GetNamespace())
+}
+
+const (
+	serverRunID1 = "run-1"
+	serverRunID2 = "run-2"
+)
+
+// seedArtifactTasks sets up two runs, two tasks, two artifacts and three links.
+// Returns server, clientManager, entities.
+func seedArtifactTasks(t *testing.T) (*ArtifactServer, *resource.FakeClientManager, *model.Task, *model.Task, *model.Artifact, *model.Artifact) {
+	viper.Set(common.MultiUserMode, "true")
+	t.Cleanup(func() { viper.Set(common.MultiUserMode, "false") })
+	clientManager := resource.NewFakeClientManagerOrFatalV2()
+	resourceManager := resource.NewResourceManager(clientManager, &resource.ResourceManagerOptions{CollectMetrics: false})
+	s := createArtifactServer(resourceManager)
+
+	// Runs
+	_, err := clientManager.RunStore().CreateRun(&model.Run{
+		UUID:         serverRunID1,
+		ExperimentId: "",
+		K8SName:      "r1",
+		DisplayName:  "r1",
+		StorageState: model.StorageStateAvailable,
+		Namespace:    "ns1",
+		RunDetails: model.RunDetails{
+			CreatedAtInSec:   1,
+			ScheduledAtInSec: 1,
+			State:            model.RuntimeStateRunning,
+		},
+	})
+	assert.NoError(t, err)
+	_, err = clientManager.RunStore().CreateRun(&model.Run{
+		UUID:         serverRunID2,
+		ExperimentId: "",
+		K8SName:      "r2",
+		DisplayName:  "r2",
+		StorageState: model.StorageStateAvailable,
+		Namespace:    "ns1",
+		RunDetails: model.RunDetails{
+			CreatedAtInSec:   2,
+			ScheduledAtInSec: 2,
+			State:            model.RuntimeStateRunning,
+		},
+	})
+
+	// Tasks
+	t1, err := clientManager.TaskStore().CreateTask(&model.Task{
+		Namespace:    "ns1",
+		PipelineName: "p1",
+		RunUUID:      serverRunID1,
+		Name:         "t1",
+		Status:       1,
+	})
+	assert.NoError(t, err)
+	t2, err := clientManager.TaskStore().CreateTask(&model.Task{
+		Namespace:    "ns1",
+		PipelineName: "p1",
+		RunUUID:      serverRunID2,
+		Name:         "t2",
+		Status:       1,
+	})
+	assert.NoError(t, err)
+
+	// Artifacts
+	art1, err := clientManager.ArtifactStore().CreateArtifact(&model.Artifact{
+		Namespace: "ns1",
+		Type:      int32(apiv2beta1.Artifact_Artifact),
+		Uri:       "u1",
+		Name:      "a1",
+	})
+	assert.NoError(t, err)
+	art2, err := clientManager.ArtifactStore().CreateArtifact(&model.Artifact{
+		Namespace: "ns1",
+		Type:      int32(apiv2beta1.Artifact_Artifact),
+		Uri:       "u2",
+		Name:      "a2",
+	})
+	assert.NoError(t, err)
+
+	// Links
+	_, err = s.CreateArtifactTask(ctxWithUser(), &apiv2beta1.CreateArtifactTaskRequest{
+		ArtifactTask: &apiv2beta1.ArtifactTask{
+			ArtifactId: art1.UUID,
+			TaskId:     t1.UUID,
+			Type:       apiv2beta1.ArtifactTaskType_INPUT,
+		},
+	})
+	assert.NoError(t, err)
+	_, err = s.CreateArtifactTask(ctxWithUser(), &apiv2beta1.CreateArtifactTaskRequest{
+		ArtifactTask: &apiv2beta1.ArtifactTask{
+			ArtifactId: art2.UUID,
+			TaskId:     t1.UUID,
+			Type:       apiv2beta1.ArtifactTaskType_OUTPUT,
+		},
+	})
+	assert.NoError(t, err)
+	_, err = s.CreateArtifactTask(ctxWithUser(), &apiv2beta1.CreateArtifactTaskRequest{
+		ArtifactTask: &apiv2beta1.ArtifactTask{
+			ArtifactId: art2.UUID,
+			TaskId:     t2.UUID,
+			Type:       apiv2beta1.ArtifactTaskType_INPUT,
+		},
+	})
+	assert.NoError(t, err)
+
+	return s, clientManager, t1, t2, art1, art2
+}
+
+func TestArtifactServer_ListArtifactTasks_FilterByTaskIds(t *testing.T) {
+	s, _, t1, _, _, _ := seedArtifactTasks(t)
+	resp, err := s.ListArtifactTasks(ctxWithUser(), &apiv2beta1.ListArtifactTasksRequest{TaskIds: []string{t1.UUID}, PageSize: 50})
+	assert.NoError(t, err)
+	assert.Equal(t, int32(2), resp.GetTotalSize())
+	assert.Equal(t, 2, len(resp.GetArtifactTasks()))
+	assert.Empty(t, resp.GetNextPageToken())
+}
+
+func TestArtifactServer_ListArtifactTasks_FilterByArtifactIds(t *testing.T) {
+	s, _, _, _, _, art2 := seedArtifactTasks(t)
+	resp, err := s.ListArtifactTasks(ctxWithUser(), &apiv2beta1.ListArtifactTasksRequest{ArtifactIds: []string{art2.UUID}, PageSize: 50})
+	assert.NoError(t, err)
+	assert.Equal(t, int32(2), resp.GetTotalSize())
+	assert.Equal(t, 2, len(resp.GetArtifactTasks()))
+}
+
+func TestArtifactServer_ListArtifactTasks_FilterByRunIds(t *testing.T) {
+	s, _, _, t2, _, art2 := seedArtifactTasks(t)
+	resp, err := s.ListArtifactTasks(ctxWithUser(), &apiv2beta1.ListArtifactTasksRequest{RunIds: []string{serverRunID2}, PageSize: 50})
+	assert.NoError(t, err)
+	assert.Equal(t, int32(1), resp.GetTotalSize())
+	assert.Equal(t, 1, len(resp.GetArtifactTasks()))
+	at := resp.GetArtifactTasks()[0]
+	assert.Equal(t, art2.UUID, at.GetArtifactId())
+	assert.Equal(t, t2.UUID, at.GetTaskId())
+}
+
+func TestArtifactServer_ListArtifactTasks_ErrorWhenNoFilters(t *testing.T) {
+	s, _, _, _, _, _ := seedArtifactTasks(t)
+	_, err := s.ListArtifactTasks(ctxWithUser(), &apiv2beta1.ListArtifactTasksRequest{PageSize: 2})
+	assert.Error(t, err)
+}
+
+func TestArtifactServer_ListArtifactTasks_Pagination_TaskIds(t *testing.T) {
+	s, _, t1, _, _, _ := seedArtifactTasks(t)
+	page1, err := s.ListArtifactTasks(ctxWithUser(), &apiv2beta1.ListArtifactTasksRequest{TaskIds: []string{t1.UUID}, PageSize: 1})
+	assert.NoError(t, err)
+	assert.Equal(t, int32(2), page1.GetTotalSize())
+	assert.Equal(t, 1, len(page1.GetArtifactTasks()))
+	assert.NotEmpty(t, page1.GetNextPageToken())
+
+	page2, err := s.ListArtifactTasks(ctxWithUser(), &apiv2beta1.ListArtifactTasksRequest{TaskIds: []string{t1.UUID}, PageToken: page1.GetNextPageToken(), PageSize: 1})
+	assert.NoError(t, err)
+	assert.Equal(t, int32(2), page2.GetTotalSize())
+	assert.Equal(t, 1, len(page2.GetArtifactTasks()))
+	assert.Empty(t, page2.GetNextPageToken())
+
+	id1 := page1.GetArtifactTasks()[0].GetId()
+	id2 := page2.GetArtifactTasks()[0].GetId()
+	assert.NotEqual(t, id1, id2)
 }
