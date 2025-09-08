@@ -94,7 +94,9 @@ type Task struct {
 	StatusMetadata   JSONData `gorm:"column:StatusMetadata; type:json; default:null;"`
 	StateHistory     JSONData `gorm:"column:StateHistory; type:json;"`
 	InputParameters  JSONData `gorm:"column:InputParameters; type:json;"`
+	InputArtifacts   JSONData `gorm:"column:InputArtifacts; type:json;"`
 	OutputParameters JSONData `gorm:"column:OutputParameters; type:json;"`
+	OutputArtifacts  JSONData `gorm:"column:OutputArtifacts; type:json;"`
 	Type             int32    `gorm:"column:Type; not null; index:idx_task_type;"`
 	TypeAttrs        JSONData `gorm:"column:TypeAttrs; not null; type:json;"`
 }
@@ -149,6 +151,8 @@ var taskAPIToModelFieldMap = map[string]string{
 	"parent_task_id":    "ParentTaskUUID",
 	"inputs":            "InputParameters",
 	"outputs":           "OutputParameters",
+	"input_artifacts":   "InputArtifacts",
+	"output_artifacts":  "OutputArtifacts",
 }
 
 func (t Task) GetField(name string) (string, bool) {
@@ -192,6 +196,10 @@ func (t Task) GetFieldValue(name string) interface{} {
 		return t.InputParameters
 	case "OutputParameters":
 		return t.OutputParameters
+	case "InputArtifacts":
+		return t.InputArtifacts
+	case "OutputArtifacts":
+		return t.OutputArtifacts
 	case "Type":
 		return t.Type
 	case "TypeAttrs":

@@ -3093,6 +3093,9 @@
         "input_type": {
           "$ref": "#/definitions/PipelineTaskDetailInputType"
         },
+        "artifact_id": {
+          "type": "string"
+        },
         "value": {
           "$ref": "#/definitions/v2beta1Artifact"
         },

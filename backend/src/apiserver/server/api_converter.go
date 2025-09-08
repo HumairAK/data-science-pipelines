@@ -2501,9 +2501,10 @@ func toModelTask(apiTask *apiv2beta1.PipelineTaskDetail) (*model.Task, error) {
 		task.StateHistory = jsonData
 	}
 
-	// Convert InputParameters from API inputs field
+	// Convert inputs: store full InputOutputs in InputParameters and artifacts subset in InputArtifacts
 	if apiTask.GetInputs() != nil {
-		inputsBytes, err := protojson.Marshal(apiTask.GetInputs())
+		inputs := apiTask.GetInputs()
+		inputsBytes, err := protojson.Marshal(inputs)
 		if err != nil {
 			return nil, util.NewInternalServerError(err, "Failed to marshal inputs to JSON")
 		}
@@ -2512,11 +2513,24 @@ func toModelTask(apiTask *apiv2beta1.PipelineTaskDetail) (*model.Task, error) {
 			return nil, util.NewInternalServerError(err, "Failed to unmarshal inputs JSON into JSONData map")
 		}
 		task.InputParameters = inputsData
+
+		// Extract artifacts only JSON {"artifacts": [...]} for InputArtifacts column
+		artifactsOnly := &apiv2beta1.PipelineTaskDetail_InputOutputs{Artifacts: inputs.GetArtifacts()}
+		artifactsBytes, err := protojson.Marshal(artifactsOnly)
+		if err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to marshal input artifacts to JSON")
+		}
+		var inputArtifactsData model.JSONData
+		if err := json.Unmarshal(artifactsBytes, &inputArtifactsData); err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to unmarshal input artifacts JSON into JSONData map")
+		}
+		task.InputArtifacts = inputArtifactsData
 	}
 
-	// Convert OutputParameters from API outputs field
+	// Convert outputs: store full InputOutputs in OutputParameters and artifacts subset in OutputArtifacts
 	if apiTask.GetOutputs() != nil {
-		outputsBytes, err := protojson.Marshal(apiTask.GetOutputs())
+		outputs := apiTask.GetOutputs()
+		outputsBytes, err := protojson.Marshal(outputs)
 		if err != nil {
 			return nil, util.NewInternalServerError(err, "Failed to marshal outputs to JSON")
 		}
@@ -2525,6 +2539,17 @@ func toModelTask(apiTask *apiv2beta1.PipelineTaskDetail) (*model.Task, error) {
 			return nil, util.NewInternalServerError(err, "Failed to unmarshal outputs JSON into JSONData map")
 		}
 		task.OutputParameters = outputsData
+
+		artifactsOnly := &apiv2beta1.PipelineTaskDetail_InputOutputs{Artifacts: outputs.GetArtifacts()}
+		artifactsBytes, err := protojson.Marshal(artifactsOnly)
+		if err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to marshal output artifacts to JSON")
+		}
+		var outputArtifactsData model.JSONData
+		if err := json.Unmarshal(artifactsBytes, &outputArtifactsData); err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to unmarshal output artifacts JSON into JSONData map")
+		}
+		task.OutputArtifacts = outputArtifactsData
 	}
 
 	// Convert TypeAttrs - store additional API-specific fields
@@ -2645,6 +2670,20 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 		if err := protojson.Unmarshal(jsonDataBytes, &inputs); err != nil {
 			return nil, util.NewInternalServerError(err, "Failed to unmarshal input parameters JSON into InputOutputs")
 		}
+		// Merge artifacts from InputArtifacts if present
+		if modelTask.InputArtifacts != nil {
+			iaBytes, err := json.Marshal(modelTask.InputArtifacts)
+			if err != nil {
+				return nil, util.NewInternalServerError(err, "Failed to marshal input artifacts to JSON")
+			}
+			var ia apiv2beta1.PipelineTaskDetail_InputOutputs
+			if err := protojson.Unmarshal(iaBytes, &ia); err != nil {
+				return nil, util.NewInternalServerError(err, "Failed to unmarshal input artifacts JSON into InputOutputs")
+			}
+			if len(ia.Artifacts) > 0 {
+				inputs.Artifacts = ia.Artifacts
+			}
+		}
 		apiTask.Inputs = &inputs
 	}
 
@@ -2657,6 +2696,20 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 		var outputs apiv2beta1.PipelineTaskDetail_InputOutputs
 		if err := protojson.Unmarshal(jsonDataBytes, &outputs); err != nil {
 			return nil, util.NewInternalServerError(err, "Failed to unmarshal output parameters JSON into InputOutputs")
+		}
+		// Merge artifacts from OutputArtifacts if present
+		if modelTask.OutputArtifacts != nil {
+			oaBytes, err := json.Marshal(modelTask.OutputArtifacts)
+			if err != nil {
+				return nil, util.NewInternalServerError(err, "Failed to marshal output artifacts to JSON")
+			}
+			var oa apiv2beta1.PipelineTaskDetail_InputOutputs
+			if err := protojson.Unmarshal(oaBytes, &oa); err != nil {
+				return nil, util.NewInternalServerError(err, "Failed to unmarshal output artifacts JSON into InputOutputs")
+			}
+			if len(oa.Artifacts) > 0 {
+				outputs.Artifacts = oa.Artifacts
+			}
 		}
 		apiTask.Outputs = &outputs
 	}

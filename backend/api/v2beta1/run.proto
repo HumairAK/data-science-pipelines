@@ -440,14 +440,15 @@ message PipelineTaskDetail {
     }
     message TaskArtifact {
       InputType input_type = 1;
-      Artifact value = 2;
+      string artifact_id = 2;
+      Artifact value = 3;
 
       // Fields for ResolvedValue type
-      string name = 3;
+      string name = 4;
 
       // Fields for PipelineChannel type
-      string producer_task_name = 4;
-      string producer_parameter_id = 5;
+      string producer_task_name = 5;
+      string producer_parameter_id = 6;
     }
     repeated Parameter parameters = 1;
     repeated TaskArtifact artifacts = 2;

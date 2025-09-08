@@ -18,6 +18,9 @@ import (
 // swagger:model InputOutputsTaskArtifact
 type InputOutputsTaskArtifact struct {
 
+	// artifact id
+	ArtifactID string `json:"artifact_id,omitempty"`
+
 	// input type
 	InputType *PipelineTaskDetailInputType `json:"input_type,omitempty"`
 

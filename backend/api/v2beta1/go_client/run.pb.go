@@ -2395,14 +2395,15 @@ func (x *PipelineTaskDetail_InputOutputs_Parameter) GetProducerParameterId() str
 }
 
 type PipelineTaskDetail_InputOutputs_TaskArtifact struct {
-	state     protoimpl.MessageState       `protogen:"open.v1"`
-	InputType PipelineTaskDetail_InputType `protobuf:"varint,1,opt,name=input_type,json=inputType,proto3,enum=kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetail_InputType" json:"input_type,omitempty"`
-	Value     *Artifact                    `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	state      protoimpl.MessageState       `protogen:"open.v1"`
+	InputType  PipelineTaskDetail_InputType `protobuf:"varint,1,opt,name=input_type,json=inputType,proto3,enum=kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetail_InputType" json:"input_type,omitempty"`
+	ArtifactId string                       `protobuf:"bytes,2,opt,name=artifact_id,json=artifactId,proto3" json:"artifact_id,omitempty"`
+	Value      *Artifact                    `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 	// Fields for ResolvedValue type
-	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Name string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
 	// Fields for PipelineChannel type
-	ProducerTaskName    string `protobuf:"bytes,4,opt,name=producer_task_name,json=producerTaskName,proto3" json:"producer_task_name,omitempty"`
-	ProducerParameterId string `protobuf:"bytes,5,opt,name=producer_parameter_id,json=producerParameterId,proto3" json:"producer_parameter_id,omitempty"`
+	ProducerTaskName    string `protobuf:"bytes,5,opt,name=producer_task_name,json=producerTaskName,proto3" json:"producer_task_name,omitempty"`
+	ProducerParameterId string `protobuf:"bytes,6,opt,name=producer_parameter_id,json=producerParameterId,proto3" json:"producer_parameter_id,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -2442,6 +2443,13 @@ func (x *PipelineTaskDetail_InputOutputs_TaskArtifact) GetInputType() PipelineTa
 		return x.InputType
 	}
 	return PipelineTaskDetail_ResolvedValue
+}
+
+func (x *PipelineTaskDetail_InputOutputs_TaskArtifact) GetArtifactId() string {
+	if x != nil {
+		return x.ArtifactId
+	}
+	return ""
 }
 
 func (x *PipelineTaskDetail_InputOutputs_TaskArtifact) GetValue() *Artifact {
@@ -2520,7 +2528,7 @@ const file_backend_api_v2beta1_run_proto_rawDesc = "" +
 	"RunDetails\x12.\n" +
 	"\x13pipeline_context_id\x18\x01 \x01(\x03R\x11pipelineContextId\x125\n" +
 	"\x17pipeline_run_context_id\x18\x02 \x01(\x03R\x14pipelineRunContextId\x12]\n" +
-	"\ftask_details\x18\x03 \x03(\v2:.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetailR\vtaskDetails\"\xff\x14\n" +
+	"\ftask_details\x18\x03 \x03(\v2:.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetailR\vtaskDetails\"\xa0\x15\n" +
 	"\x12PipelineTaskDetail\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x17\n" +
@@ -2556,7 +2564,7 @@ const file_backend_api_v2beta1_run_proto_rawDesc = "" +
 	"\tChildTask\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12V\n" +
-	"\x04pods\x18\x03 \x03(\v2B.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetail.TaskPodR\x04pods\x1a\xf2\x06\n" +
+	"\x04pods\x18\x03 \x03(\v2B.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetail.TaskPodR\x04pods\x1a\x93\a\n" +
 	"\fInputOutputs\x12q\n" +
 	"\n" +
 	"parameters\x18\x01 \x03(\v2Q.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetail.InputOutputs.ParameterR\n" +
@@ -2569,14 +2577,16 @@ const file_backend_api_v2beta1_run_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12,\n" +
 	"\x12producer_task_name\x18\x04 \x01(\tR\x10producerTaskName\x122\n" +
-	"\x15producer_parameter_id\x18\x05 \x01(\tR\x13producerParameterId\x1a\xb1\x02\n" +
+	"\x15producer_parameter_id\x18\x05 \x01(\tR\x13producerParameterId\x1a\xd2\x02\n" +
 	"\fTaskArtifact\x12c\n" +
 	"\n" +
-	"input_type\x18\x01 \x01(\x0e2D.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetail.InputTypeR\tinputType\x12F\n" +
-	"\x05value\x18\x02 \x01(\v20.kubeflow.pipelines.backend.api.v2beta1.ArtifactR\x05value\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name\x12,\n" +
-	"\x12producer_task_name\x18\x04 \x01(\tR\x10producerTaskName\x122\n" +
-	"\x15producer_parameter_id\x18\x05 \x01(\tR\x13producerParameterId\"'\n" +
+	"input_type\x18\x01 \x01(\x0e2D.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetail.InputTypeR\tinputType\x12\x1f\n" +
+	"\vartifact_id\x18\x02 \x01(\tR\n" +
+	"artifactId\x12F\n" +
+	"\x05value\x18\x03 \x01(\v20.kubeflow.pipelines.backend.api.v2beta1.ArtifactR\x05value\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x12,\n" +
+	"\x12producer_task_name\x18\x05 \x01(\tR\x10producerTaskName\x122\n" +
+	"\x15producer_parameter_id\x18\x06 \x01(\tR\x13producerParameterId\"'\n" +
 	"\vTaskPodType\x12\n" +
 	"\n" +
 	"\x06DRIVER\x10\x00\x12\f\n" +
