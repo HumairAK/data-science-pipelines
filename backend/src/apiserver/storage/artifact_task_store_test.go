@@ -14,6 +14,7 @@ import (
 const (
 	linkUUID1   = "123e4567-e89b-12d3-a456-426655441011"
 	linkUUID2   = "123e4567-e89b-12d3-a456-426655441012"
+	linkUUID3   = "123e4567-e89b-12d3-a456-426655441013"
 	artifactId1 = "123e4567-e89b-12d3-a456-426655441013"
 	artifactId2 = "123e4567-e89b-12d3-a456-426655441014"
 	taskId1     = "123e4567-e89b-12d3-a456-426655441015"
@@ -283,4 +284,189 @@ func TestListArtifactsForTask_UsingArtifactTasks(t *testing.T) {
 	assert.True(t, ids[art1.UUID])
 	assert.True(t, ids[art2.UUID])
 	assert.Equal(t, 2, len(ids))
+}
+func TestListArtifactTasks_Pagination_PageSizeAndNextPageToken(t *testing.T) {
+	db, artifactStore, taskStore, _, linkStore := initializeArtifactTaskDeps()
+	defer db.Close()
+
+	// Seed artifacts and a task
+	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactId1, nil)
+	art1, _ := artifactStore.CreateArtifact(&model.Artifact{
+		Namespace: "ns1",
+		Type:      1,
+		Uri:       "u1",
+		Name:      "a1",
+		Metadata:  map[string]interface{}{},
+	})
+
+	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactId2, nil)
+	art2, _ := artifactStore.CreateArtifact(&model.Artifact{
+		Namespace: "ns1",
+		Type:      1,
+		Uri:       "u2",
+		Name:      "a2",
+		Metadata:  map[string]interface{}{},
+	})
+
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskId1, nil)
+	t1, _ := taskStore.CreateTask(&model.Task{
+		Namespace:        "ns1",
+		PipelineName:     "p1",
+		RunUUID:          runId1,
+		Name:             "t1",
+		Pods:             model.JSONData{"pods": []interface{}{"p1"}},
+		Fingerprint:      "fp-1",
+		Status:           1,
+		StateHistory:     map[string]interface{}{},
+		InputParameters:  map[string]interface{}{},
+		OutputParameters: map[string]interface{}{},
+		Type:             0,
+		TypeAttrs:        map[string]interface{}{},
+	})
+
+	// Create 3 links with deterministic UUID order
+	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID1, nil)
+	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
+		ArtifactID: art1.UUID,
+		TaskID:     t1.UUID,
+		Type:       apiv2beta1.ArtifactTaskType_INPUT,
+	})
+
+	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID2, nil)
+	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
+		ArtifactID: art1.UUID,
+		TaskID:     t1.UUID,
+		Type:       apiv2beta1.ArtifactTaskType_OUTPUT,
+	})
+
+	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID3, nil)
+	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
+		ArtifactID: art2.UUID,
+		TaskID:     t1.UUID,
+		Type:       apiv2beta1.ArtifactTaskType_INPUT,
+	})
+
+	// Page 1: size 2
+	opts1, _ := list.NewOptions(&model.ArtifactTask{}, 2, "", nil)
+	page1, total, token1, err := linkStore.ListArtifactTasks(nil, opts1)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(page1))
+	assert.Equal(t, 3, total)
+	assert.NotEmpty(t, token1)
+	// should be ordered by UUID asc by default
+	assert.Equal(t, linkUUID1, page1[0].UUID)
+	assert.Equal(t, linkUUID2, page1[1].UUID)
+
+	// Page 2: use token
+	opts2, err := list.NewOptionsFromToken(token1, 2)
+	assert.NoError(t, err)
+	page2, total2, token2, err := linkStore.ListArtifactTasks(nil, opts2)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(page2))
+	assert.Equal(t, 3, total2)
+	assert.Equal(t, "", token2)
+	assert.Equal(t, linkUUID3, page2[0].UUID)
+}
+
+func TestListArtifactTasks_Pagination_WithFilter(t *testing.T) {
+	db, artifactStore, taskStore, _, linkStore := initializeArtifactTaskDeps()
+	defer db.Close()
+
+	// Seed artifacts and tasks
+	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactId1, nil)
+	art1, _ := artifactStore.CreateArtifact(&model.Artifact{
+		Namespace: "ns1",
+		Type:      1,
+		Uri:       "u1",
+		Name:      "a1",
+		Metadata:  map[string]interface{}{},
+	})
+
+	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactId2, nil)
+	art2, _ := artifactStore.CreateArtifact(&model.Artifact{
+		Namespace: "ns1",
+		Type:      1,
+		Uri:       "u2",
+		Name:      "a2",
+		Metadata:  map[string]interface{}{},
+	})
+
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskId1, nil)
+	t1, _ := taskStore.CreateTask(&model.Task{
+		Namespace:        "ns1",
+		PipelineName:     "p1",
+		RunUUID:          runId1,
+		Name:             "t1",
+		Pods:             model.JSONData{"pods": []interface{}{"p1"}},
+		Fingerprint:      "fp-1",
+		Status:           1,
+		StateHistory:     map[string]interface{}{},
+		InputParameters:  map[string]interface{}{},
+		OutputParameters: map[string]interface{}{},
+		Type:             0,
+		TypeAttrs:        map[string]interface{}{},
+	})
+
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskId2, nil)
+	t2, _ := taskStore.CreateTask(&model.Task{
+		Namespace:        "ns2",
+		PipelineName:     "p2",
+		RunUUID:          runId2,
+		Name:             "t2",
+		Pods:             model.JSONData{"pods": []interface{}{"p2"}},
+		Fingerprint:      "fp-2",
+		Status:           1,
+		StateHistory:     map[string]interface{}{},
+		InputParameters:  map[string]interface{}{},
+		OutputParameters: map[string]interface{}{},
+		Type:             0,
+		TypeAttrs:        map[string]interface{}{},
+	})
+
+	// Links: 2 for t1, 1 for t2
+	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID1, nil)
+	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
+		ArtifactID: art1.UUID,
+		TaskID:     t1.UUID,
+		Type:       apiv2beta1.ArtifactTaskType_INPUT,
+	})
+
+	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID2, nil)
+	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
+		ArtifactID: art2.UUID,
+		TaskID:     t1.UUID,
+		Type:       apiv2beta1.ArtifactTaskType_OUTPUT,
+	})
+
+	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID3, nil)
+	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
+		ArtifactID: art2.UUID,
+		TaskID:     t2.UUID,
+		Type:       apiv2beta1.ArtifactTaskType_INPUT,
+	})
+
+	filterByT1 := []*model.FilterContext{{ReferenceKey: &model.ReferenceKey{Type: model.TaskResourceType, ID: t1.UUID}}}
+
+	// Page size 1 for filtered list
+	opts1, _ := list.NewOptions(&model.ArtifactTask{}, 1, "", nil)
+	p1, total1, tok1, err := linkStore.ListArtifactTasks(filterByT1, opts1)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(p1))
+	assert.Equal(t, 2, total1)
+	assert.NotEmpty(t, tok1)
+
+	// Second page
+	opts2, err := list.NewOptionsFromToken(tok1, 1)
+	assert.NoError(t, err)
+	p2, total2, tok2, err := linkStore.ListArtifactTasks(filterByT1, opts2)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(p2))
+	assert.Equal(t, 2, total2)
+	assert.Equal(t, "", tok2)
+
+	// Ensure the two pages are disjoint and together contain the two t1 links
+	ids := map[string]bool{p1[0].UUID: true}
+	assert.False(t, ids[p2[0].UUID])
+	ids[p2[0].UUID] = true
+	assert.Len(t, ids, 2)
 }
