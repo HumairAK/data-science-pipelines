@@ -17,10 +17,15 @@ package model
 import (
 	"database/sql/driver"
 	"encoding/json"
+
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // JSONData represents JSON data stored in database columns
 type JSONData map[string]interface{}
+type JSONSlice []interface{}
 
 // Scan implements sql.Scanner interface for JSONData
 func (j *JSONData) Scan(value interface{}) error {
@@ -76,29 +81,29 @@ func (p *PodNames) Value() (driver.Value, error) {
 }
 
 type Task struct {
-	UUID             string   `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
-	Namespace        string   `gorm:"column:Namespace; not null; type:varchar(63);"`
-	PipelineName     string   `gorm:"column:PipelineName; not null; type:varchar(128); index:idx_pipeline_name;"`
-	RunUUID          string   `gorm:"column:RunUUID; type:varchar(191); not null; index:idx_parent_run,priority:1;"`
-	Run              Run      `gorm:"foreignKey:RunUUID;references:UUID;constraint:tasks_RunUUID_run_details_UUID_foreign,OnDelete:CASCADE,OnUpdate:CASCADE;"`
-	Pods             JSONData `gorm:"column:pods; not null; type:json;"`
-	CreatedAtInSec   int64    `gorm:"column:CreatedAtInSec; not null; index:idx_task_created_timestamp;"`
-	StartedInSec     int64    `gorm:"column:StartedInSec; default:0; index:idx_task_started_timestamp;"`
-	FinishedInSec    int64    `gorm:"column:FinishedInSec; default:0; index:idx_task_finished_timestamp;"`
-	Fingerprint      string   `gorm:"column:Fingerprint; not null; type:varchar(255);"`
-	Name             string   `gorm:"column:Name; type:varchar(128); default:null;"`
-	DisplayName      string   `gorm:"column:DisplayName; type:varchar(128); default:null;"`
-	ParentTaskUUID   string   `gorm:"column:ParentTaskUUID; type:varchar(191); default:null; index:idx_parent_task_uuid; index:idx_parent_run,priority:2;"`
-	ParentTask       *Task    `gorm:"foreignKey:ParentTaskUUID;references:UUID;constraint:fk_tasks_parent_task,OnDelete:CASCADE,OnUpdate:CASCADE;"`
-	Status           int32    `gorm:"column:Status; not null;"`
-	StatusMetadata   JSONData `gorm:"column:StatusMetadata; type:json; default:null;"`
-	StateHistory     JSONData `gorm:"column:StateHistory; type:json;"`
-	InputParameters  JSONData `gorm:"column:InputParameters; type:json;"`
-	InputArtifacts   JSONData `gorm:"column:InputArtifacts; type:json;"`
-	OutputParameters JSONData `gorm:"column:OutputParameters; type:json;"`
-	OutputArtifacts  JSONData `gorm:"column:OutputArtifacts; type:json;"`
-	Type             int32    `gorm:"column:Type; not null; index:idx_task_type;"`
-	TypeAttrs        JSONData `gorm:"column:TypeAttrs; not null; type:json;"`
+	UUID             string    `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
+	Namespace        string    `gorm:"column:Namespace; not null; type:varchar(63);"`
+	PipelineName     string    `gorm:"column:PipelineName; not null; type:varchar(128); index:idx_pipeline_name;"`
+	RunUUID          string    `gorm:"column:RunUUID; type:varchar(191); not null; index:idx_parent_run,priority:1;"`
+	Run              Run       `gorm:"foreignKey:RunUUID;references:UUID;constraint:tasks_RunUUID_run_details_UUID_foreign,OnDelete:CASCADE,OnUpdate:CASCADE;"`
+	Pods             JSONSlice `gorm:"column:pods; not null; type:json;"`
+	CreatedAtInSec   int64     `gorm:"column:CreatedAtInSec; not null; index:idx_task_created_timestamp;"`
+	StartedInSec     int64     `gorm:"column:StartedInSec; default:0; index:idx_task_started_timestamp;"`
+	FinishedInSec    int64     `gorm:"column:FinishedInSec; default:0; index:idx_task_finished_timestamp;"`
+	Fingerprint      string    `gorm:"column:Fingerprint; not null; type:varchar(255);"`
+	Name             string    `gorm:"column:Name; type:varchar(128); default:null;"`
+	DisplayName      string    `gorm:"column:DisplayName; type:varchar(128); default:null;"`
+	ParentTaskUUID   string    `gorm:"column:ParentTaskUUID; type:varchar(191); default:null; index:idx_parent_task_uuid; index:idx_parent_run,priority:2;"`
+	ParentTask       *Task     `gorm:"foreignKey:ParentTaskUUID;references:UUID;constraint:fk_tasks_parent_task,OnDelete:CASCADE,OnUpdate:CASCADE;"`
+	Status           int32     `gorm:"column:Status; not null;"`
+	StatusMetadata   JSONData  `gorm:"column:StatusMetadata; type:json; default:null;"`
+	StateHistory     JSONSlice `gorm:"column:StateHistory; type:json;"`
+	InputParameters  JSONSlice `gorm:"column:InputParameters; type:json;"`
+	InputArtifacts   JSONSlice `gorm:"column:InputArtifacts; type:json;"`
+	OutputParameters JSONSlice `gorm:"column:OutputParameters; type:json;"`
+	OutputArtifacts  JSONSlice `gorm:"column:OutputArtifacts; type:json;"`
+	Type             int32     `gorm:"column:Type; not null; index:idx_task_type;"`
+	TypeAttrs        JSONData  `gorm:"column:TypeAttrs; not null; type:json;"`
 }
 
 func (t Task) ToString() string {
@@ -148,6 +153,7 @@ var taskAPIToModelFieldMap = map[string]string{
 	"status_metadata":   "StatusMetadata",
 	"state_history":     "StateHistory",
 	"type":              "Type",
+	"type_attributes":   "TypeAttrs",
 	"parent_task_id":    "ParentTaskUUID",
 	"inputs":            "InputParameters",
 	"outputs":           "OutputParameters",
@@ -207,4 +213,58 @@ func (t Task) GetFieldValue(name string) interface{} {
 	default:
 		return nil
 	}
+}
+
+// ProtoSliceToJSONSlice converts a slice of protobuf messages (e.g., []*MyMsg)
+// into a model.JSONSlice (i.e., []interface{}).
+func ProtoSliceToJSONSlice[T proto.Message](msgs []T) (JSONSlice, error) {
+	out := make(JSONSlice, 0, len(msgs))
+	for _, m := range msgs {
+		if m == nil {
+			out = append(out, nil)
+			continue
+		}
+		b, err := protojson.Marshal(m)
+		if err != nil {
+			return nil, err
+		}
+		var v interface{}
+		if err := json.Unmarshal(b, &v); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, nil
+}
+
+// StructValueMapToJSONData converts map[string]*structpb.Value into model.JSONData.
+func StructValueMapToJSONData(in map[string]*structpb.Value) (JSONData, error) {
+	if in == nil {
+		return nil, nil
+	}
+	out := make(JSONData, len(in))
+	for k, v := range in {
+		if v == nil {
+			out[k] = nil
+			continue
+		}
+		out[k] = v.AsInterface()
+	}
+	return out, nil
+}
+
+// ProtoMessageToJSONData marshals a protobuf message into JSONData.
+func ProtoMessageToJSONData(msg proto.Message) (JSONData, error) {
+	if msg == nil {
+		return nil, nil
+	}
+	b, err := protojson.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }

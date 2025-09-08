@@ -393,18 +393,22 @@ message PipelineTaskDetail {
   }
   TaskType type = 13;
 
-  // Optional. Applies to type LOOP_ITERATION
-  int64 iteration_index = 14;
-  // Optional. Applies to type LOOP
-  int64 iteration_count = 15;
+  message TypeAttributes {
+    // Optional. Applies to type LOOP_ITERATION
+    int64 iteration_index = 1;
+    // Optional. Applies to type LOOP
+    int64 iteration_count = 2;
+  }
+
+  TypeAttributes type_attributes = 14;
 
   // The error that occurred during task execution.
   // Only populated when the task is in FAILED or CANCELED state.
-  google.rpc.Status error = 16;
+  google.rpc.Status error = 15;
 
   // ID of the parent task if the task is within a component scope.
   // Empty if the task is at the root level.
-  string parent_task_id = 17;
+  string parent_task_id = 16;
 
   // A dependent task that requires this one to succeed.
   // Represented by either task_id or pod_name.
@@ -420,7 +424,7 @@ message PipelineTaskDetail {
   }
 
   // Sequence of dependen tasks.
-  repeated ChildTask child_tasks = 18;
+  repeated ChildTask child_tasks = 17;
 
   enum InputType {
     ResolvedValue = 0;
@@ -455,8 +459,8 @@ message PipelineTaskDetail {
     repeated Metric metrics = 3; // from artifacts.proto
   }
 
-  InputOutputs inputs = 19;
-  InputOutputs outputs = 20;
+  InputOutputs inputs = 18;
+  InputOutputs outputs = 19;
 }
 
 // Runtime information of a pipeline task executor.

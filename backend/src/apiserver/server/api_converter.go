@@ -2433,16 +2433,6 @@ func toModelTask(apiTask *apiv2beta1.PipelineTaskDetail) (*model.Task, error) {
 		Fingerprint:    apiTask.GetCacheFingerprint(),
 	}
 
-	if apiTask.GetPods() != nil {
-		pods, err := apiTaskPodsToModel(apiTask.GetPods())
-		if err != nil {
-			return nil, util.Wrap(err, "Failed to convert API PipelineTaskDetail to its internal representation")
-		}
-		if pods != nil {
-			task.Pods = *pods
-		}
-	}
-
 	// Convert timestamps
 	if apiTask.GetCreateTime() != nil {
 		task.CreatedAtInSec = apiTask.GetCreateTime().GetSeconds()
@@ -2459,109 +2449,75 @@ func toModelTask(apiTask *apiv2beta1.PipelineTaskDetail) (*model.Task, error) {
 
 	// Convert task type
 	task.Type = int32(apiTask.GetType())
+	if apiTask.GetPods() != nil {
+		pods, err := model.ProtoSliceToJSONSlice(apiTask.GetPods())
+		if err != nil {
+			return nil, err
+		}
+		task.Pods = pods
+	}
 
 	// Convert status metadata using the same pattern as toModelArtifact
 	if apiTask.GetStatusMetadata() != nil {
-		structValue := &structpb.Struct{Fields: apiTask.GetStatusMetadata()}
-		jsonDataBytes, err := protojson.Marshal(structValue)
+		sm, err := model.StructValueMapToJSONData(apiTask.GetStatusMetadata())
 		if err != nil {
-			return nil, util.NewInternalServerError(err, "Failed to marshal status metadata to JSON")
+			return nil, err
 		}
-		var jsonData model.JSONData
-		if err := json.Unmarshal(jsonDataBytes, &jsonData); err != nil {
-			return nil, util.NewInternalServerError(err, "Failed to unmarshal status metadata JSON into JSONData map")
-		}
-		task.StatusMetadata = jsonData
+		task.StatusMetadata = sm
 	}
 
 	// Convert state history using structured TaskStateHistoryEntry
 	if len(apiTask.GetStateHistory()) > 0 {
-		stateHistory := make([]TaskStateHistoryEntry, 0)
-		for _, runtimeStatus := range apiTask.GetStateHistory() {
-			historyEntry := TaskStateHistoryEntry{
-				State: runtimeStatus.GetState().String(),
-			}
-			if runtimeStatus.GetUpdateTime() != nil {
-				historyEntry.UpdateTimeInSec = runtimeStatus.GetUpdateTime().GetSeconds()
-			}
-			if runtimeStatus.GetError() != nil {
-				historyEntry.Error = runtimeStatus.GetError().GetMessage()
-			}
-			stateHistory = append(stateHistory, historyEntry)
-		}
-
-		jsonDataBytes, err := json.Marshal(stateHistory)
+		sh, err := model.ProtoSliceToJSONSlice(apiTask.GetStateHistory())
 		if err != nil {
-			return nil, util.NewInternalServerError(err, "Failed to marshal state history to JSON")
+			return nil, err
 		}
-		var jsonData model.JSONData
-		if err := json.Unmarshal(jsonDataBytes, &jsonData); err != nil {
-			return nil, util.NewInternalServerError(err, "Failed to unmarshal state history JSON into JSONData map")
-		}
-		task.StateHistory = jsonData
+		task.StateHistory = sh
 	}
 
 	// Convert inputs: store full InputOutputs in InputParameters and artifacts subset in InputArtifacts
 	if apiTask.GetInputs() != nil {
-		inputs := apiTask.GetInputs()
-		inputsBytes, err := protojson.Marshal(inputs)
-		if err != nil {
-			return nil, util.NewInternalServerError(err, "Failed to marshal inputs to JSON")
+		if apiTask.GetInputs().GetParameters() != nil {
+			artifacts, err := model.ProtoSliceToJSONSlice(apiTask.GetInputs().GetParameters())
+			if err != nil {
+				return nil, err
+			}
+			task.InputParameters = artifacts
 		}
-		var inputsData model.JSONData
-		if err := json.Unmarshal(inputsBytes, &inputsData); err != nil {
-			return nil, util.NewInternalServerError(err, "Failed to unmarshal inputs JSON into JSONData map")
+		if apiTask.GetInputs().GetArtifacts() != nil {
+			artifacts, err := model.ProtoSliceToJSONSlice(apiTask.GetInputs().GetArtifacts())
+			if err != nil {
+				return nil, err
+			}
+			task.InputArtifacts = artifacts
 		}
-		task.InputParameters = inputsData
-
-		// Extract artifacts only JSON {"artifacts": [...]} for InputArtifacts column
-		artifactsOnly := &apiv2beta1.PipelineTaskDetail_InputOutputs{Artifacts: inputs.GetArtifacts()}
-		artifactsBytes, err := protojson.Marshal(artifactsOnly)
-		if err != nil {
-			return nil, util.NewInternalServerError(err, "Failed to marshal input artifacts to JSON")
-		}
-		var inputArtifactsData model.JSONData
-		if err := json.Unmarshal(artifactsBytes, &inputArtifactsData); err != nil {
-			return nil, util.NewInternalServerError(err, "Failed to unmarshal input artifacts JSON into JSONData map")
-		}
-		task.InputArtifacts = inputArtifactsData
 	}
 
 	// Convert outputs: store full InputOutputs in OutputParameters and artifacts subset in OutputArtifacts
 	if apiTask.GetOutputs() != nil {
-		outputs := apiTask.GetOutputs()
-		outputsBytes, err := protojson.Marshal(outputs)
+		if apiTask.GetOutputs().GetParameters() != nil {
+			artifacts, err := model.ProtoSliceToJSONSlice(apiTask.GetOutputs().GetParameters())
+			if err != nil {
+				return nil, err
+			}
+			task.OutputParameters = artifacts
+		}
+		if apiTask.GetOutputs().GetArtifacts() != nil {
+			artifacts, err := model.ProtoSliceToJSONSlice(apiTask.GetOutputs().GetArtifacts())
+			if err != nil {
+				return nil, err
+			}
+			task.OutputArtifacts = artifacts
+		}
+	}
+
+	if apiTask.GetTypeAttributes() != nil {
+		attrs, err := model.ProtoMessageToJSONData(apiTask.GetTypeAttributes())
 		if err != nil {
-			return nil, util.NewInternalServerError(err, "Failed to marshal outputs to JSON")
+			return nil, err
 		}
-		var outputsData model.JSONData
-		if err := json.Unmarshal(outputsBytes, &outputsData); err != nil {
-			return nil, util.NewInternalServerError(err, "Failed to unmarshal outputs JSON into JSONData map")
-		}
-		task.OutputParameters = outputsData
-
-		artifactsOnly := &apiv2beta1.PipelineTaskDetail_InputOutputs{Artifacts: outputs.GetArtifacts()}
-		artifactsBytes, err := protojson.Marshal(artifactsOnly)
-		if err != nil {
-			return nil, util.NewInternalServerError(err, "Failed to marshal output artifacts to JSON")
-		}
-		var outputArtifactsData model.JSONData
-		if err := json.Unmarshal(artifactsBytes, &outputArtifactsData); err != nil {
-			return nil, util.NewInternalServerError(err, "Failed to unmarshal output artifacts JSON into JSONData map")
-		}
-		task.OutputArtifacts = outputArtifactsData
+		task.TypeAttrs = attrs
 	}
-
-	// Convert TypeAttrs - store additional API-specific fields
-	typeAttrs := make(map[string]interface{})
-	if apiTask.GetIterationIndex() > 0 {
-		typeAttrs["iteration_index"] = apiTask.GetIterationIndex()
-	}
-	if apiTask.GetIterationCount() > 0 {
-		typeAttrs["iteration_count"] = apiTask.GetIterationCount()
-	}
-
-	task.TypeAttrs = typeAttrs
 
 	return task, nil
 }
@@ -2752,36 +2708,6 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 	}
 
 	return apiTask, nil
-}
-
-func apiTaskPodsToModel(pods []*apiv2beta1.PipelineTaskDetail_TaskPod) (*model.JSONData, error) {
-	if len(pods) == 0 {
-		return nil, nil
-	}
-
-	// Marshal each pod to JSON
-	podsJSON := make([]json.RawMessage, 0, len(pods))
-	for _, pod := range pods {
-		podBytes, err := protojson.Marshal(pod)
-		if err != nil {
-			return nil, util.NewInternalServerError(err, "Failed to marshal task pod to JSON")
-		}
-		podsJSON = append(podsJSON, podBytes)
-	}
-
-	// Marshal the array of pods to JSON
-	jsonBytes, err := json.Marshal(podsJSON)
-	if err != nil {
-		return nil, util.NewInternalServerError(err, "Failed to marshal pods array to JSON")
-	}
-
-	// Create and populate the JSONData
-	var jsonData model.JSONData
-	if err := json.Unmarshal(jsonBytes, &jsonData); err != nil {
-		return nil, util.NewInternalServerError(err, "Failed to unmarshal pods JSON into JSONData")
-	}
-
-	return &jsonData, nil
 }
 
 func modelTaskPodsToAPI(pods *model.JSONData) ([]*apiv2beta1.PipelineTaskDetail_TaskPod, error) {

@@ -725,6 +725,21 @@
       "default": "ROOT",
       "description": " - ROOT: Root task replaces Root Execution, it is the top ancestor task to all tasks in the pipeline run\n - DAG: Generic DAG task type for types like Nested Pipelines\nwhere there is no declarative way to detect this within\na driver."
     },
+    "PipelineTaskDetailTypeAttributes": {
+      "type": "object",
+      "properties": {
+        "iteration_index": {
+          "type": "string",
+          "format": "int64",
+          "title": "Optional. Applies to type LOOP_ITERATION"
+        },
+        "iteration_count": {
+          "type": "string",
+          "format": "int64",
+          "title": "Optional. Applies to type LOOP"
+        }
+      }
+    },
     "googlerpcStatus": {
       "type": "object",
       "properties": {
@@ -957,15 +972,8 @@
         "type": {
           "$ref": "#/definitions/PipelineTaskDetailTaskType"
         },
-        "iteration_index": {
-          "type": "string",
-          "format": "int64",
-          "title": "Optional. Applies to type LOOP_ITERATION"
-        },
-        "iteration_count": {
-          "type": "string",
-          "format": "int64",
-          "title": "Optional. Applies to type LOOP"
+        "type_attributes": {
+          "$ref": "#/definitions/PipelineTaskDetailTypeAttributes"
         },
         "error": {
           "$ref": "#/definitions/googlerpcStatus",

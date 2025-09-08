@@ -45,12 +45,6 @@ type V2beta1PipelineTaskDetail struct {
 	// inputs
 	Inputs *PipelineTaskDetailInputOutputs `json:"inputs,omitempty"`
 
-	// Optional. Applies to type LOOP
-	IterationCount string `json:"iteration_count,omitempty"`
-
-	// Optional. Applies to type LOOP_ITERATION
-	IterationIndex string `json:"iteration_index,omitempty"`
-
 	// name
 	Name string `json:"name,omitempty"`
 
@@ -87,6 +81,9 @@ type V2beta1PipelineTaskDetail struct {
 
 	// type
 	Type *PipelineTaskDetailTaskType `json:"type,omitempty"`
+
+	// type attributes
+	TypeAttributes *PipelineTaskDetailTypeAttributes `json:"type_attributes,omitempty"`
 }
 
 // Validate validates this v2beta1 pipeline task detail
@@ -134,6 +131,10 @@ func (m *V2beta1PipelineTaskDetail) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateType(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateTypeAttributes(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -352,6 +353,25 @@ func (m *V2beta1PipelineTaskDetail) validateType(formats strfmt.Registry) error 
 	return nil
 }
 
+func (m *V2beta1PipelineTaskDetail) validateTypeAttributes(formats strfmt.Registry) error {
+	if swag.IsZero(m.TypeAttributes) { // not required
+		return nil
+	}
+
+	if m.TypeAttributes != nil {
+		if err := m.TypeAttributes.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("type_attributes")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("type_attributes")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
 // ContextValidate validate this v2beta1 pipeline task detail based on the context it is used
 func (m *V2beta1PipelineTaskDetail) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
@@ -385,6 +405,10 @@ func (m *V2beta1PipelineTaskDetail) ContextValidate(ctx context.Context, formats
 	}
 
 	if err := m.contextValidateType(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateTypeAttributes(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -566,6 +590,27 @@ func (m *V2beta1PipelineTaskDetail) contextValidateType(ctx context.Context, for
 				return ve.ValidateName("type")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("type")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *V2beta1PipelineTaskDetail) contextValidateTypeAttributes(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.TypeAttributes != nil {
+
+		if swag.IsZero(m.TypeAttributes) { // not required
+			return nil
+		}
+
+		if err := m.TypeAttributes.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("type_attributes")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("type_attributes")
 			}
 			return err
 		}
