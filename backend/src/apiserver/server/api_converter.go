@@ -2368,13 +2368,6 @@ func toModelArtifactTask(apiAT *apiv2beta1.ArtifactTask) (*model.ArtifactTask, e
 	}, nil
 }
 
-// TaskStateHistoryEntry represents a single entry in task state history
-type TaskStateHistoryEntry struct {
-	State           string `json:"state"`
-	UpdateTimeInSec int64  `json:"update_time,omitempty"`
-	Error           string `json:"error,omitempty"`
-}
-
 // Converts API PipelineTaskDetail to its internal representation.
 // Supports v2beta1 API.
 func toModelTask(apiTask *apiv2beta1.PipelineTaskDetail) (*model.Task, error) {
