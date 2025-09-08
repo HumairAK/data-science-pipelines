@@ -268,3 +268,64 @@ func ProtoMessageToJSONData(msg proto.Message) (JSONData, error) {
 	}
 	return m, nil
 }
+
+// JSONSliceToProtoSlice converts a JSONSlice (i.e., []interface{}) into a slice
+// of protobuf messages. Provide a constructor for T so we can allocate a new
+// concrete message for each element.
+func JSONSliceToProtoSlice[T proto.Message](in JSONSlice, newT func() T) ([]T, error) {
+	if in == nil {
+		return nil, nil
+	}
+	out := make([]T, 0, len(in))
+	for _, v := range in {
+		if v == nil {
+			var zero T
+			out = append(out, zero)
+			continue
+		}
+		b, err := json.Marshal(v)
+		if err != nil {
+			return nil, err
+		}
+		msg := newT()
+		if err := protojson.Unmarshal(b, msg); err != nil {
+			return nil, err
+		}
+		out = append(out, msg)
+	}
+	return out, nil
+}
+
+// JSONDataToStructValueMap converts model.JSONData into map[string]*structpb.Value.
+func JSONDataToStructValueMap(in JSONData) (map[string]*structpb.Value, error) {
+	if in == nil {
+		return nil, nil
+	}
+	out := make(map[string]*structpb.Value, len(in))
+	for k, v := range in {
+		val, err := structpb.NewValue(v)
+		if err != nil {
+			return nil, err
+		}
+		out[k] = val
+	}
+	return out, nil
+}
+
+// JSONDataToProtoMessage unmarshals JSONData into a protobuf message instance.
+// Provide a constructor for T so we can allocate a concrete message to fill.
+func JSONDataToProtoMessage[T proto.Message](data JSONData, newT func() T) (T, error) {
+	var zero T
+	if data == nil {
+		return zero, nil
+	}
+	b, err := json.Marshal(data)
+	if err != nil {
+		return zero, err
+	}
+	msg := newT()
+	if err := protojson.Unmarshal(b, msg); err != nil {
+		return zero, err
+	}
+	return msg, nil
+}
