@@ -20,6 +20,7 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/golang/glog"
+	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
@@ -28,23 +29,23 @@ import (
 const artifactTaskTableName = "artifact_tasks"
 
 var artifactTaskColumns = []string{
-	"UUID",
-	"ArtifactID",
-	"TaskID",
-	"Type",
+	"artifact_tasks.UUID",
+	"artifact_tasks.ArtifactID",
+	"artifact_tasks.TaskID",
+	"artifact_tasks.Type",
 }
 
 type ArtifactTaskStoreInterface interface {
-	// Create an artifact-task relationship entry in the database.
+	// CreateArtifactTask Create an artifact-task relationship entry in the database.
 	CreateArtifactTask(artifactTask *model.ArtifactTask) (*model.ArtifactTask, error)
 
-	// Create multiple artifact-task relationships in a single transaction.
+	// CreateArtifactTasks Create multiple artifact-task relationships in a single transaction.
 	CreateArtifactTasks(artifactTasks []*model.ArtifactTask) ([]*model.ArtifactTask, error)
 
-	// Fetches an artifact-task relationship with a given id.
+	// GetArtifactTask Fetches an artifact-task relationship with a given id.
 	GetArtifactTask(id string) (*model.ArtifactTask, error)
 
-	// Fetches artifact-task relationships for given filtering and listing options.
+	// ListArtifactTasks Fetches artifact-task relationships for given filtering and listing options.
 	// filterContexts supports multiple filters: ArtifactID, TaskID, RunUUID, or Type
 	ListArtifactTasks(filterContexts []*model.FilterContext, opts *list.Options) ([]*model.ArtifactTask, int, string, error)
 }
@@ -163,16 +164,7 @@ func (s *ArtifactTaskStore) scanRows(rows *sql.Rows) ([]*model.ArtifactTask, err
 		}
 
 		// Convert string type back to enum type
-		var typeEnum model.ArtifactTaskType
-		switch artifactTaskType {
-		case "0":
-			typeEnum = model.ArtifactTaskTypeInput
-		case "1":
-			typeEnum = model.ArtifactTaskTypeOutput
-		default:
-			typeEnum = model.ArtifactTaskTypeInput
-		}
-
+		var typeEnum apiv2beta1.ArtifactTaskType
 		artifactTask := &model.ArtifactTask{
 			UUID:       uuid,
 			ArtifactID: artifactID,
@@ -190,13 +182,13 @@ func (s *ArtifactTaskStore) applyFilterContextsToQuery(sqlBuilder sq.SelectBuild
 	var artifactIDs []string
 	var taskIDs []string
 	var runIDs []string
-	
+
 	// Collect all filter values by type
 	for _, filterContext := range filterContexts {
 		if filterContext == nil || filterContext.ReferenceKey == nil {
 			continue
 		}
-		
+
 		switch filterContext.ReferenceKey.Type {
 		case model.ArtifactResourceType:
 			artifactIDs = append(artifactIDs, filterContext.ReferenceKey.ID)
@@ -206,7 +198,7 @@ func (s *ArtifactTaskStore) applyFilterContextsToQuery(sqlBuilder sq.SelectBuild
 			runIDs = append(runIDs, filterContext.ReferenceKey.ID)
 		}
 	}
-	
+
 	// Apply artifact ID filters (OR within artifact IDs)
 	if len(artifactIDs) > 0 {
 		if len(artifactIDs) == 1 {
@@ -215,7 +207,7 @@ func (s *ArtifactTaskStore) applyFilterContextsToQuery(sqlBuilder sq.SelectBuild
 			sqlBuilder = sqlBuilder.Where(sq.Eq{"artifact_tasks.ArtifactID": artifactIDs})
 		}
 	}
-	
+
 	// Apply task ID filters (OR within task IDs)
 	if len(taskIDs) > 0 {
 		if len(taskIDs) == 1 {
@@ -224,7 +216,7 @@ func (s *ArtifactTaskStore) applyFilterContextsToQuery(sqlBuilder sq.SelectBuild
 			sqlBuilder = sqlBuilder.Where(sq.Eq{"artifact_tasks.TaskID": taskIDs})
 		}
 	}
-	
+
 	// Apply run ID filters (OR within run IDs, requires join)
 	if len(runIDs) > 0 {
 		sqlBuilder = sqlBuilder.Join("tasks ON artifact_tasks.TaskID = tasks.UUID")
@@ -234,7 +226,7 @@ func (s *ArtifactTaskStore) applyFilterContextsToQuery(sqlBuilder sq.SelectBuild
 			sqlBuilder = sqlBuilder.Where(sq.Eq{"tasks.RunUUID": runIDs})
 		}
 	}
-	
+
 	return sqlBuilder
 }
 

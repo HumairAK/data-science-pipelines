@@ -40,6 +40,7 @@ func NewFakeDB() (*DB, error) {
 		&model.RunMetric{},
 		&model.RunMetricV1{},
 		&model.Task{},
+		&model.ArtifactTask{},
 		&model.DBStatus{},
 		&model.DefaultExperiment{},
 	); err != nil {
