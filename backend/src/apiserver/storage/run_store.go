@@ -158,12 +158,23 @@ func (s *RunStore) ListRuns(
 		return errorF(err)
 	}
 
+	// Hydrate tasks only for the runs we return on this page
 	if len(runs) <= opts.PageSize {
+		if err := s.hydrateTasksForRuns(runs); err != nil {
+			return errorF(err)
+		}
 		return runs, total_size, "", nil
 	}
 
 	npt, err := opts.NextPageToken(runs[opts.PageSize])
-	return runs[:opts.PageSize], total_size, npt, err
+	if err != nil {
+		return errorF(err)
+	}
+	page := runs[:opts.PageSize]
+	if err := s.hydrateTasksForRuns(page); err != nil {
+		return errorF(err)
+	}
+	return page, total_size, npt, nil
 }
 
 func (s *RunStore) buildSelectRunsQuery(selectCount bool, opts *list.Options,
@@ -234,7 +245,185 @@ func (s *RunStore) GetRun(runId string) (*model.Run, error) {
 		// This can only happen when workflow reporting is failed.
 		return nil, util.NewResourceNotFoundError("Failed to get run: %s", runId)
 	}
+
+	// Hydrate tasks for this single run
+	if err := s.hydrateTasksForRuns(runs); err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to get run tasks: %v", err)
+	}
 	return runs[0], nil
+}
+
+// hydrateTasksForRuns fetches tasks for the provided runs and assigns them to the Run model.
+// It issues a single query using WHERE RunUUID IN (...) and groups results by RunUUID.
+func (s *RunStore) hydrateTasksForRuns(runs []*model.Run) error {
+	if len(runs) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(runs))
+	index := make(map[string]*model.Run, len(runs))
+	for _, r := range runs {
+		if r == nil || r.UUID == "" {
+			continue
+		}
+		if _, ok := index[r.UUID]; !ok {
+			index[r.UUID] = r
+			ids = append(ids, r.UUID)
+		}
+	}
+
+	// Select only needed columns from tasks; scan and attach in Go.
+	sqlQuery, args, err := sq.
+		Select(
+			"UUID",
+			"Namespace",
+			"PipelineName",
+			"RunUUID",
+			"Pods",
+			"CreatedAtInSec",
+			"StartedInSec",
+			"FinishedInSec",
+			"Fingerprint",
+			"Name",
+			"DisplayName",
+			"ParentTaskUUID",
+			"Status",
+			"StatusMetadata",
+			"StateHistory",
+			"InputParameters",
+			"InputArtifacts",
+			"OutputParameters",
+			"OutputArtifacts",
+			"Type",
+			"TypeAttrs",
+		).
+		From("tasks").
+		Where(sq.Eq{"RunUUID": ids}).
+		ToSql()
+	if err != nil {
+		return err
+	}
+
+	rows, err := s.db.Query(sqlQuery, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	// Local scan mirroring task_store.go's scan logic (without relying on its internals)
+	for rows.Next() {
+		var uuid, namespace, pipelineName, runUUID, fingerprint string
+		var name, displayName, parentTaskId, pods, statusMetadata, stateHistory, inputParams, inputArtifacts, outputParams, outputArtifacts, typeAttrs sql.NullString
+		var createdAtInSec, startedInSec, finishedInSec sql.NullInt64
+		var taskStatus, taskType int32
+
+		if err := rows.Scan(
+			&uuid,
+			&namespace,
+			&pipelineName,
+			&runUUID,
+			&pods,
+			&createdAtInSec,
+			&startedInSec,
+			&finishedInSec,
+			&fingerprint,
+			&name,
+			&displayName,
+			&parentTaskId,
+			&taskStatus,
+			&statusMetadata,
+			&stateHistory,
+			&inputParams,
+			&inputArtifacts,
+			&outputParams,
+			&outputArtifacts,
+			&taskType,
+			&typeAttrs,
+		); err != nil {
+			return err
+		}
+
+		var statusMetadataNew model.JSONData
+		if statusMetadata.Valid {
+			if err := json.Unmarshal([]byte(statusMetadata.String), &statusMetadataNew); err != nil {
+				return err
+			}
+		}
+		var stateHistoryNew model.JSONSlice
+		if stateHistory.Valid {
+			if err := json.Unmarshal([]byte(stateHistory.String), &stateHistoryNew); err != nil {
+				return err
+			}
+		}
+		var podsNew model.JSONSlice
+		if pods.Valid {
+			if err := json.Unmarshal([]byte(pods.String), &podsNew); err != nil {
+				return err
+			}
+		}
+		var inputParameters model.JSONSlice
+		if inputParams.Valid {
+			if err := json.Unmarshal([]byte(inputParams.String), &inputParameters); err != nil {
+				return err
+			}
+		}
+		var outputParameters model.JSONSlice
+		if outputParams.Valid {
+			if err := json.Unmarshal([]byte(outputParams.String), &outputParameters); err != nil {
+				return err
+			}
+		}
+		var inputArtifactsData model.JSONSlice
+		if inputArtifacts.Valid {
+			if err := json.Unmarshal([]byte(inputArtifacts.String), &inputArtifactsData); err != nil {
+				return err
+			}
+		}
+		var outputArtifactsData model.JSONSlice
+		if outputArtifacts.Valid {
+			if err := json.Unmarshal([]byte(outputArtifacts.String), &outputArtifactsData); err != nil {
+				return err
+			}
+		}
+		var typeAttrsData model.JSONData
+		if typeAttrs.Valid {
+			if err := json.Unmarshal([]byte(typeAttrs.String), &typeAttrsData); err != nil {
+				return err
+			}
+		}
+
+		task := &model.Task{
+			UUID:             uuid,
+			Namespace:        namespace,
+			PipelineName:     pipelineName,
+			RunUUID:          runUUID,
+			Pods:             podsNew,
+			CreatedAtInSec:   createdAtInSec.Int64,
+			StartedInSec:     startedInSec.Int64,
+			FinishedInSec:    finishedInSec.Int64,
+			Fingerprint:      fingerprint,
+			Name:             name.String,
+			DisplayName:      displayName.String,
+			ParentTaskUUID:   parentTaskId.String,
+			Status:           taskStatus,
+			StatusMetadata:   statusMetadataNew,
+			StateHistory:     stateHistoryNew,
+			InputParameters:  inputParameters,
+			InputArtifacts:   inputArtifactsData,
+			OutputParameters: outputParameters,
+			OutputArtifacts:  outputArtifactsData,
+			Type:             taskType,
+			TypeAttrs:        typeAttrsData,
+		}
+
+		if run, ok := index[runUUID]; ok {
+			// Assuming Run has a Tasks field (e.g., []*model.Task). Initialize if nil.
+			if run.Tasks == nil {
+				run.Tasks = []*model.Task{}
+			}
+			run.Tasks = append(run.Tasks, task)
+		}
+	}
+	return rows.Err()
 }
 
 // Applies a func f to every string in a given string slice.
@@ -261,26 +450,11 @@ func (s *RunStore) addMetricsResourceReferencesAndTasks(filteredSelectBuilder sq
 		LeftJoin("resource_references AS rr ON rr.ResourceType='Run' AND rd.UUID=rr.ResourceUUID").
 		GroupBy("rd.UUID")
 
-	tasksConcatQuery := s.db.Concat([]string{`"["`, s.db.GroupConcat("tasks.Payload", ","), `"]"`}, "")
-	columnsAfterJoiningTasks := append(
-		apply(func(column string) string { return "rdref." + column }, runColumns),
-		"rdref.refs",
-		tasksConcatQuery+" AS taskDetails")
-	if opts != nil && !r.IsRegularField(opts.SortByFieldName) {
-		columnsAfterJoiningTasks = append(columnsAfterJoiningTasks, "rdref."+opts.SortByFieldName)
-	}
-	subQ = sq.
-		Select(columnsAfterJoiningTasks...).
-		FromSelect(subQ, "rdref").
-		LeftJoin("tasks AS tasks ON rdref.UUID=tasks.RunUUID").
-		GroupBy("rdref.UUID")
-
 	// TODO(HumairAK): Remove this join on metrics when v1 is removed
 	metricConcatQuery := s.db.Concat([]string{`"["`, s.db.GroupConcat("rm.Payload", ","), `"]"`}, "")
 	columnsAfterJoiningRunMetrics := append(
 		apply(func(column string) string { return "subq." + column }, runColumns), // Add prefix "subq." to runColumns
 		"subq.refs",
-		"subq.taskDetails",
 		metricConcatQuery+" AS metrics")
 	return sq.
 		Select(columnsAfterJoiningRunMetrics...).
@@ -296,7 +470,7 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 			pipelineName, pipelineSpecManifest, workflowSpecManifest, parameters, pipelineRuntimeManifest,
 			workflowRuntimeManifest string
 		var createdAtInSec, scheduledAtInSec, finishedAtInSec, pipelineContextId, pipelineRunContextId sql.NullInt64
-		var metricsInString, resourceReferencesInString, tasksInString, runtimeParameters, pipelineRoot, jobId, state, stateHistory, pipelineVersionId sql.NullString
+		var metricsInString, resourceReferencesInString, runtimeParameters, pipelineRoot, jobId, state, stateHistory, pipelineVersionId sql.NullString
 		err := rows.Scan(
 			&uuid,
 			&experimentUUID,
@@ -326,7 +500,6 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 			&pipelineContextId,
 			&pipelineRunContextId,
 			&resourceReferencesInString,
-			&tasksInString,
 			&metricsInString,
 		)
 		if err != nil {
@@ -344,10 +517,6 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 		if err != nil {
 			// throw internal exception if failed to parse the resource reference.
 			return nil, util.NewInternalServerError(err, "Failed to parse resource reference")
-		}
-		tasks, err := parseTaskDetails(tasksInString)
-		if err != nil {
-			return nil, util.NewInternalServerError(err, "Failed to parse task details")
 		}
 		jId := jobId.String
 		pvId := pipelineVersionId.String
@@ -396,7 +565,6 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 				WorkflowRuntimeManifest: model.LargeText(workflowRuntimeManifest),
 				PipelineContextId:       pipelineContextId.Int64,
 				PipelineRunContextId:    pipelineRunContextId.Int64,
-				TaskDetails:             tasks,
 				StateHistory:            stateHistoryNew,
 			},
 			Metrics:            metrics,
@@ -410,23 +578,11 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 				Parameters:           model.LargeText(parameters),
 				RuntimeConfig:        runtimeConfig,
 			},
-			Tasks: tasks,
 		}
 		run = run.ToV2()
 		runs = append(runs, run)
 	}
 	return runs, nil
-}
-
-func parseTaskDetails(tasksInString sql.NullString) ([]*model.Task, error) {
-	if !tasksInString.Valid {
-		return nil, nil
-	}
-	var tasks []*model.Task
-	if err := json.Unmarshal([]byte(tasksInString.String), &tasks); err != nil {
-		return nil, util.Wrapf(err, "Failed to parse a task '%s'", tasksInString.String)
-	}
-	return tasks, nil
 }
 
 func parseMetrics(metricsInString sql.NullString) ([]*model.RunMetricV1, error) {
