@@ -1108,7 +1108,7 @@ func toModelRun(r interface{}) (*model.Run, error) {
 	var pipelineRoot, storageState, serviceAcc string
 	var createTime, scheduleTime, finishTime int64
 	var modelMetrics []*model.RunMetricV1
-	modelTasks := make([]*model.Task, 0)
+	var modelTasks []*model.Task
 	var state model.RuntimeState
 	var stateHistory []*model.RuntimeStatus
 	switch r := r.(type) {
@@ -1460,9 +1460,22 @@ func toApiRun(r *model.Run) *apiv2beta1.Run {
 			runtimeConfig = nil
 		}
 	}
+	apiTasks, err := generateAPITasks(r.Tasks)
+	if err != nil {
+		return &apiv2beta1.Run{
+			RunId:        r.UUID,
+			ExperimentId: r.ExperimentId,
+			Error:        util.ToRpcStatus(err),
+		}
+	}
+	if len(apiTasks) == 0 {
+		apiTasks = nil
+	}
+
 	apiRd := &apiv2beta1.RunDetails{
 		PipelineContextId:    r.RunDetails.PipelineContextId,
 		PipelineRunContextId: r.RunDetails.PipelineRunContextId,
+		TaskDetails:          apiTasks,
 	}
 	if apiRd.PipelineContextId == 0 && apiRd.PipelineRunContextId == 0 && apiRd.TaskDetails == nil {
 		apiRd = nil
@@ -1482,18 +1495,8 @@ func toApiRun(r *model.Run) *apiv2beta1.Run {
 		ScheduledAt:    timestamppb.New(time.Unix(r.RunDetails.ScheduledAtInSec, 0)),
 		FinishedAt:     timestamppb.New(time.Unix(r.RunDetails.FinishedAtInSec, 0)),
 		RunDetails:     apiRd,
+		Tasks:          apiTasks,
 	}
-
-	apiTasks, err := generateAPITasks(r.Tasks)
-	if err != nil {
-		return &apiv2beta1.Run{
-			RunId:        r.UUID,
-			ExperimentId: r.ExperimentId,
-			Error:        util.ToRpcStatus(err),
-		}
-	}
-	apiRunV2.Tasks = apiTasks
-	apiRunV2.RunDetails.TaskDetails = apiTasks
 
 	err = util.NewInvalidInputError("Failed to parse the pipeline source")
 	if r.PipelineSpec.PipelineVersionId != "" {

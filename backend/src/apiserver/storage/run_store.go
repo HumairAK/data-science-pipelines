@@ -396,6 +396,7 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 				WorkflowRuntimeManifest: model.LargeText(workflowRuntimeManifest),
 				PipelineContextId:       pipelineContextId.Int64,
 				PipelineRunContextId:    pipelineRunContextId.Int64,
+				TaskDetails:             tasks,
 				StateHistory:            stateHistoryNew,
 			},
 			Metrics:            metrics,

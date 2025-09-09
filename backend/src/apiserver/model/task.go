@@ -220,7 +220,8 @@ func (t Task) GetFieldValue(name string) interface{} {
 func ProtoSliceToJSONSlice[T proto.Message](msgs []T) (JSONSlice, error) {
 	out := make(JSONSlice, 0, len(msgs))
 	for _, m := range msgs {
-		if m == nil {
+		var pm proto.Message = m
+		if pm == nil {
 			out = append(out, nil)
 			continue
 		}

@@ -130,42 +130,42 @@ func (s *TaskStore) scanRows(rows *sql.Rows) ([]*model.Task, error) {
 				return nil, err
 			}
 		}
-		var stateHistoryNew model.JSONData
+		var stateHistoryNew model.JSONSlice
 		if stateHistory.Valid {
 			err := json.Unmarshal([]byte(stateHistory.String), &stateHistoryNew)
 			if err != nil {
 				return nil, err
 			}
 		}
-		var podsNew model.JSONData
+		var podsNew model.JSONSlice
 		if pods.Valid {
 			err := json.Unmarshal([]byte(pods.String), &podsNew)
 			if err != nil {
 				return nil, err
 			}
 		}
-		var inputParameters model.JSONData
+		var inputParameters model.JSONSlice
 		if inputParams.Valid {
 			err := json.Unmarshal([]byte(inputParams.String), &inputParameters)
 			if err != nil {
 				return nil, err
 			}
 		}
-		var outputParameters model.JSONData
+		var outputParameters model.JSONSlice
 		if outputParams.Valid {
 			err := json.Unmarshal([]byte(outputParams.String), &outputParameters)
 			if err != nil {
 				return nil, err
 			}
 		}
-		var inputArtifactsData model.JSONData
+		var inputArtifactsData model.JSONSlice
 		if inputArtifacts.Valid {
 			err := json.Unmarshal([]byte(inputArtifacts.String), &inputArtifactsData)
 			if err != nil {
 				return nil, err
 			}
 		}
-		var outputArtifactsData model.JSONData
+		var outputArtifactsData model.JSONSlice
 		if outputArtifacts.Valid {
 			err := json.Unmarshal([]byte(outputArtifacts.String), &outputArtifactsData)
 			if err != nil {
@@ -278,7 +278,7 @@ func (s *TaskStore) CreateTask(task *model.Task) (*model.Task, error) {
 	sql, args, err := sq.
 		Insert(tableName).
 		SetMap(
- 		sq.Eq{
+			sq.Eq{
 				"UUID":             newTask.UUID,
 				"Namespace":        newTask.Namespace,
 				"PipelineName":     newTask.PipelineName,
