@@ -273,29 +273,7 @@ func (s *RunStore) hydrateTasksForRuns(runs []*model.Run) error {
 
 	// Select only needed columns from tasks; scan and attach in Go.
 	sqlQuery, args, err := sq.
-		Select(
-			"UUID",
-			"Namespace",
-			"PipelineName",
-			"RunUUID",
-			"Pods",
-			"CreatedAtInSec",
-			"StartedInSec",
-			"FinishedInSec",
-			"Fingerprint",
-			"Name",
-			"DisplayName",
-			"ParentTaskUUID",
-			"Status",
-			"StatusMetadata",
-			"StateHistory",
-			"InputParameters",
-			"InputArtifacts",
-			"OutputParameters",
-			"OutputArtifacts",
-			"Type",
-			"TypeAttrs",
-		).
+		Select(taskColumns...).
 		From("tasks").
 		Where(sq.Eq{"RunUUID": ids}).
 		ToSql()
@@ -309,114 +287,12 @@ func (s *RunStore) hydrateTasksForRuns(runs []*model.Run) error {
 	}
 	defer rows.Close()
 
-	// Local scan mirroring task_store.go's scan logic (without relying on its internals)
 	for rows.Next() {
-		var uuid, namespace, pipelineName, runUUID, fingerprint string
-		var name, displayName, parentTaskId, pods, statusMetadata, stateHistory, inputParams, inputArtifacts, outputParams, outputArtifacts, typeAttrs sql.NullString
-		var createdAtInSec, startedInSec, finishedInSec sql.NullInt64
-		var taskStatus, taskType int32
-
-		if err := rows.Scan(
-			&uuid,
-			&namespace,
-			&pipelineName,
-			&runUUID,
-			&pods,
-			&createdAtInSec,
-			&startedInSec,
-			&finishedInSec,
-			&fingerprint,
-			&name,
-			&displayName,
-			&parentTaskId,
-			&taskStatus,
-			&statusMetadata,
-			&stateHistory,
-			&inputParams,
-			&inputArtifacts,
-			&outputParams,
-			&outputArtifacts,
-			&taskType,
-			&typeAttrs,
-		); err != nil {
+		task, err := scanTaskRow(rows)
+		if err != nil {
 			return err
 		}
-
-		var statusMetadataNew model.JSONData
-		if statusMetadata.Valid {
-			if err := json.Unmarshal([]byte(statusMetadata.String), &statusMetadataNew); err != nil {
-				return err
-			}
-		}
-		var stateHistoryNew model.JSONSlice
-		if stateHistory.Valid {
-			if err := json.Unmarshal([]byte(stateHistory.String), &stateHistoryNew); err != nil {
-				return err
-			}
-		}
-		var podsNew model.JSONSlice
-		if pods.Valid {
-			if err := json.Unmarshal([]byte(pods.String), &podsNew); err != nil {
-				return err
-			}
-		}
-		var inputParameters model.JSONSlice
-		if inputParams.Valid {
-			if err := json.Unmarshal([]byte(inputParams.String), &inputParameters); err != nil {
-				return err
-			}
-		}
-		var outputParameters model.JSONSlice
-		if outputParams.Valid {
-			if err := json.Unmarshal([]byte(outputParams.String), &outputParameters); err != nil {
-				return err
-			}
-		}
-		var inputArtifactsData model.JSONSlice
-		if inputArtifacts.Valid {
-			if err := json.Unmarshal([]byte(inputArtifacts.String), &inputArtifactsData); err != nil {
-				return err
-			}
-		}
-		var outputArtifactsData model.JSONSlice
-		if outputArtifacts.Valid {
-			if err := json.Unmarshal([]byte(outputArtifacts.String), &outputArtifactsData); err != nil {
-				return err
-			}
-		}
-		var typeAttrsData model.JSONData
-		if typeAttrs.Valid {
-			if err := json.Unmarshal([]byte(typeAttrs.String), &typeAttrsData); err != nil {
-				return err
-			}
-		}
-
-		task := &model.Task{
-			UUID:             uuid,
-			Namespace:        namespace,
-			PipelineName:     pipelineName,
-			RunUUID:          runUUID,
-			Pods:             podsNew,
-			CreatedAtInSec:   createdAtInSec.Int64,
-			StartedInSec:     startedInSec.Int64,
-			FinishedInSec:    finishedInSec.Int64,
-			Fingerprint:      fingerprint,
-			Name:             name.String,
-			DisplayName:      displayName.String,
-			ParentTaskUUID:   parentTaskId.String,
-			Status:           taskStatus,
-			StatusMetadata:   statusMetadataNew,
-			StateHistory:     stateHistoryNew,
-			InputParameters:  inputParameters,
-			InputArtifacts:   inputArtifactsData,
-			OutputParameters: outputParameters,
-			OutputArtifacts:  outputArtifactsData,
-			Type:             taskType,
-			TypeAttrs:        typeAttrsData,
-		}
-
-		if run, ok := index[runUUID]; ok {
-			// Assuming Run has a Tasks field (e.g., []*model.Task). Initialize if nil.
+		if run, ok := index[task.RunUUID]; ok {
 			if run.Tasks == nil {
 				run.Tasks = []*model.Task{}
 			}

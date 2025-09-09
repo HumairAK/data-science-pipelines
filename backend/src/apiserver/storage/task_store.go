@@ -89,120 +89,119 @@ func NewTaskStore(db *DB, time util.TimeInterface, uuid util.UUIDGeneratorInterf
 	}
 }
 
+// scanTaskRow scans a single row into a model.Task. It expects the column order to match taskColumns.
+func scanTaskRow(rowscanner interface{ Scan(dest ...any) error }) (*model.Task, error) {
+	var uuid, namespace, pipelineName, runUUID, fingerprint string
+	var name, displayName, parentTaskId, pods, statusMetadata, stateHistory, inputParams, inputArtifacts, outputParams, outputArtifacts, typeAttrs sql.NullString
+	var createdAtInSec, startedInSec, finishedInSec sql.NullInt64
+	var taskStatus, taskType int32
+	if err := rowscanner.Scan(
+		&uuid,
+		&namespace,
+		&pipelineName,
+		&runUUID,
+		&pods,
+		&createdAtInSec,
+		&startedInSec,
+		&finishedInSec,
+		&fingerprint,
+		&name,
+		&displayName,
+		&parentTaskId,
+		&taskStatus,
+		&statusMetadata,
+		&stateHistory,
+		&inputParams,
+		&inputArtifacts,
+		&outputParams,
+		&outputArtifacts,
+		&taskType,
+		&typeAttrs,
+	); err != nil {
+		return nil, err
+	}
+	var statusMetadataNew model.JSONData
+	if statusMetadata.Valid {
+		if err := json.Unmarshal([]byte(statusMetadata.String), &statusMetadataNew); err != nil {
+			return nil, err
+		}
+	}
+	var stateHistoryNew model.JSONSlice
+	if stateHistory.Valid {
+		if err := json.Unmarshal([]byte(stateHistory.String), &stateHistoryNew); err != nil {
+			return nil, err
+		}
+	}
+	var podsNew model.JSONSlice
+	if pods.Valid {
+		if err := json.Unmarshal([]byte(pods.String), &podsNew); err != nil {
+			return nil, err
+		}
+	}
+	var inputParameters model.JSONSlice
+	if inputParams.Valid {
+		if err := json.Unmarshal([]byte(inputParams.String), &inputParameters); err != nil {
+			return nil, err
+		}
+	}
+	var outputParameters model.JSONSlice
+	if outputParams.Valid {
+		if err := json.Unmarshal([]byte(outputParams.String), &outputParameters); err != nil {
+			return nil, err
+		}
+	}
+	var inputArtifactsData model.JSONSlice
+	if inputArtifacts.Valid {
+		if err := json.Unmarshal([]byte(inputArtifacts.String), &inputArtifactsData); err != nil {
+			return nil, err
+		}
+	}
+	var outputArtifactsData model.JSONSlice
+	if outputArtifacts.Valid {
+		if err := json.Unmarshal([]byte(outputArtifacts.String), &outputArtifactsData); err != nil {
+			return nil, err
+		}
+	}
+	var typeAttrsData model.JSONData
+	if typeAttrs.Valid {
+		if err := json.Unmarshal([]byte(typeAttrs.String), &typeAttrsData); err != nil {
+			return nil, err
+		}
+	}
+	return &model.Task{
+		UUID:             uuid,
+		Namespace:        namespace,
+		PipelineName:     pipelineName,
+		RunUUID:          runUUID,
+		Pods:             podsNew,
+		CreatedAtInSec:   createdAtInSec.Int64,
+		StartedInSec:     startedInSec.Int64,
+		FinishedInSec:    finishedInSec.Int64,
+		Fingerprint:      fingerprint,
+		Name:             name.String,
+		DisplayName:      displayName.String,
+		ParentTaskUUID:   parentTaskId.String,
+		Status:           taskStatus,
+		StatusMetadata:   statusMetadataNew,
+		StateHistory:     stateHistoryNew,
+		InputParameters:  inputParameters,
+		InputArtifacts:   inputArtifactsData,
+		OutputParameters: outputParameters,
+		OutputArtifacts:  outputArtifactsData,
+		Type:             taskType,
+		TypeAttrs:        typeAttrsData,
+	}, nil
+}
+
 func (s *TaskStore) scanRows(rows *sql.Rows) ([]*model.Task, error) {
 	var tasks []*model.Task
 	for rows.Next() {
-		var uuid, namespace, pipelineName, runUUID, fingerprint string
-		var name, displayName, parentTaskId, pods, statusMetadata, stateHistory, inputParams, inputArtifacts, outputParams, outputArtifacts, typeAttrs sql.NullString
-		var createdAtInSec, startedInSec, finishedInSec sql.NullInt64
-		var taskStatus, taskType int32
-		err := rows.Scan(
-			&uuid,
-			&namespace,
-			&pipelineName,
-			&runUUID,
-			&pods,
-			&createdAtInSec,
-			&startedInSec,
-			&finishedInSec,
-			&fingerprint,
-			&name,
-			&displayName,
-			&parentTaskId,
-			&taskStatus,
-			&statusMetadata,
-			&stateHistory,
-			&inputParams,
-			&inputArtifacts,
-			&outputParams,
-			&outputArtifacts,
-			&taskType,
-			&typeAttrs,
-		)
+		t, err := scanTaskRow(rows)
 		if err != nil {
 			fmt.Printf("scan error is %v", err)
 			return tasks, err
 		}
-		var statusMetadataNew model.JSONData
-		if statusMetadata.Valid {
-			err := json.Unmarshal([]byte(statusMetadata.String), &statusMetadataNew)
-			if err != nil {
-				return nil, err
-			}
-		}
-		var stateHistoryNew model.JSONSlice
-		if stateHistory.Valid {
-			err := json.Unmarshal([]byte(stateHistory.String), &stateHistoryNew)
-			if err != nil {
-				return nil, err
-			}
-		}
-		var podsNew model.JSONSlice
-		if pods.Valid {
-			err := json.Unmarshal([]byte(pods.String), &podsNew)
-			if err != nil {
-				return nil, err
-			}
-		}
-		var inputParameters model.JSONSlice
-		if inputParams.Valid {
-			err := json.Unmarshal([]byte(inputParams.String), &inputParameters)
-			if err != nil {
-				return nil, err
-			}
-		}
-		var outputParameters model.JSONSlice
-		if outputParams.Valid {
-			err := json.Unmarshal([]byte(outputParams.String), &outputParameters)
-			if err != nil {
-				return nil, err
-			}
-		}
-		var inputArtifactsData model.JSONSlice
-		if inputArtifacts.Valid {
-			err := json.Unmarshal([]byte(inputArtifacts.String), &inputArtifactsData)
-			if err != nil {
-				return nil, err
-			}
-		}
-		var outputArtifactsData model.JSONSlice
-		if outputArtifacts.Valid {
-			err := json.Unmarshal([]byte(outputArtifacts.String), &outputArtifactsData)
-			if err != nil {
-				return nil, err
-			}
-		}
-		var typeAttrsData model.JSONData
-		if typeAttrs.Valid {
-			err := json.Unmarshal([]byte(typeAttrs.String), &typeAttrsData)
-			if err != nil {
-				return nil, err
-			}
-		}
-		task := &model.Task{
-			UUID:             uuid,
-			Namespace:        namespace,
-			PipelineName:     pipelineName,
-			RunUUID:          runUUID,
-			Pods:             podsNew,
-			CreatedAtInSec:   createdAtInSec.Int64,
-			StartedInSec:     startedInSec.Int64,
-			FinishedInSec:    finishedInSec.Int64,
-			Fingerprint:      fingerprint,
-			Name:             name.String,
-			DisplayName:      displayName.String,
-			ParentTaskUUID:   parentTaskId.String,
-			Status:           taskStatus,
-			StatusMetadata:   statusMetadataNew,
-			StateHistory:     stateHistoryNew,
-			InputParameters:  inputParameters,
-			InputArtifacts:   inputArtifactsData,
-			OutputParameters: outputParameters,
-			OutputArtifacts:  outputArtifactsData,
-			Type:             taskType,
-			TypeAttrs:        typeAttrsData,
-		}
-		tasks = append(tasks, task)
+		tasks = append(tasks, t)
 	}
 	return tasks, nil
 }
