@@ -45,7 +45,7 @@ func (j *JSONData) Scan(value interface{}) error {
 }
 
 // Value implements driver.Valuer interface for JSONData
-func (j JSONData) Value() (driver.Value, error) {
+func (j *JSONData) Value() (driver.Value, error) {
 	if j == nil {
 		return nil, nil
 	}

@@ -1108,6 +1108,7 @@ func toModelRun(r interface{}) (*model.Run, error) {
 	var pipelineRoot, storageState, serviceAcc string
 	var createTime, scheduleTime, finishTime int64
 	var modelMetrics []*model.RunMetricV1
+	modelTasks := make([]*model.Task, 0)
 	var state model.RuntimeState
 	var stateHistory []*model.RuntimeStatus
 	switch r := r.(type) {
@@ -1248,6 +1249,17 @@ func toModelRun(r interface{}) (*model.Run, error) {
 			pipelineSpec = ""
 		}
 		specParams = ""
+
+		if len(apiRunV2.Tasks) > 0 {
+			for _, apiTask := range apiRunV2.Tasks {
+				modelTask, err := toModelTask(apiTask)
+				if err != nil {
+					return nil, util.Wrap(err, "Failed to convert API run to its internal representation due to task conversion error")
+				}
+				modelTasks = append(modelTasks, modelTask)
+			}
+		}
+
 	default:
 		return nil, util.NewUnknownApiVersionError("Run", r)
 	}
@@ -1286,7 +1298,9 @@ func toModelRun(r interface{}) (*model.Run, error) {
 			FinishedAtInSec:         finishTime,
 			PipelineRuntimeManifest: model.LargeText(runtimePipelineSpec),
 			WorkflowRuntimeManifest: model.LargeText(runtimeWorkflowSpec),
+			TaskDetails:             modelTasks,
 		},
+		Tasks: modelTasks,
 	}
 
 	if err := validation.ValidateModel(&modelRun); err != nil {
@@ -1469,7 +1483,19 @@ func toApiRun(r *model.Run) *apiv2beta1.Run {
 		FinishedAt:     timestamppb.New(time.Unix(r.RunDetails.FinishedAtInSec, 0)),
 		RunDetails:     apiRd,
 	}
-	err := util.NewInvalidInputError("Failed to parse the pipeline source")
+
+	apiTasks, err := generateAPITasks(r.Tasks)
+	if err != nil {
+		return &apiv2beta1.Run{
+			RunId:        r.UUID,
+			ExperimentId: r.ExperimentId,
+			Error:        util.ToRpcStatus(err),
+		}
+	}
+	apiRunV2.Tasks = apiTasks
+	apiRunV2.RunDetails.TaskDetails = apiTasks
+
+	err = util.NewInvalidInputError("Failed to parse the pipeline source")
 	if r.PipelineSpec.PipelineVersionId != "" {
 		apiRunV2.PipelineSource = &apiv2beta1.Run_PipelineVersionReference{
 			PipelineVersionReference: &apiv2beta1.PipelineVersionReference{
@@ -1502,6 +1528,34 @@ func toApiRun(r *model.Run) *apiv2beta1.Run {
 		ExperimentId: r.ExperimentId,
 		Error:        util.ToRpcStatus(util.Wrap(err, "Failed to convert internal run representation to its API counterpart due to missing pipeline source")),
 	}
+}
+
+func generateAPITasks(tasks []*model.Task) ([]*apiv2beta1.PipelineTaskDetail, error) {
+	// Create map to store parent->children relationships
+	taskMap := make(map[string]*model.Task)
+	childrenMap := make(map[string][]*model.Task)
+
+	// Build maps of tasks and parent->children relationships
+	for _, task := range tasks {
+		taskMap[task.UUID] = task
+		if task.ParentTaskUUID != "" {
+			childrenMap[task.ParentTaskUUID] = append(childrenMap[task.ParentTaskUUID], task)
+		}
+	}
+
+	// Convert each task to API format, building child task info if it has children
+	apiTasks := make([]*apiv2beta1.PipelineTaskDetail, 0)
+	for _, task := range tasks {
+		childTasks := childrenMap[task.UUID]
+
+		apiTask, err := toApiTask(task, childTasks)
+		if err != nil {
+			return nil, util.Wrap(err, "Failed to convert task to API format")
+		}
+		apiTasks = append(apiTasks, apiTask)
+	}
+
+	return apiTasks, nil
 }
 
 // Converts an array of internal pipeline version representations to an array of API pipeline versions.
@@ -2528,7 +2582,6 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 			return nil, err
 		}
 		apiTask.StatusMetadata = apiSM
-
 	}
 
 	// Convert state history from JSONData back to RuntimeStatus slice using structured approach

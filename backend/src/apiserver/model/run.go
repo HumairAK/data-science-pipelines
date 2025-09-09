@@ -235,6 +235,8 @@ type Run struct {
 	PipelineSpec
 
 	RunDetails
+
+	Tasks []*Task
 }
 
 // Converts to v1beta1-compatible internal representation of run.

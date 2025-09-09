@@ -261,11 +261,26 @@ func (s *RunStore) addMetricsResourceReferencesAndTasks(filteredSelectBuilder sq
 		LeftJoin("resource_references AS rr ON rr.ResourceType='Run' AND rd.UUID=rr.ResourceUUID").
 		GroupBy("rd.UUID")
 
+	tasksConcatQuery := s.db.Concat([]string{`"["`, s.db.GroupConcat("tasks.Payload", ","), `"]"`}, "")
+	columnsAfterJoiningTasks := append(
+		apply(func(column string) string { return "rdref." + column }, runColumns),
+		"rdref.refs",
+		tasksConcatQuery+" AS taskDetails")
+	if opts != nil && !r.IsRegularField(opts.SortByFieldName) {
+		columnsAfterJoiningTasks = append(columnsAfterJoiningTasks, "rdref."+opts.SortByFieldName)
+	}
+	subQ = sq.
+		Select(columnsAfterJoiningTasks...).
+		FromSelect(subQ, "rdref").
+		LeftJoin("tasks AS tasks ON rdref.UUID=tasks.RunUUID").
+		GroupBy("rdref.UUID")
+
 	// TODO(HumairAK): Remove this join on metrics when v1 is removed
 	metricConcatQuery := s.db.Concat([]string{`"["`, s.db.GroupConcat("rm.Payload", ","), `"]"`}, "")
 	columnsAfterJoiningRunMetrics := append(
 		apply(func(column string) string { return "subq." + column }, runColumns), // Add prefix "subq." to runColumns
 		"subq.refs",
+		"subq.taskDetails",
 		metricConcatQuery+" AS metrics")
 	return sq.
 		Select(columnsAfterJoiningRunMetrics...).
@@ -281,7 +296,7 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 			pipelineName, pipelineSpecManifest, workflowSpecManifest, parameters, pipelineRuntimeManifest,
 			workflowRuntimeManifest string
 		var createdAtInSec, scheduledAtInSec, finishedAtInSec, pipelineContextId, pipelineRunContextId sql.NullInt64
-		var metricsInString, resourceReferencesInString, runtimeParameters, pipelineRoot, jobId, state, stateHistory, pipelineVersionId sql.NullString
+		var metricsInString, resourceReferencesInString, tasksInString, runtimeParameters, pipelineRoot, jobId, state, stateHistory, pipelineVersionId sql.NullString
 		err := rows.Scan(
 			&uuid,
 			&experimentUUID,
@@ -311,6 +326,7 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 			&pipelineContextId,
 			&pipelineRunContextId,
 			&resourceReferencesInString,
+			&tasksInString,
 			&metricsInString,
 		)
 		if err != nil {
@@ -328,6 +344,10 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 		if err != nil {
 			// throw internal exception if failed to parse the resource reference.
 			return nil, util.NewInternalServerError(err, "Failed to parse resource reference")
+		}
+		tasks, err := parseTaskDetails(tasksInString)
+		if err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to parse task details")
 		}
 		jId := jobId.String
 		pvId := pipelineVersionId.String
@@ -389,11 +409,23 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 				Parameters:           model.LargeText(parameters),
 				RuntimeConfig:        runtimeConfig,
 			},
+			Tasks: tasks,
 		}
 		run = run.ToV2()
 		runs = append(runs, run)
 	}
 	return runs, nil
+}
+
+func parseTaskDetails(tasksInString sql.NullString) ([]*model.Task, error) {
+	if !tasksInString.Valid {
+		return nil, nil
+	}
+	var tasks []*model.Task
+	if err := json.Unmarshal([]byte(tasksInString.String), &tasks); err != nil {
+		return nil, util.Wrapf(err, "Failed to parse a task '%s'", tasksInString.String)
+	}
+	return tasks, nil
 }
 
 func parseMetrics(metricsInString sql.NullString) ([]*model.RunMetricV1, error) {

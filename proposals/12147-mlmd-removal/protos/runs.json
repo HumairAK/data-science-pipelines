@@ -135,7 +135,24 @@
         // the api should support it regardless.
         "parameters": []
       },
-      "child_tasks": [{"pod_name": "pipeline-j9t66-382940577"}],
+      "child_tasks": [
+        {
+          "task_id": "pipeline-j9t66-382940577",
+          "name": "child_task_name",
+          "pods": [
+            {
+              "name": "child_task_pod1",
+              "uid" : "some_uid_b",
+              "type": "EXECUTOR"
+            },
+            {
+              "name": "child_task_pod2",
+              "uid" : "some_uid_b",
+              "type": "DRIVER"
+            }
+          ]
+        }
+      ],
       // Add these new fields
       "child_task_ids": [
         {
