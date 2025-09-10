@@ -887,7 +887,7 @@
         },
         "type": {
           "$ref": "#/definitions/v2beta1MetricType",
-          "description": "Type of the metric (input/output), defaults to input if not provided."
+          "title": "Required. Type of the metric, one of METRIC_INPUT or METRIC_OUTPUT"
         }
       }
     },
@@ -904,10 +904,12 @@
     "v2beta1MetricType": {
       "type": "string",
       "enum": [
+        "METRIC_TYPE_UNSPECIFIED",
         "METRIC_INPUT",
         "METRIC_OUTPUT"
       ],
-      "default": "METRIC_INPUT"
+      "default": "METRIC_TYPE_UNSPECIFIED",
+      "description": " - METRIC_TYPE_UNSPECIFIED: default; treated as \"not set\"\nreject if unset."
     },
     "v2beta1PipelineTaskDetail": {
       "type": "object",

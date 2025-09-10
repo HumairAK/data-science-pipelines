@@ -22,6 +22,8 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/resource"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	authorizationv1 "k8s.io/api/authorization/v1"
 )
 
@@ -498,5 +500,9 @@ func (s *ArtifactServer) validateLogMetricRequest(request *apiv2beta1.LogMetricR
 	if metric.GetName() == "" {
 		return util.NewInvalidInputError("Metric name is required")
 	}
+	if metric.Type == apiv2beta1.MetricType_METRIC_TYPE_UNSPECIFIED {
+		return status.Error(codes.InvalidArgument, "metric.type is required")
+	}
+
 	return nil
 }

@@ -88,19 +88,24 @@ func (ArtifactTaskType) EnumDescriptor() ([]byte, []int) {
 type MetricType int32
 
 const (
-	MetricType_METRIC_INPUT  MetricType = 0
-	MetricType_METRIC_OUTPUT MetricType = 1
+	// default; treated as "not set"
+	// reject if unset.
+	MetricType_METRIC_TYPE_UNSPECIFIED MetricType = 0
+	MetricType_METRIC_INPUT            MetricType = 1
+	MetricType_METRIC_OUTPUT           MetricType = 2
 )
 
 // Enum value maps for MetricType.
 var (
 	MetricType_name = map[int32]string{
-		0: "METRIC_INPUT",
-		1: "METRIC_OUTPUT",
+		0: "METRIC_TYPE_UNSPECIFIED",
+		1: "METRIC_INPUT",
+		2: "METRIC_OUTPUT",
 	}
 	MetricType_value = map[string]int32{
-		"METRIC_INPUT":  0,
-		"METRIC_OUTPUT": 1,
+		"METRIC_TYPE_UNSPECIFIED": 0,
+		"METRIC_INPUT":            1,
+		"METRIC_OUTPUT":           2,
 	}
 )
 
@@ -1077,7 +1082,7 @@ type Metric struct {
 	// API server validation will be needed
 	Value     *structpb.Value        `protobuf:"bytes,5,opt,name=value,proto3" json:"value,omitempty"`
 	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// Type of the metric (input/output), defaults to input if not provided.
+	// Required. Type of the metric, one of METRIC_INPUT or METRIC_OUTPUT
 	Type          MetricType `protobuf:"varint,7,opt,name=type,proto3,enum=kubeflow.pipelines.backend.api.v2beta1.MetricType" json:"type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1159,7 +1164,7 @@ func (x *Metric) GetType() MetricType {
 	if x != nil {
 		return x.Type
 	}
-	return MetricType_METRIC_INPUT
+	return MetricType_METRIC_TYPE_UNSPECIFIED
 }
 
 // Note to be confused with RuntimeArtifact in pipelinespec
@@ -1368,11 +1373,12 @@ const file_backend_api_v2beta1_artifact_proto_rawDesc = "" +
 	"\x10ArtifactTaskType\x12\t\n" +
 	"\x05INPUT\x10\x00\x12\n" +
 	"\n" +
-	"\x06OUTPUT\x10\x01*1\n" +
+	"\x06OUTPUT\x10\x01*N\n" +
 	"\n" +
-	"MetricType\x12\x10\n" +
-	"\fMETRIC_INPUT\x10\x00\x12\x11\n" +
-	"\rMETRIC_OUTPUT\x10\x012\xbb\x11\n" +
+	"MetricType\x12\x1b\n" +
+	"\x17METRIC_TYPE_UNSPECIFIED\x10\x00\x12\x10\n" +
+	"\fMETRIC_INPUT\x10\x01\x12\x11\n" +
+	"\rMETRIC_OUTPUT\x10\x022\xbb\x11\n" +
 	"\x0fArtifactService\x12\x84\x02\n" +
 	"\rListArtifacts\x12;.kubeflow.pipelines.backend.api.v2beta1.ListArtifactRequest\x1a<.kubeflow.pipelines.backend.api.v2beta1.ListArtifactResponse\"x\x92AV\n" +
 	"\x0fArtifactService\x123Finds all artifacts within the specified namespace.*\x0elist_artifacts\x82\xd3\xe4\x93\x02\x19\x12\x17/apis/v2beta1/artifacts\x12\xee\x01\n" +

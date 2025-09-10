@@ -14,7 +14,8 @@ import (
 	"github.com/go-openapi/validate"
 )
 
-// V2beta1MetricType v2beta1 metric type
+// V2beta1MetricType  - METRIC_TYPE_UNSPECIFIED: default; treated as "not set"
+// reject if unset.
 //
 // swagger:model v2beta1MetricType
 type V2beta1MetricType string
@@ -30,6 +31,9 @@ func (m V2beta1MetricType) Pointer() *V2beta1MetricType {
 
 const (
 
+	// V2beta1MetricTypeMETRICTYPEUNSPECIFIED captures enum value "METRIC_TYPE_UNSPECIFIED"
+	V2beta1MetricTypeMETRICTYPEUNSPECIFIED V2beta1MetricType = "METRIC_TYPE_UNSPECIFIED"
+
 	// V2beta1MetricTypeMETRICINPUT captures enum value "METRIC_INPUT"
 	V2beta1MetricTypeMETRICINPUT V2beta1MetricType = "METRIC_INPUT"
 
@@ -42,7 +46,7 @@ var v2beta1MetricTypeEnum []interface{}
 
 func init() {
 	var res []V2beta1MetricType
-	if err := json.Unmarshal([]byte(`["METRIC_INPUT","METRIC_OUTPUT"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["METRIC_TYPE_UNSPECIFIED","METRIC_INPUT","METRIC_OUTPUT"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {

@@ -297,8 +297,11 @@ message ArtifactTask {
 }
 
 enum MetricType {
-  METRIC_INPUT = 0;
-  METRIC_OUTPUT = 1;
+  // default; treated as "not set"
+  // reject if unset.
+  METRIC_TYPE_UNSPECIFIED = 0;
+  METRIC_INPUT = 1;
+  METRIC_OUTPUT = 2;
 }
 
 message Metric {
@@ -323,7 +326,7 @@ message Metric {
   // API server validation will be needed
   google.protobuf.Value value = 5;
   google.protobuf.Timestamp created_at = 6;
-  // Type of the metric (input/output), defaults to input if not provided.
+  // Required. Type of the metric, one of METRIC_INPUT or METRIC_OUTPUT
   MetricType type = 7;
 }
 
