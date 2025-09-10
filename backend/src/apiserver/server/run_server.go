@@ -693,6 +693,8 @@ func (s *RunServer) CreateTask(ctx context.Context, request *apiv2beta1.CreateTa
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to convert task to model")
 	}
+	// Todo(HumairAK) canAccessRun already fetches a run, and Createtask will as well
+	// Let's consolidate so we only need to do this once
 	createdTask, err := s.resourceManager.CreateTask(modelTask)
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to create task")
