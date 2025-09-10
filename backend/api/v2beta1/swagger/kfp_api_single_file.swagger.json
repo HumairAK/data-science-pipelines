@@ -2481,7 +2481,7 @@
         },
         "type": {
           "$ref": "#/definitions/v2beta1MetricType",
-          "title": "Required. Type of the metric (input/output)"
+          "description": "Type of the metric (input/output), defaults to input if not provided."
         }
       }
     },

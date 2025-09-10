@@ -134,6 +134,7 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 		TaskId: created.GetTaskId(),
 		Name:   "accuracy",
 		Value:  &structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 0.99}},
+		Type:   apiv2beta1.MetricType_METRIC_INPUT,
 	}})
 	assert.NoError(t, err)
 	assert.Equal(t, "accuracy", met.GetName())
@@ -176,10 +177,19 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 			assert.Equal(t, 1, len(taskFound.GetOutputs().GetArtifacts()))
 			assert.Equal(t, createdArtifact.GetArtifactId(), taskFound.GetOutputs().GetArtifacts()[0].GetArtifactId())
 		}
+
+		if assert.NotNil(t, taskFound.GetInputs().GetMetrics(), "metrics inputs not present in hydrated task") {
+			assert.Equal(t, "accuracy", taskFound.GetInputs().GetMetrics()[0].GetName())
+		}
 	}
 
 	// Verify we can list metrics for the task
-	lmet, err := artSrv.ListMetrics(ctxWithUser(), &apiv2beta1.ListMetricsRequest{TaskIds: []string{created.GetTaskId()}, PageSize: 10})
+	lmet, err := artSrv.ListMetrics(ctxWithUser(),
+		&apiv2beta1.ListMetricsRequest{
+			TaskIds:   []string{created.GetTaskId()},
+			PageSize:  10,
+			Namespace: run.Namespace,
+		})
 	assert.NoError(t, err)
 	assert.Equal(t, int32(1), lmet.GetTotalSize())
 }

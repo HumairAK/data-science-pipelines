@@ -1077,7 +1077,7 @@ type Metric struct {
 	// API server validation will be needed
 	Value     *structpb.Value        `protobuf:"bytes,5,opt,name=value,proto3" json:"value,omitempty"`
 	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// Required. Type of the metric (input/output)
+	// Type of the metric (input/output), defaults to input if not provided.
 	Type          MetricType `protobuf:"varint,7,opt,name=type,proto3,enum=kubeflow.pipelines.backend.api.v2beta1.MetricType" json:"type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

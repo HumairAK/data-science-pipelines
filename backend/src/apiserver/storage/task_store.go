@@ -441,86 +441,114 @@ func (s *TaskStore) UpdateTask(task *model.Task) (*model.Task, error) {
 		return nil, util.NewInvalidInputError("Failed to update task: task ID cannot be empty")
 	}
 
-	// Marshal complex fields to JSON strings where needed
-	stateHistoryString := ""
-	if history, err := json.Marshal(task.StateHistory); err == nil {
-		stateHistoryString = string(history)
-	} else {
-		return nil, util.NewInternalServerError(err, "Failed to marshal state history in an updated task")
+	// Build SET map dynamically so we only update provided fields.
+	setMap := sq.Eq{}
+
+	// Simple scalar/string fields: update if non-empty OR explicitly zero is meaningful.
+	// For strings: only update when not empty to avoid erasing existing values unintentionally.
+	if task.Namespace != "" {
+		setMap["Namespace"] = task.Namespace
+	}
+	if task.PipelineName != "" {
+		setMap["PipelineName"] = task.PipelineName
+	}
+	if task.RunUUID != "" {
+		setMap["RunUUID"] = task.RunUUID
+	}
+	if task.Fingerprint != "" {
+		setMap["Fingerprint"] = task.Fingerprint
+	}
+	if task.Name != "" {
+		setMap["Name"] = task.Name
+	}
+	if task.DisplayName != "" {
+		setMap["DisplayName"] = task.DisplayName
+	}
+	// ParentTaskUUID can be empty intentionally to clear parent; only update if non-empty to avoid unintentional clear.
+	if task.ParentTaskUUID != "" {
+		setMap["ParentTaskUUID"] = task.ParentTaskUUID
+	}
+	// Status and Type default to 0 which are valid enums; update only when non-zero to avoid accidental resets.
+	if task.Status != 0 {
+		setMap["Status"] = task.Status
+	}
+	if task.Type != 0 {
+		setMap["Type"] = task.Type
+	}
+	// Timestamps: allow update when non-zero.
+	if task.StartedInSec != 0 {
+		setMap["StartedInSec"] = task.StartedInSec
+	}
+	if task.FinishedInSec != 0 {
+		setMap["FinishedInSec"] = task.FinishedInSec
 	}
 
-	statusMetadataString := ""
-	if statusMetadata, err := json.Marshal(task.StatusMetadata); err == nil {
-		statusMetadataString = string(statusMetadata)
-	} else {
-		return nil, util.NewInternalServerError(err, "Failed to marshal status metadata in an updated task")
+	// JSON/slice/map fields: update only if not nil (presence indicates intent).
+	if task.StateHistory != nil {
+		if b, err := json.Marshal(task.StateHistory); err == nil {
+			setMap["StateHistory"] = string(b)
+		} else {
+			return nil, util.NewInternalServerError(err, "Failed to marshal state history in an updated task")
+		}
+	}
+	if task.StatusMetadata != nil {
+		if b, err := json.Marshal(task.StatusMetadata); err == nil {
+			setMap["StatusMetadata"] = string(b)
+		} else {
+			return nil, util.NewInternalServerError(err, "Failed to marshal status metadata in an updated task")
+		}
+	}
+	if task.Pods != nil {
+		if b, err := json.Marshal(task.Pods); err == nil {
+			setMap["Pods"] = string(b)
+		} else {
+			return nil, util.NewInternalServerError(err, "Failed to marshal pod names in an updated task")
+		}
+	}
+	if task.InputParameters != nil {
+		if b, err := json.Marshal(task.InputParameters); err == nil {
+			setMap["InputParameters"] = string(b)
+		} else {
+			return nil, util.NewInternalServerError(err, "Failed to marshal input parameters in an updated task")
+		}
+	}
+	if task.InputArtifacts != nil {
+		if b, err := json.Marshal(task.InputArtifacts); err == nil {
+			setMap["InputArtifacts"] = string(b)
+		} else {
+			return nil, util.NewInternalServerError(err, "Failed to marshal input artifacts in an updated task")
+		}
+	}
+	if task.OutputParameters != nil {
+		if b, err := json.Marshal(task.OutputParameters); err == nil {
+			setMap["OutputParameters"] = string(b)
+		} else {
+			return nil, util.NewInternalServerError(err, "Failed to marshal output parameters in an updated task")
+		}
+	}
+	if task.OutputArtifacts != nil {
+		if b, err := json.Marshal(task.OutputArtifacts); err == nil {
+			setMap["OutputArtifacts"] = string(b)
+		} else {
+			return nil, util.NewInternalServerError(err, "Failed to marshal output artifacts in an updated task")
+		}
+	}
+	if task.TypeAttrs != nil {
+		if b, err := json.Marshal(task.TypeAttrs); err == nil {
+			setMap["TypeAttrs"] = string(b)
+		} else {
+			return nil, util.NewInternalServerError(err, "Failed to marshal type attributes in an updated task")
+		}
 	}
 
-	podsString := ""
-	if pods, err := json.Marshal(task.Pods); err == nil {
-		podsString = string(pods)
-	} else {
-		return nil, util.NewInternalServerError(err, "Failed to marshal pod names in an updated task")
+	if len(setMap) == 0 {
+		// Nothing to update; return current record
+		return s.GetTask(task.UUID)
 	}
 
-	inputParamsString := ""
-	if inputParams, err := json.Marshal(task.InputParameters); err == nil {
-		inputParamsString = string(inputParams)
-	} else {
-		return nil, util.NewInternalServerError(err, "Failed to marshal input parameters in an updated task")
-	}
-
-	inputArtifactsString := ""
-	if ia, err := json.Marshal(task.InputArtifacts); err == nil {
-		inputArtifactsString = string(ia)
-	} else {
-		return nil, util.NewInternalServerError(err, "Failed to marshal input artifacts in an updated task")
-	}
-
-	outputParamsString := ""
-	if outputParams, err := json.Marshal(task.OutputParameters); err == nil {
-		outputParamsString = string(outputParams)
-	} else {
-		return nil, util.NewInternalServerError(err, "Failed to marshal output parameters in an updated task")
-	}
-
-	outputArtifactsString := ""
-	if oa, err := json.Marshal(task.OutputArtifacts); err == nil {
-		outputArtifactsString = string(oa)
-	} else {
-		return nil, util.NewInternalServerError(err, "Failed to marshal output artifacts in an updated task")
-	}
-
-	typeAttrsString := ""
-	if typeAttrs, err := json.Marshal(task.TypeAttrs); err == nil {
-		typeAttrsString = string(typeAttrs)
-	} else {
-		return nil, util.NewInternalServerError(err, "Failed to marshal type attributes in an updated task")
-	}
-
-	// Build the update statement. We do not update CreatedAtInSec.
 	sqlStr, args, err := sq.
 		Update(tableName).
-		SetMap(sq.Eq{
-			"Namespace":        task.Namespace,
-			"PipelineName":     task.PipelineName,
-			"RunUUID":          task.RunUUID,
-			"Pods":             podsString,
-			"StartedInSec":     task.StartedInSec,
-			"FinishedInSec":    task.FinishedInSec,
-			"Fingerprint":      task.Fingerprint,
-			"Name":             task.Name,
-			"ParentTaskUUID":   task.ParentTaskUUID,
-			"Status":           task.Status,
-			"StatusMetadata":   statusMetadataString,
-			"StateHistory":     stateHistoryString,
-			"InputParameters":  inputParamsString,
-			"InputArtifacts":   inputArtifactsString,
-			"OutputParameters": outputParamsString,
-			"OutputArtifacts":  outputArtifactsString,
-			"Type":             task.Type,
-			"TypeAttrs":        typeAttrsString,
-		}).
+		SetMap(setMap).
 		Where(sq.Eq{"UUID": task.UUID}).
 		ToSql()
 	if err != nil {

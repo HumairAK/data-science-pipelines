@@ -323,7 +323,7 @@ message Metric {
   // API server validation will be needed
   google.protobuf.Value value = 5;
   google.protobuf.Timestamp created_at = 6;
-  // Required. Type of the metric (input/output)
+  // Type of the metric (input/output), defaults to input if not provided.
   MetricType type = 7;
 }
 

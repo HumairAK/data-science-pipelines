@@ -35,7 +35,7 @@ type V2beta1Metric struct {
 	// Required. Task UUID that owns this metric
 	TaskID string `json:"task_id,omitempty"`
 
-	// Required. Type of the metric (input/output)
+	// Type of the metric (input/output), defaults to input if not provided.
 	Type *V2beta1MetricType `json:"type,omitempty"`
 
 	// Value can be double or a valid json,
