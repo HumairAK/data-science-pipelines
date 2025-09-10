@@ -2546,6 +2546,8 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 		Name:             modelTask.Name,
 		DisplayName:      modelTask.DisplayName,
 		CacheFingerprint: modelTask.Fingerprint,
+		Inputs:           &apiv2beta1.PipelineTaskDetail_InputOutputs{},
+		Outputs:          &apiv2beta1.PipelineTaskDetail_InputOutputs{},
 	}
 
 	// Convert timestamps
