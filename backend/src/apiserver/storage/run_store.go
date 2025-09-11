@@ -20,7 +20,6 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/golang/glog"
-	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
@@ -312,97 +311,12 @@ func (s *RunStore) hydrateTasksForRuns(runs []*model.Run) error {
 		return nil
 	}
 
-	// Hydrate artifacts for these tasks using artifact_tasks joined with artifacts
-	// We select all artifact links for the run IDs and attach to the corresponding tasks.
-	atRowsSQL, atArgs, err := sq.
-		Select(
-			"artifact_tasks.TaskID",
-			"artifact_tasks.Type",
-			"artifact_tasks.ProducerTaskName",
-			"artifact_tasks.ProducerKey",
-			"artifacts.UUID",
-			"artifacts.Namespace",
-			"artifacts.Type",
-			"artifacts.Uri",
-			"artifacts.Name",
-			"artifacts.CreatedAtInSec",
-			"artifacts.LastUpdateInSec",
-			"artifacts.Metadata",
-		).
-		From("artifact_tasks").
-		Join("artifacts ON artifact_tasks.ArtifactID = artifacts.UUID").
-		Where(sq.Eq{"artifact_tasks.RunUUID": ids}).
-		ToSql()
-	if err != nil {
-		return err
+	// Hydrate artifacts for these tasks using generalized helper
+	allTasks := make([]*model.Task, 0, len(taskByID))
+	for _, t := range taskByID {
+		allTasks = append(allTasks, t)
 	}
-
-	atRows, err := s.db.Query(atRowsSQL, atArgs...)
-	if err != nil {
-		return err
-	}
-	defer atRows.Close()
-
-	for atRows.Next() {
-		var taskID string
-		var linkType sql.NullInt32
-		var producerTaskName string
-		var producerKey string
-		var artUUID, artNamespace, artURI, artName string
-		var artType sql.NullInt32
-		var createdAt, updatedAt sql.NullInt64
-		var metadata sql.NullString
-
-		if err := atRows.Scan(&taskID, &linkType, &producerTaskName, &producerKey,
-			&artUUID, &artNamespace, &artType, &artURI, &artName, &createdAt, &updatedAt, &metadata); err != nil {
-			return err
-		}
-
-		task := taskByID[taskID]
-		if task == nil {
-			continue
-		}
-
-		// Build model.Artifact from row
-		var metaDataMap model.JSONData
-		if metadata.Valid {
-			if err := json.Unmarshal([]byte(metadata.String), &metaDataMap); err != nil {
-				return err
-			}
-		}
-		mArtifact := &model.Artifact{
-			UUID:            artUUID,
-			Namespace:       artNamespace,
-			Type:            artType.Int32,
-			Uri:             artURI,
-			Name:            artName,
-			CreatedAtInSec:  createdAt.Int64,
-			LastUpdateInSec: updatedAt.Int64,
-			Metadata:        metaDataMap,
-		}
-
-		// Determine input type based on producer fields
-		inputType := apiv2beta1.PipelineTaskDetail_ResolvedValue
-		if producerTaskName != "" && producerKey != "" {
-			inputType = apiv2beta1.PipelineTaskDetail_PipelineChannel
-		}
-
-		h := model.TaskArtifactHydrated{
-			InputType:        inputType,
-			ArtifactID:       artUUID,
-			Value:            mArtifact,
-			Name:             mArtifact.Name,
-			ProducerTaskName: producerTaskName,
-			ProducerKey:      producerKey,
-		}
-
-		if linkType.Int32 == int32(apiv2beta1.ArtifactTaskType_OUTPUT) {
-			task.OutputArtifactsHydrated = append(task.OutputArtifactsHydrated, h)
-		} else {
-			task.InputArtifactsHydrated = append(task.InputArtifactsHydrated, h)
-		}
-	}
-	return atRows.Err()
+	return hydrateArtifactsForTasks(s.db, allTasks)
 }
 
 // Applies a func f to every string in a given string slice.

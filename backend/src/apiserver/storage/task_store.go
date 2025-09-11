@@ -21,6 +21,7 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/golang/glog"
+	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
@@ -90,7 +91,7 @@ func NewTaskStore(db *DB, time util.TimeInterface, uuid util.UUIDGeneratorInterf
 // scanTaskRow scans a single row into a model.Task. It expects the column order to match taskColumns.
 func scanTaskRow(rowscanner interface{ Scan(dest ...any) error }) (*model.Task, error) {
 	var uuid, namespace, pipelineName, runUUID, fingerprint string
- var name, displayName, parentTaskId, pods, statusMetadata, stateHistory, inputParams, outputParams, typeAttrs sql.NullString
+	var name, displayName, parentTaskId, pods, statusMetadata, stateHistory, inputParams, outputParams, typeAttrs sql.NullString
 	var createdAtInSec, startedInSec, finishedInSec sql.NullInt64
 	var taskStatus, taskType int32
 	if err := rowscanner.Scan(
@@ -173,6 +174,118 @@ func scanTaskRow(rowscanner interface{ Scan(dest ...any) error }) (*model.Task, 
 		Type:             taskType,
 		TypeAttrs:        typeAttrsData,
 	}, nil
+}
+
+// hydrateArtifactsForTasks fills InputArtifactsHydrated and OutputArtifactsHydrated for provided tasks by
+// querying artifact_tasks joined with artifacts. It uses TaskID IN (...) to limit scope.
+func hydrateArtifactsForTasks(db *DB, tasks []*model.Task) error {
+	if len(tasks) == 0 {
+		return nil
+	}
+	// Build map and list of task IDs
+	taskByID := make(map[string]*model.Task, len(tasks))
+	taskIDs := make([]string, 0, len(tasks))
+	for _, t := range tasks {
+		if t == nil || t.UUID == "" {
+			continue
+		}
+		if _, ok := taskByID[t.UUID]; !ok {
+			taskByID[t.UUID] = t
+			taskIDs = append(taskIDs, t.UUID)
+		}
+	}
+	if len(taskIDs) == 0 {
+		return nil
+	}
+
+	// Query artifact links for these tasks
+	sqlStr, args, err := sq.
+		Select(
+			"artifact_tasks.TaskID",
+			"artifact_tasks.Type",
+			"artifact_tasks.ProducerTaskName",
+			"artifact_tasks.ProducerKey",
+			"artifacts.UUID",
+			"artifacts.Namespace",
+			"artifacts.Type",
+			"artifacts.Uri",
+			"artifacts.Name",
+			"artifacts.CreatedAtInSec",
+			"artifacts.LastUpdateInSec",
+			"artifacts.Metadata",
+		).
+		From("artifact_tasks").
+		Join("artifacts ON artifact_tasks.ArtifactID = artifacts.UUID").
+		Where(sq.Eq{"artifact_tasks.TaskID": taskIDs}).
+		ToSql()
+	if err != nil {
+		return err
+	}
+
+	rows, err := db.Query(sqlStr, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var taskID string
+		var linkType sql.NullInt32
+		var producerTaskName, producerKey string
+		var artUUID, artNamespace, artURI, artName string
+		var artType sql.NullInt32
+		var createdAt, updatedAt sql.NullInt64
+		var metadata sql.NullString
+
+		if err := rows.Scan(&taskID, &linkType, &producerTaskName, &producerKey,
+			&artUUID, &artNamespace, &artType, &artURI, &artName, &createdAt, &updatedAt, &metadata); err != nil {
+			return err
+		}
+
+		task := taskByID[taskID]
+		if task == nil {
+			continue
+		}
+
+		var metaMap model.JSONData
+		if metadata.Valid {
+			if err := json.Unmarshal([]byte(metadata.String), &metaMap); err != nil {
+				return err
+			}
+		}
+		mArtifact := &model.Artifact{
+			UUID:            artUUID,
+			Namespace:       artNamespace,
+			Type:            artType.Int32,
+			Uri:             artURI,
+			Name:            artName,
+			CreatedAtInSec:  createdAt.Int64,
+			LastUpdateInSec: updatedAt.Int64,
+			Metadata:        metaMap,
+		}
+
+		// Input type: if both producer fields empty -> ResolvedValue; otherwise PipelineChannel
+		inputType := apiv2beta1.PipelineTaskDetail_ResolvedValue
+		if producerTaskName != "" && producerKey != "" {
+			inputType = apiv2beta1.PipelineTaskDetail_PipelineChannel
+		}
+
+		h := model.TaskArtifactHydrated{
+			InputType:        inputType,
+			ArtifactID:       artUUID,
+			Value:            mArtifact,
+			Name:             mArtifact.Name,
+			ProducerTaskName: producerTaskName,
+			ProducerKey:      producerKey,
+		}
+
+		if linkType.Int32 == int32(apiv2beta1.ArtifactTaskType_OUTPUT) {
+			task.OutputArtifactsHydrated = append(task.OutputArtifactsHydrated, h)
+		} else {
+			task.InputArtifactsHydrated = append(task.InputArtifactsHydrated, h)
+		}
+	}
+	return rows.Err()
 }
 
 func (s *TaskStore) scanRows(rows *sql.Rows) ([]*model.Task, error) {
@@ -366,11 +479,18 @@ func (s *TaskStore) ListTasks(filterContext *model.FilterContext, opts *list.Opt
 	}
 
 	if len(exps) <= opts.PageSize {
+		if err := hydrateArtifactsForTasks(s.db, exps); err != nil {
+			return errorF(err)
+		}
 		return exps, total_size, "", nil
 	}
 
 	npt, err := opts.NextPageToken(exps[opts.PageSize])
-	return exps[:opts.PageSize], total_size, npt, err
+	page := exps[:opts.PageSize]
+	if err := hydrateArtifactsForTasks(s.db, page); err != nil {
+		return errorF(err)
+	}
+	return page, total_size, npt, err
 }
 
 func (s *TaskStore) GetTask(id string) (*model.Task, error) {
@@ -394,6 +514,10 @@ func (s *TaskStore) GetTask(id string) (*model.Task, error) {
 	}
 	if len(tasks) == 0 {
 		return nil, util.NewResourceNotFoundError("task", fmt.Sprint(id))
+	}
+	// Hydrate artifacts for this task
+	if err := hydrateArtifactsForTasks(s.db, []*model.Task{tasks[0]}); err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to hydrate task artifacts")
 	}
 	return tasks[0], nil
 }
