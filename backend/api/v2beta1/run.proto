@@ -440,7 +440,9 @@ message PipelineTaskDetail {
 
       // Fields for PipelineChannel type
       string producer_task_name = 4;
-      string producer_parameter_id = 5;
+      // This would be the equivalent of output_parameter_key when it's a parameter output
+      // But is also used for inputs (not present in sdk IR).
+      string producer_key = 5;
     }
     message TaskArtifact {
       InputType input_type = 1;
@@ -452,7 +454,9 @@ message PipelineTaskDetail {
 
       // Fields for PipelineChannel type
       string producer_task_name = 5;
-      string producer_parameter_id = 6;
+      // This would be the equivalent of output_artifact_key when it's an Artifact output
+      // But is also used for inputs (not present in sdk IR).
+      string producer_key = 6;
     }
     repeated Parameter parameters = 1;
     repeated TaskArtifact artifacts = 2;

@@ -24,8 +24,8 @@ type InputOutputsParameter struct {
 	// Fields for Resolved type
 	Name string `json:"name,omitempty"`
 
-	// producer parameter id
-	ProducerParameterID string `json:"producer_parameter_id,omitempty"`
+	// producer key
+	ProducerKey string `json:"producer_key,omitempty"`
 
 	// Fields for PipelineChannel type
 	ProducerTaskName string `json:"producer_task_name,omitempty"`

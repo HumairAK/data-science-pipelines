@@ -3084,7 +3084,7 @@
           "type": "string",
           "title": "Fields for PipelineChannel type"
         },
-        "producer_parameter_id": {
+        "producer_key": {
           "type": "string"
         }
       }
@@ -3109,7 +3109,7 @@
           "type": "string",
           "title": "Fields for PipelineChannel type"
         },
-        "producer_parameter_id": {
+        "producer_key": {
           "type": "string"
         }
       }
