@@ -510,25 +510,6 @@ func TestListTasks_PaginationWithToken(t *testing.T) {
 	assert.Empty(t, token3)
 }
 
-// Helpers for artifact creation in tests
-func insertArtifact(t *testing.T, db *DB, a *model.Artifact) {
-	t.Helper()
-	if a.UUID == "" {
-  a.UUID = testUUID4
-	}
-	if a.Namespace == "" {
-		a.Namespace = "ns1"
-	}
-	sql := `INSERT INTO artifacts (UUID, Namespace, Type, Uri, Name, CreatedAtInSec, LastUpdateInSec, Metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-	meta := "{}"
-	_, err := db.Exec(sql, a.UUID, a.Namespace, a.Type, a.Uri, a.Name, a.CreatedAtInSec, a.LastUpdateInSec, meta)
-	assert.NoError(t, err)
-}
-
-func newArtifactTaskStore(db *DB) *ArtifactTaskStore {
-	return NewArtifactTaskStore(db, util.NewFakeUUIDGeneratorOrFatal("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", nil))
-}
-
 func TestTaskParameters_PersistAndFetch(t *testing.T) {
 	db, taskStore, _ := initializeTaskStore()
 	defer db.Close()
@@ -596,14 +577,26 @@ func TestHydrateArtifactsForTask_GetAndList(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	// Create two artifacts
-	artIn := &model.Artifact{UUID: testUUID2, Namespace: "ns1", Type: 0, Uri: "s3://bucket/in", Name: "in-art"}
-	insertArtifact(t, db, artIn)
-	artOut := &model.Artifact{UUID: testUUID3, Namespace: "ns1", Type: 0, Uri: "s3://bucket/out", Name: "out-art"}
-	insertArtifact(t, db, artOut)
+	// Create two artifacts via the ArtifactStore
+	artifactStore := NewArtifactStore(db, util.NewFakeTimeForEpoch(), util.NewFakeUUIDGeneratorOrFatal(testUUID2, nil))
+	artIn, err := artifactStore.CreateArtifact(&model.Artifact{
+		Namespace: "ns1",
+		Type:      0,
+		Uri:       "s3://bucket/in",
+		Name:      "in-art",
+	})
+	assert.NoError(t, err)
+	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID3, nil)
+	artOut, err := artifactStore.CreateArtifact(&model.Artifact{
+		Namespace: "ns1",
+		Type:      0,
+		Uri:       "s3://bucket/out",
+		Name:      "out-art",
+	})
+	assert.NoError(t, err)
 
 	// Link artifacts to task via artifact_tasks
- ats1 := NewArtifactTaskStore(db, util.NewFakeUUIDGeneratorOrFatal("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1", nil))
+	ats1 := NewArtifactTaskStore(db, util.NewFakeUUIDGeneratorOrFatal("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1", nil))
 	// Input link with no producer fields -> ResolvedValue
 	_, err = ats1.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID:       artIn.UUID,
