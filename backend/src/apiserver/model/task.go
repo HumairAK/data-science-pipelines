@@ -18,6 +18,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 
+	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -80,6 +81,16 @@ func (p *PodNames) Value() (driver.Value, error) {
 	return json.Marshal(p)
 }
 
+// TaskArtifactHydrated holds hydrated artifact info per task (not stored in DB)
+type TaskArtifactHydrated struct {
+	InputType        apiv2beta1.PipelineTaskDetail_InputType
+	ArtifactID       string
+	Value            *Artifact
+	Name             string
+	ProducerTaskName string
+	ProducerKey      string
+}
+
 type Task struct {
 	UUID             string    `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
 	Namespace        string    `gorm:"column:Namespace; not null; type:varchar(63);"`
@@ -99,11 +110,13 @@ type Task struct {
 	StatusMetadata   JSONData  `gorm:"column:StatusMetadata; type:json; default:null;"`
 	StateHistory     JSONSlice `gorm:"column:StateHistory; type:json;"`
 	InputParameters  JSONSlice `gorm:"column:InputParameters; type:json;"`
-	InputArtifacts   JSONSlice `gorm:"column:InputArtifacts; type:json;"`
 	OutputParameters JSONSlice `gorm:"column:OutputParameters; type:json;"`
-	OutputArtifacts  JSONSlice `gorm:"column:OutputArtifacts; type:json;"`
 	Type             int32     `gorm:"column:Type; not null; index:idx_task_type;"`
 	TypeAttrs        JSONData  `gorm:"column:TypeAttrs; not null; type:json;"`
+
+	// Transient fields populated during hydration (not stored in DB)
+	InputArtifactsHydrated  []TaskArtifactHydrated `gorm:"-"`
+	OutputArtifactsHydrated []TaskArtifactHydrated `gorm:"-"`
 }
 
 func (t Task) ToString() string {
@@ -157,8 +170,6 @@ var taskAPIToModelFieldMap = map[string]string{
 	"parent_task_id":    "ParentTaskUUID",
 	"inputs":            "InputParameters",
 	"outputs":           "OutputParameters",
-	"input_artifacts":   "InputArtifacts",
-	"output_artifacts":  "OutputArtifacts",
 }
 
 func (t Task) GetField(name string) (string, bool) {
@@ -198,14 +209,10 @@ func (t Task) GetFieldValue(name string) interface{} {
 		return t.Name
 	case "DisplayName":
 		return t.DisplayName
-	case "InputParameters":
+ case "InputParameters":
 		return t.InputParameters
 	case "OutputParameters":
 		return t.OutputParameters
-	case "InputArtifacts":
-		return t.InputArtifacts
-	case "OutputArtifacts":
-		return t.OutputArtifacts
 	case "Type":
 		return t.Type
 	case "TypeAttrs":

@@ -2492,13 +2492,6 @@ func toModelTask(apiTask *apiv2beta1.PipelineTaskDetail) (*model.Task, error) {
 			}
 			task.InputParameters = artifacts
 		}
-		if apiTask.GetInputs().GetArtifacts() != nil {
-			artifacts, err := model.ProtoSliceToJSONSlice(apiTask.GetInputs().GetArtifacts())
-			if err != nil {
-				return nil, err
-			}
-			task.InputArtifacts = artifacts
-		}
 	}
 
 	// Convert outputs: store full InputOutputs in OutputParameters and artifacts subset in OutputArtifacts
@@ -2509,13 +2502,6 @@ func toModelTask(apiTask *apiv2beta1.PipelineTaskDetail) (*model.Task, error) {
 				return nil, err
 			}
 			task.OutputParameters = artifacts
-		}
-		if apiTask.GetOutputs().GetArtifacts() != nil {
-			artifacts, err := model.ProtoSliceToJSONSlice(apiTask.GetOutputs().GetArtifacts())
-			if err != nil {
-				return nil, err
-			}
-			task.OutputArtifacts = artifacts
 		}
 	}
 
@@ -2628,30 +2614,50 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 		apiTask.Outputs.Parameters = apiOutputParams
 	}
 
-	// Convert InputArtifacts to API inputs field
-	if modelTask.InputArtifacts != nil {
-		apiInputArtifacts, err := model.JSONSliceToProtoSlice(
-			modelTask.InputArtifacts,
-			func() *apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact {
-				return &apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact{}
+	// Populate artifacts from hydrated fields on the model task
+	if len(modelTask.InputArtifactsHydrated) > 0 {
+		apiInputArts := make([]*apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact, 0, len(modelTask.InputArtifactsHydrated))
+		for _, h := range modelTask.InputArtifactsHydrated {
+			var apiArt *apiv2beta1.Artifact
+			if h.Value != nil {
+				apiArtConv, err := toApiArtifact(h.Value)
+				if err != nil {
+					return nil, err
+				}
+				apiArt = apiArtConv
+			}
+			apiInputArts = append(apiInputArts, &apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact{
+				InputType:        h.InputType,
+				ArtifactId:       h.ArtifactID,
+				Value:            apiArt,
+				Name:             h.Name,
+				ProducerTaskName: h.ProducerTaskName,
+				ProducerKey:      h.ProducerKey,
 			})
-		if err != nil {
-			return nil, err
 		}
-		apiTask.Inputs.Artifacts = apiInputArtifacts
+		apiTask.Inputs.Artifacts = apiInputArts
 	}
-
-	// Convert OutputArtifacts to API outputs field
-	if modelTask.OutputArtifacts != nil {
-		apiOutputArtifacts, err := model.JSONSliceToProtoSlice(
-			modelTask.OutputArtifacts,
-			func() *apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact {
-				return &apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact{}
+	if len(modelTask.OutputArtifactsHydrated) > 0 {
+		apiOutputArts := make([]*apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact, 0, len(modelTask.OutputArtifactsHydrated))
+		for _, h := range modelTask.OutputArtifactsHydrated {
+			var apiArt *apiv2beta1.Artifact
+			if h.Value != nil {
+				apiArtConv, err := toApiArtifact(h.Value)
+				if err != nil {
+					return nil, err
+				}
+				apiArt = apiArtConv
+			}
+			apiOutputArts = append(apiOutputArts, &apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact{
+				InputType:        h.InputType,
+				ArtifactId:       h.ArtifactID,
+				Value:            apiArt,
+				Name:             h.Name,
+				ProducerTaskName: h.ProducerTaskName,
+				ProducerKey:      h.ProducerKey,
 			})
-		if err != nil {
-			return nil, err
 		}
-		apiTask.Outputs.Artifacts = apiOutputArtifacts
+		apiTask.Outputs.Artifacts = apiOutputArts
 	}
 
 	// Extract additional fields from TypeAttrs

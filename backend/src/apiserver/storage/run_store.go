@@ -20,6 +20,7 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/golang/glog"
+	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
@@ -254,7 +255,8 @@ func (s *RunStore) GetRun(runId string) (*model.Run, error) {
 }
 
 // hydrateTasksForRuns fetches tasks for the provided runs and assigns them to the Run model.
-// It issues a single query using WHERE RunUUID IN (...) and groups results by RunUUID.
+// It issues queries using WHERE RunUUID IN (...) and groups results by RunUUID.
+// It also maps artifacts to tasks using artifact_tasks joined with artifacts.
 func (s *RunStore) hydrateTasksForRuns(runs []*model.Run) error {
 	if len(runs) == 0 {
 		return nil
@@ -287,11 +289,14 @@ func (s *RunStore) hydrateTasksForRuns(runs []*model.Run) error {
 	}
 	defer rows.Close()
 
+	// Map tasks by ID for later artifact hydration
+	taskByID := make(map[string]*model.Task)
 	for rows.Next() {
 		task, err := scanTaskRow(rows)
 		if err != nil {
 			return err
 		}
+		taskByID[task.UUID] = task
 		if run, ok := index[task.RunUUID]; ok {
 			if run.Tasks == nil {
 				run.Tasks = []*model.Task{}
@@ -299,7 +304,105 @@ func (s *RunStore) hydrateTasksForRuns(runs []*model.Run) error {
 			run.Tasks = append(run.Tasks, task)
 		}
 	}
-	return rows.Err()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	if len(taskByID) == 0 {
+		return nil
+	}
+
+	// Hydrate artifacts for these tasks using artifact_tasks joined with artifacts
+	// We select all artifact links for the run IDs and attach to the corresponding tasks.
+	atRowsSQL, atArgs, err := sq.
+		Select(
+			"artifact_tasks.TaskID",
+			"artifact_tasks.Type",
+			"artifact_tasks.ProducerTaskName",
+			"artifact_tasks.ProducerKey",
+			"artifacts.UUID",
+			"artifacts.Namespace",
+			"artifacts.Type",
+			"artifacts.Uri",
+			"artifacts.Name",
+			"artifacts.CreatedAtInSec",
+			"artifacts.LastUpdateInSec",
+			"artifacts.Metadata",
+		).
+		From("artifact_tasks").
+		Join("artifacts ON artifact_tasks.ArtifactID = artifacts.UUID").
+		Where(sq.Eq{"artifact_tasks.RunUUID": ids}).
+		ToSql()
+	if err != nil {
+		return err
+	}
+
+	atRows, err := s.db.Query(atRowsSQL, atArgs...)
+	if err != nil {
+		return err
+	}
+	defer atRows.Close()
+
+	for atRows.Next() {
+		var taskID string
+		var linkType sql.NullInt32
+		var producerTaskName string
+		var producerKey string
+		var artUUID, artNamespace, artURI, artName string
+		var artType sql.NullInt32
+		var createdAt, updatedAt sql.NullInt64
+		var metadata sql.NullString
+
+		if err := atRows.Scan(&taskID, &linkType, &producerTaskName, &producerKey,
+			&artUUID, &artNamespace, &artType, &artURI, &artName, &createdAt, &updatedAt, &metadata); err != nil {
+			return err
+		}
+
+		task := taskByID[taskID]
+		if task == nil {
+			continue
+		}
+
+		// Build model.Artifact from row
+		var metaDataMap model.JSONData
+		if metadata.Valid {
+			if err := json.Unmarshal([]byte(metadata.String), &metaDataMap); err != nil {
+				return err
+			}
+		}
+		mArtifact := &model.Artifact{
+			UUID:            artUUID,
+			Namespace:       artNamespace,
+			Type:            artType.Int32,
+			Uri:             artURI,
+			Name:            artName,
+			CreatedAtInSec:  createdAt.Int64,
+			LastUpdateInSec: updatedAt.Int64,
+			Metadata:        metaDataMap,
+		}
+
+		// Determine input type based on producer fields
+		inputType := apiv2beta1.PipelineTaskDetail_ResolvedValue
+		if producerTaskName != "" && producerKey != "" {
+			inputType = apiv2beta1.PipelineTaskDetail_PipelineChannel
+		}
+
+		h := model.TaskArtifactHydrated{
+			InputType:        inputType,
+			ArtifactID:       artUUID,
+			Value:            mArtifact,
+			Name:             mArtifact.Name,
+			ProducerTaskName: producerTaskName,
+			ProducerKey:      producerKey,
+		}
+
+		if linkType.Int32 == int32(apiv2beta1.ArtifactTaskType_OUTPUT) {
+			task.OutputArtifactsHydrated = append(task.OutputArtifactsHydrated, h)
+		} else {
+			task.InputArtifactsHydrated = append(task.InputArtifactsHydrated, h)
+		}
+	}
+	return atRows.Err()
 }
 
 // Applies a func f to every string in a given string slice.

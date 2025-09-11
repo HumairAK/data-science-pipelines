@@ -45,9 +45,7 @@ var taskColumns = []string{
 	"StatusMetadata",
 	"StateHistory",
 	"InputParameters",
-	"InputArtifacts",
 	"OutputParameters",
-	"OutputArtifacts",
 	"Type",
 	"TypeAttrs",
 }
@@ -92,7 +90,7 @@ func NewTaskStore(db *DB, time util.TimeInterface, uuid util.UUIDGeneratorInterf
 // scanTaskRow scans a single row into a model.Task. It expects the column order to match taskColumns.
 func scanTaskRow(rowscanner interface{ Scan(dest ...any) error }) (*model.Task, error) {
 	var uuid, namespace, pipelineName, runUUID, fingerprint string
-	var name, displayName, parentTaskId, pods, statusMetadata, stateHistory, inputParams, inputArtifacts, outputParams, outputArtifacts, typeAttrs sql.NullString
+ var name, displayName, parentTaskId, pods, statusMetadata, stateHistory, inputParams, outputParams, typeAttrs sql.NullString
 	var createdAtInSec, startedInSec, finishedInSec sql.NullInt64
 	var taskStatus, taskType int32
 	if err := rowscanner.Scan(
@@ -112,9 +110,7 @@ func scanTaskRow(rowscanner interface{ Scan(dest ...any) error }) (*model.Task, 
 		&statusMetadata,
 		&stateHistory,
 		&inputParams,
-		&inputArtifacts,
 		&outputParams,
-		&outputArtifacts,
 		&taskType,
 		&typeAttrs,
 	); err != nil {
@@ -150,18 +146,6 @@ func scanTaskRow(rowscanner interface{ Scan(dest ...any) error }) (*model.Task, 
 			return nil, err
 		}
 	}
-	var inputArtifactsData model.JSONSlice
-	if inputArtifacts.Valid {
-		if err := json.Unmarshal([]byte(inputArtifacts.String), &inputArtifactsData); err != nil {
-			return nil, err
-		}
-	}
-	var outputArtifactsData model.JSONSlice
-	if outputArtifacts.Valid {
-		if err := json.Unmarshal([]byte(outputArtifacts.String), &outputArtifactsData); err != nil {
-			return nil, err
-		}
-	}
 	var typeAttrsData model.JSONData
 	if typeAttrs.Valid {
 		if err := json.Unmarshal([]byte(typeAttrs.String), &typeAttrsData); err != nil {
@@ -185,9 +169,7 @@ func scanTaskRow(rowscanner interface{ Scan(dest ...any) error }) (*model.Task, 
 		StatusMetadata:   statusMetadataNew,
 		StateHistory:     stateHistoryNew,
 		InputParameters:  inputParameters,
-		InputArtifacts:   inputArtifactsData,
 		OutputParameters: outputParameters,
-		OutputArtifacts:  outputArtifactsData,
 		Type:             taskType,
 		TypeAttrs:        typeAttrsData,
 	}, nil
@@ -246,25 +228,11 @@ func (s *TaskStore) CreateTask(task *model.Task) (*model.Task, error) {
 		return nil, util.NewInternalServerError(err, "Failed to marshal input parameters in a new task")
 	}
 
-	inputArtifactsString := ""
-	if ia, err := json.Marshal(newTask.InputArtifacts); err == nil {
-		inputArtifactsString = string(ia)
-	} else {
-		return nil, util.NewInternalServerError(err, "Failed to marshal input artifacts in a new task")
-	}
-
 	outputParamsString := ""
 	if outputParams, err := json.Marshal(newTask.OutputParameters); err == nil {
 		outputParamsString = string(outputParams)
 	} else {
 		return nil, util.NewInternalServerError(err, "Failed to marshal output parameters in a new task")
-	}
-
-	outputArtifactsString := ""
-	if oa, err := json.Marshal(newTask.OutputArtifacts); err == nil {
-		outputArtifactsString = string(oa)
-	} else {
-		return nil, util.NewInternalServerError(err, "Failed to marshal output artifacts in a new task")
 	}
 
 	typeAttrsString := ""
@@ -292,9 +260,7 @@ func (s *TaskStore) CreateTask(task *model.Task) (*model.Task, error) {
 				"Status":           newTask.Status,
 				"StateHistory":     stateHistoryString,
 				"InputParameters":  inputParamsString,
-				"InputArtifacts":   inputArtifactsString,
 				"OutputParameters": outputParamsString,
-				"OutputArtifacts":  outputArtifactsString,
 				"Type":             newTask.Type,
 				"TypeAttrs":        typeAttrsString,
 			},
@@ -512,25 +478,11 @@ func (s *TaskStore) UpdateTask(task *model.Task) (*model.Task, error) {
 			return nil, util.NewInternalServerError(err, "Failed to marshal input parameters in an updated task")
 		}
 	}
-	if task.InputArtifacts != nil {
-		if b, err := json.Marshal(task.InputArtifacts); err == nil {
-			setMap["InputArtifacts"] = string(b)
-		} else {
-			return nil, util.NewInternalServerError(err, "Failed to marshal input artifacts in an updated task")
-		}
-	}
 	if task.OutputParameters != nil {
 		if b, err := json.Marshal(task.OutputParameters); err == nil {
 			setMap["OutputParameters"] = string(b)
 		} else {
 			return nil, util.NewInternalServerError(err, "Failed to marshal output parameters in an updated task")
-		}
-	}
-	if task.OutputArtifacts != nil {
-		if b, err := json.Marshal(task.OutputArtifacts); err == nil {
-			setMap["OutputArtifacts"] = string(b)
-		} else {
-			return nil, util.NewInternalServerError(err, "Failed to marshal output artifacts in an updated task")
 		}
 	}
 	if task.TypeAttrs != nil {

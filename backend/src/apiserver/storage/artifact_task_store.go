@@ -33,6 +33,9 @@ var artifactTaskColumns = []string{
 	"artifact_tasks.ArtifactID",
 	"artifact_tasks.TaskID",
 	"artifact_tasks.Type",
+	"artifact_tasks.RunUUID",
+	"artifact_tasks.ProducerTaskName",
+	"artifact_tasks.ProducerKey",
 }
 
 type ArtifactTaskStoreInterface interface {
@@ -76,10 +79,13 @@ func (s *ArtifactTaskStore) CreateArtifactTask(artifactTask *model.ArtifactTask)
 		Insert(artifactTaskTableName).
 		SetMap(
 			sq.Eq{
-				"UUID":       newArtifactTask.UUID,
-				"ArtifactID": newArtifactTask.ArtifactID,
-				"TaskID":     newArtifactTask.TaskID,
-				"Type":       newArtifactTask.Type,
+				"UUID":              newArtifactTask.UUID,
+				"ArtifactID":        newArtifactTask.ArtifactID,
+				"TaskID":            newArtifactTask.TaskID,
+				"Type":              newArtifactTask.Type,
+				"RunUUID":           newArtifactTask.RunUUID,
+				"ProducerTaskName":  newArtifactTask.ProducerTaskName,
+				"ProducerKey":       newArtifactTask.ProducerKey,
 			},
 		).
 		ToSql()
@@ -121,10 +127,13 @@ func (s *ArtifactTaskStore) CreateArtifactTasks(artifactTasks []*model.ArtifactT
 			Insert(artifactTaskTableName).
 			SetMap(
 				sq.Eq{
-					"UUID":       newArtifactTask.UUID,
-					"ArtifactID": newArtifactTask.ArtifactID,
-					"TaskID":     newArtifactTask.TaskID,
-					"Type":       newArtifactTask.Type,
+					"UUID":              newArtifactTask.UUID,
+					"ArtifactID":        newArtifactTask.ArtifactID,
+					"TaskID":            newArtifactTask.TaskID,
+					"Type":              newArtifactTask.Type,
+					"RunUUID":           newArtifactTask.RunUUID,
+					"ProducerTaskName":  newArtifactTask.ProducerTaskName,
+					"ProducerKey":       newArtifactTask.ProducerKey,
 				},
 			).
 			ToSql()
@@ -152,12 +161,16 @@ func (s *ArtifactTaskStore) scanRows(rows *sql.Rows) ([]*model.ArtifactTask, err
 	var artifactTasks []*model.ArtifactTask
 	for rows.Next() {
 		var uuid, artifactID, taskID, artifactTaskType string
+		var runUUID, producerTaskName, producerKey string
 
 		err := rows.Scan(
 			&uuid,
 			&artifactID,
 			&taskID,
 			&artifactTaskType,
+			&runUUID,
+			&producerTaskName,
+			&producerKey,
 		)
 		if err != nil {
 			return artifactTasks, err
@@ -166,10 +179,13 @@ func (s *ArtifactTaskStore) scanRows(rows *sql.Rows) ([]*model.ArtifactTask, err
 		// Convert string type back to enum type
 		var typeEnum apiv2beta1.ArtifactTaskType
 		artifactTask := &model.ArtifactTask{
-			UUID:       uuid,
-			ArtifactID: artifactID,
-			TaskID:     taskID,
-			Type:       typeEnum,
+			UUID:             uuid,
+			ArtifactID:       artifactID,
+			TaskID:           taskID,
+			Type:             typeEnum,
+			RunUUID:          runUUID,
+			ProducerTaskName: producerTaskName,
+			ProducerKey:     producerKey,
 		}
 		artifactTasks = append(artifactTasks, artifactTask)
 	}
@@ -217,13 +233,12 @@ func (s *ArtifactTaskStore) applyFilterContextsToQuery(sqlBuilder sq.SelectBuild
 		}
 	}
 
-	// Apply run ID filters (OR within run IDs, requires join)
+	// Apply run ID filters (OR within run IDs) now directly on artifact_tasks
 	if len(runIDs) > 0 {
-		sqlBuilder = sqlBuilder.Join("tasks ON artifact_tasks.TaskID = tasks.UUID")
 		if len(runIDs) == 1 {
-			sqlBuilder = sqlBuilder.Where(sq.Eq{"tasks.RunUUID": runIDs[0]})
+			sqlBuilder = sqlBuilder.Where(sq.Eq{"artifact_tasks.RunUUID": runIDs[0]})
 		} else {
-			sqlBuilder = sqlBuilder.Where(sq.Eq{"tasks.RunUUID": runIDs})
+			sqlBuilder = sqlBuilder.Where(sq.Eq{"artifact_tasks.RunUUID": runIDs})
 		}
 	}
 

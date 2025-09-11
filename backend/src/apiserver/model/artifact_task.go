@@ -26,10 +26,13 @@ const (
 
 // ArtifactTask represents the relationship between artifacts and tasks (replaces MLMD Events)
 type ArtifactTask struct {
-	UUID       string                      `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
-	ArtifactID string                      `gorm:"column:ArtifactID; not null; type:varchar(191); index:idx_link_artifact_id; uniqueIndex:UniqueLink,priority:1;"`
-	TaskID     string                      `gorm:"column:TaskID; not null; type:varchar(191); index:idx_link_task_id; uniqueIndex:UniqueLink,priority:2;"`
-	Type       apiv2beta1.ArtifactTaskType `gorm:"column:Type; not null; uniqueIndex:UniqueLink,priority:3;"`
+	UUID              string                      `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
+	ArtifactID        string                      `gorm:"column:ArtifactID; not null; type:varchar(191); index:idx_link_artifact_id; uniqueIndex:UniqueLink,priority:1;"`
+	TaskID            string                      `gorm:"column:TaskID; not null; type:varchar(191); index:idx_link_task_id; uniqueIndex:UniqueLink,priority:2;"`
+	Type              apiv2beta1.ArtifactTaskType `gorm:"column:Type; not null; uniqueIndex:UniqueLink,priority:3;"`
+	RunUUID           string                      `gorm:"column:RunUUID; not null; type:varchar(191); index:idx_link_run_id;"`
+	ProducerTaskName  string                      `gorm:"column:ProducerTaskName; not null; type:varchar(128); default:'';"`
+	ProducerKey       string                      `gorm:"column:ProducerKey; not null; type:varchar(191); default:'';"`
 
 	// Relationships
 	Artifact Artifact `gorm:"foreignKey:ArtifactID;references:UUID;constraint:fk_artifact_tasks_artifacts,OnDelete:CASCADE,OnUpdate:CASCADE;"`
@@ -61,10 +64,13 @@ func (at ArtifactTask) GetKeyFieldPrefix() string {
 }
 
 var artifactTaskAPIToModelFieldMap = map[string]string{
-	"id":          "UUID",
-	"artifact_id": "ArtifactID",
-	"task_id":     "TaskID",
-	"type":        "Type",
+	"id":                 "UUID",
+	"artifact_id":        "ArtifactID",
+	"task_id":            "TaskID",
+	"type":               "Type",
+	"run_id":             "RunUUID",
+	"producer_task_name": "ProducerTaskName",
+	"producer_key":       "ProducerKey",
 }
 
 func (at ArtifactTask) GetField(name string) (string, bool) {
@@ -84,6 +90,12 @@ func (at ArtifactTask) GetFieldValue(name string) interface{} {
 		return at.TaskID
 	case "Type":
 		return at.Type
+	case "RunUUID":
+		return at.RunUUID
+	case "ProducerTaskName":
+		return at.ProducerTaskName
+	case "ProducerKey":
+		return at.ProducerKey
 	default:
 		return nil
 	}
