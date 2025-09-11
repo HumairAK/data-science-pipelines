@@ -509,3 +509,160 @@ func TestListTasks_PaginationWithToken(t *testing.T) {
 	assert.Equal(t, 5, total3)
 	assert.Empty(t, token3)
 }
+
+// Helpers for artifact creation in tests
+func insertArtifact(t *testing.T, db *DB, a *model.Artifact) {
+	t.Helper()
+	if a.UUID == "" {
+  a.UUID = testUUID4
+	}
+	if a.Namespace == "" {
+		a.Namespace = "ns1"
+	}
+	sql := `INSERT INTO artifacts (UUID, Namespace, Type, Uri, Name, CreatedAtInSec, LastUpdateInSec, Metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+	meta := "{}"
+	_, err := db.Exec(sql, a.UUID, a.Namespace, a.Type, a.Uri, a.Name, a.CreatedAtInSec, a.LastUpdateInSec, meta)
+	assert.NoError(t, err)
+}
+
+func newArtifactTaskStore(db *DB) *ArtifactTaskStore {
+	return NewArtifactTaskStore(db, util.NewFakeUUIDGeneratorOrFatal("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", nil))
+}
+
+func TestTaskParameters_PersistAndFetch(t *testing.T) {
+	db, taskStore, _ := initializeTaskStore()
+	defer db.Close()
+
+	// Build two simple Parameter protos for inputs and outputs
+	inParam := &apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter{
+		InputType:        apiv2beta1.PipelineTaskDetail_ResolvedValue,
+		Value:            "in-val",
+		Name:             "in-name",
+		ProducerTaskName: "",
+		ProducerKey:      "",
+	}
+	outParam := &apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter{
+		InputType:        apiv2beta1.PipelineTaskDetail_PipelineChannel,
+		Value:            "out-val",
+		Name:             "out-name",
+		ProducerTaskName: "task-x",
+		ProducerKey:      "param-y",
+	}
+	inParams, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter{inParam})
+	assert.NoError(t, err)
+	outParams, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter{outParam})
+	assert.NoError(t, err)
+
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID1, nil)
+	created, err := taskStore.CreateTask(&model.Task{
+		Namespace:        "ns1",
+		PipelineName:     "pipeA",
+		RunUUID:          "run-1",
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", "EXECUTOR")),
+		Fingerprint:      "fp-param",
+		Status:           1,
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  inParams,
+		OutputParameters: outParams,
+		Type:             0,
+		TypeAttrs:        model.JSONData{},
+	})
+	assert.NoError(t, err)
+
+	fetched, err := taskStore.GetTask(created.UUID)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(fetched.InputParameters))
+	assert.Equal(t, 1, len(fetched.OutputParameters))
+}
+
+func TestHydrateArtifactsForTask_GetAndList(t *testing.T) {
+	db, taskStore, _ := initializeTaskStore()
+	defer db.Close()
+
+	// Create a task under run-1
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID1, nil)
+	task, err := taskStore.CreateTask(&model.Task{
+		Namespace:        "ns1",
+		PipelineName:     "pipeA",
+		RunUUID:          "run-1",
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", "EXECUTOR")),
+		Fingerprint:      "fp-art",
+		Status:           1,
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
+		Type:             0,
+		TypeAttrs:        model.JSONData{},
+	})
+	assert.NoError(t, err)
+
+	// Create two artifacts
+	artIn := &model.Artifact{UUID: testUUID2, Namespace: "ns1", Type: 0, Uri: "s3://bucket/in", Name: "in-art"}
+	insertArtifact(t, db, artIn)
+	artOut := &model.Artifact{UUID: testUUID3, Namespace: "ns1", Type: 0, Uri: "s3://bucket/out", Name: "out-art"}
+	insertArtifact(t, db, artOut)
+
+	// Link artifacts to task via artifact_tasks
+ ats1 := NewArtifactTaskStore(db, util.NewFakeUUIDGeneratorOrFatal("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1", nil))
+	// Input link with no producer fields -> ResolvedValue
+	_, err = ats1.CreateArtifactTask(&model.ArtifactTask{
+		ArtifactID:       artIn.UUID,
+		TaskID:           task.UUID,
+		Type:             apiv2beta1.ArtifactTaskType_INPUT,
+		RunUUID:          task.RunUUID,
+		ProducerTaskName: "",
+		ProducerKey:      "",
+	})
+	assert.NoError(t, err)
+	// Output link with producer fields -> PipelineChannel
+	ats2 := NewArtifactTaskStore(db, util.NewFakeUUIDGeneratorOrFatal("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2", nil))
+	_, err = ats2.CreateArtifactTask(&model.ArtifactTask{
+		ArtifactID:       artOut.UUID,
+		TaskID:           task.UUID,
+		Type:             apiv2beta1.ArtifactTaskType_OUTPUT,
+		RunUUID:          task.RunUUID,
+		ProducerTaskName: "producer-task",
+		ProducerKey:      "output-key",
+	})
+	assert.NoError(t, err)
+
+	// Verify GetTask hydrates artifacts
+	fetched, err := taskStore.GetTask(task.UUID)
+	assert.NoError(t, err)
+	if assert.Equal(t, 1, len(fetched.InputArtifactsHydrated)) {
+		ia := fetched.InputArtifactsHydrated[0]
+		assert.Equal(t, apiv2beta1.PipelineTaskDetail_ResolvedValue, ia.InputType)
+		assert.Equal(t, artIn.UUID, ia.ArtifactID)
+		assert.Equal(t, "", ia.ProducerTaskName)
+		assert.Equal(t, "", ia.ProducerKey)
+		if assert.NotNil(t, ia.Value) {
+			assert.Equal(t, "in-art", ia.Value.Name)
+		}
+	}
+	if assert.Equal(t, 1, len(fetched.OutputArtifactsHydrated)) {
+		oa := fetched.OutputArtifactsHydrated[0]
+		assert.Equal(t, apiv2beta1.PipelineTaskDetail_PipelineChannel, oa.InputType)
+		assert.Equal(t, artOut.UUID, oa.ArtifactID)
+		assert.Equal(t, "producer-task", oa.ProducerTaskName)
+		assert.Equal(t, "output-key", oa.ProducerKey)
+		if assert.NotNil(t, oa.Value) {
+			assert.Equal(t, "out-art", oa.Value.Name)
+		}
+	}
+
+	// Verify ListTasks hydrates artifacts as well
+	opts, _ := list.NewOptions(&model.Task{}, 10, "", nil)
+	tasks, _, _, err := taskStore.ListTasks(&model.FilterContext{ReferenceKey: &model.ReferenceKey{Type: model.RunResourceType, ID: task.RunUUID}}, opts)
+	assert.NoError(t, err)
+	var found *model.Task
+	for _, tsk := range tasks {
+		if tsk.UUID == task.UUID {
+			found = tsk
+			break
+		}
+	}
+	if assert.NotNil(t, found) {
+		assert.Equal(t, 1, len(found.InputArtifactsHydrated))
+		assert.Equal(t, 1, len(found.OutputArtifactsHydrated))
+	}
+}
