@@ -67,12 +67,12 @@ func TestCreateArtifactTask_Success(t *testing.T) {
 		PipelineName:     "p1",
 		RunUUID:          runId1,
 		Name:             "t1",
-		Pods:             model.JSONData{"pods": []interface{}{"p"}},
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", "EXECUTOR")),
 		Fingerprint:      "fp1",
 		Status:           1,
-		StateHistory:     map[string]interface{}{},
-		InputParameters:  map[string]interface{}{},
-		OutputParameters: map[string]interface{}{},
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
 		Type:             0,
 		TypeAttrs:        map[string]interface{}{},
 	})
@@ -131,12 +131,12 @@ func TestListArtifactTasks_Filters(t *testing.T) {
 		PipelineName:     "p1",
 		RunUUID:          runId1,
 		Name:             "t1",
-		Pods:             model.JSONData{"pods": []interface{}{"p1"}},
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", "EXECUTOR")),
 		Fingerprint:      "fp-1",
 		Status:           1,
-		StateHistory:     map[string]interface{}{},
-		InputParameters:  map[string]interface{}{},
-		OutputParameters: map[string]interface{}{},
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
 		Type:             0,
 		TypeAttrs:        map[string]interface{}{},
 	})
@@ -147,12 +147,12 @@ func TestListArtifactTasks_Filters(t *testing.T) {
 		PipelineName:     "p2",
 		RunUUID:          runId2,
 		Name:             "t2",
-		Pods:             model.JSONData{"pods": []interface{}{"p2"}},
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p2", "uid1", "EXECUTOR")),
 		Fingerprint:      "fp-2",
 		Status:           1,
-		StateHistory:     map[string]interface{}{},
-		InputParameters:  map[string]interface{}{},
-		OutputParameters: map[string]interface{}{},
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
 		Type:             0,
 		TypeAttrs:        map[string]interface{}{},
 	})
@@ -163,6 +163,7 @@ func TestListArtifactTasks_Filters(t *testing.T) {
 	_, err = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID: art1.UUID,
 		TaskID:     t1.UUID,
+		RunUUID:    runId1,
 		Type:       apiv2beta1.ArtifactTaskType_INPUT,
 	})
 	assert.NoError(t, err)
@@ -170,6 +171,7 @@ func TestListArtifactTasks_Filters(t *testing.T) {
 	_, err = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID: art2.UUID,
 		TaskID:     t1.UUID,
+		RunUUID:    runId1,
 		Type:       apiv2beta1.ArtifactTaskType_OUTPUT,
 	})
 	assert.NoError(t, err)
@@ -178,6 +180,7 @@ func TestListArtifactTasks_Filters(t *testing.T) {
 	_, err = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID: art2.UUID,
 		TaskID:     t2.UUID,
+		RunUUID:    runId2,
 		Type:       apiv2beta1.ArtifactTaskType_INPUT,
 	})
 	assert.NoError(t, err)
@@ -243,12 +246,12 @@ func TestListArtifactsForTask_UsingArtifactTasks(t *testing.T) {
 		PipelineName:     "p1",
 		RunUUID:          runId1,
 		Name:             "t1",
-		Pods:             model.JSONData{"pods": []interface{}{"p1"}},
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", "EXECUTOR")),
 		Fingerprint:      "fp-1",
 		Status:           1,
-		StateHistory:     map[string]interface{}{},
-		InputParameters:  map[string]interface{}{},
-		OutputParameters: map[string]interface{}{},
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
 		Type:             0,
 		TypeAttrs:        map[string]interface{}{},
 	})
@@ -285,6 +288,7 @@ func TestListArtifactsForTask_UsingArtifactTasks(t *testing.T) {
 	assert.True(t, ids[art2.UUID])
 	assert.Equal(t, 2, len(ids))
 }
+
 func TestListArtifactTasks_Pagination_PageSizeAndNextPageToken(t *testing.T) {
 	db, artifactStore, taskStore, _, linkStore := initializeArtifactTaskDeps()
 	defer db.Close()
@@ -314,12 +318,12 @@ func TestListArtifactTasks_Pagination_PageSizeAndNextPageToken(t *testing.T) {
 		PipelineName:     "p1",
 		RunUUID:          runId1,
 		Name:             "t1",
-		Pods:             model.JSONData{"pods": []interface{}{"p1"}},
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", "EXECUTOR")),
 		Fingerprint:      "fp-1",
 		Status:           1,
-		StateHistory:     map[string]interface{}{},
-		InputParameters:  map[string]interface{}{},
-		OutputParameters: map[string]interface{}{},
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
 		Type:             0,
 		TypeAttrs:        map[string]interface{}{},
 	})
@@ -397,12 +401,12 @@ func TestListArtifactTasks_Pagination_WithFilter(t *testing.T) {
 		PipelineName:     "p1",
 		RunUUID:          runId1,
 		Name:             "t1",
-		Pods:             model.JSONData{"pods": []interface{}{"p1"}},
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", "EXECUTOR")),
 		Fingerprint:      "fp-1",
 		Status:           1,
-		StateHistory:     map[string]interface{}{},
-		InputParameters:  map[string]interface{}{},
-		OutputParameters: map[string]interface{}{},
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
 		Type:             0,
 		TypeAttrs:        map[string]interface{}{},
 	})
@@ -413,12 +417,12 @@ func TestListArtifactTasks_Pagination_WithFilter(t *testing.T) {
 		PipelineName:     "p2",
 		RunUUID:          runId2,
 		Name:             "t2",
-		Pods:             model.JSONData{"pods": []interface{}{"p2"}},
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", "EXECUTOR")),
 		Fingerprint:      "fp-2",
 		Status:           1,
-		StateHistory:     map[string]interface{}{},
-		InputParameters:  map[string]interface{}{},
-		OutputParameters: map[string]interface{}{},
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
 		Type:             0,
 		TypeAttrs:        map[string]interface{}{},
 	})

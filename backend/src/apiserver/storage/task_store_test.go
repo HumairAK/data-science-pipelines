@@ -77,6 +77,22 @@ func initializeTaskStore() (*DB, *TaskStore, *RunStore) {
 	return db, taskStore, runStore
 }
 
+func createTaskPod(name, uid, typ string) *apiv2beta1.PipelineTaskDetail_TaskPod {
+	return &apiv2beta1.PipelineTaskDetail_TaskPod{
+		Name: name,
+		Uid:  uid,
+		Type: typ,
+	}
+}
+
+func createTaskPodsAsJSONSlice(pods ...*apiv2beta1.PipelineTaskDetail_TaskPod) model.JSONSlice {
+	podsAsSlice, err := model.ProtoSliceToJSONSlice(pods)
+	if err != nil {
+		panic(err)
+	}
+	return podsAsSlice
+}
+
 // Minimal test to ensure model<->DB mapping remains valid.
 func TestTaskAPIFieldMap(t *testing.T) {
 	for _, modelField := range (&model.Task{}).APIToModelFieldMap() {
@@ -87,19 +103,19 @@ func TestTaskAPIFieldMap(t *testing.T) {
 func TestCreateTask_Success(t *testing.T) {
 	db, taskStore, _ := initializeTaskStore()
 	defer db.Close()
-
+	pods := createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", "EXECUTOR"))
 	task := &model.Task{
 		Namespace:        "ns1",
 		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
-		Pods:             model.JSONData{"pods": []interface{}{"pod-a", "pod-b"}},
+		Pods:             pods,
 		Fingerprint:      "fp-1",
 		Name:             "taskA",
 		ParentTaskUUID:   "",
 		Status:           1,
-		StateHistory:     model.JSONData(map[string]interface{}{"s": 1}),
-		InputParameters:  model.JSONData(map[string]interface{}{"in": "x"}),
-		OutputParameters: model.JSONData(map[string]interface{}{"out": "y"}),
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
 		Type:             0,
 		TypeAttrs:        model.JSONData(map[string]interface{}{"k": "v"}),
 	}
@@ -118,7 +134,7 @@ func TestCreateTask_Success(t *testing.T) {
 	assert.Equal(t, "ns1", fetched.Namespace)
 	assert.Equal(t, "pipeA", fetched.PipelineName)
 	assert.Equal(t, "run-1", fetched.RunUUID)
-	assert.Equal(t, []interface{}{"pod-a", "pod-b"}, fetched.Pods["pods"])
+	assert.Equal(t, pods, fetched.Pods)
 	assert.Equal(t, "fp-1", fetched.Fingerprint)
 	assert.Equal(t, "taskA", fetched.Name)
 	assert.Equal(t, int32(1), fetched.Status)
@@ -142,14 +158,14 @@ func TestListTasks_BasicAndFilters(t *testing.T) {
 		Namespace:        "ns1",
 		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
-		Pods:             model.JSONData{"pods": []interface{}{"p"}},
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", "EXECUTOR")),
 		Fingerprint:      "fp-parent",
 		Status:           1,
-		StateHistory:     map[string]interface{}{},
-		InputParameters:  map[string]interface{}{},
-		OutputParameters: map[string]interface{}{},
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
 		Type:             0,
-		TypeAttrs:        map[string]interface{}{},
+		TypeAttrs:        model.JSONData{},
 	})
 	assert.NoError(t, err)
 
@@ -159,14 +175,14 @@ func TestListTasks_BasicAndFilters(t *testing.T) {
 		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
 		ParentTaskUUID:   parent.UUID,
-		Pods:             model.JSONData{"pods": []interface{}{"c1"}},
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p2", "uid2", "EXECUTOR")),
 		Fingerprint:      "fp-c1",
 		Status:           1,
-		StateHistory:     map[string]interface{}{},
-		InputParameters:  map[string]interface{}{},
-		OutputParameters: map[string]interface{}{},
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
 		Type:             0,
-		TypeAttrs:        map[string]interface{}{},
+		TypeAttrs:        model.JSONData{},
 	})
 	assert.NoError(t, err)
 
@@ -176,14 +192,14 @@ func TestListTasks_BasicAndFilters(t *testing.T) {
 		PipelineName:     "pipeB",
 		RunUUID:          "run-2",
 		ParentTaskUUID:   parent.UUID,
-		Pods:             model.JSONData{"pods": []interface{}{"c2"}},
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p3", "uid3", "EXECUTOR")),
 		Fingerprint:      "fp-c2",
 		Status:           1,
-		StateHistory:     map[string]interface{}{},
-		InputParameters:  map[string]interface{}{},
-		OutputParameters: map[string]interface{}{},
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
 		Type:             0,
-		TypeAttrs:        map[string]interface{}{},
+		TypeAttrs:        model.JSONData{},
 	})
 	assert.NoError(t, err)
 
@@ -221,18 +237,20 @@ func TestUpdateTask_Success(t *testing.T) {
 	db, taskStore, _ := initializeTaskStore()
 	defer db.Close()
 
+	pod1 := createTaskPod("p1", "uid1", "EXECUTOR")
+	pod2 := createTaskPod("p2", "uid2", "EXECUTOR")
 	// Create a task
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID1, nil)
 	created, err := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
 		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
-		Pods:             model.JSONData{"pods": []interface{}{"p1"}},
+		Pods:             createTaskPodsAsJSONSlice(pod1),
 		Fingerprint:      "fp-0",
 		Status:           1,
-		StateHistory:     map[string]interface{}{},
-		InputParameters:  map[string]interface{}{},
-		OutputParameters: map[string]interface{}{},
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
 		Type:             0,
 		TypeAttrs:        map[string]interface{}{},
 	})
@@ -241,14 +259,14 @@ func TestUpdateTask_Success(t *testing.T) {
 	// Update some fields
 	created.Name = "updatedName"
 	created.Fingerprint = "fp-1"
-	created.Pods = model.JSONData{"pods": []interface{}{"p2", "p3"}}
+	created.Pods = createTaskPodsAsJSONSlice(pod1, pod2)
 	created.Status = 2
 	updated, err := taskStore.UpdateTask(created)
 	assert.NoError(t, err)
 	assert.Equal(t, created.UUID, updated.UUID)
 	assert.Equal(t, "updatedName", updated.Name)
 	assert.Equal(t, "fp-1", updated.Fingerprint)
-	assert.Equal(t, []interface{}{"p2", "p3"}, updated.Pods["pods"])
+	assert.Equal(t, createTaskPodsAsJSONSlice(pod1, pod2), updated.Pods)
 	assert.Equal(t, int32(2), updated.Status)
 }
 
@@ -263,12 +281,12 @@ func TestGetChildTasks_ReturnsChildren(t *testing.T) {
 		RunUUID:          "run-1",
 		Name:             "parent",
 		DisplayName:      "Parent Task",
-		Pods:             model.JSONData{"pods": []interface{}{"p"}},
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", "EXECUTOR")),
 		Fingerprint:      "fp-p",
 		Status:           1,
-		StateHistory:     map[string]interface{}{},
-		InputParameters:  map[string]interface{}{},
-		OutputParameters: map[string]interface{}{},
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
 		Type:             0,
 		TypeAttrs:        map[string]interface{}{},
 	})
@@ -282,12 +300,12 @@ func TestGetChildTasks_ReturnsChildren(t *testing.T) {
 		ParentTaskUUID:   parent.UUID,
 		Name:             "child-a",
 		DisplayName:      "First Child",
-		Pods:             model.JSONData{"pods": []interface{}{"c1"}},
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", "EXECUTOR")),
 		Fingerprint:      "fp-a",
 		Status:           1,
-		StateHistory:     map[string]interface{}{},
-		InputParameters:  map[string]interface{}{"parameters": []interface{}{}, "artifacts": []interface{}{}, "metrics": []interface{}{}},
-		OutputParameters: map[string]interface{}{"parameters": []interface{}{}, "artifacts": []interface{}{}, "metrics": []interface{}{}},
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
 		Type:             0,
 		TypeAttrs:        map[string]interface{}{},
 	})
@@ -301,12 +319,12 @@ func TestGetChildTasks_ReturnsChildren(t *testing.T) {
 		ParentTaskUUID:   parent.UUID,
 		Name:             "child-b",
 		DisplayName:      "Second Child",
-		Pods:             model.JSONData{"pods": []interface{}{"c2"}},
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", "EXECUTOR")),
 		Fingerprint:      "fp-b",
 		Status:           2,
-		StateHistory:     map[string]interface{}{},
-		InputParameters:  map[string]interface{}{"parameters": []interface{}{}, "artifacts": []interface{}{}, "metrics": []interface{}{}},
-		OutputParameters: map[string]interface{}{"parameters": []interface{}{}, "artifacts": []interface{}{}, "metrics": []interface{}{}},
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
 		Type:             0,
 		TypeAttrs:        map[string]interface{}{},
 	})
@@ -329,12 +347,12 @@ func TestListTasks_FilterPredicates_EqualsOnColumns(t *testing.T) {
 		RunUUID:          "run-1",
 		Name:             "alpha",
 		DisplayName:      "Alpha Task",
-		Pods:             model.JSONData{"pods": []interface{}{"p-alpha"}},
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", "EXECUTOR")),
 		Fingerprint:      "fp-alpha",
 		Status:           1,
-		StateHistory:     map[string]interface{}{},
-		InputParameters:  map[string]interface{}{},
-		OutputParameters: map[string]interface{}{},
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
 		Type:             0,
 		TypeAttrs:        map[string]interface{}{},
 	})
@@ -347,12 +365,12 @@ func TestListTasks_FilterPredicates_EqualsOnColumns(t *testing.T) {
 		RunUUID:          "run-1",
 		Name:             "beta",
 		DisplayName:      "Beta Task",
-		Pods:             model.JSONData{"pods": []interface{}{"p-beta"}},
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", "EXECUTOR")),
 		Fingerprint:      "fp-beta",
 		Status:           1,
-		StateHistory:     map[string]interface{}{},
-		InputParameters:  map[string]interface{}{},
-		OutputParameters: map[string]interface{}{},
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
 		Type:             0,
 		TypeAttrs:        map[string]interface{}{},
 	})
@@ -365,12 +383,12 @@ func TestListTasks_FilterPredicates_EqualsOnColumns(t *testing.T) {
 		RunUUID:          "run-2",
 		Name:             "gamma",
 		DisplayName:      "Gamma Task",
-		Pods:             model.JSONData{"pods": []interface{}{"p-gamma"}},
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", "EXECUTOR")),
 		Fingerprint:      "fp-gamma",
 		Status:           2,
-		StateHistory:     map[string]interface{}{},
-		InputParameters:  map[string]interface{}{},
-		OutputParameters: map[string]interface{}{},
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
 		Type:             0,
 		TypeAttrs:        map[string]interface{}{},
 	})
@@ -453,12 +471,12 @@ func TestListTasks_PaginationWithToken(t *testing.T) {
 			PipelineName:     "pipeA",
 			RunUUID:          "run-1",
 			Name:             fmt.Sprintf("task-%d", i+1),
-			Pods:             model.JSONData{"pods": []interface{}{fmt.Sprintf("p-%d", i+1)}},
+			Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", "EXECUTOR")),
 			Fingerprint:      fmt.Sprintf("fp-%d", i+1),
 			Status:           1,
-			StateHistory:     map[string]interface{}{},
-			InputParameters:  map[string]interface{}{},
-			OutputParameters: map[string]interface{}{},
+			StateHistory:     model.JSONSlice{},
+			InputParameters:  model.JSONSlice{},
+			OutputParameters: model.JSONSlice{},
 			Type:             0,
 			TypeAttrs:        map[string]interface{}{},
 		})
