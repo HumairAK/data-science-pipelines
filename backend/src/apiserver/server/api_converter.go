@@ -2427,6 +2427,8 @@ func toModelArtifactTask(apiAT *apiv2beta1.ArtifactTask) (*model.ArtifactTask, e
 
 // Converts API PipelineTaskDetail to its internal representation.
 // Supports v2beta1 API.
+// Note that InputArtifactsHydrated and OutputArtifactsHydrated are not converted as these
+// are not stored in DB, and to fill them out would require additional DB queries to fetch Artifacts values.
 func toModelTask(apiTask *apiv2beta1.PipelineTaskDetail) (*model.Task, error) {
 	if apiTask == nil {
 		return nil, util.NewInvalidInputError("Task cannot be nil")
@@ -2614,10 +2616,13 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 		apiTask.Outputs.Parameters = apiOutputParams
 	}
 
-	// Populate artifacts from hydrated fields on the model task
-	if len(modelTask.InputArtifactsHydrated) > 0 {
-		apiInputArts := make([]*apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact, 0, len(modelTask.InputArtifactsHydrated))
-		for _, h := range modelTask.InputArtifactsHydrated {
+	// Populate artifacts from hydrated fields on the model task with shared converter to reduce duplication
+	convertHydrated := func(in []model.TaskArtifactHydrated) ([]*apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact, error) {
+		if len(in) == 0 {
+			return nil, nil
+		}
+		out := make([]*apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact, 0, len(in))
+		for _, h := range in {
 			var apiArt *apiv2beta1.Artifact
 			if h.Value != nil {
 				apiArtConv, err := toApiArtifact(h.Value)
@@ -2626,7 +2631,7 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 				}
 				apiArt = apiArtConv
 			}
-			apiInputArts = append(apiInputArts, &apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact{
+			out = append(out, &apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact{
 				InputType:        h.InputType,
 				ArtifactId:       h.ArtifactID,
 				Value:            apiArt,
@@ -2635,29 +2640,17 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 				ProducerKey:      h.ProducerKey,
 			})
 		}
-		apiTask.Inputs.Artifacts = apiInputArts
+		return out, nil
 	}
-	if len(modelTask.OutputArtifactsHydrated) > 0 {
-		apiOutputArts := make([]*apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact, 0, len(modelTask.OutputArtifactsHydrated))
-		for _, h := range modelTask.OutputArtifactsHydrated {
-			var apiArt *apiv2beta1.Artifact
-			if h.Value != nil {
-				apiArtConv, err := toApiArtifact(h.Value)
-				if err != nil {
-					return nil, err
-				}
-				apiArt = apiArtConv
-			}
-			apiOutputArts = append(apiOutputArts, &apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact{
-				InputType:        h.InputType,
-				ArtifactId:       h.ArtifactID,
-				Value:            apiArt,
-				Name:             h.Name,
-				ProducerTaskName: h.ProducerTaskName,
-				ProducerKey:      h.ProducerKey,
-			})
-		}
-		apiTask.Outputs.Artifacts = apiOutputArts
+	if arts, err := convertHydrated(modelTask.InputArtifactsHydrated); err != nil {
+		return nil, err
+	} else if len(arts) > 0 {
+		apiTask.Inputs.Artifacts = arts
+	}
+	if arts, err := convertHydrated(modelTask.OutputArtifactsHydrated); err != nil {
+		return nil, err
+	} else if len(arts) > 0 {
+		apiTask.Outputs.Artifacts = arts
 	}
 
 	// Extract additional fields from TypeAttrs
