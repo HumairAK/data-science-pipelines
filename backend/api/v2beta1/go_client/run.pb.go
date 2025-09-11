@@ -2301,8 +2301,10 @@ func (x *PipelineTaskDetail_ChildTask) GetPods() []*PipelineTaskDetail_TaskPod {
 }
 
 type PipelineTaskDetail_InputOutputs struct {
-	state         protoimpl.MessageState                          `protogen:"open.v1"`
-	Parameters    []*PipelineTaskDetail_InputOutputs_Parameter    `protobuf:"bytes,1,rep,name=parameters,proto3" json:"parameters,omitempty"`
+	state      protoimpl.MessageState                       `protogen:"open.v1"`
+	Parameters []*PipelineTaskDetail_InputOutputs_Parameter `protobuf:"bytes,1,rep,name=parameters,proto3" json:"parameters,omitempty"`
+	// Output Only. To create Artifacts for a task are created
+	// via ArtifactTasks.
 	Artifacts     []*PipelineTaskDetail_InputOutputs_TaskArtifact `protobuf:"bytes,2,rep,name=artifacts,proto3" json:"artifacts,omitempty"`
 	Metrics       []*Metric                                       `protobuf:"bytes,3,rep,name=metrics,proto3" json:"metrics,omitempty"` // from artifacts.proto
 	unknownFields protoimpl.UnknownFields
@@ -2368,9 +2370,11 @@ type PipelineTaskDetail_InputOutputs_Parameter struct {
 	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	// Fields for PipelineChannel type
 	ProducerTaskName string `protobuf:"bytes,4,opt,name=producer_task_name,json=producerTaskName,proto3" json:"producer_task_name,omitempty"`
-	ProducerKey      string `protobuf:"bytes,5,opt,name=producer_key,json=producerKey,proto3" json:"producer_key,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// This would be the equivalent of output_parameter_key when it's a parameter output
+	// But is also used for inputs (not present in sdk IR).
+	ProducerKey   string `protobuf:"bytes,5,opt,name=producer_key,json=producerKey,proto3" json:"producer_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PipelineTaskDetail_InputOutputs_Parameter) Reset() {
@@ -2447,9 +2451,11 @@ type PipelineTaskDetail_InputOutputs_TaskArtifact struct {
 	Name string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
 	// Fields for PipelineChannel type
 	ProducerTaskName string `protobuf:"bytes,5,opt,name=producer_task_name,json=producerTaskName,proto3" json:"producer_task_name,omitempty"`
-	ProducerKey      string `protobuf:"bytes,6,opt,name=producer_key,json=producerKey,proto3" json:"producer_key,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// This would be the equivalent of output_artifact_key when it's an Artifact output
+	// But is also used for inputs (not present in sdk IR).
+	ProducerKey   string `protobuf:"bytes,6,opt,name=producer_key,json=producerKey,proto3" json:"producer_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PipelineTaskDetail_InputOutputs_TaskArtifact) Reset() {

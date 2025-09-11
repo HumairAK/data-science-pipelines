@@ -122,9 +122,11 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 	}})
 	assert.NoError(t, err)
 	_, err = artSrv.CreateArtifactTask(ctxWithUser(), &apiv2beta1.CreateArtifactTaskRequest{ArtifactTask: &apiv2beta1.ArtifactTask{
-		ArtifactId: createdArtifact.GetArtifactId(),
-		TaskId:     created.GetTaskId(),
-		Type:       apiv2beta1.ArtifactTaskType_OUTPUT,
+		ArtifactId:       createdArtifact.GetArtifactId(),
+		TaskId:           created.GetTaskId(),
+		Type:             apiv2beta1.ArtifactTaskType_OUTPUT,
+		ProducerKey:      "input_dataset",
+		ProducerTaskName: "preprocess",
 	}})
 	assert.NoError(t, err)
 
@@ -144,14 +146,10 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 		&apiv2beta1.UpdateTaskRequest{
 			TaskId: created.GetTaskId(),
 			Task: &apiv2beta1.PipelineTaskDetail{
-				TaskId: created.GetTaskId(),
-				RunId:  run.UUID,
-				Status: apiv2beta1.RuntimeState_SUCCEEDED,
-				Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{
-					Artifacts: []*apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact{
-						{ArtifactId: createdArtifact.GetArtifactId(), Name: "model"},
-					},
-				},
+				TaskId:  created.GetTaskId(),
+				RunId:   run.UUID,
+				Status:  apiv2beta1.RuntimeState_SUCCEEDED,
+				Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{},
 			}})
 	assert.NoError(t, err)
 
@@ -176,6 +174,15 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 			assert.Equal(t, apiv2beta1.RuntimeState_SUCCEEDED, taskFound.GetStatus())
 			assert.Equal(t, 1, len(taskFound.GetOutputs().GetArtifacts()))
 			assert.Equal(t, createdArtifact.GetArtifactId(), taskFound.GetOutputs().GetArtifacts()[0].GetArtifactId())
+		}
+
+		if assert.NotNil(t, taskFound.GetOutputs().GetArtifacts(), "artifacts not present in hydrated task") {
+			assert.Equal(t, "m1", taskFound.GetOutputs().GetArtifacts()[0].GetName())
+			assert.Equal(t, apiv2beta1.Artifact_Model, taskFound.GetOutputs().GetArtifacts()[0].GetInputType())
+			assert.Equal(t, "preprocess", taskFound.GetOutputs().GetArtifacts()[0].GetProducerTaskName())
+			assert.Equal(t, "input_dataset", taskFound.GetOutputs().GetArtifacts()[0].GetProducerKey())
+			assert.Equal(t, "gs://bucket/model", taskFound.GetOutputs().GetArtifacts()[0].GetValue().Uri)
+			assert.Equal(t, "m1", taskFound.GetOutputs().GetArtifacts()[0].GetValue().Name)
 		}
 
 		if assert.NotNil(t, taskFound.GetInputs().GetMetrics(), "metrics inputs not present in hydrated task") {

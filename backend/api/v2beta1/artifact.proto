@@ -292,8 +292,24 @@ message ArtifactTask {
   string id = 1;
   string artifact_id = 2;
   string task_id = 3;
-
   ArtifactTaskType type = 4;
+
+  // The task that produced this artifact
+  // For example in the case of a pipeline channel
+  // that is an output artifact you might have as
+  // input something like the following in the IR:
+  //   taskOutputArtifact:
+  //     outputArtifactKey: output_dataset
+  //     producerTask: create-dataset
+  // These fields are used to track this lineage.
+  string producer_task_name = 5;
+  // The key is often the parameter name used
+  // as input/output on the component, but
+  // can also take on the value of of other values.
+  // For example:
+  //  * "param-#" when using parameters in a ParallelFor
+  //  * "Output" when using Pythonic Artifacts
+  string producer_key = 6;
 }
 
 enum MetricType {

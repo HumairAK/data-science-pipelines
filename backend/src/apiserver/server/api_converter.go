@@ -2418,10 +2418,12 @@ func toModelArtifactTask(apiAT *apiv2beta1.ArtifactTask) (*model.ArtifactTask, e
 		return nil, util.NewInvalidInputError("ArtifactTask cannot be nil")
 	}
 	return &model.ArtifactTask{
-		UUID:       apiAT.GetId(),
-		ArtifactID: apiAT.GetArtifactId(),
-		TaskID:     apiAT.GetTaskId(),
-		Type:       apiAT.GetType(),
+		UUID:             apiAT.GetId(),
+		ArtifactID:       apiAT.GetArtifactId(),
+		TaskID:           apiAT.GetTaskId(),
+		Type:             apiAT.GetType(),
+		ProducerTaskName: apiAT.GetProducerTaskName(),
+		ProducerKey:      apiAT.GetProducerKey(),
 	}, nil
 }
 

@@ -26,6 +26,24 @@ type V2beta1ArtifactTask struct {
 	// Read Only: true
 	ID string `json:"id,omitempty"`
 
+	// The key is often the parameter name used
+	// as input/output on the component, but
+	// can also take on the value of of other values.
+	// For example:
+	//  * "param-#" when using parameters in a ParallelFor
+	//  * "Output" when using Pythonic Artifacts
+	ProducerKey string `json:"producer_key,omitempty"`
+
+	// The task that produced this artifact
+	// For example in the case of a pipeline channel
+	// that is an output artifact you might have as
+	// input something like the following in the IR:
+	//   taskOutputArtifact:
+	//     outputArtifactKey: output_dataset
+	//     producerTask: create-dataset
+	// These fields are used to track this lineage.
+	ProducerTaskName string `json:"producer_task_name,omitempty"`
+
 	// task id
 	TaskID string `json:"task_id,omitempty"`
 

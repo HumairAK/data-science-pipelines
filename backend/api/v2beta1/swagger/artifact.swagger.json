@@ -601,6 +601,14 @@
         },
         "type": {
           "$ref": "#/definitions/v2beta1ArtifactTaskType"
+        },
+        "producer_task_name": {
+          "type": "string",
+          "description": "The task that produced this artifact\nFor example in the case of a pipeline channel\nthat is an output artifact you might have as\ninput something like the following in the IR:\n  taskOutputArtifact:\n    outputArtifactKey: output_dataset\n    producerTask: create-dataset\nThese fields are used to track this lineage."
+        },
+        "producer_key": {
+          "type": "string",
+          "title": "The key is often the parameter name used\nas input/output on the component, but\ncan also take on the value of of other values.\nFor example:\n * \"param-#\" when using parameters in a ParallelFor\n * \"Output\" when using Pythonic Artifacts"
         }
       }
     },

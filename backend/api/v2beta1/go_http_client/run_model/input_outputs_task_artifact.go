@@ -27,7 +27,8 @@ type InputOutputsTaskArtifact struct {
 	// Fields for ResolvedValue type
 	Name string `json:"name,omitempty"`
 
-	// producer key
+	// This would be the equivalent of output_artifact_key when it's an Artifact output
+	// But is also used for inputs (not present in sdk IR).
 	ProducerKey string `json:"producer_key,omitempty"`
 
 	// Fields for PipelineChannel type

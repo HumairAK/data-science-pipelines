@@ -611,7 +611,8 @@
           "title": "Fields for PipelineChannel type"
         },
         "producer_key": {
-          "type": "string"
+          "type": "string",
+          "description": "This would be the equivalent of output_parameter_key when it's a parameter output\nBut is also used for inputs (not present in sdk IR)."
         }
       }
     },
@@ -636,7 +637,8 @@
           "title": "Fields for PipelineChannel type"
         },
         "producer_key": {
-          "type": "string"
+          "type": "string",
+          "description": "This would be the equivalent of output_artifact_key when it's an Artifact output\nBut is also used for inputs (not present in sdk IR)."
         }
       }
     },
@@ -676,7 +678,8 @@
           "items": {
             "type": "object",
             "$ref": "#/definitions/InputOutputsTaskArtifact"
-          }
+          },
+          "description": "Output Only. To create Artifacts for a task are created\nvia ArtifactTasks."
         },
         "metrics": {
           "type": "array",

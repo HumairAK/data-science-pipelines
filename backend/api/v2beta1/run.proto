@@ -459,6 +459,8 @@ message PipelineTaskDetail {
       string producer_key = 6;
     }
     repeated Parameter parameters = 1;
+    // Output Only. To create Artifacts for a task are created
+    // via ArtifactTasks.
     repeated TaskArtifact artifacts = 2;
     repeated Metric metrics = 3; // from artifacts.proto
   }

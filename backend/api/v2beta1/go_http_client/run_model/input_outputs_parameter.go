@@ -24,7 +24,8 @@ type InputOutputsParameter struct {
 	// Fields for Resolved type
 	Name string `json:"name,omitempty"`
 
-	// producer key
+	// This would be the equivalent of output_parameter_key when it's a parameter output
+	// But is also used for inputs (not present in sdk IR).
 	ProducerKey string `json:"producer_key,omitempty"`
 
 	// Fields for PipelineChannel type

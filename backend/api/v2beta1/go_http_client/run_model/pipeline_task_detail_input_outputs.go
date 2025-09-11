@@ -19,7 +19,8 @@ import (
 // swagger:model PipelineTaskDetailInputOutputs
 type PipelineTaskDetailInputOutputs struct {
 
-	// artifacts
+	// Output Only. To create Artifacts for a task are created
+	// via ArtifactTasks.
 	Artifacts []*InputOutputsTaskArtifact `json:"artifacts"`
 
 	// from artifacts.proto

@@ -723,6 +723,14 @@ func (s *RunServer) UpdateTask(ctx context.Context, request *apiv2beta1.UpdateTa
 		return nil, util.NewInvalidInputError("Task ID in path parameter does not match task ID in request body")
 	}
 
+	// Validate that input/output artifacts are not being updated
+	if task.GetInputs() != nil && len(task.GetInputs().GetArtifacts()) > 0 {
+		return nil, util.NewInvalidInputError("Cannot update task input artifacts - use artifact tasks API instead")
+	}
+	if task.GetOutputs() != nil && len(task.GetOutputs().GetArtifacts()) > 0 {
+		return nil, util.NewInvalidInputError("Cannot update task output artifacts - use artifact tasks API instead")
+	}
+
 	// First get the existing task to find the run UUID for authorization
 	existingTask, err := s.resourceManager.GetTask(taskId)
 	if err != nil {

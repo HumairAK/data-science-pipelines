@@ -1002,10 +1002,28 @@ func (x *ListMetricsResponse) GetNextPageToken() string {
 type ArtifactTask struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Output only. The unique server generated id of the ArtifactTask.
-	Id            string           `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	ArtifactId    string           `protobuf:"bytes,2,opt,name=artifact_id,json=artifactId,proto3" json:"artifact_id,omitempty"`
-	TaskId        string           `protobuf:"bytes,3,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	Type          ArtifactTaskType `protobuf:"varint,4,opt,name=type,proto3,enum=kubeflow.pipelines.backend.api.v2beta1.ArtifactTaskType" json:"type,omitempty"`
+	Id         string           `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ArtifactId string           `protobuf:"bytes,2,opt,name=artifact_id,json=artifactId,proto3" json:"artifact_id,omitempty"`
+	TaskId     string           `protobuf:"bytes,3,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	Type       ArtifactTaskType `protobuf:"varint,4,opt,name=type,proto3,enum=kubeflow.pipelines.backend.api.v2beta1.ArtifactTaskType" json:"type,omitempty"`
+	// The task that produced this artifact
+	// For example in the case of a pipeline channel
+	// that is an output artifact you might have as
+	// input something like the following in the IR:
+	//
+	//	taskOutputArtifact:
+	//	  outputArtifactKey: output_dataset
+	//	  producerTask: create-dataset
+	//
+	// These fields are used to track this lineage.
+	ProducerTaskName string `protobuf:"bytes,5,opt,name=producer_task_name,json=producerTaskName,proto3" json:"producer_task_name,omitempty"`
+	// The key is often the parameter name used
+	// as input/output on the component, but
+	// can also take on the value of of other values.
+	// For example:
+	//   - "param-#" when using parameters in a ParallelFor
+	//   - "Output" when using Pythonic Artifacts
+	ProducerKey   string `protobuf:"bytes,6,opt,name=producer_key,json=producerKey,proto3" json:"producer_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1066,6 +1084,20 @@ func (x *ArtifactTask) GetType() ArtifactTaskType {
 		return x.Type
 	}
 	return ArtifactTaskType_INPUT
+}
+
+func (x *ArtifactTask) GetProducerTaskName() string {
+	if x != nil {
+		return x.ProducerTaskName
+	}
+	return ""
+}
+
+func (x *ArtifactTask) GetProducerKey() string {
+	if x != nil {
+		return x.ProducerKey
+	}
+	return ""
 }
 
 type Metric struct {
@@ -1330,13 +1362,15 @@ const file_backend_api_v2beta1_artifact_proto_rawDesc = "" +
 	"\ametrics\x18\x01 \x03(\v2..kubeflow.pipelines.backend.api.v2beta1.MetricR\ametrics\x12\x1d\n" +
 	"\n" +
 	"total_size\x18\x02 \x01(\x05R\ttotalSize\x12&\n" +
-	"\x0fnext_page_token\x18\x03 \x01(\tR\rnextPageToken\"\xa6\x01\n" +
+	"\x0fnext_page_token\x18\x03 \x01(\tR\rnextPageToken\"\xf7\x01\n" +
 	"\fArtifactTask\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vartifact_id\x18\x02 \x01(\tR\n" +
 	"artifactId\x12\x17\n" +
 	"\atask_id\x18\x03 \x01(\tR\x06taskId\x12L\n" +
-	"\x04type\x18\x04 \x01(\x0e28.kubeflow.pipelines.backend.api.v2beta1.ArtifactTaskTypeR\x04type\"\x9c\x03\n" +
+	"\x04type\x18\x04 \x01(\x0e28.kubeflow.pipelines.backend.api.v2beta1.ArtifactTaskTypeR\x04type\x12,\n" +
+	"\x12producer_task_name\x18\x05 \x01(\tR\x10producerTaskName\x12!\n" +
+	"\fproducer_key\x18\x06 \x01(\tR\vproducerKey\"\x9c\x03\n" +
 	"\x06Metric\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x17\n" +
 	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x12\n" +
