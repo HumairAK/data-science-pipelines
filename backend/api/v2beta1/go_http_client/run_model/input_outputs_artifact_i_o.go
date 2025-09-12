@@ -13,19 +13,13 @@ import (
 	"github.com/go-openapi/swag"
 )
 
-// InputOutputsTaskArtifact input outputs task artifact
+// InputOutputsArtifactIO input outputs artifact i o
 //
-// swagger:model InputOutputsTaskArtifact
-type InputOutputsTaskArtifact struct {
-
-	// artifact id
-	ArtifactID string `json:"artifact_id,omitempty"`
+// swagger:model InputOutputsArtifactIO
+type InputOutputsArtifactIO struct {
 
 	// input type
 	InputType *PipelineTaskDetailInputType `json:"input_type,omitempty"`
-
-	// Fields for ResolvedValue type
-	Name string `json:"name,omitempty"`
 
 	// This would be the equivalent of output_artifact_key when it's an Artifact output
 	// But is also used for inputs (not present in sdk IR).
@@ -38,8 +32,8 @@ type InputOutputsTaskArtifact struct {
 	Value *V2beta1Artifact `json:"value,omitempty"`
 }
 
-// Validate validates this input outputs task artifact
-func (m *InputOutputsTaskArtifact) Validate(formats strfmt.Registry) error {
+// Validate validates this input outputs artifact i o
+func (m *InputOutputsArtifactIO) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateInputType(formats); err != nil {
@@ -56,7 +50,7 @@ func (m *InputOutputsTaskArtifact) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *InputOutputsTaskArtifact) validateInputType(formats strfmt.Registry) error {
+func (m *InputOutputsArtifactIO) validateInputType(formats strfmt.Registry) error {
 	if swag.IsZero(m.InputType) { // not required
 		return nil
 	}
@@ -75,7 +69,7 @@ func (m *InputOutputsTaskArtifact) validateInputType(formats strfmt.Registry) er
 	return nil
 }
 
-func (m *InputOutputsTaskArtifact) validateValue(formats strfmt.Registry) error {
+func (m *InputOutputsArtifactIO) validateValue(formats strfmt.Registry) error {
 	if swag.IsZero(m.Value) { // not required
 		return nil
 	}
@@ -94,8 +88,8 @@ func (m *InputOutputsTaskArtifact) validateValue(formats strfmt.Registry) error 
 	return nil
 }
 
-// ContextValidate validate this input outputs task artifact based on the context it is used
-func (m *InputOutputsTaskArtifact) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+// ContextValidate validate this input outputs artifact i o based on the context it is used
+func (m *InputOutputsArtifactIO) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.contextValidateInputType(ctx, formats); err != nil {
@@ -112,7 +106,7 @@ func (m *InputOutputsTaskArtifact) ContextValidate(ctx context.Context, formats 
 	return nil
 }
 
-func (m *InputOutputsTaskArtifact) contextValidateInputType(ctx context.Context, formats strfmt.Registry) error {
+func (m *InputOutputsArtifactIO) contextValidateInputType(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.InputType != nil {
 
@@ -133,7 +127,7 @@ func (m *InputOutputsTaskArtifact) contextValidateInputType(ctx context.Context,
 	return nil
 }
 
-func (m *InputOutputsTaskArtifact) contextValidateValue(ctx context.Context, formats strfmt.Registry) error {
+func (m *InputOutputsArtifactIO) contextValidateValue(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Value != nil {
 
@@ -155,7 +149,7 @@ func (m *InputOutputsTaskArtifact) contextValidateValue(ctx context.Context, for
 }
 
 // MarshalBinary interface implementation
-func (m *InputOutputsTaskArtifact) MarshalBinary() ([]byte, error) {
+func (m *InputOutputsArtifactIO) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -163,8 +157,8 @@ func (m *InputOutputsTaskArtifact) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary interface implementation
-func (m *InputOutputsTaskArtifact) UnmarshalBinary(b []byte) error {
-	var res InputOutputsTaskArtifact
+func (m *InputOutputsArtifactIO) UnmarshalBinary(b []byte) error {
+	var res InputOutputsArtifactIO
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}

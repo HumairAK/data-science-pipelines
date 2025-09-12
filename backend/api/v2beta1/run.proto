@@ -444,24 +444,19 @@ message PipelineTaskDetail {
       // But is also used for inputs (not present in sdk IR).
       string producer_key = 5;
     }
-    message TaskArtifact {
+    message ArtifactIO {
       InputType input_type = 1;
-      string artifact_id = 2;
-      Artifact value = 3;
-
-      // Fields for ResolvedValue type
-      string name = 4;
-
+      Artifact value = 2;
       // Fields for PipelineChannel type
-      string producer_task_name = 5;
+      string producer_task_name = 3;
       // This would be the equivalent of output_artifact_key when it's an Artifact output
       // But is also used for inputs (not present in sdk IR).
-      string producer_key = 6;
+      string producer_key = 4;
     }
     repeated Parameter parameters = 1;
     // Output Only. To create Artifacts for a task are created
     // via ArtifactTasks.
-    repeated TaskArtifact artifacts = 2;
+    repeated ArtifactIO artifacts = 2;
     repeated Metric metrics = 3; // from artifacts.proto
   }
 

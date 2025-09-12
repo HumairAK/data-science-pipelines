@@ -2618,12 +2618,12 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 		apiTask.Outputs.Parameters = apiOutputParams
 	}
 
-	// Populate artifacts from hydrated fields on the model task with shared converter to reduce duplication
-	convertHydrated := func(in []model.TaskArtifactHydrated) ([]*apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact, error) {
+	// Populate artifacts from hydrated fields on the model task with shared converter
+	convertHydrated := func(in []model.TaskArtifactHydrated) ([]*apiv2beta1.PipelineTaskDetail_InputOutputs_ArtifactIO, error) {
 		if len(in) == 0 {
 			return nil, nil
 		}
-		out := make([]*apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact, 0, len(in))
+		out := make([]*apiv2beta1.PipelineTaskDetail_InputOutputs_ArtifactIO, 0, len(in))
 		for _, h := range in {
 			var apiArt *apiv2beta1.Artifact
 			if h.Value != nil {
@@ -2633,11 +2633,9 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 				}
 				apiArt = apiArtConv
 			}
-			out = append(out, &apiv2beta1.PipelineTaskDetail_InputOutputs_TaskArtifact{
+			out = append(out, &apiv2beta1.PipelineTaskDetail_InputOutputs_ArtifactIO{
 				InputType:        h.InputType,
-				ArtifactId:       h.ArtifactID,
 				Value:            apiArt,
-				Name:             h.Name,
 				ProducerTaskName: h.ProducerTaskName,
 				ProducerKey:      h.ProducerKey,
 			})

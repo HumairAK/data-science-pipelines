@@ -172,13 +172,11 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 			assert.Equal(t, "threshold", taskFound.GetInputs().GetParameters()[0].GetName())
 			// Outputs updated and artifact reference present
 			assert.Equal(t, apiv2beta1.RuntimeState_SUCCEEDED, taskFound.GetStatus())
-			assert.Equal(t, 1, len(taskFound.GetOutputs().GetArtifacts()))
-			assert.Equal(t, createdArtifact.GetArtifactId(), taskFound.GetOutputs().GetArtifacts()[0].GetArtifactId())
 		}
 
+		assert.Equal(t, 1, len(taskFound.GetOutputs().GetArtifacts()))
 		if assert.NotNil(t, taskFound.GetOutputs().GetArtifacts(), "artifacts not present in hydrated task") {
-			assert.Equal(t, "m1", taskFound.GetOutputs().GetArtifacts()[0].GetName())
-			assert.Equal(t, apiv2beta1.Artifact_Model, taskFound.GetOutputs().GetArtifacts()[0].GetInputType())
+			assert.Equal(t, apiv2beta1.Artifact_Artifact, taskFound.GetOutputs().GetArtifacts()[0].GetInputType())
 			assert.Equal(t, "preprocess", taskFound.GetOutputs().GetArtifacts()[0].GetProducerTaskName())
 			assert.Equal(t, "input_dataset", taskFound.GetOutputs().GetArtifacts()[0].GetProducerKey())
 			assert.Equal(t, "gs://bucket/model", taskFound.GetOutputs().GetArtifacts()[0].GetValue().Uri)

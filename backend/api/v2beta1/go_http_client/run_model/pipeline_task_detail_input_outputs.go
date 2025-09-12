@@ -21,7 +21,7 @@ type PipelineTaskDetailInputOutputs struct {
 
 	// Output Only. To create Artifacts for a task are created
 	// via ArtifactTasks.
-	Artifacts []*InputOutputsTaskArtifact `json:"artifacts"`
+	Artifacts []*InputOutputsArtifactIO `json:"artifacts"`
 
 	// from artifacts.proto
 	Metrics []*V2beta1Metric `json:"metrics"`

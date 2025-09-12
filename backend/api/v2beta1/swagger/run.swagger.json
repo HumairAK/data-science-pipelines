@@ -593,6 +593,25 @@
       ],
       "default": "Artifact"
     },
+    "InputOutputsArtifactIO": {
+      "type": "object",
+      "properties": {
+        "input_type": {
+          "$ref": "#/definitions/PipelineTaskDetailInputType"
+        },
+        "value": {
+          "$ref": "#/definitions/v2beta1Artifact"
+        },
+        "producer_task_name": {
+          "type": "string",
+          "title": "Fields for PipelineChannel type"
+        },
+        "producer_key": {
+          "type": "string",
+          "description": "This would be the equivalent of output_artifact_key when it's an Artifact output\nBut is also used for inputs (not present in sdk IR)."
+        }
+      }
+    },
     "InputOutputsParameter": {
       "type": "object",
       "properties": {
@@ -613,32 +632,6 @@
         "producer_key": {
           "type": "string",
           "description": "This would be the equivalent of output_parameter_key when it's a parameter output\nBut is also used for inputs (not present in sdk IR)."
-        }
-      }
-    },
-    "InputOutputsTaskArtifact": {
-      "type": "object",
-      "properties": {
-        "input_type": {
-          "$ref": "#/definitions/PipelineTaskDetailInputType"
-        },
-        "artifact_id": {
-          "type": "string"
-        },
-        "value": {
-          "$ref": "#/definitions/v2beta1Artifact"
-        },
-        "name": {
-          "type": "string",
-          "title": "Fields for ResolvedValue type"
-        },
-        "producer_task_name": {
-          "type": "string",
-          "title": "Fields for PipelineChannel type"
-        },
-        "producer_key": {
-          "type": "string",
-          "description": "This would be the equivalent of output_artifact_key when it's an Artifact output\nBut is also used for inputs (not present in sdk IR)."
         }
       }
     },
@@ -677,7 +670,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "$ref": "#/definitions/InputOutputsTaskArtifact"
+            "$ref": "#/definitions/InputOutputsArtifactIO"
           },
           "description": "Output Only. To create Artifacts for a task are created\nvia ArtifactTasks."
         },
