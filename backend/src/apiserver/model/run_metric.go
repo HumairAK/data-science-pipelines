@@ -25,12 +25,6 @@ const (
 // MetricSchema represents the schema type for metrics
 type MetricSchema string
 
-const (
-	MetricSchemaMetric                     MetricSchema = "Metric"
-	MetricSchemaClassificationMetric       MetricSchema = "ClassificationMetric"
-	MetricSchemaSlicedClassificationMetric MetricSchema = "SlicedClassificationMetric"
-)
-
 // RunMetric represents metrics stored for tasks, replacing MLMD metrics artifacts
 type RunMetric struct {
 	RunID string `gorm:"column:RunID; not null; primaryKey; type:varchar(191);"`

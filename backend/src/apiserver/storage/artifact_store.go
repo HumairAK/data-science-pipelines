@@ -20,6 +20,7 @@ import (
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/golang/glog"
+	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
@@ -200,7 +201,7 @@ func (s *ArtifactStore) scanRows(rows *sql.Rows) ([]*model.Artifact, error) {
 		artifact := &model.Artifact{
 			UUID:            uuid,
 			Namespace:       namespace,
-			Type:            artifactType,
+			Type:            apiv2beta1.Artifact_ArtifactType(artifactType),
 			Uri:             uri,
 			Name:            name.String,
 			CreatedAtInSec:  createdAtInSec,

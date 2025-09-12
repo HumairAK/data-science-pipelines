@@ -282,14 +282,14 @@ func seedArtifactTasks(t *testing.T) (*ArtifactServer, *resource.FakeClientManag
 	// Artifacts
 	art1, err := clientManager.ArtifactStore().CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
-		Type:      int32(apiv2beta1.Artifact_Artifact),
+		Type:      apiv2beta1.Artifact_Artifact,
 		Uri:       "u1",
 		Name:      "a1",
 	})
 	assert.NoError(t, err)
 	art2, err := clientManager.ArtifactStore().CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
-		Type:      int32(apiv2beta1.Artifact_Artifact),
+		Type:      apiv2beta1.Artifact_Artifact,
 		Uri:       "u2",
 		Name:      "a2",
 	})

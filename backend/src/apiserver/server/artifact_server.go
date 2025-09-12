@@ -44,6 +44,10 @@ func (s *ArtifactServer) CreateArtifact(ctx context.Context, request *apiv2beta1
 		return nil, util.Wrap(err, "Failed to create artifact due to validation error")
 	}
 
+	if request.GetArtifact().GetType() == apiv2beta1.Artifact_TYPE_UNSPECIFIED {
+		return nil, util.NewInvalidInputError("Artifact type is required")
+	}
+
 	// Extract namespace for authorization
 	namespace := s.resourceManager.ReplaceNamespace(request.GetArtifact().GetNamespace())
 
@@ -265,6 +269,10 @@ func (s *ArtifactServer) LogMetric(ctx context.Context, request *apiv2beta1.LogM
 	err := s.validateLogMetricRequest(request)
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to log metric due to validation error")
+	}
+
+	if request.GetArtifact().GetType() == apiv2beta1.Artifact_TYPE_UNSPECIFIED {
+		return nil, util.NewInvalidInputError("Artifact type is required")
 	}
 
 	taskID := request.GetMetric().GetTaskId()

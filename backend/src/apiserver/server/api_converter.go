@@ -2317,7 +2317,7 @@ func toModelArtifact(a *apiv2beta1.Artifact) (*model.Artifact, error) {
 	modelArtifact := &model.Artifact{
 		UUID:            a.GetArtifactId(),
 		Namespace:       a.GetNamespace(),
-		Type:            int32(a.GetType()),
+		Type:            a.GetType(),
 		Uri:             a.GetUri(),
 		Name:            a.GetName(),
 		CreatedAtInSec:  time.Now().Unix(),
@@ -2353,7 +2353,7 @@ func toApiArtifact(artifact *model.Artifact) (*apiv2beta1.Artifact, error) {
 	apiArtifact := &apiv2beta1.Artifact{
 		ArtifactId: artifact.UUID,
 		Namespace:  artifact.Namespace,
-		Type:       apiv2beta1.Artifact_ArtifactType(artifact.Type),
+		Type:       artifact.Type,
 		Uri:        artifact.Uri,
 		Name:       artifact.Name,
 		CreatedAt:  timestamppb.New(time.Unix(artifact.CreatedAtInSec, 0)),
