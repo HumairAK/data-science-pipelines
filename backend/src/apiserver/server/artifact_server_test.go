@@ -13,7 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/protobuf/types/known/structpb"
+)
+
+const (
+	runid1 = "123e4567-e89b-12d3-a456-426655440001"
 )
 
 func createArtifactServer(resourceManager *resource.ResourceManager) *ArtifactServer {
@@ -38,12 +41,43 @@ func TestArtifactServer_CreateArtifact_MultiUserCreateAndGet_Succeeds(t *testing
 	resourceManager := resource.NewResourceManager(clientManager, &resource.ResourceManagerOptions{CollectMetrics: false})
 	s := createArtifactServer(resourceManager)
 
-	req := &apiv2beta1.CreateArtifactRequest{Artifact: &apiv2beta1.Artifact{
-		Namespace: "ns1",
-		Type:      apiv2beta1.Artifact_Model,
-		Uri:       "gs://b/f",
-		Name:      "a1",
-	}}
+	// Create run
+	_, err := clientManager.RunStore().CreateRun(&model.Run{
+		UUID:         runid1,
+		K8SName:      "test-run",
+		DisplayName:  "test-run",
+		StorageState: model.StorageStateAvailable,
+		Namespace:    "ns1",
+		RunDetails: model.RunDetails{
+			CreatedAtInSec:   1,
+			ScheduledAtInSec: 1,
+			State:            model.RuntimeStateRunning,
+		},
+	})
+	assert.NoError(t, err)
+
+	// Create task for the run
+	task, err := clientManager.TaskStore().CreateTask(&model.Task{
+		Namespace:    "ns1",
+		PipelineName: "test-pipeline",
+		RunUUID:      runid1,
+		Name:         "test-task",
+		Status:       1,
+	})
+	assert.NoError(t, err)
+
+	req := &apiv2beta1.CreateArtifactRequest{
+		RunId:            runid1,
+		TaskId:           task.UUID,
+		ProducerTaskName: "producer-task",
+		ProducerKey:      "producer-key",
+		Type:             apiv2beta1.ArtifactTaskType_OUTPUT,
+		Artifact: &apiv2beta1.Artifact{
+			Namespace: "ns1",
+			Type:      apiv2beta1.Artifact_Model,
+			Uri:       "gs://b/f",
+			Name:      "a1",
+		}}
 	created, err := s.CreateArtifact(ctxWithUser(), req)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, created.GetArtifactId())
@@ -51,30 +85,23 @@ func TestArtifactServer_CreateArtifact_MultiUserCreateAndGet_Succeeds(t *testing
 	assert.Equal(t, apiv2beta1.Artifact_Model, created.GetType())
 	assert.Equal(t, "gs://b/f", created.GetUri())
 	assert.Equal(t, "a1", created.GetName())
-}
 
-func TestArtifactServer_UpdateArtifact_HappyPath(t *testing.T) {
-	viper.Set(common.MultiUserMode, "true")
-	defer viper.Set(common.MultiUserMode, "false")
-	clientManager := resource.NewFakeClientManagerOrFatal(util.NewFakeTimeForEpoch())
-	resourceManager := resource.NewResourceManager(clientManager, &resource.ResourceManagerOptions{CollectMetrics: false})
-	s := createArtifactServer(resourceManager)
-
-	created, err := s.CreateArtifact(ctxWithUser(), &apiv2beta1.CreateArtifactRequest{
-		Artifact: &apiv2beta1.Artifact{
-			Namespace: "ns1",
-			Type:      apiv2beta1.Artifact_Model,
-			Uri:       "gs://b/f",
-			Name:      "a1",
-		},
+	// Fetch the artifact task
+	artifactTasks, err := s.ListArtifactTasks(ctxWithUser(), &apiv2beta1.ListArtifactTasksRequest{
+		TaskIds:  []string{task.UUID},
+		PageSize: 10,
 	})
 	assert.NoError(t, err)
-	created.Name = "a1-upd"
-	created.Type = apiv2beta1.Artifact_Dataset
-	upd, err := s.UpdateArtifact(ctxWithUser(), &apiv2beta1.UpdateArtifactRequest{Artifact: created})
-	assert.NoError(t, err)
-	assert.Equal(t, "a1-upd", upd.GetName())
-	assert.Equal(t, apiv2beta1.Artifact_Dataset, upd.GetType())
+	assert.Equal(t, int32(1), artifactTasks.GetTotalSize())
+	assert.Equal(t, 1, len(artifactTasks.GetArtifactTasks()))
+
+	at := artifactTasks.GetArtifactTasks()[0]
+	assert.Equal(t, created.GetArtifactId(), at.GetArtifactId())
+	assert.Equal(t, task.UUID, at.GetTaskId())
+	assert.Equal(t, apiv2beta1.ArtifactTaskType_OUTPUT, at.GetType())
+	assert.Equal(t, "producer-task", at.GetProducerTaskName())
+	assert.Equal(t, "producer-key", at.GetProducerKey())
+
 }
 
 func TestArtifactServer_ListArtifacts_HappyPath(t *testing.T) {
@@ -111,74 +138,6 @@ func TestArtifactServer_GetArtifact_Errors(t *testing.T) {
 	// Non-existent
 	_, err = s.GetArtifact(context.Background(), &apiv2beta1.GetArtifactRequest{ArtifactId: "does-not-exist"})
 	assert.Equal(t, codes.NotFound, err.(*util.UserError).ExternalStatusCode())
-}
-
-func TestArtifactServer_LogAndGetMetrics(t *testing.T) {
-	clientManager := resource.NewFakeClientManagerOrFatal(util.NewFakeTimeForEpoch())
-	resourceManager := resource.NewResourceManager(clientManager, &resource.ResourceManagerOptions{CollectMetrics: false})
-	s := createArtifactServer(resourceManager)
-
-	// Seed a run and a task via RunStore/TaskStore APIs exposed by resource manager
-	// Create a task directly in storage (no need to create a full run CR for tests)
-	task, err := clientManager.TaskStore().CreateTask(&model.Task{
-		Namespace:    "ns1",
-		PipelineName: "p",
-		RunUUID:      "run-1",
-		Name:         "t1",
-		Status:       1,
-	})
-	assert.NoError(t, err)
-
-	// Log metric for the task
-	logMetricRequest := &apiv2beta1.LogMetricRequest{
-		Metric: &apiv2beta1.Metric{
-			RunId:  "run-1",
-			TaskId: task.UUID,
-			Name:   "accuracy",
-			Value:  &structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 0.2}},
-		},
-	}
-	metric, err := s.LogMetric(context.Background(), logMetricRequest)
-	assert.NoError(t, err)
-	assert.Equal(t, "accuracy", metric.GetName())
-
-	// Get metric
-	gmet, err := s.GetMetric(context.Background(), &apiv2beta1.GetMetricRequest{TaskId: task.UUID, Name: "accuracy"})
-	assert.NoError(t, err)
-	assert.Equal(t, "accuracy", gmet.GetName())
-
-	// List metrics
-	lmet, err := s.ListMetrics(context.Background(),
-		&apiv2beta1.ListMetricsRequest{
-			Namespace: "ns1",
-			TaskIds:   []string{task.UUID},
-			PageSize:  10,
-		})
-	assert.NoError(t, err)
-	assert.Equal(t, int32(1), lmet.GetTotalSize())
-	assert.Equal(t, 1, len(lmet.GetMetrics()))
-}
-
-func TestArtifactServer_ValidationErrors(t *testing.T) {
-	clientManager := resource.NewFakeClientManagerOrFatal(util.NewFakeTimeForEpoch())
-	resourceManager := resource.NewResourceManager(clientManager, &resource.ResourceManagerOptions{CollectMetrics: false})
-	s := createArtifactServer(resourceManager)
-
-	// Create: missing artifact
-	_, err := s.CreateArtifact(context.Background(), &apiv2beta1.CreateArtifactRequest{})
-	assert.Equal(t, codes.InvalidArgument, err.(*util.UserError).ExternalStatusCode())
-
-	// Create: missing namespace
-	_, err = s.CreateArtifact(context.Background(), &apiv2beta1.CreateArtifactRequest{Artifact: &apiv2beta1.Artifact{}})
-	assert.Equal(t, codes.InvalidArgument, err.(*util.UserError).ExternalStatusCode())
-
-	// Update: missing id
-	_, err = s.UpdateArtifact(context.Background(), &apiv2beta1.UpdateArtifactRequest{Artifact: &apiv2beta1.Artifact{}})
-	assert.Equal(t, codes.InvalidArgument, err.(*util.UserError).ExternalStatusCode())
-
-	// LogMetric: missing fields
-	_, err = s.LogMetric(context.Background(), &apiv2beta1.LogMetricRequest{Metric: &apiv2beta1.Metric{}})
-	assert.Equal(t, codes.InvalidArgument, err.(*util.UserError).ExternalStatusCode())
 }
 
 func TestArtifactServer_Authorization_MultiUser(t *testing.T) {

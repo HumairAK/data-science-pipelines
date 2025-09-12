@@ -2294,10 +2294,12 @@ func toApiArtifactTask(artifactTask *model.ArtifactTask) *apiv2beta1.ArtifactTas
 		return &apiv2beta1.ArtifactTask{}
 	}
 	return &apiv2beta1.ArtifactTask{
-		Id:         artifactTask.UUID,
-		ArtifactId: artifactTask.ArtifactID,
-		TaskId:     artifactTask.TaskID,
-		Type:       artifactTask.Type,
+		Id:               artifactTask.UUID,
+		ArtifactId:       artifactTask.ArtifactID,
+		TaskId:           artifactTask.TaskID,
+		Type:             artifactTask.Type,
+		ProducerKey:      artifactTask.ProducerKey,
+		ProducerTaskName: artifactTask.ProducerTaskName,
 	}
 }
 

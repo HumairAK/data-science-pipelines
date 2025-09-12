@@ -9,7 +9,6 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/resource"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // Helper to create a simple run via resource manager and return its ID.
@@ -130,17 +129,6 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 	}})
 	assert.NoError(t, err)
 
-	// Log a metric for the task
-	met, err := artSrv.LogMetric(ctxWithUser(), &apiv2beta1.LogMetricRequest{Metric: &apiv2beta1.Metric{
-		RunId:  run.UUID,
-		TaskId: created.GetTaskId(),
-		Name:   "accuracy",
-		Value:  &structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 0.99}},
-		Type:   apiv2beta1.MetricType_METRIC_INPUT,
-	}})
-	assert.NoError(t, err)
-	assert.Equal(t, "accuracy", met.GetName())
-
 	// Update task outputs to include an artifact reference in OutputArtifacts
 	_, err = runSrv.UpdateTask(ctxWithUser(),
 		&apiv2beta1.UpdateTaskRequest{
@@ -182,21 +170,8 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 			assert.Equal(t, "gs://bucket/model", taskFound.GetOutputs().GetArtifacts()[0].GetValue().Uri)
 			assert.Equal(t, "m1", taskFound.GetOutputs().GetArtifacts()[0].GetValue().Name)
 		}
-
-		if assert.NotNil(t, taskFound.GetInputs().GetMetrics(), "metrics inputs not present in hydrated task") {
-			assert.Equal(t, "accuracy", taskFound.GetInputs().GetMetrics()[0].GetName())
-		}
 	}
-
-	// Verify we can list metrics for the task
-	lmet, err := artSrv.ListMetrics(ctxWithUser(),
-		&apiv2beta1.ListMetricsRequest{
-			TaskIds:   []string{created.GetTaskId()},
-			PageSize:  10,
-			Namespace: run.Namespace,
-		})
-	assert.NoError(t, err)
-	assert.Equal(t, int32(1), lmet.GetTotalSize())
+	
 }
 
 func TestListTasks_ByParent(t *testing.T) {

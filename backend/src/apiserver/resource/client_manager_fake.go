@@ -34,7 +34,6 @@ type FakeClientManager struct {
 	taskStore                     storage.TaskStoreInterface
 	artifactStore                 storage.ArtifactStoreInterface
 	artifactTaskStore             storage.ArtifactTaskStoreInterface
-	runMetricStore                storage.RunMetricStoreInterface
 	resourceReferenceStore        storage.ResourceReferenceStoreInterface
 	dBStatusStore                 storage.DBStatusStoreInterface
 	defaultExperimentStore        storage.DefaultExperimentStoreInterface
@@ -77,7 +76,6 @@ func NewFakeClientManager(time util.TimeInterface, uuid util.UUIDGeneratorInterf
 		taskStore:                     storage.NewTaskStore(db, time, uuid),
 		artifactStore:                 storage.NewArtifactStore(db, time, uuid),
 		artifactTaskStore:             storage.NewArtifactTaskStore(db, uuid),
-		runMetricStore:                storage.NewRunMetricStore(db, time),
 		ExecClientFake:                client.NewFakeExecClient(),
 		resourceReferenceStore:        storage.NewResourceReferenceStore(db, nil),
 		dBStatusStore:                 storage.NewDBStatusStore(db),
@@ -159,10 +157,6 @@ func (f *FakeClientManager) RunStore() storage.RunStoreInterface {
 
 func (f *FakeClientManager) TaskStore() storage.TaskStoreInterface {
 	return f.taskStore
-}
-
-func (f *FakeClientManager) RunMetricStore() storage.RunMetricStoreInterface {
-	return f.runMetricStore
 }
 
 func (f *FakeClientManager) ArtifactStore() storage.ArtifactStoreInterface {
