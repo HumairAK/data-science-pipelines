@@ -26,7 +26,8 @@ type Artifact struct {
 	CreatedAtInSec  int64                            `gorm:"column:CreatedAtInSec; not null; default:0; index:idx_artifact_created_timestamp;"`
 	LastUpdateInSec int64                            `gorm:"column:LastUpdateInSec; not null; default:0; index:idx_artifact_last_update_timestamp;"`
 	Metadata        JSONData                         `gorm:"column:Metadata; type:json; default:null;"`
-	NumberValue     *float64                         `gorm:"column:NumberValue; default:null;"`
+	// Used primarily for metrics
+	NumberValue float64 `gorm:"column:NumberValue; default:null;"`
 }
 
 func (a Artifact) PrimaryKeyColumnName() string {
@@ -54,16 +55,16 @@ func (a Artifact) GetKeyFieldPrefix() string {
 }
 
 var artifactAPIToModelFieldMap = map[string]string{
-	"artifact_id": "UUID",
-	"id":          "UUID",
-	"namespace":   "Namespace",
-	"type":        "Type",
-	"uri":         "Uri",
-	"name":        "Name",
-	"created_at":  "CreatedAtInSec",
-	"last_update": "LastUpdateInSec",
-	"properties":  "Metadata",
-	"metadata":    "Metadata",
+	"artifact_id":  "UUID",
+	"id":           "UUID",
+	"namespace":    "Namespace",
+	"type":         "Type",
+	"uri":          "Uri",
+	"name":         "Name",
+	"created_at":   "CreatedAtInSec",
+	"last_update":  "LastUpdateInSec",
+	"metadata":     "Metadata",
+	"number_value": "NumberValue",
 }
 
 func (a Artifact) GetField(name string) (string, bool) {
@@ -91,6 +92,8 @@ func (a Artifact) GetFieldValue(name string) interface{} {
 		return a.LastUpdateInSec
 	case "Metadata":
 		return a.Metadata
+	case "NumberValue":
+		return a.NumberValue
 	default:
 		return nil
 	}

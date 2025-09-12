@@ -349,12 +349,8 @@ message Artifact {
   // Optional. User provided custom properties which are not defined by its type.
   map<string, google.protobuf.Value> metadata = 5;
 
-  // Value is used for metrics. In the case for metrics,
-  // value can be double or a valid json,
-  // but not string_value, bool_value, null_value
-  // In the future it may be extended to be applicable
-  // to other artifacts.
-  google.protobuf.Value value = 6;
+  // Used primarily for metrics
+  double number_value = 6;
 
   // Output only. Create time of the artifact in millisecond since epoch.
   // Note: The type and name is updated from mlmd artifact to be consistent with other backend apis.
