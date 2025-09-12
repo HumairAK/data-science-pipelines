@@ -337,6 +337,21 @@ type RunDetails struct {
 	TaskDetails []*Task `gorm:"-"`
 }
 
+// RunMetricV1
+// Deprecated, remove once v1 is removed.
+type RunMetricV1 struct {
+	RunUUID     string    `gorm:"column:RunUUID; not null; primaryKey; type:varchar(191);"`
+	NodeID      string    `gorm:"column:NodeID; not null; primaryKey; type:varchar(191);"`
+	Name        string    `gorm:"column:Name; not null; primaryKey; type:varchar(191);"`
+	NumberValue float64   `gorm:"column:NumberValue;"`
+	Format      string    `gorm:"column:Format;"`
+	Payload     LargeText `gorm:"column:Payload; not null;"`
+}
+
+func (RunMetricV1) TableName() string {
+	return "run_metrics"
+}
+
 type RuntimeStatus struct {
 	UpdateTimeInSec int64        `json:"UpdateTimeInSec,omitempty"`
 	State           RuntimeState `json:"State,omitempty"`
