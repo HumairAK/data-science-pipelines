@@ -111,7 +111,25 @@ func TestArtifactServer_ListArtifacts_HappyPath(t *testing.T) {
 	resourceManager := resource.NewResourceManager(clientManager, &resource.ResourceManagerOptions{CollectMetrics: false})
 	s := createArtifactServer(resourceManager)
 
-	_, err := s.CreateArtifact(ctxWithUser(), &apiv2beta1.CreateArtifactRequest{Artifact: &apiv2beta1.Artifact{
+	// Create required run and task for artifact creation
+	_, err := clientManager.RunStore().CreateRun(&model.Run{
+		UUID:         runid1,
+		K8SName:      "list-run",
+		DisplayName:  "list-run",
+		StorageState: model.StorageStateAvailable,
+		Namespace:    "ns1",
+		RunDetails:   model.RunDetails{CreatedAtInSec: 1, ScheduledAtInSec: 1, State: model.RuntimeStateRunning},
+	})
+	assert.NoError(t, err)
+	listTask, err := clientManager.TaskStore().CreateTask(&model.Task{
+		Namespace:    "ns1",
+		PipelineName: "p-list",
+		RunUUID:      runid1,
+		Name:         "t-list",
+		Status:       1,
+	})
+	assert.NoError(t, err)
+	_, err = s.CreateArtifact(ctxWithUser(), &apiv2beta1.CreateArtifactRequest{RunId: runid1, TaskId: listTask.UUID, Type: apiv2beta1.ArtifactTaskType_OUTPUT, ProducerTaskName: "producer-task", ProducerKey: "producer-key", Artifact: &apiv2beta1.Artifact{
 		Namespace: "ns1",
 		Type:      apiv2beta1.Artifact_Model,
 		Uri:       "gs://b/f",
@@ -165,7 +183,30 @@ func TestArtifactServer_SingleUserNamespaceEmpty(t *testing.T) {
 	s := createArtifactServer(resourceManager)
 
 	// Even if request carries a namespace, in single-user mode it should be cleared/empty in stored artifact
+	// Create run and task required by CreateArtifact
+	_, err := clientManager.RunStore().CreateRun(&model.Run{
+		UUID:         "single-run",
+		K8SName:      "single-run",
+		DisplayName:  "single-run",
+		StorageState: model.StorageStateAvailable,
+		Namespace:    "ns1",
+		RunDetails:   model.RunDetails{CreatedAtInSec: 1, ScheduledAtInSec: 1, State: model.RuntimeStateRunning},
+	})
+	assert.NoError(t, err)
+	singleTask, err := clientManager.TaskStore().CreateTask(&model.Task{
+		Namespace:    "ns1",
+		PipelineName: "p-single",
+		RunUUID:      "single-run",
+		Name:         "t-single",
+		Status:       1,
+	})
+	assert.NoError(t, err)
 	created, err := s.CreateArtifact(context.Background(), &apiv2beta1.CreateArtifactRequest{
+		RunId:            "single-run",
+		TaskId:           singleTask.UUID,
+		Type:             apiv2beta1.ArtifactTaskType_OUTPUT,
+		ProducerTaskName: "producer-task",
+		ProducerKey:      "producer-key",
 		Artifact: &apiv2beta1.Artifact{
 			Namespace: "ns1",
 			Type:      apiv2beta1.Artifact_Artifact,
@@ -175,6 +216,16 @@ func TestArtifactServer_SingleUserNamespaceEmpty(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.Equal(t, "", created.GetNamespace())
+
+	// Get artifact and verify it matches
+	fetched, err := s.GetArtifact(context.Background(), &apiv2beta1.GetArtifactRequest{
+		ArtifactId: created.GetArtifactId(),
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, "", fetched.GetNamespace())
+	assert.Equal(t, apiv2beta1.Artifact_Artifact, fetched.GetType())
+	assert.Equal(t, "u", fetched.GetUri())
+	assert.Equal(t, "a", fetched.GetName())
 }
 
 const (
@@ -257,25 +308,34 @@ func seedArtifactTasks(t *testing.T) (*ArtifactServer, *resource.FakeClientManag
 	// Links
 	_, err = s.CreateArtifactTask(ctxWithUser(), &apiv2beta1.CreateArtifactTaskRequest{
 		ArtifactTask: &apiv2beta1.ArtifactTask{
-			ArtifactId: art1.UUID,
-			TaskId:     t1.UUID,
-			Type:       apiv2beta1.ArtifactTaskType_INPUT,
+			ArtifactId:       art1.UUID,
+			TaskId:           t1.UUID,
+			RunId:            serverRunID1,
+			Type:             apiv2beta1.ArtifactTaskType_INPUT,
+			ProducerTaskName: "t1",
+			ProducerKey:      "k1",
 		},
 	})
 	assert.NoError(t, err)
 	_, err = s.CreateArtifactTask(ctxWithUser(), &apiv2beta1.CreateArtifactTaskRequest{
 		ArtifactTask: &apiv2beta1.ArtifactTask{
-			ArtifactId: art2.UUID,
-			TaskId:     t1.UUID,
-			Type:       apiv2beta1.ArtifactTaskType_OUTPUT,
+			ArtifactId:       art2.UUID,
+			TaskId:           t1.UUID,
+			RunId:            serverRunID1,
+			Type:             apiv2beta1.ArtifactTaskType_OUTPUT,
+			ProducerTaskName: "t1",
+			ProducerKey:      "k2",
 		},
 	})
 	assert.NoError(t, err)
 	_, err = s.CreateArtifactTask(ctxWithUser(), &apiv2beta1.CreateArtifactTaskRequest{
 		ArtifactTask: &apiv2beta1.ArtifactTask{
-			ArtifactId: art2.UUID,
-			TaskId:     t2.UUID,
-			Type:       apiv2beta1.ArtifactTaskType_INPUT,
+			ArtifactId:       art2.UUID,
+			TaskId:           t2.UUID,
+			RunId:            serverRunID2,
+			Type:             apiv2beta1.ArtifactTaskType_INPUT,
+			ProducerTaskName: "t2",
+			ProducerKey:      "k3",
 		},
 	})
 	assert.NoError(t, err)
