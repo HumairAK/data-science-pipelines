@@ -14,7 +14,8 @@ import (
 	"github.com/go-openapi/validate"
 )
 
-// ArtifactArtifactType artifact artifact type
+// ArtifactArtifactType  - TYPE_UNSPECIFIED: default; treated as "not set"
+// reject if unset.
 //
 // swagger:model ArtifactArtifactType
 type ArtifactArtifactType string
@@ -30,6 +31,9 @@ func (m ArtifactArtifactType) Pointer() *ArtifactArtifactType {
 
 const (
 
+	// ArtifactArtifactTypeTYPEUNSPECIFIED captures enum value "TYPE_UNSPECIFIED"
+	ArtifactArtifactTypeTYPEUNSPECIFIED ArtifactArtifactType = "TYPE_UNSPECIFIED"
+
 	// ArtifactArtifactTypeArtifact captures enum value "Artifact"
 	ArtifactArtifactTypeArtifact ArtifactArtifactType = "Artifact"
 
@@ -44,6 +48,15 @@ const (
 
 	// ArtifactArtifactTypeMarkdown captures enum value "Markdown"
 	ArtifactArtifactTypeMarkdown ArtifactArtifactType = "Markdown"
+
+	// ArtifactArtifactTypeMetric captures enum value "Metric"
+	ArtifactArtifactTypeMetric ArtifactArtifactType = "Metric"
+
+	// ArtifactArtifactTypeClassificationMetric captures enum value "ClassificationMetric"
+	ArtifactArtifactTypeClassificationMetric ArtifactArtifactType = "ClassificationMetric"
+
+	// ArtifactArtifactTypeSlicedClassificationMetric captures enum value "SlicedClassificationMetric"
+	ArtifactArtifactTypeSlicedClassificationMetric ArtifactArtifactType = "SlicedClassificationMetric"
 )
 
 // for schema
@@ -51,7 +64,7 @@ var artifactArtifactTypeEnum []interface{}
 
 func init() {
 	var res []ArtifactArtifactType
-	if err := json.Unmarshal([]byte(`["Artifact","Model","Dataset","HTML","Markdown"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["TYPE_UNSPECIFIED","Artifact","Model","Dataset","HTML","Markdown","Metric","ClassificationMetric","SlicedClassificationMetric"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {

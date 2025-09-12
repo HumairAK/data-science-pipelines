@@ -53,7 +53,7 @@ LogMetricOK describes a response with status code 200, with default header value
 A successful response.
 */
 type LogMetricOK struct {
-	Payload *artifact_model.V2beta1Metric
+	Payload *artifact_model.V2beta1Artifact
 }
 
 // IsSuccess returns true when this log metric o k response has a 2xx status code
@@ -96,13 +96,13 @@ func (o *LogMetricOK) String() string {
 	return fmt.Sprintf("[POST /apis/v2beta1/metrics][%d] logMetricOK %s", 200, payload)
 }
 
-func (o *LogMetricOK) GetPayload() *artifact_model.V2beta1Metric {
+func (o *LogMetricOK) GetPayload() *artifact_model.V2beta1Artifact {
 	return o.Payload
 }
 
 func (o *LogMetricOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(artifact_model.V2beta1Metric)
+	o.Payload = new(artifact_model.V2beta1Artifact)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {

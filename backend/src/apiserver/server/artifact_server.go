@@ -184,6 +184,9 @@ func (s *ArtifactServer) CreateArtifactTask(ctx context.Context, request *apiv2b
 	if at.GetTaskId() == "" {
 		return nil, util.NewInvalidInputError("artifact_task.task_id is required")
 	}
+	if at.GetRunId() == "" {
+		return nil, util.NewInvalidInputError("artifact_task.run_id is required")
+	}
 
 	// Fetch task and artifact for validation and authorization
 	task, err := s.resourceManager.GetTask(at.GetTaskId())

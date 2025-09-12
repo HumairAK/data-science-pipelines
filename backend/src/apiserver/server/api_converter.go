@@ -2419,6 +2419,7 @@ func toModelArtifactTask(apiAT *apiv2beta1.ArtifactTask) (*model.ArtifactTask, e
 	}
 	return &model.ArtifactTask{
 		UUID:             apiAT.GetId(),
+		RunUUID:          apiAT.GetRunId(),
 		ArtifactID:       apiAT.GetArtifactId(),
 		TaskID:           apiAT.GetTaskId(),
 		Type:             apiAT.GetType(),

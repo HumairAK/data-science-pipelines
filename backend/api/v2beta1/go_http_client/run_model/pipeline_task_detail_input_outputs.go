@@ -23,9 +23,6 @@ type PipelineTaskDetailInputOutputs struct {
 	// via ArtifactTasks.
 	Artifacts []*InputOutputsArtifactIO `json:"artifacts"`
 
-	// from artifacts.proto
-	Metrics []*V2beta1Metric `json:"metrics"`
-
 	// parameters
 	Parameters []*InputOutputsParameter `json:"parameters"`
 }
@@ -35,10 +32,6 @@ func (m *PipelineTaskDetailInputOutputs) Validate(formats strfmt.Registry) error
 	var res []error
 
 	if err := m.validateArtifacts(formats); err != nil {
-		res = append(res, err)
-	}
-
-	if err := m.validateMetrics(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -68,32 +61,6 @@ func (m *PipelineTaskDetailInputOutputs) validateArtifacts(formats strfmt.Regist
 					return ve.ValidateName("artifacts" + "." + strconv.Itoa(i))
 				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("artifacts" + "." + strconv.Itoa(i))
-				}
-				return err
-			}
-		}
-
-	}
-
-	return nil
-}
-
-func (m *PipelineTaskDetailInputOutputs) validateMetrics(formats strfmt.Registry) error {
-	if swag.IsZero(m.Metrics) { // not required
-		return nil
-	}
-
-	for i := 0; i < len(m.Metrics); i++ {
-		if swag.IsZero(m.Metrics[i]) { // not required
-			continue
-		}
-
-		if m.Metrics[i] != nil {
-			if err := m.Metrics[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
-					return ve.ValidateName("metrics" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
-					return ce.ValidateName("metrics" + "." + strconv.Itoa(i))
 				}
 				return err
 			}
@@ -138,10 +105,6 @@ func (m *PipelineTaskDetailInputOutputs) ContextValidate(ctx context.Context, fo
 		res = append(res, err)
 	}
 
-	if err := m.contextValidateMetrics(ctx, formats); err != nil {
-		res = append(res, err)
-	}
-
 	if err := m.contextValidateParameters(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -167,31 +130,6 @@ func (m *PipelineTaskDetailInputOutputs) contextValidateArtifacts(ctx context.Co
 					return ve.ValidateName("artifacts" + "." + strconv.Itoa(i))
 				} else if ce, ok := err.(*errors.CompositeError); ok {
 					return ce.ValidateName("artifacts" + "." + strconv.Itoa(i))
-				}
-				return err
-			}
-		}
-
-	}
-
-	return nil
-}
-
-func (m *PipelineTaskDetailInputOutputs) contextValidateMetrics(ctx context.Context, formats strfmt.Registry) error {
-
-	for i := 0; i < len(m.Metrics); i++ {
-
-		if m.Metrics[i] != nil {
-
-			if swag.IsZero(m.Metrics[i]) { // not required
-				return nil
-			}
-
-			if err := m.Metrics[i].ContextValidate(ctx, formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
-					return ve.ValidateName("metrics" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
-					return ce.ValidateName("metrics" + "." + strconv.Itoa(i))
 				}
 				return err
 			}

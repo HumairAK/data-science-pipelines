@@ -47,6 +47,13 @@ type V2beta1Artifact struct {
 	// Required. The uniform resource identifier of the physical artifact.
 	// May be empty if there is no physical artifact.
 	URI string `json:"uri,omitempty"`
+
+	// Value is used for metrics. In the case for metrics,
+	// value can be double or a valid json,
+	// but not string_value, bool_value, null_value
+	// In the future it may be extended to be applicable
+	// to other artifacts.
+	Value interface{} `json:"value,omitempty"`
 }
 
 // Validate validates this v2beta1 artifact

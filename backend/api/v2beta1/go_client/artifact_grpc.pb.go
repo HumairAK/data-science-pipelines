@@ -60,9 +60,9 @@ type ArtifactServiceClient interface {
 	// Creates a new artifact.
 	CreateArtifact(ctx context.Context, in *CreateArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	// Logs a metric for a specific task.
-	LogMetric(ctx context.Context, in *LogMetricRequest, opts ...grpc.CallOption) (*Metric, error)
+	LogMetric(ctx context.Context, in *LogMetricRequest, opts ...grpc.CallOption) (*Artifact, error)
 	// Gets a metric by task ID and name.
-	GetMetric(ctx context.Context, in *GetMetricRequest, opts ...grpc.CallOption) (*Metric, error)
+	GetMetric(ctx context.Context, in *GetMetricRequest, opts ...grpc.CallOption) (*Artifact, error)
 	// Lists all metrics.
 	ListMetrics(ctx context.Context, in *ListMetricsRequest, opts ...grpc.CallOption) (*ListMetricsResponse, error)
 }
@@ -135,9 +135,9 @@ func (c *artifactServiceClient) CreateArtifact(ctx context.Context, in *CreateAr
 	return out, nil
 }
 
-func (c *artifactServiceClient) LogMetric(ctx context.Context, in *LogMetricRequest, opts ...grpc.CallOption) (*Metric, error) {
+func (c *artifactServiceClient) LogMetric(ctx context.Context, in *LogMetricRequest, opts ...grpc.CallOption) (*Artifact, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Metric)
+	out := new(Artifact)
 	err := c.cc.Invoke(ctx, ArtifactService_LogMetric_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -145,9 +145,9 @@ func (c *artifactServiceClient) LogMetric(ctx context.Context, in *LogMetricRequ
 	return out, nil
 }
 
-func (c *artifactServiceClient) GetMetric(ctx context.Context, in *GetMetricRequest, opts ...grpc.CallOption) (*Metric, error) {
+func (c *artifactServiceClient) GetMetric(ctx context.Context, in *GetMetricRequest, opts ...grpc.CallOption) (*Artifact, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Metric)
+	out := new(Artifact)
 	err := c.cc.Invoke(ctx, ArtifactService_GetMetric_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -181,9 +181,9 @@ type ArtifactServiceServer interface {
 	// Creates a new artifact.
 	CreateArtifact(context.Context, *CreateArtifactRequest) (*Artifact, error)
 	// Logs a metric for a specific task.
-	LogMetric(context.Context, *LogMetricRequest) (*Metric, error)
+	LogMetric(context.Context, *LogMetricRequest) (*Artifact, error)
 	// Gets a metric by task ID and name.
-	GetMetric(context.Context, *GetMetricRequest) (*Metric, error)
+	GetMetric(context.Context, *GetMetricRequest) (*Artifact, error)
 	// Lists all metrics.
 	ListMetrics(context.Context, *ListMetricsRequest) (*ListMetricsResponse, error)
 	mustEmbedUnimplementedArtifactServiceServer()
@@ -214,10 +214,10 @@ func (UnimplementedArtifactServiceServer) CreateArtifactTask(context.Context, *C
 func (UnimplementedArtifactServiceServer) CreateArtifact(context.Context, *CreateArtifactRequest) (*Artifact, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateArtifact not implemented")
 }
-func (UnimplementedArtifactServiceServer) LogMetric(context.Context, *LogMetricRequest) (*Metric, error) {
+func (UnimplementedArtifactServiceServer) LogMetric(context.Context, *LogMetricRequest) (*Artifact, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LogMetric not implemented")
 }
-func (UnimplementedArtifactServiceServer) GetMetric(context.Context, *GetMetricRequest) (*Metric, error) {
+func (UnimplementedArtifactServiceServer) GetMetric(context.Context, *GetMetricRequest) (*Artifact, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMetric not implemented")
 }
 func (UnimplementedArtifactServiceServer) ListMetrics(context.Context, *ListMetricsRequest) (*ListMetricsResponse, error) {

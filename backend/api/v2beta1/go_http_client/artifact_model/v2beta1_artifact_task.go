@@ -44,6 +44,9 @@ type V2beta1ArtifactTask struct {
 	// These fields are used to track this lineage.
 	ProducerTaskName string `json:"producer_task_name,omitempty"`
 
+	// run id
+	RunID string `json:"run_id,omitempty"`
+
 	// task id
 	TaskID string `json:"task_id,omitempty"`
 

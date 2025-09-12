@@ -457,7 +457,6 @@ message PipelineTaskDetail {
     // Output Only. To create Artifacts for a task are created
     // via ArtifactTasks.
     repeated ArtifactIO artifacts = 2;
-    repeated Metric metrics = 3; // from artifacts.proto
   }
 
   InputOutputs inputs = 18;

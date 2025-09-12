@@ -127,7 +127,7 @@ service ArtifactService {
   }
 
   // Logs a metric for a specific task.
-  rpc LogMetric(LogMetricRequest) returns (Metric) {
+  rpc LogMetric(LogMetricRequest) returns (Artifact) {
     option (google.api.http) = {
       post: "/apis/v2beta1/metrics"
       body: "*"
@@ -140,7 +140,7 @@ service ArtifactService {
   }
 
   // Gets a metric by task ID and name.
-  rpc GetMetric(GetMetricRequest) returns (Metric) {
+  rpc GetMetric(GetMetricRequest) returns (Artifact) {
     option (google.api.http) = {
       get: "/apis/v2beta1/metrics/{task_id}/{name}"
     };
@@ -246,7 +246,7 @@ message CreateArtifactTaskRequest {
 
 message LogMetricRequest {
   // Required. The metric to log.
-  Metric metric = 1;
+  Artifact metric = 1;
 }
 
 message GetMetricRequest {
@@ -275,7 +275,7 @@ message ListMetricsRequest {
 
 message ListMetricsResponse {
   // The list of metrics returned.
-  repeated Metric metrics = 1;
+  repeated Artifact metrics = 1;
   // The total number of metrics available.
   int32 total_size = 2;
   // Token to retrieve the next page of results.
@@ -291,8 +291,9 @@ message ArtifactTask {
   // Output only. The unique server generated id of the ArtifactTask.
   string id = 1;
   string artifact_id = 2;
-  string task_id = 3;
-  ArtifactTaskType type = 4;
+  string run_id = 3;
+  string task_id = 4;
+  ArtifactTaskType type = 5;
 
   // The task that produced this artifact
   // For example in the case of a pipeline channel
@@ -302,48 +303,14 @@ message ArtifactTask {
   //     outputArtifactKey: output_dataset
   //     producerTask: create-dataset
   // These fields are used to track this lineage.
-  string producer_task_name = 5;
+  string producer_task_name = 6;
   // The key is often the parameter name used
   // as input/output on the component, but
   // can also take on the value of of other values.
   // For example:
   //  * "param-#" when using parameters in a ParallelFor
   //  * "Output" when using Pythonic Artifacts
-  string producer_key = 6;
-}
-
-enum MetricType {
-  // default; treated as "not set"
-  // reject if unset.
-  METRIC_TYPE_UNSPECIFIED = 0;
-  METRIC_INPUT = 1;
-  METRIC_OUTPUT = 2;
-}
-
-message Metric {
-  // Required. Task UUID that owns this metric
-  string run_id = 1;
-
-  // Required. Task UUID that owns this metric
-  string task_id = 2;
-
-  // Required. Name of the metric
-  string name = 3;
-
-  // Required. Schema of the metric
-  enum Schema {
-    Metric = 0;
-    ClassificationMetric = 1;
-    SlicedClassificationMetric = 2;
-  }
-  Schema schema = 4;
-  // Value can be double or a valid json,
-  // but not string_value, bool_value, null_value
-  // API server validation will be needed
-  google.protobuf.Value value = 5;
-  google.protobuf.Timestamp created_at = 6;
-  // Required. Type of the metric, one of METRIC_INPUT or METRIC_OUTPUT
-  MetricType type = 7;
+  string producer_key = 7;
 }
 
 // Note to be confused with RuntimeArtifact in pipelinespec
@@ -358,11 +325,19 @@ message Artifact {
   string name = 2;
 
   enum ArtifactType {
-    Artifact = 0;
-    Model = 1;
-    Dataset = 2;
-    HTML = 3;
-    Markdown = 4;
+    // default; treated as "not set"
+    // reject if unset.
+    TYPE_UNSPECIFIED = 0;
+
+    Artifact = 1;
+    Model = 2;
+    Dataset = 3;
+    HTML = 4;
+    Markdown = 5;
+
+    Metric = 6;
+    ClassificationMetric = 7;
+    SlicedClassificationMetric = 8;
   }
   // Required. The name of an ArtifactType. E.g. Dataset
   ArtifactType type = 3;
@@ -374,9 +349,16 @@ message Artifact {
   // Optional. User provided custom properties which are not defined by its type.
   map<string, google.protobuf.Value> metadata = 5;
 
+  // Value is used for metrics. In the case for metrics,
+  // value can be double or a valid json,
+  // but not string_value, bool_value, null_value
+  // In the future it may be extended to be applicable
+  // to other artifacts.
+  google.protobuf.Value value = 6;
+
   // Output only. Create time of the artifact in millisecond since epoch.
   // Note: The type and name is updated from mlmd artifact to be consistent with other backend apis.
-  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp created_at = 7;
 
-  string namespace = 7;
+  string namespace = 8;
 }

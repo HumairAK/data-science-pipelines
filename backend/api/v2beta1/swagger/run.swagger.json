@@ -585,13 +585,18 @@
     "ArtifactArtifactType": {
       "type": "string",
       "enum": [
+        "TYPE_UNSPECIFIED",
         "Artifact",
         "Model",
         "Dataset",
         "HTML",
-        "Markdown"
+        "Markdown",
+        "Metric",
+        "ClassificationMetric",
+        "SlicedClassificationMetric"
       ],
-      "default": "Artifact"
+      "default": "TYPE_UNSPECIFIED",
+      "description": " - TYPE_UNSPECIFIED: default; treated as \"not set\"\nreject if unset."
     },
     "InputOutputsArtifactIO": {
       "type": "object",
@@ -673,14 +678,6 @@
             "$ref": "#/definitions/InputOutputsArtifactIO"
           },
           "description": "Output Only. To create Artifacts for a task are created\nvia ArtifactTasks."
-        },
-        "metrics": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "$ref": "#/definitions/v2beta1Metric"
-          },
-          "title": "from artifacts.proto"
         }
       }
     },
@@ -803,6 +800,9 @@
           "additionalProperties": {},
           "description": "Optional. User provided custom properties which are not defined by its type."
         },
+        "value": {
+          "description": "Value is used for metrics. In the case for metrics,\nvalue can be double or a valid json,\nbut not string_value, bool_value, null_value\nIn the future it may be extended to be applicable\nto other artifacts."
+        },
         "created_at": {
           "type": "string",
           "format": "date-time",
@@ -855,57 +855,6 @@
           "format": "int32"
         }
       }
-    },
-    "v2beta1Metric": {
-      "type": "object",
-      "properties": {
-        "run_id": {
-          "type": "string",
-          "title": "Required. Task UUID that owns this metric"
-        },
-        "task_id": {
-          "type": "string",
-          "title": "Required. Task UUID that owns this metric"
-        },
-        "name": {
-          "type": "string",
-          "title": "Required. Name of the metric"
-        },
-        "schema": {
-          "$ref": "#/definitions/v2beta1MetricSchema"
-        },
-        "value": {
-          "title": "Value can be double or a valid json,\nbut not string_value, bool_value, null_value\nAPI server validation will be needed"
-        },
-        "created_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "type": {
-          "$ref": "#/definitions/v2beta1MetricType",
-          "title": "Required. Type of the metric, one of METRIC_INPUT or METRIC_OUTPUT"
-        }
-      }
-    },
-    "v2beta1MetricSchema": {
-      "type": "string",
-      "enum": [
-        "Metric",
-        "ClassificationMetric",
-        "SlicedClassificationMetric"
-      ],
-      "default": "Metric",
-      "title": "Required. Schema of the metric"
-    },
-    "v2beta1MetricType": {
-      "type": "string",
-      "enum": [
-        "METRIC_TYPE_UNSPECIFIED",
-        "METRIC_INPUT",
-        "METRIC_OUTPUT"
-      ],
-      "default": "METRIC_TYPE_UNSPECIFIED",
-      "description": " - METRIC_TYPE_UNSPECIFIED: default; treated as \"not set\"\nreject if unset."
     },
     "v2beta1PipelineTaskDetail": {
       "type": "object",

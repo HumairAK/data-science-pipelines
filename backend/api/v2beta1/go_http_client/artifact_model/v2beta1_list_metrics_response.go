@@ -20,7 +20,7 @@ import (
 type V2beta1ListMetricsResponse struct {
 
 	// The list of metrics returned.
-	Metrics []*V2beta1Metric `json:"metrics"`
+	Metrics []*V2beta1Artifact `json:"metrics"`
 
 	// Token to retrieve the next page of results.
 	NextPageToken string `json:"next_page_token,omitempty"`

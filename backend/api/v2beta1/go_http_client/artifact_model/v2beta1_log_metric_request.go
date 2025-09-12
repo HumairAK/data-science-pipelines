@@ -19,7 +19,7 @@ import (
 type V2beta1LogMetricRequest struct {
 
 	// Required. The metric to log.
-	Metric *V2beta1Metric `json:"metric,omitempty"`
+	Metric *V2beta1Artifact `json:"metric,omitempty"`
 }
 
 // Validate validates this v2beta1 log metric request
