@@ -22,8 +22,6 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/resource"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	authorizationv1 "k8s.io/api/authorization/v1"
 )
 
@@ -44,10 +42,6 @@ func (s *ArtifactServer) CreateArtifact(ctx context.Context, request *apiv2beta1
 		return nil, util.Wrap(err, "Failed to create artifact due to validation error")
 	}
 
-	if request.GetArtifact().GetType() == apiv2beta1.Artifact_TYPE_UNSPECIFIED {
-		return nil, util.NewInvalidInputError("Artifact type is required")
-	}
-
 	// Extract namespace for authorization
 	namespace := s.resourceManager.ReplaceNamespace(request.GetArtifact().GetNamespace())
 
@@ -56,8 +50,16 @@ func (s *ArtifactServer) CreateArtifact(ctx context.Context, request *apiv2beta1
 		Namespace: namespace,
 		Verb:      common.RbacResourceVerbCreate,
 	}
-	if err = s.canAccessRun(ctx, "", resourceAttributes); err != nil {
+	if err = s.canAccessRun(ctx, request.GetRunId(), resourceAttributes); err != nil {
 		return nil, util.Wrap(err, "Failed to authorize the request")
+	}
+
+	task, err := s.resourceManager.GetTask(request.GetTaskId())
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to get task")
+	}
+	if task.RunUUID != request.GetRunId() {
+		return nil, util.NewInvalidInputError("Task ID does not belong to this Run ID")
 	}
 
 	modelArtifact, err := toModelArtifact(request.GetArtifact())
@@ -71,6 +73,25 @@ func (s *ArtifactServer) CreateArtifact(ctx context.Context, request *apiv2beta1
 	artifact, err := s.resourceManager.CreateArtifact(modelArtifact)
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to create artifact")
+	}
+
+	artifactTask := &apiv2beta1.ArtifactTask{
+		ArtifactId:       artifact.UUID,
+		TaskId:           task.UUID,
+		RunId:            request.GetRunId(),
+		Type:             request.GetType(),
+		ProducerTaskName: request.GetProducerTaskName(),
+		ProducerKey:      request.GetProducerKey(),
+	}
+
+	modelAT, err := toModelArtifactTask(artifactTask)
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to convert artifact_task")
+	}
+
+	_, err = s.resourceManager.CreateArtifactTask(modelAT)
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to create artifact-task")
 	}
 
 	return toApiArtifact(artifact)
@@ -95,46 +116,6 @@ func (s *ArtifactServer) GetArtifact(ctx context.Context, request *apiv2beta1.Ge
 	}
 	if err = s.canAccessRun(ctx, "", resourceAttributes); err != nil {
 		return nil, util.Wrap(err, "Failed to authorize the request")
-	}
-
-	return toApiArtifact(artifact)
-}
-
-// UpdateArtifact updates an existing artifact.
-func (s *ArtifactServer) UpdateArtifact(ctx context.Context, request *apiv2beta1.UpdateArtifactRequest) (*apiv2beta1.Artifact, error) {
-	err := s.validateUpdateArtifactRequest(request)
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to update artifact due to validation error")
-	}
-
-	// First get the existing artifact to check authorization
-	artifactID := request.GetArtifact().GetArtifactId()
-	existingArtifact, err := s.resourceManager.GetArtifact(artifactID)
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to get existing artifact")
-	}
-
-	// Check authorization using the existing artifact's namespace
-	resourceAttributes := &authorizationv1.ResourceAttributes{
-		Namespace: existingArtifact.Namespace,
-		Verb:      common.RbacResourceVerbUpdate,
-	}
-	if err = s.canAccessRun(ctx, "", resourceAttributes); err != nil {
-		return nil, util.Wrap(err, "Failed to authorize the request")
-	}
-
-	modelArtifact, err := toModelArtifact(request.GetArtifact())
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to update artifact due to conversion error")
-	}
-
-	if modelArtifact.Namespace != existingArtifact.Namespace {
-		return nil, util.NewInvalidInputError("Cannot change artifact namespace")
-	}
-
-	artifact, err := s.resourceManager.UpdateArtifact(modelArtifact)
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to update artifact")
 	}
 
 	return toApiArtifact(artifact)
@@ -265,111 +246,22 @@ func (s *ArtifactServer) ListArtifactTasks(ctx context.Context, request *apiv2be
 }
 
 // LogMetric logs a metric for a specific task.
-func (s *ArtifactServer) LogMetric(ctx context.Context, request *apiv2beta1.LogMetricRequest) (*apiv2beta1.Metric, error) {
+func (s *ArtifactServer) LogMetric(ctx context.Context, request *apiv2beta1.CreateArtifactRequest) (*apiv2beta1.Artifact, error) {
 	err := s.validateLogMetricRequest(request)
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to log metric due to validation error")
 	}
-
-	if request.GetArtifact().GetType() == apiv2beta1.Artifact_TYPE_UNSPECIFIED {
-		return nil, util.NewInvalidInputError("Artifact type is required")
-	}
-
-	taskID := request.GetMetric().GetTaskId()
-
-	// Get the task to determine namespace for authorization
-	task, err := s.resourceManager.GetTask(taskID)
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to get task for authorization")
-	}
-
-	// Check authorization using the task's namespace
-	resourceAttributes := &authorizationv1.ResourceAttributes{
-		Namespace: task.Namespace,
-		Verb:      common.RbacResourceVerbCreate,
-	}
-	if err = s.canAccessRun(ctx, "", resourceAttributes); err != nil {
-		return nil, util.Wrap(err, "Failed to authorize the request")
-	}
-
-	modelMetric, err := toModelRunMetric(request.GetMetric())
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to log metric due to conversion error")
-	}
-
-	// Set the namespace from the task
-	modelMetric.Namespace = task.Namespace
-
-	metric, err := s.resourceManager.CreateRunMetric(modelMetric)
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to log metric")
-	}
-
-	return toApiMetric(metric)
+	return s.CreateArtifact(ctx, request)
 }
 
 // GetMetric gets a metric by task ID and name.
-func (s *ArtifactServer) GetMetric(ctx context.Context, request *apiv2beta1.GetMetricRequest) (*apiv2beta1.Metric, error) {
-	taskID := request.GetTaskId()
-	name := request.GetName()
-	if taskID == "" {
-		return nil, util.NewInvalidInputError("Task ID is required")
-	}
-	if name == "" {
-		return nil, util.NewInvalidInputError("Metric name is required")
-	}
-
-	metric, err := s.resourceManager.GetRunMetric(taskID, name)
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to get metric")
-	}
-
-	// Check authorization using the metric's namespace
-	resourceAttributes := &authorizationv1.ResourceAttributes{
-		Namespace: metric.Namespace,
-		Verb:      common.RbacResourceVerbGet,
-	}
-	if err = s.canAccessRun(ctx, "", resourceAttributes); err != nil {
-		return nil, util.Wrap(err, "Failed to authorize the request")
-	}
-
-	return toApiMetric(metric)
+func (s *ArtifactServer) GetMetric(ctx context.Context, request *apiv2beta1.GetArtifactRequest) (*apiv2beta1.Artifact, error) {
+	return s.GetArtifact(ctx, request)
 }
 
 // ListMetrics lists all metrics.
-func (s *ArtifactServer) ListMetrics(ctx context.Context, request *apiv2beta1.ListMetricsRequest) (*apiv2beta1.ListMetricsResponse, error) {
-	opts, err := validatedListOptions(&model.RunMetric{}, request.PageToken, int(request.PageSize), request.SortBy, request.Filter, "v2beta1")
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to create list options")
-	}
-
-	// Handle namespace and authorization
-	namespace := s.resourceManager.ReplaceNamespace(request.GetNamespace())
-
-	// Check authorization
-	resourceAttributes := &authorizationv1.ResourceAttributes{
-		Namespace: namespace,
-		Verb:      common.RbacResourceVerbList,
-	}
-	if err = s.canAccessRun(ctx, "", resourceAttributes); err != nil {
-		return nil, util.Wrap(err, "Failed to authorize the request")
-	}
-
-	filterContexts, err := validateFilterV2Beta1Metric(request.TaskIds, request.RunIds, namespace)
-	if err != nil {
-		return nil, util.Wrap(err, "Validating filter failed")
-	}
-
-	metrics, total_size, nextPageToken, err := s.resourceManager.ListRunMetrics(filterContexts, opts)
-	if err != nil {
-		return nil, util.Wrap(err, "List metrics failed")
-	}
-
-	return &apiv2beta1.ListMetricsResponse{
-		Metrics:       toApiMetrics(metrics),
-		TotalSize:     int32(total_size),
-		NextPageToken: nextPageToken,
-	}, nil
+func (s *ArtifactServer) ListMetrics(ctx context.Context, request *apiv2beta1.ListArtifactRequest) (*apiv2beta1.ListArtifactResponse, error) {
+	return s.ListArtifacts(ctx, request)
 }
 
 // Authorization helper functions
@@ -477,43 +369,44 @@ func (s *ArtifactServer) validateCreateArtifactRequest(request *apiv2beta1.Creat
 	if artifact.GetNamespace() == "" {
 		return util.NewInvalidInputError("Artifact namespace is required")
 	}
-	return nil
-}
-
-func (s *ArtifactServer) validateUpdateArtifactRequest(request *apiv2beta1.UpdateArtifactRequest) error {
-	if request == nil {
-		return util.NewInvalidInputError("UpdateArtifactRequest is nil")
+	if request.GetArtifact().GetType() == apiv2beta1.Artifact_TYPE_UNSPECIFIED {
+		return util.NewInvalidInputError("Artifact type is required")
 	}
-	artifact := request.GetArtifact()
-	if artifact == nil {
-		return util.NewInvalidInputError("Artifact is required")
-	}
-	if artifact.GetArtifactId() == "" {
-		return util.NewInvalidInputError("Artifact ID is required for update")
-	}
-	return nil
-}
-
-func (s *ArtifactServer) validateLogMetricRequest(request *apiv2beta1.LogMetricRequest) error {
-	if request == nil {
-		return util.NewInvalidInputError("LogMetricRequest is nil")
-	}
-	metric := request.GetMetric()
-	if metric == nil {
-		return util.NewInvalidInputError("Metric is required")
-	}
-	if metric.GetRunId() == "" {
+	if request.GetRunId() == "" {
 		return util.NewInvalidInputError("Run ID is required")
 	}
-	if metric.GetTaskId() == "" {
+	if request.GetTaskId() == "" {
 		return util.NewInvalidInputError("Task ID is required")
 	}
-	if metric.GetName() == "" {
-		return util.NewInvalidInputError("Metric name is required")
+	if request.GetProducerTaskName() == "" {
+		return util.NewInvalidInputError("Producer task name is required")
 	}
-	if metric.Type == apiv2beta1.MetricType_METRIC_TYPE_UNSPECIFIED {
-		return status.Error(codes.InvalidArgument, "metric.type is required")
+	if request.GetProducerKey() == "" || request.GetProducerTaskName() == "null" {
+		return util.NewInvalidInputError("Producer key and Producer task Name are both required")
 	}
+	// Metrics validation
+	if request.GetArtifact().GetType() == apiv2beta1.Artifact_Metric &&
+		request.GetArtifact().NumberValue == nil {
+		return util.NewInvalidInputError("number_value is required for a Metric artifact")
+	}
+	if (request.GetArtifact().GetType() == apiv2beta1.Artifact_ClassificationMetric ||
+		request.GetArtifact().GetType() == apiv2beta1.Artifact_SlicedClassificationMetric) &&
+		request.GetArtifact().GetMetadata() == nil {
+		return util.NewInvalidInputError("metadata is required for a ClassificationMetric or SlicedClassificationMetric artifact")
+	}
+	return nil
+}
 
+func (s *ArtifactServer) validateLogMetricRequest(request *apiv2beta1.CreateArtifactRequest) error {
+	if request.GetArtifact().GetType() != apiv2beta1.Artifact_Metric ||
+		request.GetArtifact().GetType() != apiv2beta1.Artifact_ClassificationMetric ||
+		request.GetArtifact().GetType() != apiv2beta1.Artifact_SlicedClassificationMetric {
+		return util.NewInvalidInputError(
+			"Metric artifact must be of type %s, %s, or %s",
+			apiv2beta1.Artifact_Metric,
+			apiv2beta1.Artifact_ClassificationMetric,
+			apiv2beta1.Artifact_SlicedClassificationMetric,
+		)
+	}
 	return nil
 }

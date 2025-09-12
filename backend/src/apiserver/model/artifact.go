@@ -27,7 +27,7 @@ type Artifact struct {
 	LastUpdateInSec int64                            `gorm:"column:LastUpdateInSec; not null; default:0; index:idx_artifact_last_update_timestamp;"`
 	Metadata        JSONData                         `gorm:"column:Metadata; type:json; default:null;"`
 	// Used primarily for metrics
-	NumberValue float64 `gorm:"column:NumberValue; default:null;"`
+	NumberValue *float64 `gorm:"column:NumberValue; default:null;"`
 }
 
 func (a Artifact) PrimaryKeyColumnName() string {

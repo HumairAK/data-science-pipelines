@@ -37,14 +37,15 @@ var artifactColumns = []string{
 	"CreatedAtInSec",
 	"LastUpdateInSec",
 	"Metadata",
+	"NumberValue",
 }
+
+// Ensure that ClientManager implements the resource.ClientManagerInterface interface.
+var _ ArtifactStoreInterface = &ArtifactStore{}
 
 type ArtifactStoreInterface interface {
 	// Create an artifact entry in the database.
 	CreateArtifact(artifact *model.Artifact) (*model.Artifact, error)
-
-	// Update an existing artifact in the database.
-	UpdateArtifact(artifact *model.Artifact) (*model.Artifact, error)
 
 	// Fetches an artifact with a given id.
 	GetArtifact(id string) (*model.Artifact, error)
@@ -100,6 +101,7 @@ func (s *ArtifactStore) CreateArtifact(artifact *model.Artifact) (*model.Artifac
 				"CreatedAtInSec":  newArtifact.CreatedAtInSec,
 				"LastUpdateInSec": newArtifact.LastUpdateInSec,
 				"Metadata":        metadataJSON,
+				"NumberValue":     newArtifact.NumberValue,
 			},
 		).
 		ToSql()
@@ -117,55 +119,6 @@ func (s *ArtifactStore) CreateArtifact(artifact *model.Artifact) (*model.Artifac
 	return &newArtifact, nil
 }
 
-func (s *ArtifactStore) UpdateArtifact(artifact *model.Artifact) (*model.Artifact, error) {
-	if artifact.UUID == "" {
-		return nil, util.NewInvalidInputError("Artifact UUID is required for update")
-	}
-
-	// Update the last update timestamp
-	updatedArtifact := *artifact
-	updatedArtifact.LastUpdateInSec = s.time.Now().Unix()
-
-	// Convert metadata to JSON string for storage
-	metadataJSON, err := updatedArtifact.Metadata.Value()
-	if err != nil {
-		return nil, util.NewInternalServerError(err, "Failed to marshal artifact metadata")
-	}
-
-	sql, args, err := sq.
-		Update(artifactTableName).
-		SetMap(sq.Eq{
-			"Namespace":       updatedArtifact.Namespace,
-			"Type":            updatedArtifact.Type,
-			"Uri":             updatedArtifact.Uri,
-			"Name":            updatedArtifact.Name,
-			"LastUpdateInSec": updatedArtifact.LastUpdateInSec,
-			"Metadata":        metadataJSON,
-		}).
-		Where(sq.Eq{"UUID": artifact.UUID}).
-		ToSql()
-
-	if err != nil {
-		return nil, util.NewInternalServerError(err, "Failed to create query to update artifact: %v", err.Error())
-	}
-
-	result, err := s.db.Exec(sql, args...)
-	if err != nil {
-		return nil, util.NewInternalServerError(err, "Failed to update artifact: %v", err.Error())
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return nil, util.NewInternalServerError(err, "Failed to get rows affected by update: %v", err.Error())
-	}
-
-	if rowsAffected == 0 {
-		return nil, util.NewResourceNotFoundError("artifact", artifact.UUID)
-	}
-
-	return &updatedArtifact, nil
-}
-
 func (s *ArtifactStore) scanRows(rows *sql.Rows) ([]*model.Artifact, error) {
 	var artifacts []*model.Artifact
 	for rows.Next() {
@@ -174,6 +127,7 @@ func (s *ArtifactStore) scanRows(rows *sql.Rows) ([]*model.Artifact, error) {
 		var artifactType int32
 		var createdAtInSec, lastUpdateInSec int64
 		var metadataBytes []byte
+		var numberValue sql.NullFloat64
 
 		err := rows.Scan(
 			&uuid,
@@ -184,6 +138,7 @@ func (s *ArtifactStore) scanRows(rows *sql.Rows) ([]*model.Artifact, error) {
 			&createdAtInSec,
 			&lastUpdateInSec,
 			&metadataBytes,
+			&numberValue,
 		)
 		if err != nil {
 			return artifacts, err
@@ -207,6 +162,9 @@ func (s *ArtifactStore) scanRows(rows *sql.Rows) ([]*model.Artifact, error) {
 			CreatedAtInSec:  createdAtInSec,
 			LastUpdateInSec: lastUpdateInSec,
 			Metadata:        metadata,
+		}
+		if numberValue.Valid {
+			artifact.NumberValue = &numberValue.Float64
 		}
 		artifacts = append(artifacts, artifact)
 	}

@@ -109,51 +109,6 @@ func local_request_ArtifactService_GetArtifact_0(ctx context.Context, marshaler 
 	return msg, metadata, err
 }
 
-func request_ArtifactService_UpdateArtifact_0(ctx context.Context, marshaler runtime.Marshaler, client ArtifactServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var (
-		protoReq UpdateArtifactRequest
-		metadata runtime.ServerMetadata
-		err      error
-	)
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq.Artifact); err != nil && !errors.Is(err, io.EOF) {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-	if req.Body != nil {
-		_, _ = io.Copy(io.Discard, req.Body)
-	}
-	val, ok := pathParams["artifact.artifact_id"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "artifact.artifact_id")
-	}
-	err = runtime.PopulateFieldFromPath(&protoReq, "artifact.artifact_id", val)
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "artifact.artifact_id", err)
-	}
-	msg, err := client.UpdateArtifact(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
-	return msg, metadata, err
-}
-
-func local_request_ArtifactService_UpdateArtifact_0(ctx context.Context, marshaler runtime.Marshaler, server ArtifactServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var (
-		protoReq UpdateArtifactRequest
-		metadata runtime.ServerMetadata
-		err      error
-	)
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq.Artifact); err != nil && !errors.Is(err, io.EOF) {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-	val, ok := pathParams["artifact.artifact_id"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "artifact.artifact_id")
-	}
-	err = runtime.PopulateFieldFromPath(&protoReq, "artifact.artifact_id", val)
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "artifact.artifact_id", err)
-	}
-	msg, err := server.UpdateArtifact(ctx, &protoReq)
-	return msg, metadata, err
-}
-
 var filter_ArtifactService_ListArtifactTasks_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
 
 func request_ArtifactService_ListArtifactTasks_0(ctx context.Context, marshaler runtime.Marshaler, client ArtifactServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
@@ -245,7 +200,7 @@ func local_request_ArtifactService_CreateArtifact_0(ctx context.Context, marshal
 
 func request_ArtifactService_LogMetric_0(ctx context.Context, marshaler runtime.Marshaler, client ArtifactServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
-		protoReq LogMetricRequest
+		protoReq CreateArtifactRequest
 		metadata runtime.ServerMetadata
 	)
 	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
@@ -260,7 +215,7 @@ func request_ArtifactService_LogMetric_0(ctx context.Context, marshaler runtime.
 
 func local_request_ArtifactService_LogMetric_0(ctx context.Context, marshaler runtime.Marshaler, server ArtifactServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
-		protoReq LogMetricRequest
+		protoReq CreateArtifactRequest
 		metadata runtime.ServerMetadata
 	)
 	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
@@ -272,28 +227,20 @@ func local_request_ArtifactService_LogMetric_0(ctx context.Context, marshaler ru
 
 func request_ArtifactService_GetMetric_0(ctx context.Context, marshaler runtime.Marshaler, client ArtifactServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
-		protoReq GetMetricRequest
+		protoReq GetArtifactRequest
 		metadata runtime.ServerMetadata
 		err      error
 	)
 	if req.Body != nil {
 		_, _ = io.Copy(io.Discard, req.Body)
 	}
-	val, ok := pathParams["task_id"]
+	val, ok := pathParams["artifact_id"]
 	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "task_id")
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "artifact_id")
 	}
-	protoReq.TaskId, err = runtime.String(val)
+	protoReq.ArtifactId, err = runtime.String(val)
 	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "task_id", err)
-	}
-	val, ok = pathParams["name"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
-	}
-	protoReq.Name, err = runtime.String(val)
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "artifact_id", err)
 	}
 	msg, err := client.GetMetric(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
@@ -301,25 +248,17 @@ func request_ArtifactService_GetMetric_0(ctx context.Context, marshaler runtime.
 
 func local_request_ArtifactService_GetMetric_0(ctx context.Context, marshaler runtime.Marshaler, server ArtifactServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
-		protoReq GetMetricRequest
+		protoReq GetArtifactRequest
 		metadata runtime.ServerMetadata
 		err      error
 	)
-	val, ok := pathParams["task_id"]
+	val, ok := pathParams["artifact_id"]
 	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "task_id")
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "artifact_id")
 	}
-	protoReq.TaskId, err = runtime.String(val)
+	protoReq.ArtifactId, err = runtime.String(val)
 	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "task_id", err)
-	}
-	val, ok = pathParams["name"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
-	}
-	protoReq.Name, err = runtime.String(val)
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "artifact_id", err)
 	}
 	msg, err := server.GetMetric(ctx, &protoReq)
 	return msg, metadata, err
@@ -329,7 +268,7 @@ var filter_ArtifactService_ListMetrics_0 = &utilities.DoubleArray{Encoding: map[
 
 func request_ArtifactService_ListMetrics_0(ctx context.Context, marshaler runtime.Marshaler, client ArtifactServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
-		protoReq ListMetricsRequest
+		protoReq ListArtifactTasksRequest
 		metadata runtime.ServerMetadata
 	)
 	if req.Body != nil {
@@ -347,7 +286,7 @@ func request_ArtifactService_ListMetrics_0(ctx context.Context, marshaler runtim
 
 func local_request_ArtifactService_ListMetrics_0(ctx context.Context, marshaler runtime.Marshaler, server ArtifactServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
-		protoReq ListMetricsRequest
+		protoReq ListArtifactTasksRequest
 		metadata runtime.ServerMetadata
 	)
 	if err := req.ParseForm(); err != nil {
@@ -405,26 +344,6 @@ func RegisterArtifactServiceHandlerServer(ctx context.Context, mux *runtime.Serv
 			return
 		}
 		forward_ArtifactService_GetArtifact_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-	})
-	mux.Handle(http.MethodPut, pattern_ArtifactService_UpdateArtifact_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		ctx, cancel := context.WithCancel(req.Context())
-		defer cancel()
-		var stream runtime.ServerTransportStream
-		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
-		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/kubeflow.pipelines.backend.api.v2beta1.ArtifactService/UpdateArtifact", runtime.WithHTTPPathPattern("/apis/v2beta1/artifacts/{artifact.artifact_id}"))
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		resp, md, err := local_request_ArtifactService_UpdateArtifact_0(annotatedContext, inboundMarshaler, server, req, pathParams)
-		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
-		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
-		if err != nil {
-			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		forward_ArtifactService_UpdateArtifact_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
 	mux.Handle(http.MethodGet, pattern_ArtifactService_ListArtifactTasks_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
@@ -512,7 +431,7 @@ func RegisterArtifactServiceHandlerServer(ctx context.Context, mux *runtime.Serv
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/kubeflow.pipelines.backend.api.v2beta1.ArtifactService/GetMetric", runtime.WithHTTPPathPattern("/apis/v2beta1/metrics/{task_id}/{name}"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/kubeflow.pipelines.backend.api.v2beta1.ArtifactService/GetMetric", runtime.WithHTTPPathPattern("/apis/v2beta1/metrics/{artifact_id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -620,23 +539,6 @@ func RegisterArtifactServiceHandlerClient(ctx context.Context, mux *runtime.Serv
 		}
 		forward_ArtifactService_GetArtifact_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
-	mux.Handle(http.MethodPut, pattern_ArtifactService_UpdateArtifact_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		ctx, cancel := context.WithCancel(req.Context())
-		defer cancel()
-		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/kubeflow.pipelines.backend.api.v2beta1.ArtifactService/UpdateArtifact", runtime.WithHTTPPathPattern("/apis/v2beta1/artifacts/{artifact.artifact_id}"))
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		resp, md, err := request_ArtifactService_UpdateArtifact_0(annotatedContext, inboundMarshaler, client, req, pathParams)
-		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
-		if err != nil {
-			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		forward_ArtifactService_UpdateArtifact_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-	})
 	mux.Handle(http.MethodGet, pattern_ArtifactService_ListArtifactTasks_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -709,7 +611,7 @@ func RegisterArtifactServiceHandlerClient(ctx context.Context, mux *runtime.Serv
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/kubeflow.pipelines.backend.api.v2beta1.ArtifactService/GetMetric", runtime.WithHTTPPathPattern("/apis/v2beta1/metrics/{task_id}/{name}"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/kubeflow.pipelines.backend.api.v2beta1.ArtifactService/GetMetric", runtime.WithHTTPPathPattern("/apis/v2beta1/metrics/{artifact_id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -745,19 +647,17 @@ func RegisterArtifactServiceHandlerClient(ctx context.Context, mux *runtime.Serv
 var (
 	pattern_ArtifactService_ListArtifacts_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"apis", "v2beta1", "artifacts"}, ""))
 	pattern_ArtifactService_GetArtifact_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"apis", "v2beta1", "artifacts", "artifact_id"}, ""))
-	pattern_ArtifactService_UpdateArtifact_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"apis", "v2beta1", "artifacts", "artifact.artifact_id"}, ""))
 	pattern_ArtifactService_ListArtifactTasks_0  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"apis", "v2beta1", "artifact_tasks"}, ""))
 	pattern_ArtifactService_CreateArtifactTask_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"apis", "v2beta1", "artifact_tasks"}, ""))
 	pattern_ArtifactService_CreateArtifact_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"apis", "v2beta1", "artifacts"}, ""))
 	pattern_ArtifactService_LogMetric_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"apis", "v2beta1", "metrics"}, ""))
-	pattern_ArtifactService_GetMetric_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 1, 0, 4, 1, 5, 4}, []string{"apis", "v2beta1", "metrics", "task_id", "name"}, ""))
+	pattern_ArtifactService_GetMetric_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"apis", "v2beta1", "metrics", "artifact_id"}, ""))
 	pattern_ArtifactService_ListMetrics_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"apis", "v2beta1", "metrics"}, ""))
 )
 
 var (
 	forward_ArtifactService_ListArtifacts_0      = runtime.ForwardResponseMessage
 	forward_ArtifactService_GetArtifact_0        = runtime.ForwardResponseMessage
-	forward_ArtifactService_UpdateArtifact_0     = runtime.ForwardResponseMessage
 	forward_ArtifactService_ListArtifactTasks_0  = runtime.ForwardResponseMessage
 	forward_ArtifactService_CreateArtifactTask_0 = runtime.ForwardResponseMessage
 	forward_ArtifactService_CreateArtifact_0     = runtime.ForwardResponseMessage

@@ -256,7 +256,7 @@ func hydrateArtifactsForTasks(db *DB, tasks []*model.Task) error {
 		mArtifact := &model.Artifact{
 			UUID:            artUUID,
 			Namespace:       artNamespace,
-			Type:            artType.Int32,
+			Type:            apiv2beta1.Artifact_ArtifactType(artType.Int32),
 			Uri:             artURI,
 			Name:            artName,
 			CreatedAtInSec:  createdAt.Int64,

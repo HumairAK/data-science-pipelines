@@ -53,7 +53,7 @@ ListMetricsOK describes a response with status code 200, with default header val
 A successful response.
 */
 type ListMetricsOK struct {
-	Payload *artifact_model.V2beta1ListMetricsResponse
+	Payload *artifact_model.V2beta1ListArtifactTasksResponse
 }
 
 // IsSuccess returns true when this list metrics o k response has a 2xx status code
@@ -96,13 +96,13 @@ func (o *ListMetricsOK) String() string {
 	return fmt.Sprintf("[GET /apis/v2beta1/metrics][%d] listMetricsOK %s", 200, payload)
 }
 
-func (o *ListMetricsOK) GetPayload() *artifact_model.V2beta1ListMetricsResponse {
+func (o *ListMetricsOK) GetPayload() *artifact_model.V2beta1ListArtifactTasksResponse {
 	return o.Payload
 }
 
 func (o *ListMetricsOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(artifact_model.V2beta1ListMetricsResponse)
+	o.Payload = new(artifact_model.V2beta1ListArtifactTasksResponse)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {

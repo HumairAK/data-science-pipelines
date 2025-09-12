@@ -64,7 +64,7 @@ LogMetricParams contains all the parameters to send to the API endpoint
 type LogMetricParams struct {
 
 	// Body.
-	Body *artifact_model.V2beta1LogMetricRequest
+	Body *artifact_model.V2beta1CreateArtifactRequest
 
 	timeout    time.Duration
 	Context    context.Context
@@ -120,13 +120,13 @@ func (o *LogMetricParams) SetHTTPClient(client *http.Client) {
 }
 
 // WithBody adds the body to the log metric params
-func (o *LogMetricParams) WithBody(body *artifact_model.V2beta1LogMetricRequest) *LogMetricParams {
+func (o *LogMetricParams) WithBody(body *artifact_model.V2beta1CreateArtifactRequest) *LogMetricParams {
 	o.SetBody(body)
 	return o
 }
 
 // SetBody adds the body to the log metric params
-func (o *LogMetricParams) SetBody(body *artifact_model.V2beta1LogMetricRequest) {
+func (o *LogMetricParams) SetBody(body *artifact_model.V2beta1CreateArtifactRequest) {
 	o.Body = body
 }
 

@@ -14,7 +14,8 @@ import (
 	"github.com/go-openapi/validate"
 )
 
-// V2beta1ArtifactTaskType v2beta1 artifact task type
+// V2beta1ArtifactTaskType Describes the I/O relationship between
+// this Artifact and Task
 //
 // swagger:model v2beta1ArtifactTaskType
 type V2beta1ArtifactTaskType string

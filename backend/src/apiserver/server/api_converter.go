@@ -2203,111 +2203,6 @@ func toApiRuntimeStatuses(s []*model.RuntimeStatus) []*apiv2beta1.RuntimeStatus 
 	return statuses
 }
 
-func toModelRunMetric(m *apiv2beta1.Metric) (*model.RunMetric, error) {
-	if m == nil {
-		return nil, util.NewInvalidInputError("Metric cannot be nil")
-	}
-
-	if m.GetRunId() == "" {
-		return nil, util.NewInvalidInputError("Run ID cannot be empty")
-	}
-	if m.GetTaskId() == "" {
-		return nil, util.NewInvalidInputError("Task ID cannot be empty")
-	}
-	if m.GetName() == "" {
-		return nil, util.NewInvalidInputError("Metric name cannot be empty")
-	}
-
-	modelMetric := &model.RunMetric{
-		RunID:          m.GetRunId(),
-		TaskID:         m.GetTaskId(),
-		Name:           m.GetName(),
-		CreatedAtInSec: time.Now().Unix(),
-	}
-
-	if m.GetValue() == nil {
-		return nil, util.NewInvalidInputError("Metric value cannot be nil")
-	}
-
-	switch m.GetValue().GetKind().(type) {
-	case *structpb.Value_NumberValue:
-		v := m.GetValue().GetNumberValue()
-		modelMetric.NumberValue = &v
-	case *structpb.Value_ListValue:
-		jsonData, err := convertValueToJSONData(m.GetValue())
-		if err != nil {
-			return nil, err
-		}
-		modelMetric.JsonValue = jsonData
-	case *structpb.Value_StructValue:
-		jsonData, err := convertValueToJSONData(m.GetValue())
-		if err != nil {
-			return nil, err
-		}
-		modelMetric.JsonValue = jsonData
-	default:
-		return nil, util.NewInvalidInputError("Metric value must be a number, list, or struct")
-	}
-
-	if err := validation.ValidateModel(modelMetric); err != nil {
-		return nil, util.NewInternalServerError(err, "Failed to convert API metric to internal representation")
-	}
-	return modelMetric, nil
-}
-
-// Converts internal run metric representation to its API counterpart.
-// Supports v2beta1 API.
-func toApiMetric(metric *model.RunMetric) (*apiv2beta1.Metric, error) {
-	if metric == nil {
-		return nil, util.NewInvalidInputError("Metric cannot be nil")
-	}
-
-	apiMetric := &apiv2beta1.Metric{
-		RunId:     metric.RunID,
-		TaskId:    metric.TaskID,
-		Name:      metric.Name,
-		CreatedAt: timestamppb.New(time.Unix(metric.CreatedAtInSec, 0)),
-	}
-
-	// Set the value based on which field is populated
-	if metric.NumberValue != nil {
-		apiMetric.Value = &structpb.Value{
-			Kind: &structpb.Value_NumberValue{
-				NumberValue: *metric.NumberValue,
-			},
-		}
-	} else if metric.JsonValue != nil {
-		// Handle JSONValue by marshaling and unmarshalling
-		jsonDataBytes, err := json.Marshal(metric.JsonValue)
-		if err == nil {
-			var structValue structpb.Value
-			err = protojson.Unmarshal(jsonDataBytes, &structValue)
-			if err != nil {
-				return nil, util.NewInternalServerError(err, "Failed to convert internal run metric representation to its API counterpart")
-			}
-			apiMetric.Value = &structValue
-		} else {
-			return nil, util.NewInternalServerError(err, "Failed to convert internal run metric representation to its API counterpart")
-		}
-	}
-
-	return apiMetric, nil
-}
-
-// Converts an array of internal run metric representations to an array of their API counterparts.
-// Supports v2beta1 API.
-func toApiMetrics(metrics []*model.RunMetric) []*apiv2beta1.Metric {
-	apiMetrics := make([]*apiv2beta1.Metric, 0)
-	for _, metric := range metrics {
-		apiMetric, err := toApiMetric(metric)
-		if err != nil {
-			return nil
-		}
-		apiMetrics = append(apiMetrics, apiMetric)
-	}
-	return apiMetrics
-}
-
 // Converts API v2beta1 artifact to its internal representation.
 func toModelArtifact(a *apiv2beta1.Artifact) (*model.Artifact, error) {
 	if a == nil {
@@ -2315,11 +2210,14 @@ func toModelArtifact(a *apiv2beta1.Artifact) (*model.Artifact, error) {
 	}
 
 	modelArtifact := &model.Artifact{
-		UUID:            a.GetArtifactId(),
-		Namespace:       a.GetNamespace(),
-		Type:            a.GetType(),
-		Uri:             a.GetUri(),
-		Name:            a.GetName(),
+		UUID:      a.GetArtifactId(),
+		Namespace: a.GetNamespace(),
+		Type:      a.GetType(),
+		Uri:       a.GetUri(),
+		Name:      a.GetName(),
+		// NumberValue can be nil & nullable, so directly apply it
+		// instead of using a.GetNumberValue() (which will return 0 if nil).
+		NumberValue:     a.NumberValue,
 		CreatedAtInSec:  time.Now().Unix(),
 		LastUpdateInSec: time.Now().Unix(),
 	}
@@ -2351,12 +2249,13 @@ func toApiArtifact(artifact *model.Artifact) (*apiv2beta1.Artifact, error) {
 	}
 
 	apiArtifact := &apiv2beta1.Artifact{
-		ArtifactId: artifact.UUID,
-		Namespace:  artifact.Namespace,
-		Type:       artifact.Type,
-		Uri:        artifact.Uri,
-		Name:       artifact.Name,
-		CreatedAt:  timestamppb.New(time.Unix(artifact.CreatedAtInSec, 0)),
+		ArtifactId:  artifact.UUID,
+		Namespace:   artifact.Namespace,
+		Type:        artifact.Type,
+		Uri:         artifact.Uri,
+		Name:        artifact.Name,
+		NumberValue: artifact.NumberValue,
+		CreatedAt:   timestamppb.New(time.Unix(artifact.CreatedAtInSec, 0)),
 	}
 
 	if artifact.Metadata != nil {
@@ -2692,30 +2591,4 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 	}
 
 	return apiTask, nil
-}
-
-func convertValueToJSONData(value *structpb.Value) (model.JSONData, error) {
-	var data interface{}
-
-	switch v := value.GetKind().(type) {
-	case *structpb.Value_ListValue:
-		data = v.ListValue.AsSlice()
-	case *structpb.Value_StructValue:
-		data = v.StructValue.AsMap()
-	default:
-		// This case should not be reached if called correctly
-		return nil, util.NewInvalidInputError("Invalid value type for JSONData conversion")
-	}
-
-	b, err := json.Marshal(data)
-	if err != nil {
-		return nil, util.NewInternalServerError(err, "Failed to marshal value")
-	}
-
-	var jsonData model.JSONData
-	if err := json.Unmarshal(b, &jsonData); err != nil {
-		return nil, util.NewInternalServerError(err, "Failed to unmarshal value into JSONData")
-	}
-
-	return jsonData, nil
 }

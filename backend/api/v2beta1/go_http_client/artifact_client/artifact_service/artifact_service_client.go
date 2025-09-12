@@ -70,8 +70,6 @@ type ClientService interface {
 
 	LogMetric(params *LogMetricParams, opts ...ClientOption) (*LogMetricOK, error)
 
-	UpdateArtifact(params *UpdateArtifactParams, opts ...ClientOption) (*UpdateArtifactOK, error)
-
 	SetTransport(transport runtime.ClientTransport)
 }
 
@@ -197,7 +195,7 @@ func (a *Client) GetMetric(params *GetMetricParams, opts ...ClientOption) (*GetM
 	op := &runtime.ClientOperation{
 		ID:                 "get_metric",
 		Method:             "GET",
-		PathPattern:        "/apis/v2beta1/metrics/{task_id}/{name}",
+		PathPattern:        "/apis/v2beta1/metrics/{artifact_id}",
 		ProducesMediaTypes: []string{"application/json"},
 		ConsumesMediaTypes: []string{"application/json"},
 		Schemes:            []string{"http", "https"},
@@ -368,43 +366,6 @@ func (a *Client) LogMetric(params *LogMetricParams, opts ...ClientOption) (*LogM
 	}
 	// unexpected success response
 	unexpectedSuccess := result.(*LogMetricDefault)
-	return nil, runtime.NewAPIError("unexpected success response: content available as default response in error", unexpectedSuccess, unexpectedSuccess.Code())
-}
-
-/*
-UpdateArtifact updates an existing artifact
-*/
-func (a *Client) UpdateArtifact(params *UpdateArtifactParams, opts ...ClientOption) (*UpdateArtifactOK, error) {
-	// TODO: Validate the params before sending
-	if params == nil {
-		params = NewUpdateArtifactParams()
-	}
-	op := &runtime.ClientOperation{
-		ID:                 "update_artifact",
-		Method:             "PUT",
-		PathPattern:        "/apis/v2beta1/artifacts/{artifact.artifact_id}",
-		ProducesMediaTypes: []string{"application/json"},
-		ConsumesMediaTypes: []string{"application/json"},
-		Schemes:            []string{"http", "https"},
-		Params:             params,
-		Reader:             &UpdateArtifactReader{formats: a.formats},
-		Context:            params.Context,
-		Client:             params.HTTPClient,
-	}
-	for _, opt := range opts {
-		opt(op)
-	}
-
-	result, err := a.transport.Submit(op)
-	if err != nil {
-		return nil, err
-	}
-	success, ok := result.(*UpdateArtifactOK)
-	if ok {
-		return success, nil
-	}
-	// unexpected success response
-	unexpectedSuccess := result.(*UpdateArtifactDefault)
 	return nil, runtime.NewAPIError("unexpected success response: content available as default response in error", unexpectedSuccess, unexpectedSuccess.Code())
 }
 

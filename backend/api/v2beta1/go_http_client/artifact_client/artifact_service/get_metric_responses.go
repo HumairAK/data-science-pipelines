@@ -88,12 +88,12 @@ func (o *GetMetricOK) Code() int {
 
 func (o *GetMetricOK) Error() string {
 	payload, _ := json.Marshal(o.Payload)
-	return fmt.Sprintf("[GET /apis/v2beta1/metrics/{task_id}/{name}][%d] getMetricOK %s", 200, payload)
+	return fmt.Sprintf("[GET /apis/v2beta1/metrics/{artifact_id}][%d] getMetricOK %s", 200, payload)
 }
 
 func (o *GetMetricOK) String() string {
 	payload, _ := json.Marshal(o.Payload)
-	return fmt.Sprintf("[GET /apis/v2beta1/metrics/{task_id}/{name}][%d] getMetricOK %s", 200, payload)
+	return fmt.Sprintf("[GET /apis/v2beta1/metrics/{artifact_id}][%d] getMetricOK %s", 200, payload)
 }
 
 func (o *GetMetricOK) GetPayload() *artifact_model.V2beta1Artifact {
@@ -162,12 +162,12 @@ func (o *GetMetricDefault) Code() int {
 
 func (o *GetMetricDefault) Error() string {
 	payload, _ := json.Marshal(o.Payload)
-	return fmt.Sprintf("[GET /apis/v2beta1/metrics/{task_id}/{name}][%d] get_metric default %s", o._statusCode, payload)
+	return fmt.Sprintf("[GET /apis/v2beta1/metrics/{artifact_id}][%d] get_metric default %s", o._statusCode, payload)
 }
 
 func (o *GetMetricDefault) String() string {
 	payload, _ := json.Marshal(o.Payload)
-	return fmt.Sprintf("[GET /apis/v2beta1/metrics/{task_id}/{name}][%d] get_metric default %s", o._statusCode, payload)
+	return fmt.Sprintf("[GET /apis/v2beta1/metrics/{artifact_id}][%d] get_metric default %s", o._statusCode, payload)
 }
 
 func (o *GetMetricDefault) GetPayload() *artifact_model.GooglerpcStatus {

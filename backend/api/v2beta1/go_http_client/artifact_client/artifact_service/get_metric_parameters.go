@@ -61,17 +61,11 @@ GetMetricParams contains all the parameters to send to the API endpoint
 */
 type GetMetricParams struct {
 
-	/* Name.
+	/* ArtifactID.
 
-	   Required. Name of the metric
+	   Required. The ID of the artifact to be retrieved.
 	*/
-	Name string
-
-	/* TaskID.
-
-	   Required. Task UUID that owns this metric
-	*/
-	TaskID string
+	ArtifactID string
 
 	timeout    time.Duration
 	Context    context.Context
@@ -126,26 +120,15 @@ func (o *GetMetricParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithName adds the name to the get metric params
-func (o *GetMetricParams) WithName(name string) *GetMetricParams {
-	o.SetName(name)
+// WithArtifactID adds the artifactID to the get metric params
+func (o *GetMetricParams) WithArtifactID(artifactID string) *GetMetricParams {
+	o.SetArtifactID(artifactID)
 	return o
 }
 
-// SetName adds the name to the get metric params
-func (o *GetMetricParams) SetName(name string) {
-	o.Name = name
-}
-
-// WithTaskID adds the taskID to the get metric params
-func (o *GetMetricParams) WithTaskID(taskID string) *GetMetricParams {
-	o.SetTaskID(taskID)
-	return o
-}
-
-// SetTaskID adds the taskId to the get metric params
-func (o *GetMetricParams) SetTaskID(taskID string) {
-	o.TaskID = taskID
+// SetArtifactID adds the artifactId to the get metric params
+func (o *GetMetricParams) SetArtifactID(artifactID string) {
+	o.ArtifactID = artifactID
 }
 
 // WriteToRequest writes these params to a swagger request
@@ -156,13 +139,8 @@ func (o *GetMetricParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Reg
 	}
 	var res []error
 
-	// path param name
-	if err := r.SetPathParam("name", o.Name); err != nil {
-		return err
-	}
-
-	// path param task_id
-	if err := r.SetPathParam("task_id", o.TaskID); err != nil {
+	// path param artifact_id
+	if err := r.SetPathParam("artifact_id", o.ArtifactID); err != nil {
 		return err
 	}
 

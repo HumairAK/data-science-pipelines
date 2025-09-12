@@ -38,7 +38,7 @@ func TestCreateArtifact_Success(t *testing.T) {
 
 	art := &model.Artifact{
 		Namespace: "ns1",
-		Type:      1,
+		Type:      apiv2beta1.Artifact_Artifact,
 		Uri:       "s3://bucket/path/file",
 		Name:      "model.pt",
 		Metadata:  model.JSONData(map[string]interface{}{"k": "v"}),
@@ -50,7 +50,7 @@ func TestCreateArtifact_Success(t *testing.T) {
 	assert.Greater(t, created.CreatedAtInSec, int64(0))
 	assert.Equal(t, created.CreatedAtInSec, created.LastUpdateInSec)
 	assert.Equal(t, "ns1", created.Namespace)
-	assert.Equal(t, int32(1), created.Type)
+	assert.Equal(t, apiv2beta1.Artifact_Artifact, created.Type)
 	assert.Equal(t, "s3://bucket/path/file", created.Uri)
 	assert.Equal(t, "model.pt", created.Name)
 	assert.Equal(t, "v", created.Metadata["k"])
@@ -73,37 +73,6 @@ func TestGetArtifact_NotFound(t *testing.T) {
 	defer db.Close()
 	_, err := store.GetArtifact(artifactUUID1)
 	assert.Equal(t, codes.NotFound, err.(*util.UserError).ExternalStatusCode())
-}
-
-func TestUpdateArtifact_Success(t *testing.T) {
-	db, store := initializeArtifactStore()
-	defer db.Close()
-
-	// create
-	store.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactUUID1, nil)
-	created, err := store.CreateArtifact(&model.Artifact{
-		Namespace: "ns1",
-		Type:      1,
-		Uri:       "gs://b/f",
-		Name:      "n1",
-		Metadata:  map[string]interface{}{"a": 1},
-	})
-	assert.NoError(t, err)
-
-	// update some fields
-	created.Uri = "gs://b/f2"
-	created.Name = "n2"
-	created.Type = 2
-	created.Metadata = map[string]interface{}{"a": 2, "b": "x"}
-	updated, err := store.UpdateArtifact(created)
-	assert.NoError(t, err)
-	assert.Equal(t, created.UUID, updated.UUID)
-	assert.Equal(t, int32(2), updated.Type)
-	assert.Equal(t, "gs://b/f2", updated.Uri)
-	assert.Equal(t, "n2", updated.Name)
-	assert.GreaterOrEqual(t, updated.LastUpdateInSec, created.CreatedAtInSec)
-	assert.Equal(t, "x", updated.Metadata["b"])
-
 }
 
 func TestListArtifacts_BasicFiltersAndPagination(t *testing.T) {

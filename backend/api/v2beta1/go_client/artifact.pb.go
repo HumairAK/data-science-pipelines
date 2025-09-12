@@ -39,6 +39,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Describes the I/O relationship between
+// this Artifact and Task
 type ArtifactTaskType int32
 
 const (
@@ -151,15 +153,22 @@ func (x Artifact_ArtifactType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Artifact_ArtifactType.Descriptor instead.
 func (Artifact_ArtifactType) EnumDescriptor() ([]byte, []int) {
-	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{13, 0}
+	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{8, 0}
 }
 
 type CreateArtifactRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Required. The artifact to create.
-	Artifact      *Artifact `protobuf:"bytes,1,opt,name=artifact,proto3" json:"artifact,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Artifact *Artifact `protobuf:"bytes,1,opt,name=artifact,proto3" json:"artifact,omitempty"`
+	// An artifact is always created in the context of a
+	// run.
+	RunId            string           `protobuf:"bytes,2,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	TaskId           string           `protobuf:"bytes,3,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	Type             ArtifactTaskType `protobuf:"varint,4,opt,name=type,proto3,enum=kubeflow.pipelines.backend.api.v2beta1.ArtifactTaskType" json:"type,omitempty"`
+	ProducerTaskName string           `protobuf:"bytes,5,opt,name=producer_task_name,json=producerTaskName,proto3" json:"producer_task_name,omitempty"`
+	ProducerKey      string           `protobuf:"bytes,6,opt,name=producer_key,json=producerKey,proto3" json:"producer_key,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *CreateArtifactRequest) Reset() {
@@ -199,49 +208,39 @@ func (x *CreateArtifactRequest) GetArtifact() *Artifact {
 	return nil
 }
 
-type UpdateArtifactRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Required. The artifact to update. The artifact_id field is required.
-	Artifact      *Artifact `protobuf:"bytes,1,opt,name=artifact,proto3" json:"artifact,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UpdateArtifactRequest) Reset() {
-	*x = UpdateArtifactRequest{}
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UpdateArtifactRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UpdateArtifactRequest) ProtoMessage() {}
-
-func (x *UpdateArtifactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[1]
+func (x *CreateArtifactRequest) GetRunId() string {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
+		return x.RunId
 	}
-	return mi.MessageOf(x)
+	return ""
 }
 
-// Deprecated: Use UpdateArtifactRequest.ProtoReflect.Descriptor instead.
-func (*UpdateArtifactRequest) Descriptor() ([]byte, []int) {
-	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *UpdateArtifactRequest) GetArtifact() *Artifact {
+func (x *CreateArtifactRequest) GetTaskId() string {
 	if x != nil {
-		return x.Artifact
+		return x.TaskId
 	}
-	return nil
+	return ""
+}
+
+func (x *CreateArtifactRequest) GetType() ArtifactTaskType {
+	if x != nil {
+		return x.Type
+	}
+	return ArtifactTaskType_INPUT
+}
+
+func (x *CreateArtifactRequest) GetProducerTaskName() string {
+	if x != nil {
+		return x.ProducerTaskName
+	}
+	return ""
+}
+
+func (x *CreateArtifactRequest) GetProducerKey() string {
+	if x != nil {
+		return x.ProducerKey
+	}
+	return ""
 }
 
 type GetArtifactRequest struct {
@@ -254,7 +253,7 @@ type GetArtifactRequest struct {
 
 func (x *GetArtifactRequest) Reset() {
 	*x = GetArtifactRequest{}
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[2]
+	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -266,7 +265,7 @@ func (x *GetArtifactRequest) String() string {
 func (*GetArtifactRequest) ProtoMessage() {}
 
 func (x *GetArtifactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[2]
+	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -279,7 +278,7 @@ func (x *GetArtifactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetArtifactRequest.ProtoReflect.Descriptor instead.
 func (*GetArtifactRequest) Descriptor() ([]byte, []int) {
-	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{2}
+	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *GetArtifactRequest) GetArtifactId() string {
@@ -311,7 +310,7 @@ type ListArtifactRequest struct {
 
 func (x *ListArtifactRequest) Reset() {
 	*x = ListArtifactRequest{}
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[3]
+	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -323,7 +322,7 @@ func (x *ListArtifactRequest) String() string {
 func (*ListArtifactRequest) ProtoMessage() {}
 
 func (x *ListArtifactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[3]
+	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -336,7 +335,7 @@ func (x *ListArtifactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListArtifactRequest.ProtoReflect.Descriptor instead.
 func (*ListArtifactRequest) Descriptor() ([]byte, []int) {
-	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{3}
+	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ListArtifactRequest) GetNamespace() string {
@@ -389,7 +388,7 @@ type ListArtifactResponse struct {
 
 func (x *ListArtifactResponse) Reset() {
 	*x = ListArtifactResponse{}
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[4]
+	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -401,7 +400,7 @@ func (x *ListArtifactResponse) String() string {
 func (*ListArtifactResponse) ProtoMessage() {}
 
 func (x *ListArtifactResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[4]
+	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -414,7 +413,7 @@ func (x *ListArtifactResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListArtifactResponse.ProtoReflect.Descriptor instead.
 func (*ListArtifactResponse) Descriptor() ([]byte, []int) {
-	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{4}
+	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ListArtifactResponse) GetArtifacts() []*Artifact {
@@ -461,7 +460,7 @@ type ListArtifactTasksRequest struct {
 
 func (x *ListArtifactTasksRequest) Reset() {
 	*x = ListArtifactTasksRequest{}
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[5]
+	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -473,7 +472,7 @@ func (x *ListArtifactTasksRequest) String() string {
 func (*ListArtifactTasksRequest) ProtoMessage() {}
 
 func (x *ListArtifactTasksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[5]
+	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -486,7 +485,7 @@ func (x *ListArtifactTasksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListArtifactTasksRequest.ProtoReflect.Descriptor instead.
 func (*ListArtifactTasksRequest) Descriptor() ([]byte, []int) {
-	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{5}
+	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ListArtifactTasksRequest) GetTaskIds() []string {
@@ -556,7 +555,7 @@ type ListArtifactTasksResponse struct {
 
 func (x *ListArtifactTasksResponse) Reset() {
 	*x = ListArtifactTasksResponse{}
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[6]
+	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -568,7 +567,7 @@ func (x *ListArtifactTasksResponse) String() string {
 func (*ListArtifactTasksResponse) ProtoMessage() {}
 
 func (x *ListArtifactTasksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[6]
+	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -581,7 +580,7 @@ func (x *ListArtifactTasksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListArtifactTasksResponse.ProtoReflect.Descriptor instead.
 func (*ListArtifactTasksResponse) Descriptor() ([]byte, []int) {
-	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{6}
+	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ListArtifactTasksResponse) GetArtifactTasks() []*ArtifactTask {
@@ -616,7 +615,7 @@ type CreateArtifactTaskRequest struct {
 
 func (x *CreateArtifactTaskRequest) Reset() {
 	*x = CreateArtifactTaskRequest{}
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[7]
+	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -628,7 +627,7 @@ func (x *CreateArtifactTaskRequest) String() string {
 func (*CreateArtifactTaskRequest) ProtoMessage() {}
 
 func (x *CreateArtifactTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[7]
+	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -641,7 +640,7 @@ func (x *CreateArtifactTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateArtifactTaskRequest.ProtoReflect.Descriptor instead.
 func (*CreateArtifactTaskRequest) Descriptor() ([]byte, []int) {
-	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{7}
+	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *CreateArtifactTaskRequest) GetArtifactTask() *ArtifactTask {
@@ -649,267 +648,6 @@ func (x *CreateArtifactTaskRequest) GetArtifactTask() *ArtifactTask {
 		return x.ArtifactTask
 	}
 	return nil
-}
-
-type LogMetricRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Required. The metric to log.
-	Metric        *Artifact `protobuf:"bytes,1,opt,name=metric,proto3" json:"metric,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *LogMetricRequest) Reset() {
-	*x = LogMetricRequest{}
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[8]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *LogMetricRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*LogMetricRequest) ProtoMessage() {}
-
-func (x *LogMetricRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[8]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use LogMetricRequest.ProtoReflect.Descriptor instead.
-func (*LogMetricRequest) Descriptor() ([]byte, []int) {
-	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *LogMetricRequest) GetMetric() *Artifact {
-	if x != nil {
-		return x.Metric
-	}
-	return nil
-}
-
-type GetMetricRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Required. Task UUID that owns this metric
-	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	// Required. Name of the metric
-	Name          string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetMetricRequest) Reset() {
-	*x = GetMetricRequest{}
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[9]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetMetricRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetMetricRequest) ProtoMessage() {}
-
-func (x *GetMetricRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[9]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetMetricRequest.ProtoReflect.Descriptor instead.
-func (*GetMetricRequest) Descriptor() ([]byte, []int) {
-	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{9}
-}
-
-func (x *GetMetricRequest) GetTaskId() string {
-	if x != nil {
-		return x.TaskId
-	}
-	return ""
-}
-
-func (x *GetMetricRequest) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-type ListMetricsRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Optional, filter metrics by a set of task_ids
-	TaskIds []string `protobuf:"bytes,1,rep,name=task_ids,json=taskIds,proto3" json:"task_ids,omitempty"`
-	// Optional, filter metrics by a set of run_ids
-	RunIds []string `protobuf:"bytes,2,rep,name=run_ids,json=runIds,proto3" json:"run_ids,omitempty"`
-	// Optional. Namespace for the metrics.
-	Namespace string `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	// A page token to request the results page.
-	PageToken string `protobuf:"bytes,4,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
-	// The number of metrics to be listed per page.
-	PageSize int32 `protobuf:"varint,5,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	// Sorting order in form of "field_name", "field_name asc" or "field_name desc".
-	SortBy string `protobuf:"bytes,6,opt,name=sort_by,json=sortBy,proto3" json:"sort_by,omitempty"`
-	// A url-encoded, JSON-serialized filter protocol buffer.
-	Filter        string `protobuf:"bytes,7,opt,name=filter,proto3" json:"filter,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListMetricsRequest) Reset() {
-	*x = ListMetricsRequest{}
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListMetricsRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListMetricsRequest) ProtoMessage() {}
-
-func (x *ListMetricsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListMetricsRequest.ProtoReflect.Descriptor instead.
-func (*ListMetricsRequest) Descriptor() ([]byte, []int) {
-	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *ListMetricsRequest) GetTaskIds() []string {
-	if x != nil {
-		return x.TaskIds
-	}
-	return nil
-}
-
-func (x *ListMetricsRequest) GetRunIds() []string {
-	if x != nil {
-		return x.RunIds
-	}
-	return nil
-}
-
-func (x *ListMetricsRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *ListMetricsRequest) GetPageToken() string {
-	if x != nil {
-		return x.PageToken
-	}
-	return ""
-}
-
-func (x *ListMetricsRequest) GetPageSize() int32 {
-	if x != nil {
-		return x.PageSize
-	}
-	return 0
-}
-
-func (x *ListMetricsRequest) GetSortBy() string {
-	if x != nil {
-		return x.SortBy
-	}
-	return ""
-}
-
-func (x *ListMetricsRequest) GetFilter() string {
-	if x != nil {
-		return x.Filter
-	}
-	return ""
-}
-
-type ListMetricsResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The list of metrics returned.
-	Metrics []*Artifact `protobuf:"bytes,1,rep,name=metrics,proto3" json:"metrics,omitempty"`
-	// The total number of metrics available.
-	TotalSize int32 `protobuf:"varint,2,opt,name=total_size,json=totalSize,proto3" json:"total_size,omitempty"`
-	// Token to retrieve the next page of results.
-	NextPageToken string `protobuf:"bytes,3,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListMetricsResponse) Reset() {
-	*x = ListMetricsResponse{}
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[11]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListMetricsResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListMetricsResponse) ProtoMessage() {}
-
-func (x *ListMetricsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[11]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListMetricsResponse.ProtoReflect.Descriptor instead.
-func (*ListMetricsResponse) Descriptor() ([]byte, []int) {
-	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{11}
-}
-
-func (x *ListMetricsResponse) GetMetrics() []*Artifact {
-	if x != nil {
-		return x.Metrics
-	}
-	return nil
-}
-
-func (x *ListMetricsResponse) GetTotalSize() int32 {
-	if x != nil {
-		return x.TotalSize
-	}
-	return 0
-}
-
-func (x *ListMetricsResponse) GetNextPageToken() string {
-	if x != nil {
-		return x.NextPageToken
-	}
-	return ""
 }
 
 type ArtifactTask struct {
@@ -930,6 +668,9 @@ type ArtifactTask struct {
 	//	  producerTask: create-dataset
 	//
 	// These fields are used to track this lineage.
+	//
+	// For outputs, the producer task is the component name
+	// of the task that produced the artifact.
 	ProducerTaskName string `protobuf:"bytes,6,opt,name=producer_task_name,json=producerTaskName,proto3" json:"producer_task_name,omitempty"`
 	// The key is often the parameter name used
 	// as input/output on the component, but
@@ -937,6 +678,10 @@ type ArtifactTask struct {
 	// For example:
 	//   - "param-#" when using parameters in a ParallelFor
 	//   - "Output" when using Pythonic Artifacts
+	//
+	// For outputs, the key is the name of the parameter
+	// in the component spec (found in OutputDefinitions)
+	// used to output the artifact.
 	ProducerKey   string `protobuf:"bytes,7,opt,name=producer_key,json=producerKey,proto3" json:"producer_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -944,7 +689,7 @@ type ArtifactTask struct {
 
 func (x *ArtifactTask) Reset() {
 	*x = ArtifactTask{}
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[12]
+	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -956,7 +701,7 @@ func (x *ArtifactTask) String() string {
 func (*ArtifactTask) ProtoMessage() {}
 
 func (x *ArtifactTask) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[12]
+	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -969,7 +714,7 @@ func (x *ArtifactTask) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArtifactTask.ProtoReflect.Descriptor instead.
 func (*ArtifactTask) Descriptor() ([]byte, []int) {
-	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{12}
+	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ArtifactTask) GetId() string {
@@ -1030,6 +775,8 @@ type Artifact struct {
 	// Required. The client provided name of the artifact.
 	// Note: it seems in MLMD when name was set, it had to be unique for that type_id
 	// this restriction is removed here
+	// If this is a "Metric" artifact, the name of the metric
+	// is treated as the Key in its K/V pair.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// Required. The name of an ArtifactType. E.g. Dataset
 	Type Artifact_ArtifactType `protobuf:"varint,3,opt,name=type,proto3,enum=kubeflow.pipelines.backend.api.v2beta1.Artifact_ArtifactType" json:"type,omitempty"`
@@ -1038,12 +785,8 @@ type Artifact struct {
 	Uri string `protobuf:"bytes,4,opt,name=uri,proto3" json:"uri,omitempty"`
 	// Optional. User provided custom properties which are not defined by its type.
 	Metadata map[string]*structpb.Value `protobuf:"bytes,5,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Value is used for metrics. In the case for metrics,
-	// value can be double or a valid json,
-	// but not string_value, bool_value, null_value
-	// In the future it may be extended to be applicable
-	// to other artifacts.
-	Value *structpb.Value `protobuf:"bytes,6,opt,name=value,proto3" json:"value,omitempty"`
+	// Used primarily for metrics
+	NumberValue *float64 `protobuf:"fixed64,6,opt,name=number_value,json=numberValue,proto3,oneof" json:"number_value,omitempty"`
 	// Output only. Create time of the artifact in millisecond since epoch.
 	// Note: The type and name is updated from mlmd artifact to be consistent with other backend apis.
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
@@ -1054,7 +797,7 @@ type Artifact struct {
 
 func (x *Artifact) Reset() {
 	*x = Artifact{}
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[13]
+	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1066,7 +809,7 @@ func (x *Artifact) String() string {
 func (*Artifact) ProtoMessage() {}
 
 func (x *Artifact) ProtoReflect() protoreflect.Message {
-	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[13]
+	mi := &file_backend_api_v2beta1_artifact_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1079,7 +822,7 @@ func (x *Artifact) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Artifact.ProtoReflect.Descriptor instead.
 func (*Artifact) Descriptor() ([]byte, []int) {
-	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{13}
+	return file_backend_api_v2beta1_artifact_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Artifact) GetArtifactId() string {
@@ -1117,11 +860,11 @@ func (x *Artifact) GetMetadata() map[string]*structpb.Value {
 	return nil
 }
 
-func (x *Artifact) GetValue() *structpb.Value {
-	if x != nil {
-		return x.Value
+func (x *Artifact) GetNumberValue() float64 {
+	if x != nil && x.NumberValue != nil {
+		return *x.NumberValue
 	}
-	return nil
+	return 0
 }
 
 func (x *Artifact) GetCreatedAt() *timestamppb.Timestamp {
@@ -1142,11 +885,14 @@ var File_backend_api_v2beta1_artifact_proto protoreflect.FileDescriptor
 
 const file_backend_api_v2beta1_artifact_proto_rawDesc = "" +
 	"\n" +
-	"\"backend/api/v2beta1/artifact.proto\x12&kubeflow.pipelines.backend.api.v2beta1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"e\n" +
+	"\"backend/api/v2beta1/artifact.proto\x12&kubeflow.pipelines.backend.api.v2beta1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xb4\x02\n" +
 	"\x15CreateArtifactRequest\x12L\n" +
-	"\bartifact\x18\x01 \x01(\v20.kubeflow.pipelines.backend.api.v2beta1.ArtifactR\bartifact\"e\n" +
-	"\x15UpdateArtifactRequest\x12L\n" +
-	"\bartifact\x18\x01 \x01(\v20.kubeflow.pipelines.backend.api.v2beta1.ArtifactR\bartifact\"5\n" +
+	"\bartifact\x18\x01 \x01(\v20.kubeflow.pipelines.backend.api.v2beta1.ArtifactR\bartifact\x12\x15\n" +
+	"\x06run_id\x18\x02 \x01(\tR\x05runId\x12\x17\n" +
+	"\atask_id\x18\x03 \x01(\tR\x06taskId\x12L\n" +
+	"\x04type\x18\x04 \x01(\x0e28.kubeflow.pipelines.backend.api.v2beta1.ArtifactTaskTypeR\x04type\x12,\n" +
+	"\x12producer_task_name\x18\x05 \x01(\tR\x10producerTaskName\x12!\n" +
+	"\fproducer_key\x18\x06 \x01(\tR\vproducerKey\"5\n" +
 	"\x12GetArtifactRequest\x12\x1f\n" +
 	"\vartifact_id\x18\x01 \x01(\tR\n" +
 	"artifactId\"\xa0\x01\n" +
@@ -1178,26 +924,7 @@ const file_backend_api_v2beta1_artifact_proto_rawDesc = "" +
 	"total_size\x18\x02 \x01(\x05R\ttotalSize\x12&\n" +
 	"\x0fnext_page_token\x18\x03 \x01(\tR\rnextPageToken\"v\n" +
 	"\x19CreateArtifactTaskRequest\x12Y\n" +
-	"\rartifact_task\x18\x01 \x01(\v24.kubeflow.pipelines.backend.api.v2beta1.ArtifactTaskR\fartifactTask\"\\\n" +
-	"\x10LogMetricRequest\x12H\n" +
-	"\x06metric\x18\x01 \x01(\v20.kubeflow.pipelines.backend.api.v2beta1.ArtifactR\x06metric\"?\n" +
-	"\x10GetMetricRequest\x12\x17\n" +
-	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"\xd3\x01\n" +
-	"\x12ListMetricsRequest\x12\x19\n" +
-	"\btask_ids\x18\x01 \x03(\tR\ataskIds\x12\x17\n" +
-	"\arun_ids\x18\x02 \x03(\tR\x06runIds\x12\x1c\n" +
-	"\tnamespace\x18\x03 \x01(\tR\tnamespace\x12\x1d\n" +
-	"\n" +
-	"page_token\x18\x04 \x01(\tR\tpageToken\x12\x1b\n" +
-	"\tpage_size\x18\x05 \x01(\x05R\bpageSize\x12\x17\n" +
-	"\asort_by\x18\x06 \x01(\tR\x06sortBy\x12\x16\n" +
-	"\x06filter\x18\a \x01(\tR\x06filter\"\xa8\x01\n" +
-	"\x13ListMetricsResponse\x12J\n" +
-	"\ametrics\x18\x01 \x03(\v20.kubeflow.pipelines.backend.api.v2beta1.ArtifactR\ametrics\x12\x1d\n" +
-	"\n" +
-	"total_size\x18\x02 \x01(\x05R\ttotalSize\x12&\n" +
-	"\x0fnext_page_token\x18\x03 \x01(\tR\rnextPageToken\"\x8e\x02\n" +
+	"\rartifact_task\x18\x01 \x01(\v24.kubeflow.pipelines.backend.api.v2beta1.ArtifactTaskR\fartifactTask\"\x8e\x02\n" +
 	"\fArtifactTask\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vartifact_id\x18\x02 \x01(\tR\n" +
@@ -1206,15 +933,15 @@ const file_backend_api_v2beta1_artifact_proto_rawDesc = "" +
 	"\atask_id\x18\x04 \x01(\tR\x06taskId\x12L\n" +
 	"\x04type\x18\x05 \x01(\x0e28.kubeflow.pipelines.backend.api.v2beta1.ArtifactTaskTypeR\x04type\x12,\n" +
 	"\x12producer_task_name\x18\x06 \x01(\tR\x10producerTaskName\x12!\n" +
-	"\fproducer_key\x18\a \x01(\tR\vproducerKey\"\x87\x05\n" +
+	"\fproducer_key\x18\a \x01(\tR\vproducerKey\"\x92\x05\n" +
 	"\bArtifact\x12\x1f\n" +
 	"\vartifact_id\x18\x01 \x01(\tR\n" +
 	"artifactId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12Q\n" +
 	"\x04type\x18\x03 \x01(\x0e2=.kubeflow.pipelines.backend.api.v2beta1.Artifact.ArtifactTypeR\x04type\x12\x10\n" +
 	"\x03uri\x18\x04 \x01(\tR\x03uri\x12Z\n" +
-	"\bmetadata\x18\x05 \x03(\v2>.kubeflow.pipelines.backend.api.v2beta1.Artifact.MetadataEntryR\bmetadata\x12,\n" +
-	"\x05value\x18\x06 \x01(\v2\x16.google.protobuf.ValueR\x05value\x129\n" +
+	"\bmetadata\x18\x05 \x03(\v2>.kubeflow.pipelines.backend.api.v2beta1.Artifact.MetadataEntryR\bmetadata\x12&\n" +
+	"\fnumber_value\x18\x06 \x01(\x01H\x00R\vnumberValue\x88\x01\x01\x129\n" +
 	"\n" +
 	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x1c\n" +
 	"\tnamespace\x18\b \x01(\tR\tnamespace\x1aS\n" +
@@ -1231,31 +958,30 @@ const file_backend_api_v2beta1_artifact_proto_rawDesc = "" +
 	"\n" +
 	"\x06Metric\x10\x06\x12\x18\n" +
 	"\x14ClassificationMetric\x10\a\x12\x1e\n" +
-	"\x1aSlicedClassificationMetric\x10\b*)\n" +
+	"\x1aSlicedClassificationMetric\x10\bB\x0f\n" +
+	"\r_number_value*)\n" +
 	"\x10ArtifactTaskType\x12\t\n" +
 	"\x05INPUT\x10\x00\x12\n" +
 	"\n" +
-	"\x06OUTPUT\x10\x012\xbf\x11\n" +
+	"\x06OUTPUT\x10\x012\xc4\x0f\n" +
 	"\x0fArtifactService\x12\x84\x02\n" +
 	"\rListArtifacts\x12;.kubeflow.pipelines.backend.api.v2beta1.ListArtifactRequest\x1a<.kubeflow.pipelines.backend.api.v2beta1.ListArtifactResponse\"x\x92AV\n" +
 	"\x0fArtifactService\x123Finds all artifacts within the specified namespace.*\x0elist_artifacts\x82\xd3\xe4\x93\x02\x19\x12\x17/apis/v2beta1/artifacts\x12\xee\x01\n" +
 	"\vGetArtifact\x12:.kubeflow.pipelines.backend.api.v2beta1.GetArtifactRequest\x1a0.kubeflow.pipelines.backend.api.v2beta1.Artifact\"q\x92AA\n" +
-	"\x0fArtifactService\x12 Finds a specific Artifact by ID.*\fget_artifact\x82\xd3\xe4\x93\x02'\x12%/apis/v2beta1/artifacts/{artifact_id}\x12\x88\x02\n" +
-	"\x0eUpdateArtifact\x12=.kubeflow.pipelines.backend.api.v2beta1.UpdateArtifactRequest\x1a0.kubeflow.pipelines.backend.api.v2beta1.Artifact\"\x84\x01\x92AA\n" +
-	"\x0fArtifactService\x12\x1dUpdates an existing artifact.*\x0fupdate_artifact\x82\xd3\xe4\x93\x02::\bartifact\x1a./apis/v2beta1/artifacts/{artifact.artifact_id}\x12\x8b\x02\n" +
+	"\x0fArtifactService\x12 Finds a specific Artifact by ID.*\fget_artifact\x82\xd3\xe4\x93\x02'\x12%/apis/v2beta1/artifacts/{artifact_id}\x12\x8b\x02\n" +
 	"\x11ListArtifactTasks\x12@.kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksRequest\x1aA.kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksResponse\"q\x92AJ\n" +
 	"\x0fArtifactService\x12\"Lists artifact-task relationships.*\x13list_artifact_tasks\x82\xd3\xe4\x93\x02\x1e\x12\x1c/apis/v2beta1/artifact_tasks\x12\x88\x02\n" +
 	"\x12CreateArtifactTask\x12A.kubeflow.pipelines.backend.api.v2beta1.CreateArtifactTaskRequest\x1a4.kubeflow.pipelines.backend.api.v2beta1.ArtifactTask\"y\x92AO\n" +
 	"\x0fArtifactService\x12&Creates an artifact-task relationship.*\x14create_artifact_task\x82\xd3\xe4\x93\x02!:\x01*\"\x1c/apis/v2beta1/artifact_tasks\x12\xe3\x01\n" +
 	"\x0eCreateArtifact\x12=.kubeflow.pipelines.backend.api.v2beta1.CreateArtifactRequest\x1a0.kubeflow.pipelines.backend.api.v2beta1.Artifact\"`\x92A;\n" +
-	"\x0fArtifactService\x12\x17Creates a new artifact.*\x0fcreate_artifact\x82\xd3\xe4\x93\x02\x1c:\x01*\"\x17/apis/v2beta1/artifacts\x12\xdd\x01\n" +
-	"\tLogMetric\x128.kubeflow.pipelines.backend.api.v2beta1.LogMetricRequest\x1a0.kubeflow.pipelines.backend.api.v2beta1.Artifact\"d\x92AA\n" +
+	"\x0fArtifactService\x12\x17Creates a new artifact.*\x0fcreate_artifact\x82\xd3\xe4\x93\x02\x1c:\x01*\"\x17/apis/v2beta1/artifacts\x12\xe2\x01\n" +
+	"\tLogMetric\x12=.kubeflow.pipelines.backend.api.v2beta1.CreateArtifactRequest\x1a0.kubeflow.pipelines.backend.api.v2beta1.Artifact\"d\x92AA\n" +
 	"\x0fArtifactService\x12\"Logs a metric for a specific task.*\n" +
-	"log_metric\x82\xd3\xe4\x93\x02\x1a:\x01*\"\x15/apis/v2beta1/metrics\x12\xeb\x01\n" +
-	"\tGetMetric\x128.kubeflow.pipelines.backend.api.v2beta1.GetMetricRequest\x1a0.kubeflow.pipelines.backend.api.v2beta1.Artifact\"r\x92AA\n" +
+	"log_metric\x82\xd3\xe4\x93\x02\x1a:\x01*\"\x15/apis/v2beta1/metrics\x12\xea\x01\n" +
+	"\tGetMetric\x12:.kubeflow.pipelines.backend.api.v2beta1.GetArtifactRequest\x1a0.kubeflow.pipelines.backend.api.v2beta1.Artifact\"o\x92AA\n" +
 	"\x0fArtifactService\x12\"Gets a metric by task ID and name.*\n" +
-	"get_metric\x82\xd3\xe4\x93\x02(\x12&/apis/v2beta1/metrics/{task_id}/{name}\x12\xdb\x01\n" +
-	"\vListMetrics\x12:.kubeflow.pipelines.backend.api.v2beta1.ListMetricsRequest\x1a;.kubeflow.pipelines.backend.api.v2beta1.ListMetricsResponse\"S\x92A3\n" +
+	"get_metric\x82\xd3\xe4\x93\x02%\x12#/apis/v2beta1/metrics/{artifact_id}\x12\xe7\x01\n" +
+	"\vListMetrics\x12@.kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksRequest\x1aA.kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksResponse\"S\x92A3\n" +
 	"\x0fArtifactService\x12\x12Lists all metrics.*\flist_metrics\x82\xd3\xe4\x93\x02\x17\x12\x15/apis/v2beta1/metricsB\x8a\x01\x92AJ*\x02\x01\x02R#\n" +
 	"\adefault\x12\x18\x12\x16\n" +
 	"\x14\x1a\x12.google.rpc.StatusZ\x1f\n" +
@@ -1275,66 +1001,56 @@ func file_backend_api_v2beta1_artifact_proto_rawDescGZIP() []byte {
 }
 
 var file_backend_api_v2beta1_artifact_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_backend_api_v2beta1_artifact_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_backend_api_v2beta1_artifact_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_backend_api_v2beta1_artifact_proto_goTypes = []any{
 	(ArtifactTaskType)(0),             // 0: kubeflow.pipelines.backend.api.v2beta1.ArtifactTaskType
 	(Artifact_ArtifactType)(0),        // 1: kubeflow.pipelines.backend.api.v2beta1.Artifact.ArtifactType
 	(*CreateArtifactRequest)(nil),     // 2: kubeflow.pipelines.backend.api.v2beta1.CreateArtifactRequest
-	(*UpdateArtifactRequest)(nil),     // 3: kubeflow.pipelines.backend.api.v2beta1.UpdateArtifactRequest
-	(*GetArtifactRequest)(nil),        // 4: kubeflow.pipelines.backend.api.v2beta1.GetArtifactRequest
-	(*ListArtifactRequest)(nil),       // 5: kubeflow.pipelines.backend.api.v2beta1.ListArtifactRequest
-	(*ListArtifactResponse)(nil),      // 6: kubeflow.pipelines.backend.api.v2beta1.ListArtifactResponse
-	(*ListArtifactTasksRequest)(nil),  // 7: kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksRequest
-	(*ListArtifactTasksResponse)(nil), // 8: kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksResponse
-	(*CreateArtifactTaskRequest)(nil), // 9: kubeflow.pipelines.backend.api.v2beta1.CreateArtifactTaskRequest
-	(*LogMetricRequest)(nil),          // 10: kubeflow.pipelines.backend.api.v2beta1.LogMetricRequest
-	(*GetMetricRequest)(nil),          // 11: kubeflow.pipelines.backend.api.v2beta1.GetMetricRequest
-	(*ListMetricsRequest)(nil),        // 12: kubeflow.pipelines.backend.api.v2beta1.ListMetricsRequest
-	(*ListMetricsResponse)(nil),       // 13: kubeflow.pipelines.backend.api.v2beta1.ListMetricsResponse
-	(*ArtifactTask)(nil),              // 14: kubeflow.pipelines.backend.api.v2beta1.ArtifactTask
-	(*Artifact)(nil),                  // 15: kubeflow.pipelines.backend.api.v2beta1.Artifact
-	nil,                               // 16: kubeflow.pipelines.backend.api.v2beta1.Artifact.MetadataEntry
-	(*structpb.Value)(nil),            // 17: google.protobuf.Value
-	(*timestamppb.Timestamp)(nil),     // 18: google.protobuf.Timestamp
+	(*GetArtifactRequest)(nil),        // 3: kubeflow.pipelines.backend.api.v2beta1.GetArtifactRequest
+	(*ListArtifactRequest)(nil),       // 4: kubeflow.pipelines.backend.api.v2beta1.ListArtifactRequest
+	(*ListArtifactResponse)(nil),      // 5: kubeflow.pipelines.backend.api.v2beta1.ListArtifactResponse
+	(*ListArtifactTasksRequest)(nil),  // 6: kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksRequest
+	(*ListArtifactTasksResponse)(nil), // 7: kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksResponse
+	(*CreateArtifactTaskRequest)(nil), // 8: kubeflow.pipelines.backend.api.v2beta1.CreateArtifactTaskRequest
+	(*ArtifactTask)(nil),              // 9: kubeflow.pipelines.backend.api.v2beta1.ArtifactTask
+	(*Artifact)(nil),                  // 10: kubeflow.pipelines.backend.api.v2beta1.Artifact
+	nil,                               // 11: kubeflow.pipelines.backend.api.v2beta1.Artifact.MetadataEntry
+	(*timestamppb.Timestamp)(nil),     // 12: google.protobuf.Timestamp
+	(*structpb.Value)(nil),            // 13: google.protobuf.Value
 }
 var file_backend_api_v2beta1_artifact_proto_depIdxs = []int32{
-	15, // 0: kubeflow.pipelines.backend.api.v2beta1.CreateArtifactRequest.artifact:type_name -> kubeflow.pipelines.backend.api.v2beta1.Artifact
-	15, // 1: kubeflow.pipelines.backend.api.v2beta1.UpdateArtifactRequest.artifact:type_name -> kubeflow.pipelines.backend.api.v2beta1.Artifact
-	15, // 2: kubeflow.pipelines.backend.api.v2beta1.ListArtifactResponse.artifacts:type_name -> kubeflow.pipelines.backend.api.v2beta1.Artifact
+	10, // 0: kubeflow.pipelines.backend.api.v2beta1.CreateArtifactRequest.artifact:type_name -> kubeflow.pipelines.backend.api.v2beta1.Artifact
+	0,  // 1: kubeflow.pipelines.backend.api.v2beta1.CreateArtifactRequest.type:type_name -> kubeflow.pipelines.backend.api.v2beta1.ArtifactTaskType
+	10, // 2: kubeflow.pipelines.backend.api.v2beta1.ListArtifactResponse.artifacts:type_name -> kubeflow.pipelines.backend.api.v2beta1.Artifact
 	0,  // 3: kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksRequest.type:type_name -> kubeflow.pipelines.backend.api.v2beta1.ArtifactTaskType
-	14, // 4: kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksResponse.artifact_tasks:type_name -> kubeflow.pipelines.backend.api.v2beta1.ArtifactTask
-	14, // 5: kubeflow.pipelines.backend.api.v2beta1.CreateArtifactTaskRequest.artifact_task:type_name -> kubeflow.pipelines.backend.api.v2beta1.ArtifactTask
-	15, // 6: kubeflow.pipelines.backend.api.v2beta1.LogMetricRequest.metric:type_name -> kubeflow.pipelines.backend.api.v2beta1.Artifact
-	15, // 7: kubeflow.pipelines.backend.api.v2beta1.ListMetricsResponse.metrics:type_name -> kubeflow.pipelines.backend.api.v2beta1.Artifact
-	0,  // 8: kubeflow.pipelines.backend.api.v2beta1.ArtifactTask.type:type_name -> kubeflow.pipelines.backend.api.v2beta1.ArtifactTaskType
-	1,  // 9: kubeflow.pipelines.backend.api.v2beta1.Artifact.type:type_name -> kubeflow.pipelines.backend.api.v2beta1.Artifact.ArtifactType
-	16, // 10: kubeflow.pipelines.backend.api.v2beta1.Artifact.metadata:type_name -> kubeflow.pipelines.backend.api.v2beta1.Artifact.MetadataEntry
-	17, // 11: kubeflow.pipelines.backend.api.v2beta1.Artifact.value:type_name -> google.protobuf.Value
-	18, // 12: kubeflow.pipelines.backend.api.v2beta1.Artifact.created_at:type_name -> google.protobuf.Timestamp
-	17, // 13: kubeflow.pipelines.backend.api.v2beta1.Artifact.MetadataEntry.value:type_name -> google.protobuf.Value
-	5,  // 14: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.ListArtifacts:input_type -> kubeflow.pipelines.backend.api.v2beta1.ListArtifactRequest
-	4,  // 15: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.GetArtifact:input_type -> kubeflow.pipelines.backend.api.v2beta1.GetArtifactRequest
-	3,  // 16: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.UpdateArtifact:input_type -> kubeflow.pipelines.backend.api.v2beta1.UpdateArtifactRequest
-	7,  // 17: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.ListArtifactTasks:input_type -> kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksRequest
-	9,  // 18: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.CreateArtifactTask:input_type -> kubeflow.pipelines.backend.api.v2beta1.CreateArtifactTaskRequest
-	2,  // 19: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.CreateArtifact:input_type -> kubeflow.pipelines.backend.api.v2beta1.CreateArtifactRequest
-	10, // 20: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.LogMetric:input_type -> kubeflow.pipelines.backend.api.v2beta1.LogMetricRequest
-	11, // 21: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.GetMetric:input_type -> kubeflow.pipelines.backend.api.v2beta1.GetMetricRequest
-	12, // 22: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.ListMetrics:input_type -> kubeflow.pipelines.backend.api.v2beta1.ListMetricsRequest
-	6,  // 23: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.ListArtifacts:output_type -> kubeflow.pipelines.backend.api.v2beta1.ListArtifactResponse
-	15, // 24: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.GetArtifact:output_type -> kubeflow.pipelines.backend.api.v2beta1.Artifact
-	15, // 25: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.UpdateArtifact:output_type -> kubeflow.pipelines.backend.api.v2beta1.Artifact
-	8,  // 26: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.ListArtifactTasks:output_type -> kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksResponse
-	14, // 27: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.CreateArtifactTask:output_type -> kubeflow.pipelines.backend.api.v2beta1.ArtifactTask
-	15, // 28: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.CreateArtifact:output_type -> kubeflow.pipelines.backend.api.v2beta1.Artifact
-	15, // 29: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.LogMetric:output_type -> kubeflow.pipelines.backend.api.v2beta1.Artifact
-	15, // 30: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.GetMetric:output_type -> kubeflow.pipelines.backend.api.v2beta1.Artifact
-	13, // 31: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.ListMetrics:output_type -> kubeflow.pipelines.backend.api.v2beta1.ListMetricsResponse
-	23, // [23:32] is the sub-list for method output_type
-	14, // [14:23] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	9,  // 4: kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksResponse.artifact_tasks:type_name -> kubeflow.pipelines.backend.api.v2beta1.ArtifactTask
+	9,  // 5: kubeflow.pipelines.backend.api.v2beta1.CreateArtifactTaskRequest.artifact_task:type_name -> kubeflow.pipelines.backend.api.v2beta1.ArtifactTask
+	0,  // 6: kubeflow.pipelines.backend.api.v2beta1.ArtifactTask.type:type_name -> kubeflow.pipelines.backend.api.v2beta1.ArtifactTaskType
+	1,  // 7: kubeflow.pipelines.backend.api.v2beta1.Artifact.type:type_name -> kubeflow.pipelines.backend.api.v2beta1.Artifact.ArtifactType
+	11, // 8: kubeflow.pipelines.backend.api.v2beta1.Artifact.metadata:type_name -> kubeflow.pipelines.backend.api.v2beta1.Artifact.MetadataEntry
+	12, // 9: kubeflow.pipelines.backend.api.v2beta1.Artifact.created_at:type_name -> google.protobuf.Timestamp
+	13, // 10: kubeflow.pipelines.backend.api.v2beta1.Artifact.MetadataEntry.value:type_name -> google.protobuf.Value
+	4,  // 11: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.ListArtifacts:input_type -> kubeflow.pipelines.backend.api.v2beta1.ListArtifactRequest
+	3,  // 12: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.GetArtifact:input_type -> kubeflow.pipelines.backend.api.v2beta1.GetArtifactRequest
+	6,  // 13: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.ListArtifactTasks:input_type -> kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksRequest
+	8,  // 14: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.CreateArtifactTask:input_type -> kubeflow.pipelines.backend.api.v2beta1.CreateArtifactTaskRequest
+	2,  // 15: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.CreateArtifact:input_type -> kubeflow.pipelines.backend.api.v2beta1.CreateArtifactRequest
+	2,  // 16: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.LogMetric:input_type -> kubeflow.pipelines.backend.api.v2beta1.CreateArtifactRequest
+	3,  // 17: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.GetMetric:input_type -> kubeflow.pipelines.backend.api.v2beta1.GetArtifactRequest
+	6,  // 18: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.ListMetrics:input_type -> kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksRequest
+	5,  // 19: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.ListArtifacts:output_type -> kubeflow.pipelines.backend.api.v2beta1.ListArtifactResponse
+	10, // 20: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.GetArtifact:output_type -> kubeflow.pipelines.backend.api.v2beta1.Artifact
+	7,  // 21: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.ListArtifactTasks:output_type -> kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksResponse
+	9,  // 22: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.CreateArtifactTask:output_type -> kubeflow.pipelines.backend.api.v2beta1.ArtifactTask
+	10, // 23: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.CreateArtifact:output_type -> kubeflow.pipelines.backend.api.v2beta1.Artifact
+	10, // 24: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.LogMetric:output_type -> kubeflow.pipelines.backend.api.v2beta1.Artifact
+	10, // 25: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.GetMetric:output_type -> kubeflow.pipelines.backend.api.v2beta1.Artifact
+	7,  // 26: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.ListMetrics:output_type -> kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksResponse
+	19, // [19:27] is the sub-list for method output_type
+	11, // [11:19] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_backend_api_v2beta1_artifact_proto_init() }
@@ -1342,13 +1058,14 @@ func file_backend_api_v2beta1_artifact_proto_init() {
 	if File_backend_api_v2beta1_artifact_proto != nil {
 		return
 	}
+	file_backend_api_v2beta1_artifact_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_backend_api_v2beta1_artifact_proto_rawDesc), len(file_backend_api_v2beta1_artifact_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   15,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

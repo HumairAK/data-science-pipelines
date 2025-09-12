@@ -35,7 +35,6 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	ArtifactService_ListArtifacts_FullMethodName      = "/kubeflow.pipelines.backend.api.v2beta1.ArtifactService/ListArtifacts"
 	ArtifactService_GetArtifact_FullMethodName        = "/kubeflow.pipelines.backend.api.v2beta1.ArtifactService/GetArtifact"
-	ArtifactService_UpdateArtifact_FullMethodName     = "/kubeflow.pipelines.backend.api.v2beta1.ArtifactService/UpdateArtifact"
 	ArtifactService_ListArtifactTasks_FullMethodName  = "/kubeflow.pipelines.backend.api.v2beta1.ArtifactService/ListArtifactTasks"
 	ArtifactService_CreateArtifactTask_FullMethodName = "/kubeflow.pipelines.backend.api.v2beta1.ArtifactService/CreateArtifactTask"
 	ArtifactService_CreateArtifact_FullMethodName     = "/kubeflow.pipelines.backend.api.v2beta1.ArtifactService/CreateArtifact"
@@ -52,19 +51,20 @@ type ArtifactServiceClient interface {
 	ListArtifacts(ctx context.Context, in *ListArtifactRequest, opts ...grpc.CallOption) (*ListArtifactResponse, error)
 	// Finds a specific Artifact by ID.
 	GetArtifact(ctx context.Context, in *GetArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
-	// Updates an existing artifact.
-	UpdateArtifact(ctx context.Context, in *UpdateArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	ListArtifactTasks(ctx context.Context, in *ListArtifactTasksRequest, opts ...grpc.CallOption) (*ListArtifactTasksResponse, error)
 	// Creates an artifact-task relationship.
+	// While we always create an artifact-task link when an artifact is created,
+	// In the case of Importer, we only create a link (and not an artifact)
+	// if Reimport = true.
 	CreateArtifactTask(ctx context.Context, in *CreateArtifactTaskRequest, opts ...grpc.CallOption) (*ArtifactTask, error)
 	// Creates a new artifact.
 	CreateArtifact(ctx context.Context, in *CreateArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	// Logs a metric for a specific task.
-	LogMetric(ctx context.Context, in *LogMetricRequest, opts ...grpc.CallOption) (*Artifact, error)
+	LogMetric(ctx context.Context, in *CreateArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	// Gets a metric by task ID and name.
-	GetMetric(ctx context.Context, in *GetMetricRequest, opts ...grpc.CallOption) (*Artifact, error)
+	GetMetric(ctx context.Context, in *GetArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	// Lists all metrics.
-	ListMetrics(ctx context.Context, in *ListMetricsRequest, opts ...grpc.CallOption) (*ListMetricsResponse, error)
+	ListMetrics(ctx context.Context, in *ListArtifactTasksRequest, opts ...grpc.CallOption) (*ListArtifactTasksResponse, error)
 }
 
 type artifactServiceClient struct {
@@ -89,16 +89,6 @@ func (c *artifactServiceClient) GetArtifact(ctx context.Context, in *GetArtifact
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Artifact)
 	err := c.cc.Invoke(ctx, ArtifactService_GetArtifact_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *artifactServiceClient) UpdateArtifact(ctx context.Context, in *UpdateArtifactRequest, opts ...grpc.CallOption) (*Artifact, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Artifact)
-	err := c.cc.Invoke(ctx, ArtifactService_UpdateArtifact_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +125,7 @@ func (c *artifactServiceClient) CreateArtifact(ctx context.Context, in *CreateAr
 	return out, nil
 }
 
-func (c *artifactServiceClient) LogMetric(ctx context.Context, in *LogMetricRequest, opts ...grpc.CallOption) (*Artifact, error) {
+func (c *artifactServiceClient) LogMetric(ctx context.Context, in *CreateArtifactRequest, opts ...grpc.CallOption) (*Artifact, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Artifact)
 	err := c.cc.Invoke(ctx, ArtifactService_LogMetric_FullMethodName, in, out, cOpts...)
@@ -145,7 +135,7 @@ func (c *artifactServiceClient) LogMetric(ctx context.Context, in *LogMetricRequ
 	return out, nil
 }
 
-func (c *artifactServiceClient) GetMetric(ctx context.Context, in *GetMetricRequest, opts ...grpc.CallOption) (*Artifact, error) {
+func (c *artifactServiceClient) GetMetric(ctx context.Context, in *GetArtifactRequest, opts ...grpc.CallOption) (*Artifact, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Artifact)
 	err := c.cc.Invoke(ctx, ArtifactService_GetMetric_FullMethodName, in, out, cOpts...)
@@ -155,9 +145,9 @@ func (c *artifactServiceClient) GetMetric(ctx context.Context, in *GetMetricRequ
 	return out, nil
 }
 
-func (c *artifactServiceClient) ListMetrics(ctx context.Context, in *ListMetricsRequest, opts ...grpc.CallOption) (*ListMetricsResponse, error) {
+func (c *artifactServiceClient) ListMetrics(ctx context.Context, in *ListArtifactTasksRequest, opts ...grpc.CallOption) (*ListArtifactTasksResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListMetricsResponse)
+	out := new(ListArtifactTasksResponse)
 	err := c.cc.Invoke(ctx, ArtifactService_ListMetrics_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -173,19 +163,20 @@ type ArtifactServiceServer interface {
 	ListArtifacts(context.Context, *ListArtifactRequest) (*ListArtifactResponse, error)
 	// Finds a specific Artifact by ID.
 	GetArtifact(context.Context, *GetArtifactRequest) (*Artifact, error)
-	// Updates an existing artifact.
-	UpdateArtifact(context.Context, *UpdateArtifactRequest) (*Artifact, error)
 	ListArtifactTasks(context.Context, *ListArtifactTasksRequest) (*ListArtifactTasksResponse, error)
 	// Creates an artifact-task relationship.
+	// While we always create an artifact-task link when an artifact is created,
+	// In the case of Importer, we only create a link (and not an artifact)
+	// if Reimport = true.
 	CreateArtifactTask(context.Context, *CreateArtifactTaskRequest) (*ArtifactTask, error)
 	// Creates a new artifact.
 	CreateArtifact(context.Context, *CreateArtifactRequest) (*Artifact, error)
 	// Logs a metric for a specific task.
-	LogMetric(context.Context, *LogMetricRequest) (*Artifact, error)
+	LogMetric(context.Context, *CreateArtifactRequest) (*Artifact, error)
 	// Gets a metric by task ID and name.
-	GetMetric(context.Context, *GetMetricRequest) (*Artifact, error)
+	GetMetric(context.Context, *GetArtifactRequest) (*Artifact, error)
 	// Lists all metrics.
-	ListMetrics(context.Context, *ListMetricsRequest) (*ListMetricsResponse, error)
+	ListMetrics(context.Context, *ListArtifactTasksRequest) (*ListArtifactTasksResponse, error)
 	mustEmbedUnimplementedArtifactServiceServer()
 }
 
@@ -202,9 +193,6 @@ func (UnimplementedArtifactServiceServer) ListArtifacts(context.Context, *ListAr
 func (UnimplementedArtifactServiceServer) GetArtifact(context.Context, *GetArtifactRequest) (*Artifact, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetArtifact not implemented")
 }
-func (UnimplementedArtifactServiceServer) UpdateArtifact(context.Context, *UpdateArtifactRequest) (*Artifact, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateArtifact not implemented")
-}
 func (UnimplementedArtifactServiceServer) ListArtifactTasks(context.Context, *ListArtifactTasksRequest) (*ListArtifactTasksResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListArtifactTasks not implemented")
 }
@@ -214,13 +202,13 @@ func (UnimplementedArtifactServiceServer) CreateArtifactTask(context.Context, *C
 func (UnimplementedArtifactServiceServer) CreateArtifact(context.Context, *CreateArtifactRequest) (*Artifact, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateArtifact not implemented")
 }
-func (UnimplementedArtifactServiceServer) LogMetric(context.Context, *LogMetricRequest) (*Artifact, error) {
+func (UnimplementedArtifactServiceServer) LogMetric(context.Context, *CreateArtifactRequest) (*Artifact, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LogMetric not implemented")
 }
-func (UnimplementedArtifactServiceServer) GetMetric(context.Context, *GetMetricRequest) (*Artifact, error) {
+func (UnimplementedArtifactServiceServer) GetMetric(context.Context, *GetArtifactRequest) (*Artifact, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMetric not implemented")
 }
-func (UnimplementedArtifactServiceServer) ListMetrics(context.Context, *ListMetricsRequest) (*ListMetricsResponse, error) {
+func (UnimplementedArtifactServiceServer) ListMetrics(context.Context, *ListArtifactTasksRequest) (*ListArtifactTasksResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListMetrics not implemented")
 }
 func (UnimplementedArtifactServiceServer) mustEmbedUnimplementedArtifactServiceServer() {}
@@ -280,24 +268,6 @@ func _ArtifactService_GetArtifact_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ArtifactService_UpdateArtifact_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpdateArtifactRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ArtifactServiceServer).UpdateArtifact(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ArtifactService_UpdateArtifact_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ArtifactServiceServer).UpdateArtifact(ctx, req.(*UpdateArtifactRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _ArtifactService_ListArtifactTasks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListArtifactTasksRequest)
 	if err := dec(in); err != nil {
@@ -353,7 +323,7 @@ func _ArtifactService_CreateArtifact_Handler(srv interface{}, ctx context.Contex
 }
 
 func _ArtifactService_LogMetric_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LogMetricRequest)
+	in := new(CreateArtifactRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -365,13 +335,13 @@ func _ArtifactService_LogMetric_Handler(srv interface{}, ctx context.Context, de
 		FullMethod: ArtifactService_LogMetric_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ArtifactServiceServer).LogMetric(ctx, req.(*LogMetricRequest))
+		return srv.(ArtifactServiceServer).LogMetric(ctx, req.(*CreateArtifactRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _ArtifactService_GetMetric_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetMetricRequest)
+	in := new(GetArtifactRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -383,13 +353,13 @@ func _ArtifactService_GetMetric_Handler(srv interface{}, ctx context.Context, de
 		FullMethod: ArtifactService_GetMetric_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ArtifactServiceServer).GetMetric(ctx, req.(*GetMetricRequest))
+		return srv.(ArtifactServiceServer).GetMetric(ctx, req.(*GetArtifactRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _ArtifactService_ListMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListMetricsRequest)
+	in := new(ListArtifactTasksRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -401,7 +371,7 @@ func _ArtifactService_ListMetrics_Handler(srv interface{}, ctx context.Context, 
 		FullMethod: ArtifactService_ListMetrics_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ArtifactServiceServer).ListMetrics(ctx, req.(*ListMetricsRequest))
+		return srv.(ArtifactServiceServer).ListMetrics(ctx, req.(*ListArtifactTasksRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -420,10 +390,6 @@ var ArtifactService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetArtifact",
 			Handler:    _ArtifactService_GetArtifact_Handler,
-		},
-		{
-			MethodName: "UpdateArtifact",
-			Handler:    _ArtifactService_UpdateArtifact_Handler,
 		},
 		{
 			MethodName: "ListArtifactTasks",

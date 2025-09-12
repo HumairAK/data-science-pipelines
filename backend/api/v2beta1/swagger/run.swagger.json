@@ -785,7 +785,7 @@
         },
         "name": {
           "type": "string",
-          "title": "Required. The client provided name of the artifact.\nNote: it seems in MLMD when name was set, it had to be unique for that type_id\nthis restriction is removed here"
+          "description": "Required. The client provided name of the artifact.\nNote: it seems in MLMD when name was set, it had to be unique for that type_id\nthis restriction is removed here\nIf this is a \"Metric\" artifact, the name of the metric\nis treated as the Key in its K/V pair."
         },
         "type": {
           "$ref": "#/definitions/ArtifactArtifactType",
@@ -800,8 +800,10 @@
           "additionalProperties": {},
           "description": "Optional. User provided custom properties which are not defined by its type."
         },
-        "value": {
-          "description": "Value is used for metrics. In the case for metrics,\nvalue can be double or a valid json,\nbut not string_value, bool_value, null_value\nIn the future it may be extended to be applicable\nto other artifacts."
+        "number_value": {
+          "type": "number",
+          "format": "double",
+          "title": "Used primarily for metrics"
         },
         "created_at": {
           "type": "string",

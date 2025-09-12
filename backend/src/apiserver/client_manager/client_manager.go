@@ -95,7 +95,6 @@ type ClientManager struct {
 	jobStore                  storage.JobStoreInterface
 	runStore                  storage.RunStoreInterface
 	taskStore                 storage.TaskStoreInterface
-	runMetricStore            storage.RunMetricStoreInterface
 	artifactStore             storage.ArtifactStoreInterface
 	artifactTaskStore         storage.ArtifactTaskStoreInterface
 	resourceReferenceStore    storage.ResourceReferenceStoreInterface
@@ -149,10 +148,6 @@ func (c *ClientManager) JobStore() storage.JobStoreInterface {
 
 func (c *ClientManager) RunStore() storage.RunStoreInterface {
 	return c.runStore
-}
-
-func (c *ClientManager) RunMetricStore() storage.RunMetricStoreInterface {
-	return c.runMetricStore
 }
 
 func (c *ClientManager) ArtifactStore() storage.ArtifactStoreInterface {
@@ -315,7 +310,6 @@ func (c *ClientManager) init(options *Options) error {
 
 	runStore := storage.NewRunStore(db, c.time)
 	c.runStore = runStore
-	c.runMetricStore = storage.NewRunMetricStore(db, c.time)
 	c.artifactStore = storage.NewArtifactStore(db, c.time, c.uuid)
 	c.artifactTaskStore = storage.NewArtifactTaskStore(db, c.uuid)
 
@@ -585,7 +579,6 @@ func autoMigrate(db *gorm.DB) error {
 		&model.PipelineVersion{},
 		&model.Job{},
 		&model.Run{},
-		&model.RunMetric{},
 		&model.RunMetricV1{},
 		&model.Task{},
 		&model.ResourceReference{},

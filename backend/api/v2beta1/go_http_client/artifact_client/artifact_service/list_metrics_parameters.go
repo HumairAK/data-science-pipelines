@@ -62,49 +62,47 @@ ListMetricsParams contains all the parameters to send to the API endpoint
 */
 type ListMetricsParams struct {
 
-	/* Filter.
+	/* ArtifactIds.
 
-	   A url-encoded, JSON-serialized filter protocol buffer.
+	     Optional, filter artifact task by a set of artifact_ids
+	We can also likely just rely on filter for this and omit this field
 	*/
+	ArtifactIds []string
+
+	// Filter.
 	Filter *string
 
-	/* Namespace.
-
-	   Optional. Namespace for the metrics.
-	*/
-	Namespace *string
-
-	/* PageSize.
-
-	   The number of metrics to be listed per page.
-
-	   Format: int32
-	*/
+	// PageSize.
+	//
+	// Format: int32
 	PageSize *int32
 
-	/* PageToken.
-
-	   A page token to request the results page.
-	*/
+	// PageToken.
 	PageToken *string
 
 	/* RunIds.
 
-	   Optional, filter metrics by a set of run_ids
+	   Optional, filter artifact task by a set of run_ids
 	*/
 	RunIds []string
 
-	/* SortBy.
-
-	   Sorting order in form of "field_name", "field_name asc" or "field_name desc".
-	*/
+	// SortBy.
 	SortBy *string
 
 	/* TaskIds.
 
-	   Optional, filter metrics by a set of task_ids
+	     Optional, filter artifact task by a set of task_ids
+	We can also likely just rely on filter for this and omit this field
 	*/
 	TaskIds []string
+
+	/* Type.
+
+	   Optional. Only list artifact tasks that have artifacts of this type.
+
+	   Default: "INPUT"
+	*/
+	Type *string
 
 	timeout    time.Duration
 	Context    context.Context
@@ -123,7 +121,18 @@ func (o *ListMetricsParams) WithDefaults() *ListMetricsParams {
 //
 // All values with no default are reset to their zero value.
 func (o *ListMetricsParams) SetDefaults() {
-	// no default values defined for this parameter
+	var (
+		typeVarDefault = string("INPUT")
+	)
+
+	val := ListMetricsParams{
+		Type: &typeVarDefault,
+	}
+
+	val.timeout = o.timeout
+	val.Context = o.Context
+	val.HTTPClient = o.HTTPClient
+	*o = val
 }
 
 // WithTimeout adds the timeout to the list metrics params
@@ -159,6 +168,17 @@ func (o *ListMetricsParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
+// WithArtifactIds adds the artifactIds to the list metrics params
+func (o *ListMetricsParams) WithArtifactIds(artifactIds []string) *ListMetricsParams {
+	o.SetArtifactIds(artifactIds)
+	return o
+}
+
+// SetArtifactIds adds the artifactIds to the list metrics params
+func (o *ListMetricsParams) SetArtifactIds(artifactIds []string) {
+	o.ArtifactIds = artifactIds
+}
+
 // WithFilter adds the filter to the list metrics params
 func (o *ListMetricsParams) WithFilter(filter *string) *ListMetricsParams {
 	o.SetFilter(filter)
@@ -168,17 +188,6 @@ func (o *ListMetricsParams) WithFilter(filter *string) *ListMetricsParams {
 // SetFilter adds the filter to the list metrics params
 func (o *ListMetricsParams) SetFilter(filter *string) {
 	o.Filter = filter
-}
-
-// WithNamespace adds the namespace to the list metrics params
-func (o *ListMetricsParams) WithNamespace(namespace *string) *ListMetricsParams {
-	o.SetNamespace(namespace)
-	return o
-}
-
-// SetNamespace adds the namespace to the list metrics params
-func (o *ListMetricsParams) SetNamespace(namespace *string) {
-	o.Namespace = namespace
 }
 
 // WithPageSize adds the pageSize to the list metrics params
@@ -236,6 +245,17 @@ func (o *ListMetricsParams) SetTaskIds(taskIds []string) {
 	o.TaskIds = taskIds
 }
 
+// WithType adds the typeVar to the list metrics params
+func (o *ListMetricsParams) WithType(typeVar *string) *ListMetricsParams {
+	o.SetType(typeVar)
+	return o
+}
+
+// SetType adds the type to the list metrics params
+func (o *ListMetricsParams) SetType(typeVar *string) {
+	o.Type = typeVar
+}
+
 // WriteToRequest writes these params to a swagger request
 func (o *ListMetricsParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
@@ -243,6 +263,17 @@ func (o *ListMetricsParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.R
 		return err
 	}
 	var res []error
+
+	if o.ArtifactIds != nil {
+
+		// binding items for artifact_ids
+		joinedArtifactIds := o.bindParamArtifactIds(reg)
+
+		// query array param artifact_ids
+		if err := r.SetQueryParam("artifact_ids", joinedArtifactIds...); err != nil {
+			return err
+		}
+	}
 
 	if o.Filter != nil {
 
@@ -256,23 +287,6 @@ func (o *ListMetricsParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.R
 		if qFilter != "" {
 
 			if err := r.SetQueryParam("filter", qFilter); err != nil {
-				return err
-			}
-		}
-	}
-
-	if o.Namespace != nil {
-
-		// query param namespace
-		var qrNamespace string
-
-		if o.Namespace != nil {
-			qrNamespace = *o.Namespace
-		}
-		qNamespace := qrNamespace
-		if qNamespace != "" {
-
-			if err := r.SetQueryParam("namespace", qNamespace); err != nil {
 				return err
 			}
 		}
@@ -351,10 +365,44 @@ func (o *ListMetricsParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.R
 		}
 	}
 
+	if o.Type != nil {
+
+		// query param type
+		var qrType string
+
+		if o.Type != nil {
+			qrType = *o.Type
+		}
+		qType := qrType
+		if qType != "" {
+
+			if err := r.SetQueryParam("type", qType); err != nil {
+				return err
+			}
+		}
+	}
+
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
 	return nil
+}
+
+// bindParamListMetrics binds the parameter artifact_ids
+func (o *ListMetricsParams) bindParamArtifactIds(formats strfmt.Registry) []string {
+	artifactIdsIR := o.ArtifactIds
+
+	var artifactIdsIC []string
+	for _, artifactIdsIIR := range artifactIdsIR { // explode []string
+
+		artifactIdsIIV := artifactIdsIIR // string as string
+		artifactIdsIC = append(artifactIdsIC, artifactIdsIIV)
+	}
+
+	// items.CollectionFormat: "multi"
+	artifactIdsIS := swag.JoinByFormat(artifactIdsIC, "multi")
+
+	return artifactIdsIS
 }
 
 // bindParamListMetrics binds the parameter run_ids

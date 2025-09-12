@@ -32,6 +32,10 @@ type V2beta1ArtifactTask struct {
 	// For example:
 	//  * "param-#" when using parameters in a ParallelFor
 	//  * "Output" when using Pythonic Artifacts
+	//
+	// For outputs, the key is the name of the parameter
+	// in the component spec (found in OutputDefinitions)
+	// used to output the artifact.
 	ProducerKey string `json:"producer_key,omitempty"`
 
 	// The task that produced this artifact
@@ -42,6 +46,9 @@ type V2beta1ArtifactTask struct {
 	//     outputArtifactKey: output_dataset
 	//     producerTask: create-dataset
 	// These fields are used to track this lineage.
+	//
+	// For outputs, the producer task is the component name
+	// of the task that produced the artifact.
 	ProducerTaskName string `json:"producer_task_name,omitempty"`
 
 	// run id

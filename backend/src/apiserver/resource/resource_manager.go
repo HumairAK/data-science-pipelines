@@ -85,7 +85,6 @@ type ClientManagerInterface interface {
 	JobStore() storage.JobStoreInterface
 	RunStore() storage.RunStoreInterface
 	TaskStore() storage.TaskStoreInterface
-	RunMetricStore() storage.RunMetricStoreInterface
 	ArtifactStore() storage.ArtifactStoreInterface
 	ArtifactTaskStore() storage.ArtifactTaskStoreInterface
 	ResourceReferenceStore() storage.ResourceReferenceStoreInterface
@@ -110,29 +109,28 @@ type ResourceManagerOptions struct {
 }
 
 type ResourceManager struct {
-		experimentStore           storage.ExperimentStoreInterface
-		pipelineStore             storage.PipelineStoreInterface
-		jobStore                  storage.JobStoreInterface
-		runStore                  storage.RunStoreInterface
-		taskStore                 storage.TaskStoreInterface
-		runMetricStore            storage.RunMetricStoreInterface
-		artifactStore             storage.ArtifactStoreInterface
-		artifactTaskStore         storage.ArtifactTaskStoreInterface
-		resourceReferenceStore    storage.ResourceReferenceStoreInterface
-		dBStatusStore             storage.DBStatusStoreInterface
-		defaultExperimentStore    storage.DefaultExperimentStoreInterface
-		objectStore               storage.ObjectStoreInterface
-		execClient                util.ExecutionClient
-		swfClient                 client.SwfClientInterface
-		k8sCoreClient             client.KubernetesCoreInterface
-		subjectAccessReviewClient client.SubjectAccessReviewInterface
-		tokenReviewClient         client.TokenReviewInterface
-		logArchive                archive.LogArchiveInterface
-		time                      util.TimeInterface
-		uuid                      util.UUIDGeneratorInterface
-		authenticators            []kfpauth.Authenticator
-		options                   *ResourceManagerOptions
-	}
+	experimentStore           storage.ExperimentStoreInterface
+	pipelineStore             storage.PipelineStoreInterface
+	jobStore                  storage.JobStoreInterface
+	runStore                  storage.RunStoreInterface
+	taskStore                 storage.TaskStoreInterface
+	artifactStore             storage.ArtifactStoreInterface
+	artifactTaskStore         storage.ArtifactTaskStoreInterface
+	resourceReferenceStore    storage.ResourceReferenceStoreInterface
+	dBStatusStore             storage.DBStatusStoreInterface
+	defaultExperimentStore    storage.DefaultExperimentStoreInterface
+	objectStore               storage.ObjectStoreInterface
+	execClient                util.ExecutionClient
+	swfClient                 client.SwfClientInterface
+	k8sCoreClient             client.KubernetesCoreInterface
+	subjectAccessReviewClient client.SubjectAccessReviewInterface
+	tokenReviewClient         client.TokenReviewInterface
+	logArchive                archive.LogArchiveInterface
+	time                      util.TimeInterface
+	uuid                      util.UUIDGeneratorInterface
+	authenticators            []kfpauth.Authenticator
+	options                   *ResourceManagerOptions
+}
 
 func NewResourceManager(clientManager ClientManagerInterface, options *ResourceManagerOptions) *ResourceManager {
 	return &ResourceManager{
@@ -141,7 +139,6 @@ func NewResourceManager(clientManager ClientManagerInterface, options *ResourceM
 		jobStore:                  clientManager.JobStore(),
 		runStore:                  clientManager.RunStore(),
 		taskStore:                 clientManager.TaskStore(),
-		runMetricStore:            clientManager.RunMetricStore(),
 		artifactStore:             clientManager.ArtifactStore(),
 		artifactTaskStore:         clientManager.ArtifactTaskStore(),
 		resourceReferenceStore:    clientManager.ResourceReferenceStore(),
@@ -2084,7 +2081,7 @@ func (r *ResourceManager) GetTaskChildren(taskId string) ([]*model.Task, error) 
 
 // ListArtifactTasks Fetches artifact tasks with given filtering and listing options.
 func (r *ResourceManager) ListArtifactTasks(filterContexts []*model.FilterContext, opts *list.Options) ([]*model.ArtifactTask, int, string, error) {
- artifactTasks, totalSize, nextPageToken, err := r.artifactTaskStore.ListArtifactTasks(filterContexts, opts)
+	artifactTasks, totalSize, nextPageToken, err := r.artifactTaskStore.ListArtifactTasks(filterContexts, opts)
 	if err != nil {
 		return nil, 0, "", util.Wrap(err, "Failed to list artifact tasks")
 	}
@@ -2118,15 +2115,6 @@ func (r *ResourceManager) CreateArtifact(artifact *model.Artifact) (*model.Artif
 	return newArtifact, nil
 }
 
-// UpdateArtifact Updates an artifact entry.
-func (r *ResourceManager) UpdateArtifact(artifact *model.Artifact) (*model.Artifact, error) {
-	updatedArtifact, err := r.artifactStore.UpdateArtifact(artifact)
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to update artifact")
-	}
-	return updatedArtifact, nil
-}
-
 // ListArtifacts Fetches artifacts with given filtering and listing options.
 func (r *ResourceManager) ListArtifacts(filterContexts []*model.FilterContext, opts *list.Options) ([]*model.Artifact, int, string, error) {
 	// Use the first filter context for now (artifacts are typically filtered by namespace)
@@ -2140,39 +2128,4 @@ func (r *ResourceManager) ListArtifacts(filterContexts []*model.FilterContext, o
 		return nil, 0, "", util.Wrap(err, "Failed to list artifacts")
 	}
 	return artifacts, totalSize, nextPageToken, nil
-}
-
-// CreateRunMetric Creates a run metric entry.
-func (r *ResourceManager) CreateRunMetric(metric *model.RunMetric) (*model.RunMetric, error) {
-	newMetric, err := r.runMetricStore.CreateRunMetric(metric)
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to create run metric")
-	}
-	return newMetric, nil
-}
-
-func (r *ResourceManager) CreateRunMetrics(metrics []*model.RunMetric) ([]*model.RunMetric, error) {
-	newMetrics, err := r.runMetricStore.CreateRunMetrics(metrics)
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to create run metric")
-	}
-	return newMetrics, nil
-}
-
-// GetRunMetric Fetches a run metric with a given task ID and name.
-func (r *ResourceManager) GetRunMetric(taskID, name string) (*model.RunMetric, error) {
-	metric, err := r.runMetricStore.GetRunMetric(taskID, name)
-	if err != nil {
-		return nil, util.Wrapf(err, "Failed to fetch run metric %v/%v", taskID, name)
-	}
-	return metric, nil
-}
-
-// ListRunMetrics Fetches run metrics with given filtering and listing options.
-func (r *ResourceManager) ListRunMetrics(filterContexts []*model.FilterContext, opts *list.Options) ([]*model.RunMetric, int, string, error) {
-	metrics, totalSize, nextPageToken, err := r.runMetricStore.ListRunMetrics(filterContexts, opts)
-	if err != nil {
-		return nil, 0, "", util.Wrap(err, "Failed to list run metrics")
-	}
-	return metrics, totalSize, nextPageToken, nil
 }

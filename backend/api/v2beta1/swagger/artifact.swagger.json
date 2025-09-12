@@ -238,79 +238,6 @@
         ]
       }
     },
-    "/apis/v2beta1/artifacts/{artifact.artifact_id}": {
-      "put": {
-        "summary": "Updates an existing artifact.",
-        "operationId": "update_artifact",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v2beta1Artifact"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/googlerpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "artifact.artifact_id",
-            "description": "Output only. The unique server generated id of the artifact.\nNote: Updated id name to be consistent with other api naming patterns (with prefix)",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "artifact",
-            "description": "Required. The artifact to update. The artifact_id field is required.",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "type": "string",
-                  "title": "Required. The client provided name of the artifact.\nNote: it seems in MLMD when name was set, it had to be unique for that type_id\nthis restriction is removed here"
-                },
-                "type": {
-                  "$ref": "#/definitions/ArtifactArtifactType",
-                  "title": "Required. The name of an ArtifactType. E.g. Dataset"
-                },
-                "uri": {
-                  "type": "string",
-                  "description": "Required. The uniform resource identifier of the physical artifact.\nMay be empty if there is no physical artifact."
-                },
-                "metadata": {
-                  "type": "object",
-                  "additionalProperties": {},
-                  "description": "Optional. User provided custom properties which are not defined by its type."
-                },
-                "value": {
-                  "description": "Value is used for metrics. In the case for metrics,\nvalue can be double or a valid json,\nbut not string_value, bool_value, null_value\nIn the future it may be extended to be applicable\nto other artifacts."
-                },
-                "created_at": {
-                  "type": "string",
-                  "format": "date-time",
-                  "description": "Output only. Create time of the artifact in millisecond since epoch.\nNote: The type and name is updated from mlmd artifact to be consistent with other backend apis.",
-                  "readOnly": true
-                },
-                "namespace": {
-                  "type": "string"
-                }
-              },
-              "title": "Required. The artifact to update. The artifact_id field is required."
-            }
-          }
-        ],
-        "tags": [
-          "ArtifactService"
-        ]
-      }
-    },
     "/apis/v2beta1/artifacts/{artifact_id}": {
       "get": {
         "summary": "Finds a specific Artifact by ID.",
@@ -351,7 +278,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/v2beta1ListMetricsResponse"
+              "$ref": "#/definitions/v2beta1ListArtifactTasksResponse"
             }
           },
           "default": {
@@ -364,7 +291,7 @@
         "parameters": [
           {
             "name": "task_ids",
-            "description": "Optional, filter metrics by a set of task_ids",
+            "description": "Optional, filter artifact task by a set of task_ids\nWe can also likely just rely on filter for this and omit this field",
             "in": "query",
             "required": false,
             "type": "array",
@@ -375,7 +302,7 @@
           },
           {
             "name": "run_ids",
-            "description": "Optional, filter metrics by a set of run_ids",
+            "description": "Optional, filter artifact task by a set of run_ids",
             "in": "query",
             "required": false,
             "type": "array",
@@ -385,22 +312,36 @@
             "collectionFormat": "multi"
           },
           {
-            "name": "namespace",
-            "description": "Optional. Namespace for the metrics.",
+            "name": "artifact_ids",
+            "description": "Optional, filter artifact task by a set of artifact_ids\nWe can also likely just rely on filter for this and omit this field",
             "in": "query",
             "required": false,
-            "type": "string"
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "type",
+            "description": "Optional. Only list artifact tasks that have artifacts of this type.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "INPUT",
+              "OUTPUT"
+            ],
+            "default": "INPUT"
           },
           {
             "name": "page_token",
-            "description": "A page token to request the results page.",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
             "name": "page_size",
-            "description": "The number of metrics to be listed per page.",
             "in": "query",
             "required": false,
             "type": "integer",
@@ -408,14 +349,12 @@
           },
           {
             "name": "sort_by",
-            "description": "Sorting order in form of \"field_name\", \"field_name asc\" or \"field_name desc\".",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
             "name": "filter",
-            "description": "A url-encoded, JSON-serialized filter protocol buffer.",
             "in": "query",
             "required": false,
             "type": "string"
@@ -448,7 +387,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/v2beta1LogMetricRequest"
+              "$ref": "#/definitions/v2beta1CreateArtifactRequest"
             }
           }
         ],
@@ -457,7 +396,7 @@
         ]
       }
     },
-    "/apis/v2beta1/metrics/{task_id}/{name}": {
+    "/apis/v2beta1/metrics/{artifact_id}": {
       "get": {
         "summary": "Gets a metric by task ID and name.",
         "operationId": "get_metric",
@@ -477,15 +416,8 @@
         },
         "parameters": [
           {
-            "name": "task_id",
-            "description": "Required. Task UUID that owns this metric",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "name",
-            "description": "Required. Name of the metric",
+            "name": "artifact_id",
+            "description": "Required. The ID of the artifact to be retrieved.",
             "in": "path",
             "required": true,
             "type": "string"
@@ -566,7 +498,7 @@
         },
         "name": {
           "type": "string",
-          "title": "Required. The client provided name of the artifact.\nNote: it seems in MLMD when name was set, it had to be unique for that type_id\nthis restriction is removed here"
+          "description": "Required. The client provided name of the artifact.\nNote: it seems in MLMD when name was set, it had to be unique for that type_id\nthis restriction is removed here\nIf this is a \"Metric\" artifact, the name of the metric\nis treated as the Key in its K/V pair."
         },
         "type": {
           "$ref": "#/definitions/ArtifactArtifactType",
@@ -581,8 +513,10 @@
           "additionalProperties": {},
           "description": "Optional. User provided custom properties which are not defined by its type."
         },
-        "value": {
-          "description": "Value is used for metrics. In the case for metrics,\nvalue can be double or a valid json,\nbut not string_value, bool_value, null_value\nIn the future it may be extended to be applicable\nto other artifacts."
+        "number_value": {
+          "type": "number",
+          "format": "double",
+          "title": "Used primarily for metrics"
         },
         "created_at": {
           "type": "string",
@@ -618,10 +552,11 @@
         },
         "producer_task_name": {
           "type": "string",
-          "description": "The task that produced this artifact\nFor example in the case of a pipeline channel\nthat is an output artifact you might have as\ninput something like the following in the IR:\n  taskOutputArtifact:\n    outputArtifactKey: output_dataset\n    producerTask: create-dataset\nThese fields are used to track this lineage."
+          "description": "The task that produced this artifact\nFor example in the case of a pipeline channel\nthat is an output artifact you might have as\ninput something like the following in the IR:\n  taskOutputArtifact:\n    outputArtifactKey: output_dataset\n    producerTask: create-dataset\nThese fields are used to track this lineage.\n\nFor outputs, the producer task is the component name\nof the task that produced the artifact."
         },
         "producer_key": {
           "type": "string",
+          "description": "For outputs, the key is the name of the parameter\nin the component spec (found in OutputDefinitions)\nused to output the artifact.",
           "title": "The key is often the parameter name used\nas input/output on the component, but\ncan also take on the value of of other values.\nFor example:\n * \"param-#\" when using parameters in a ParallelFor\n * \"Output\" when using Pythonic Artifacts"
         }
       }
@@ -632,7 +567,8 @@
         "INPUT",
         "OUTPUT"
       ],
-      "default": "INPUT"
+      "default": "INPUT",
+      "title": "Describes the I/O relationship between\nthis Artifact and Task"
     },
     "v2beta1CreateArtifactRequest": {
       "type": "object",
@@ -640,6 +576,22 @@
         "artifact": {
           "$ref": "#/definitions/v2beta1Artifact",
           "description": "Required. The artifact to create."
+        },
+        "run_id": {
+          "type": "string",
+          "description": "An artifact is always created in the context of a\nrun."
+        },
+        "task_id": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/definitions/v2beta1ArtifactTaskType"
+        },
+        "producer_task_name": {
+          "type": "string"
+        },
+        "producer_key": {
+          "type": "string"
         }
       }
     },
@@ -691,37 +643,6 @@
         },
         "next_page_token": {
           "type": "string"
-        }
-      }
-    },
-    "v2beta1ListMetricsResponse": {
-      "type": "object",
-      "properties": {
-        "metrics": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "$ref": "#/definitions/v2beta1Artifact"
-          },
-          "description": "The list of metrics returned."
-        },
-        "total_size": {
-          "type": "integer",
-          "format": "int32",
-          "description": "The total number of metrics available."
-        },
-        "next_page_token": {
-          "type": "string",
-          "description": "Token to retrieve the next page of results."
-        }
-      }
-    },
-    "v2beta1LogMetricRequest": {
-      "type": "object",
-      "properties": {
-        "metric": {
-          "$ref": "#/definitions/v2beta1Artifact",
-          "description": "Required. The metric to log."
         }
       }
     }

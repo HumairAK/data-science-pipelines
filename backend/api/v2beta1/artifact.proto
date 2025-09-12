@@ -76,19 +76,6 @@ service ArtifactService {
     };
   }
 
-  // Updates an existing artifact.
-  rpc UpdateArtifact(UpdateArtifactRequest) returns (Artifact) {
-    option (google.api.http) = {
-      put: "/apis/v2beta1/artifacts/{artifact.artifact_id}"
-      body: "artifact"
-    };
-    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
-      operation_id: "update_artifact"
-      summary: "Updates an existing artifact."
-      tags: "ArtifactService"
-    };
-  }
-
   rpc ListArtifactTasks(ListArtifactTasksRequest) returns (ListArtifactTasksResponse) {
     option (google.api.http) = {
       get: "/apis/v2beta1/artifact_tasks"
@@ -101,6 +88,9 @@ service ArtifactService {
   }
 
   // Creates an artifact-task relationship.
+  // While we always create an artifact-task link when an artifact is created,
+  // In the case of Importer, we only create a link (and not an artifact)
+  // if Reimport = true.
   rpc CreateArtifactTask(CreateArtifactTaskRequest) returns (ArtifactTask) {
     option (google.api.http) = {
       post: "/apis/v2beta1/artifact_tasks"
@@ -126,8 +116,16 @@ service ArtifactService {
     };
   }
 
+
+  // TODO(Humair):
+  // Having log, get, and list metrics just re-use the artifact req/resp
+  // message makes these calls kind of redundant.
+  // Consider providing some abstraction with customized response
+  // For example, a LogMetric request would have a subset of `ArtifactTaskType`
+  // for a type field, featuring Metric,ClassificationMetric,etc.
+
   // Logs a metric for a specific task.
-  rpc LogMetric(LogMetricRequest) returns (Artifact) {
+  rpc LogMetric(CreateArtifactRequest) returns (Artifact) {
     option (google.api.http) = {
       post: "/apis/v2beta1/metrics"
       body: "*"
@@ -140,9 +138,9 @@ service ArtifactService {
   }
 
   // Gets a metric by task ID and name.
-  rpc GetMetric(GetMetricRequest) returns (Artifact) {
+  rpc GetMetric(GetArtifactRequest) returns (Artifact) {
     option (google.api.http) = {
-      get: "/apis/v2beta1/metrics/{task_id}/{name}"
+      get: "/apis/v2beta1/metrics/{artifact_id}"
     };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       operation_id: "get_metric"
@@ -152,7 +150,7 @@ service ArtifactService {
   }
 
   // Lists all metrics.
-  rpc ListMetrics(ListMetricsRequest) returns (ListMetricsResponse) {
+  rpc ListMetrics(ListArtifactTasksRequest) returns (ListArtifactTasksResponse) {
     option (google.api.http) = {
       get: "/apis/v2beta1/metrics"
     };
@@ -167,11 +165,14 @@ service ArtifactService {
 message CreateArtifactRequest {
   // Required. The artifact to create.
   Artifact artifact = 1;
-}
 
-message UpdateArtifactRequest {
-  // Required. The artifact to update. The artifact_id field is required.
-  Artifact artifact = 1;
+  // An artifact is always created in the context of a
+  // run.
+  string run_id = 2;
+  string task_id = 3;
+  ArtifactTaskType type = 4;
+  string producer_task_name = 5;
+  string producer_key = 6;
 }
 
 message GetArtifactRequest {
@@ -244,44 +245,8 @@ message CreateArtifactTaskRequest {
   ArtifactTask artifact_task = 1;
 }
 
-message LogMetricRequest {
-  // Required. The metric to log.
-  Artifact metric = 1;
-}
-
-message GetMetricRequest {
-  // Required. Task UUID that owns this metric
-  string task_id = 1;
-  // Required. Name of the metric
-  string name = 2;
-}
-
-message ListMetricsRequest {
-  // Optional, filter metrics by a set of task_ids
-  repeated string task_ids = 1;
-  // Optional, filter metrics by a set of run_ids
-  repeated string run_ids = 2;
-  // Optional. Namespace for the metrics.
-  string namespace = 3;
-  // A page token to request the results page.
-  string page_token = 4;
-  // The number of metrics to be listed per page.
-  int32 page_size = 5;
-  // Sorting order in form of "field_name", "field_name asc" or "field_name desc".
-  string sort_by = 6;
-  // A url-encoded, JSON-serialized filter protocol buffer.
-  string filter = 7;
-}
-
-message ListMetricsResponse {
-  // The list of metrics returned.
-  repeated Artifact metrics = 1;
-  // The total number of metrics available.
-  int32 total_size = 2;
-  // Token to retrieve the next page of results.
-  string next_page_token = 3;
-}
-
+// Describes the I/O relationship between
+// this Artifact and Task
 enum ArtifactTaskType {
   INPUT = 0;
   OUTPUT = 1;
@@ -303,6 +268,9 @@ message ArtifactTask {
   //     outputArtifactKey: output_dataset
   //     producerTask: create-dataset
   // These fields are used to track this lineage.
+  //
+  // For outputs, the producer task is the component name
+  // of the task that produced the artifact.
   string producer_task_name = 6;
   // The key is often the parameter name used
   // as input/output on the component, but
@@ -310,6 +278,10 @@ message ArtifactTask {
   // For example:
   //  * "param-#" when using parameters in a ParallelFor
   //  * "Output" when using Pythonic Artifacts
+  //
+  // For outputs, the key is the name of the parameter
+  // in the component spec (found in OutputDefinitions)
+  // used to output the artifact.
   string producer_key = 7;
 }
 
@@ -322,6 +294,8 @@ message Artifact {
   // Required. The client provided name of the artifact.
   // Note: it seems in MLMD when name was set, it had to be unique for that type_id
   // this restriction is removed here
+  // If this is a "Metric" artifact, the name of the metric
+  // is treated as the Key in its K/V pair.
   string name = 2;
 
   enum ArtifactType {
@@ -350,7 +324,7 @@ message Artifact {
   map<string, google.protobuf.Value> metadata = 5;
 
   // Used primarily for metrics
-  double number_value = 6;
+  optional double number_value = 6;
 
   // Output only. Create time of the artifact in millisecond since epoch.
   // Note: The type and name is updated from mlmd artifact to be consistent with other backend apis.

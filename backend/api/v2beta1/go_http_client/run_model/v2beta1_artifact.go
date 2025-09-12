@@ -36,10 +36,15 @@ type V2beta1Artifact struct {
 	// Required. The client provided name of the artifact.
 	// Note: it seems in MLMD when name was set, it had to be unique for that type_id
 	// this restriction is removed here
+	// If this is a "Metric" artifact, the name of the metric
+	// is treated as the Key in its K/V pair.
 	Name string `json:"name,omitempty"`
 
 	// namespace
 	Namespace string `json:"namespace,omitempty"`
+
+	// Used primarily for metrics
+	NumberValue float64 `json:"number_value,omitempty"`
 
 	// Required. The name of an ArtifactType. E.g. Dataset
 	Type *ArtifactArtifactType `json:"type,omitempty"`
@@ -47,13 +52,6 @@ type V2beta1Artifact struct {
 	// Required. The uniform resource identifier of the physical artifact.
 	// May be empty if there is no physical artifact.
 	URI string `json:"uri,omitempty"`
-
-	// Value is used for metrics. In the case for metrics,
-	// value can be double or a valid json,
-	// but not string_value, bool_value, null_value
-	// In the future it may be extended to be applicable
-	// to other artifacts.
-	Value interface{} `json:"value,omitempty"`
 }
 
 // Validate validates this v2beta1 artifact
