@@ -426,26 +426,20 @@ message PipelineTaskDetail {
   // Sequence of dependen tasks.
   repeated ChildTask child_tasks = 17;
 
-  enum InputType {
-    ResolvedValue = 0;
-    PipelineChannel = 1;
-  }
   message InputOutputs {
     message Parameter {
-      InputType input_type = 1;
-      string value = 2;
-
-      // Fields for Resolved type
-      string name = 3;
-
+      string value = 1;
+      // Optional, this is only included on Runtime Tasks when the parameter name is known.
+      string name = 2;
       // Fields for PipelineChannel type
-      string producer_task_name = 4;
+      string producer_task_name = 3;
       // This would be the equivalent of output_parameter_key when it's a parameter output
       // But is also used for inputs (not present in sdk IR).
-      string producer_key = 5;
+      string producer_key = 4;
     }
     message ArtifactIO {
-      InputType input_type = 1;
+      // Optional, this is only included on Runtime Tasks when the parameter name is known.
+      string parameter_name = 1;
       Artifact value = 2;
       // Fields for PipelineChannel type
       string producer_task_name = 3;
