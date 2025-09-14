@@ -182,6 +182,9 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 }
 
 func TestListTasks_ByParent(t *testing.T) {
+	cm, rm, runID := seedOneRun(t)
+	defer cm.Close()
+	server := createRunServer(rm)
 
 	// Create parent task
 	parent, err := server.CreateTask(context.Background(),
