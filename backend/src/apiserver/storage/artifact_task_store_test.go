@@ -55,7 +55,7 @@ func TestCreateArtifactTask_Success(t *testing.T) {
 	art, err := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       "s3://b/p1",
+		Uri:       strPTR("s3://b/p1"),
 		Name:      "a1",
 		Metadata:  map[string]interface{}{"k": "v"},
 	})
@@ -109,7 +109,7 @@ func TestListArtifactTasks_Filters(t *testing.T) {
 	art1, err := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       "u1",
+		Uri:       strPTR("u1"),
 		Name:      "a1",
 		Metadata:  map[string]interface{}{},
 	})
@@ -118,7 +118,7 @@ func TestListArtifactTasks_Filters(t *testing.T) {
 	art2, err := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       "u2",
+		Uri:       strPTR("u2"),
 		Name:      "a2",
 		Metadata:  map[string]interface{}{},
 	})
@@ -225,7 +225,7 @@ func TestListArtifactsForTask_UsingArtifactTasks(t *testing.T) {
 	art1, err := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       "u1",
+		Uri:       strPTR("u1"),
 		Name:      "a1",
 		Metadata:  map[string]interface{}{},
 	})
@@ -234,7 +234,7 @@ func TestListArtifactsForTask_UsingArtifactTasks(t *testing.T) {
 	art2, err := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       "u2",
+		Uri:       strPTR("u2"),
 		Name:      "a2",
 		Metadata:  map[string]interface{}{},
 	})
@@ -298,7 +298,7 @@ func TestListArtifactTasks_Pagination_PageSizeAndNextPageToken(t *testing.T) {
 	art1, _ := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       "u1",
+		Uri:       strPTR("u1"),
 		Name:      "a1",
 		Metadata:  map[string]interface{}{},
 	})
@@ -307,7 +307,7 @@ func TestListArtifactTasks_Pagination_PageSizeAndNextPageToken(t *testing.T) {
 	art2, _ := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       "u2",
+		Uri:       strPTR("u2"),
 		Name:      "a2",
 		Metadata:  map[string]interface{}{},
 	})
@@ -381,7 +381,7 @@ func TestListArtifactTasks_Pagination_WithFilter(t *testing.T) {
 	art1, _ := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       "u1",
+		Uri:       strPTR("u1"),
 		Name:      "a1",
 		Metadata:  map[string]interface{}{},
 	})
@@ -390,7 +390,7 @@ func TestListArtifactTasks_Pagination_WithFilter(t *testing.T) {
 	art2, _ := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       "u2",
+		Uri:       strPTR("u2"),
 		Name:      "a2",
 		Metadata:  map[string]interface{}{},
 	})

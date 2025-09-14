@@ -516,18 +516,17 @@ func TestTaskParameters_PersistAndFetch(t *testing.T) {
 
 	// Build two simple Parameter protos for inputs and outputs
 	inParam := &apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter{
-		InputType:        apiv2beta1.PipelineTaskDetail_ResolvedValue,
-		Value:            "in-val",
-		Name:             "in-name",
-		ProducerTaskName: "",
-		ProducerKey:      "",
+		Value:    "in-val",
+		Name:     strPTR("in-name"),
+		Producer: &apiv2beta1.PipelineTaskDetail_InputOutputs_IOProducer{},
 	}
 	outParam := &apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter{
-		InputType:        apiv2beta1.PipelineTaskDetail_PipelineChannel,
-		Value:            "out-val",
-		Name:             "out-name",
-		ProducerTaskName: "task-x",
-		ProducerKey:      "param-y",
+		Value: "out-val",
+		Name:  strPTR("out-name"),
+		Producer: &apiv2beta1.PipelineTaskDetail_InputOutputs_IOProducer{
+			TaskName: "task-x",
+			Key:      "param-y",
+		},
 	}
 	inParams, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter{inParam})
 	assert.NoError(t, err)
@@ -582,7 +581,7 @@ func TestHydrateArtifactsForTask_GetAndList(t *testing.T) {
 	artIn, err := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      0,
-		Uri:       "s3://bucket/in",
+		Uri:       strPTR("s3://bucket/in"),
 		Name:      "in-art",
 	})
 	assert.NoError(t, err)
@@ -590,7 +589,7 @@ func TestHydrateArtifactsForTask_GetAndList(t *testing.T) {
 	artOut, err := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      0,
-		Uri:       "s3://bucket/out",
+		Uri:       strPTR("s3://bucket/out"),
 		Name:      "out-art",
 	})
 	assert.NoError(t, err)
@@ -624,20 +623,15 @@ func TestHydrateArtifactsForTask_GetAndList(t *testing.T) {
 	assert.NoError(t, err)
 	if assert.Equal(t, 1, len(fetched.InputArtifactsHydrated)) {
 		ia := fetched.InputArtifactsHydrated[0]
-		assert.Equal(t, apiv2beta1.PipelineTaskDetail_ResolvedValue, ia.InputType)
-		assert.Equal(t, artIn.UUID, ia.ArtifactID)
-		assert.Equal(t, "", ia.ProducerTaskName)
-		assert.Equal(t, "", ia.ProducerKey)
+		assert.Equal(t, ia.Producer, &apiv2beta1.PipelineTaskDetail_InputOutputs_IOProducer{})
 		if assert.NotNil(t, ia.Value) {
 			assert.Equal(t, "in-art", ia.Value.Name)
 		}
 	}
 	if assert.Equal(t, 1, len(fetched.OutputArtifactsHydrated)) {
 		oa := fetched.OutputArtifactsHydrated[0]
-		assert.Equal(t, apiv2beta1.PipelineTaskDetail_PipelineChannel, oa.InputType)
-		assert.Equal(t, artOut.UUID, oa.ArtifactID)
-		assert.Equal(t, "producer-task", oa.ProducerTaskName)
-		assert.Equal(t, "output-key", oa.ProducerKey)
+		assert.Equal(t, "producer-task", oa.Producer.TaskName)
+		assert.Equal(t, "output-key", oa.Producer.Key)
 		if assert.NotNil(t, oa.Value) {
 			assert.Equal(t, "out-art", oa.Value.Name)
 		}

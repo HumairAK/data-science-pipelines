@@ -12,6 +12,8 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
+func strPTR(s string) *string { return &s }
+
 const (
 	artifactUUID1 = "a23e4567-e89b-12d3-a456-426655441011"
 	artifactUUID2 = "a23e4567-e89b-12d3-a456-426655441012"
@@ -39,7 +41,7 @@ func TestCreateArtifact_Success(t *testing.T) {
 	art := &model.Artifact{
 		Namespace: "ns1",
 		Type:      apiv2beta1.Artifact_Artifact,
-		Uri:       "s3://bucket/path/file",
+		Uri:       strPTR("s3://bucket/path/file"),
 		Name:      "model.pt",
 		Metadata:  model.JSONData(map[string]interface{}{"k": "v"}),
 	}
@@ -84,7 +86,7 @@ func TestListArtifacts_BasicFiltersAndPagination(t *testing.T) {
 	_, err := store.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       "u1",
+		Uri:       strPTR("u1"),
 		Name:      "a1",
 		Metadata:  map[string]interface{}{"m": 1},
 	})
@@ -94,7 +96,7 @@ func TestListArtifacts_BasicFiltersAndPagination(t *testing.T) {
 	_, err = store.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      2,
-		Uri:       "u2",
+		Uri:       strPTR("u2"),
 		Name:      "a2",
 		Metadata:  map[string]interface{}{"m": 2},
 	})
@@ -104,7 +106,7 @@ func TestListArtifacts_BasicFiltersAndPagination(t *testing.T) {
 	_, err = store.CreateArtifact(&model.Artifact{
 		Namespace: "ns2",
 		Type:      1,
-		Uri:       "u3",
+		Uri:       strPTR("u3"),
 		Name:      "a3",
 		Metadata:  map[string]interface{}{"m": 3},
 	})
