@@ -780,9 +780,9 @@ type Artifact struct {
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// Required. The name of an ArtifactType. E.g. Dataset
 	Type Artifact_ArtifactType `protobuf:"varint,3,opt,name=type,proto3,enum=kubeflow.pipelines.backend.api.v2beta1.Artifact_ArtifactType" json:"type,omitempty"`
-	// Required. The uniform resource identifier of the physical artifact.
+	// The uniform resource identifier of the physical artifact.
 	// May be empty if there is no physical artifact.
-	Uri string `protobuf:"bytes,4,opt,name=uri,proto3" json:"uri,omitempty"`
+	Uri *string `protobuf:"bytes,4,opt,name=uri,proto3,oneof" json:"uri,omitempty"`
 	// Optional. User provided custom properties which are not defined by its type.
 	Metadata map[string]*structpb.Value `protobuf:"bytes,5,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Used primarily for metrics
@@ -847,8 +847,8 @@ func (x *Artifact) GetType() Artifact_ArtifactType {
 }
 
 func (x *Artifact) GetUri() string {
-	if x != nil {
-		return x.Uri
+	if x != nil && x.Uri != nil {
+		return *x.Uri
 	}
 	return ""
 }
@@ -933,15 +933,15 @@ const file_backend_api_v2beta1_artifact_proto_rawDesc = "" +
 	"\atask_id\x18\x04 \x01(\tR\x06taskId\x12L\n" +
 	"\x04type\x18\x05 \x01(\x0e28.kubeflow.pipelines.backend.api.v2beta1.ArtifactTaskTypeR\x04type\x12,\n" +
 	"\x12producer_task_name\x18\x06 \x01(\tR\x10producerTaskName\x12!\n" +
-	"\fproducer_key\x18\a \x01(\tR\vproducerKey\"\x92\x05\n" +
+	"\fproducer_key\x18\a \x01(\tR\vproducerKey\"\x9f\x05\n" +
 	"\bArtifact\x12\x1f\n" +
 	"\vartifact_id\x18\x01 \x01(\tR\n" +
 	"artifactId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12Q\n" +
-	"\x04type\x18\x03 \x01(\x0e2=.kubeflow.pipelines.backend.api.v2beta1.Artifact.ArtifactTypeR\x04type\x12\x10\n" +
-	"\x03uri\x18\x04 \x01(\tR\x03uri\x12Z\n" +
+	"\x04type\x18\x03 \x01(\x0e2=.kubeflow.pipelines.backend.api.v2beta1.Artifact.ArtifactTypeR\x04type\x12\x15\n" +
+	"\x03uri\x18\x04 \x01(\tH\x00R\x03uri\x88\x01\x01\x12Z\n" +
 	"\bmetadata\x18\x05 \x03(\v2>.kubeflow.pipelines.backend.api.v2beta1.Artifact.MetadataEntryR\bmetadata\x12&\n" +
-	"\fnumber_value\x18\x06 \x01(\x01H\x00R\vnumberValue\x88\x01\x01\x129\n" +
+	"\fnumber_value\x18\x06 \x01(\x01H\x01R\vnumberValue\x88\x01\x01\x129\n" +
 	"\n" +
 	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x1c\n" +
 	"\tnamespace\x18\b \x01(\tR\tnamespace\x1aS\n" +
@@ -958,7 +958,8 @@ const file_backend_api_v2beta1_artifact_proto_rawDesc = "" +
 	"\n" +
 	"\x06Metric\x10\x06\x12\x18\n" +
 	"\x14ClassificationMetric\x10\a\x12\x1e\n" +
-	"\x1aSlicedClassificationMetric\x10\bB\x0f\n" +
+	"\x1aSlicedClassificationMetric\x10\bB\x06\n" +
+	"\x04_uriB\x0f\n" +
 	"\r_number_value*)\n" +
 	"\x10ArtifactTaskType\x12\t\n" +
 	"\x05INPUT\x10\x00\x12\n" +

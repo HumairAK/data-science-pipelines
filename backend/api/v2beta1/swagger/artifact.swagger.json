@@ -506,7 +506,7 @@
         },
         "uri": {
           "type": "string",
-          "description": "Required. The uniform resource identifier of the physical artifact.\nMay be empty if there is no physical artifact."
+          "description": "The uniform resource identifier of the physical artifact.\nMay be empty if there is no physical artifact."
         },
         "metadata": {
           "type": "object",

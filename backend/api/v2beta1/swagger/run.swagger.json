@@ -598,45 +598,47 @@
       "default": "TYPE_UNSPECIFIED",
       "description": " - TYPE_UNSPECIFIED: default; treated as \"not set\"\nreject if unset."
     },
-    "InputOutputsArtifactIO": {
+    "InputOutputsIOArtifact": {
       "type": "object",
       "properties": {
-        "input_type": {
-          "$ref": "#/definitions/PipelineTaskDetailInputType"
+        "parameter_name": {
+          "type": "string",
+          "description": "Optional, this is only included on Runtime Tasks when the parameter name is known."
         },
         "value": {
           "$ref": "#/definitions/v2beta1Artifact"
         },
-        "producer_task_name": {
-          "type": "string",
-          "title": "Fields for PipelineChannel type"
+        "producer": {
+          "$ref": "#/definitions/InputOutputsIOProducer",
+          "title": "All IO artifacts have a producer, so the following\nfields are required. In the case of importer\nwhere the artifact is set to reimport = true\nthe name \u0026 key are importer-[0-9]+ and \"artifact\""
+        }
+      }
+    },
+    "InputOutputsIOProducer": {
+      "type": "object",
+      "properties": {
+        "task_name": {
+          "type": "string"
         },
-        "producer_key": {
+        "key": {
           "type": "string",
-          "description": "This would be the equivalent of output_artifact_key when it's an Artifact output\nBut is also used for inputs (not present in sdk IR)."
+          "description": "This would be the equivalent of output_parameter_key\nwhen it's a parameter output, or output_artifact_key\nwhen it is an Artifact.\nBut is also used for inputs."
         }
       }
     },
     "InputOutputsParameter": {
       "type": "object",
       "properties": {
-        "input_type": {
-          "$ref": "#/definitions/PipelineTaskDetailInputType"
-        },
         "value": {
           "type": "string"
         },
         "name": {
           "type": "string",
-          "title": "Fields for Resolved type"
+          "description": "Optional, this is only included on Runtime Tasks when the parameter name is known."
         },
-        "producer_task_name": {
-          "type": "string",
-          "title": "Fields for PipelineChannel type"
-        },
-        "producer_key": {
-          "type": "string",
-          "description": "This would be the equivalent of output_parameter_key when it's a parameter output\nBut is also used for inputs (not present in sdk IR)."
+        "producer": {
+          "$ref": "#/definitions/InputOutputsIOProducer",
+          "description": "Not all Parameters have task producers,\nFor example they can also be Runtime Constants.\nWhereas in the case of a PipelineChannel, they\ndo have a producer."
         }
       }
     },
@@ -675,19 +677,11 @@
           "type": "array",
           "items": {
             "type": "object",
-            "$ref": "#/definitions/InputOutputsArtifactIO"
+            "$ref": "#/definitions/InputOutputsIOArtifact"
           },
           "description": "Output Only. To create Artifacts for a task are created\nvia ArtifactTasks."
         }
       }
-    },
-    "PipelineTaskDetailInputType": {
-      "type": "string",
-      "enum": [
-        "ResolvedValue",
-        "PipelineChannel"
-      ],
-      "default": "ResolvedValue"
     },
     "PipelineTaskDetailTaskPod": {
       "type": "object",
@@ -793,7 +787,7 @@
         },
         "uri": {
           "type": "string",
-          "description": "Required. The uniform resource identifier of the physical artifact.\nMay be empty if there is no physical artifact."
+          "description": "The uniform resource identifier of the physical artifact.\nMay be empty if there is no physical artifact."
         },
         "metadata": {
           "type": "object",

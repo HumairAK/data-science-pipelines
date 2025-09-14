@@ -51,10 +51,9 @@
               "artifact_id": "1",
               "name": "my_metric",
               "type": "Metric",
-              "uri": "minio://mlpipeline/v2/artifacts/pipeline/9e68aca5-3afa-4028-8777-f697d858053f/input_dataset",
               "custom_properties": {},
               "number_value": 23.21,
-              "created_at": "2025-08-08T15:15:41Z",
+              "created_at": "2025-08-08T15:15:41Z"
             }
           },
           {
@@ -80,18 +79,18 @@
             "value": "false"
           },
           {
-            "name": "some_param",
             "value": "this",
-            // For tasks, we may get PipelineChannels as input parameters
-            // PipelineChannel can be of the following forms:
-            // * pipelinechannel--output-msg-output_artifact
-            // * pipelinechannel--output-msg-Output
-            // We convert these to a more machine readable format:
-            "producer_task_name": "output-msg",
-            // We call it ID because it's not always a parameter "name" so producer_parameter_name would be misleading
-            // (e.g. in the case of loops pipelinechannel--loop-item-param-1), if we can infer the name of the iteration
-            // param then "name" would be better.
-            "producer_key": "a_msg",
+            "producer": {
+              // For tasks, we may get PipelineChannels as input parameters
+              // PipelineChannel can be of the following forms:
+              // * pipelinechannel--output-msg-output_artifact
+              // * pipelinechannel--output-msg-Output
+              "task_name": "output-msg",
+              // We call it ID because it's not always a parameter "name" so producer_parameter_name would be misleading
+              // (e.g. in the case of loops pipelinechannel--loop-item-param-1), if we can infer the name of the iteration
+              // param then "name" would be better.
+              "key": "a_msg"
+            }
           }
         ]
       },

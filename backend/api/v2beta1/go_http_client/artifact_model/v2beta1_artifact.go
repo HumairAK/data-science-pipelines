@@ -49,7 +49,7 @@ type V2beta1Artifact struct {
 	// Required. The name of an ArtifactType. E.g. Dataset
 	Type *ArtifactArtifactType `json:"type,omitempty"`
 
-	// Required. The uniform resource identifier of the physical artifact.
+	// The uniform resource identifier of the physical artifact.
 	// May be empty if there is no physical artifact.
 	URI string `json:"uri,omitempty"`
 }

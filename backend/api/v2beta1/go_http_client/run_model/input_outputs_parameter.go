@@ -18,18 +18,14 @@ import (
 // swagger:model InputOutputsParameter
 type InputOutputsParameter struct {
 
-	// input type
-	InputType *PipelineTaskDetailInputType `json:"input_type,omitempty"`
-
-	// Fields for Resolved type
+	// Optional, this is only included on Runtime Tasks when the parameter name is known.
 	Name string `json:"name,omitempty"`
 
-	// This would be the equivalent of output_parameter_key when it's a parameter output
-	// But is also used for inputs (not present in sdk IR).
-	ProducerKey string `json:"producer_key,omitempty"`
-
-	// Fields for PipelineChannel type
-	ProducerTaskName string `json:"producer_task_name,omitempty"`
+	// Not all Parameters have task producers,
+	// For example they can also be Runtime Constants.
+	// Whereas in the case of a PipelineChannel, they
+	// do have a producer.
+	Producer *InputOutputsIOProducer `json:"producer,omitempty"`
 
 	// value
 	Value string `json:"value,omitempty"`
@@ -39,7 +35,7 @@ type InputOutputsParameter struct {
 func (m *InputOutputsParameter) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateInputType(formats); err != nil {
+	if err := m.validateProducer(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -49,17 +45,17 @@ func (m *InputOutputsParameter) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *InputOutputsParameter) validateInputType(formats strfmt.Registry) error {
-	if swag.IsZero(m.InputType) { // not required
+func (m *InputOutputsParameter) validateProducer(formats strfmt.Registry) error {
+	if swag.IsZero(m.Producer) { // not required
 		return nil
 	}
 
-	if m.InputType != nil {
-		if err := m.InputType.Validate(formats); err != nil {
+	if m.Producer != nil {
+		if err := m.Producer.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("input_type")
+				return ve.ValidateName("producer")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
-				return ce.ValidateName("input_type")
+				return ce.ValidateName("producer")
 			}
 			return err
 		}
@@ -72,7 +68,7 @@ func (m *InputOutputsParameter) validateInputType(formats strfmt.Registry) error
 func (m *InputOutputsParameter) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.contextValidateInputType(ctx, formats); err != nil {
+	if err := m.contextValidateProducer(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -82,19 +78,19 @@ func (m *InputOutputsParameter) ContextValidate(ctx context.Context, formats str
 	return nil
 }
 
-func (m *InputOutputsParameter) contextValidateInputType(ctx context.Context, formats strfmt.Registry) error {
+func (m *InputOutputsParameter) contextValidateProducer(ctx context.Context, formats strfmt.Registry) error {
 
-	if m.InputType != nil {
+	if m.Producer != nil {
 
-		if swag.IsZero(m.InputType) { // not required
+		if swag.IsZero(m.Producer) { // not required
 			return nil
 		}
 
-		if err := m.InputType.ContextValidate(ctx, formats); err != nil {
+		if err := m.Producer.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("input_type")
+				return ve.ValidateName("producer")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
-				return ce.ValidateName("input_type")
+				return ce.ValidateName("producer")
 			}
 			return err
 		}

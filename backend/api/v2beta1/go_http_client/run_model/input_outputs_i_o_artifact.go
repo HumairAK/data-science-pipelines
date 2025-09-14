@@ -13,30 +13,29 @@ import (
 	"github.com/go-openapi/swag"
 )
 
-// InputOutputsArtifactIO input outputs artifact i o
+// InputOutputsIOArtifact input outputs i o artifact
 //
-// swagger:model InputOutputsArtifactIO
-type InputOutputsArtifactIO struct {
+// swagger:model InputOutputsIOArtifact
+type InputOutputsIOArtifact struct {
 
-	// input type
-	InputType *PipelineTaskDetailInputType `json:"input_type,omitempty"`
+	// Optional, this is only included on Runtime Tasks when the parameter name is known.
+	ParameterName string `json:"parameter_name,omitempty"`
 
-	// This would be the equivalent of output_artifact_key when it's an Artifact output
-	// But is also used for inputs (not present in sdk IR).
-	ProducerKey string `json:"producer_key,omitempty"`
-
-	// Fields for PipelineChannel type
-	ProducerTaskName string `json:"producer_task_name,omitempty"`
+	// All IO artifacts have a producer, so the following
+	// fields are required. In the case of importer
+	// where the artifact is set to reimport = true
+	// the name & key are importer-[0-9]+ and "artifact"
+	Producer *InputOutputsIOProducer `json:"producer,omitempty"`
 
 	// value
 	Value *V2beta1Artifact `json:"value,omitempty"`
 }
 
-// Validate validates this input outputs artifact i o
-func (m *InputOutputsArtifactIO) Validate(formats strfmt.Registry) error {
+// Validate validates this input outputs i o artifact
+func (m *InputOutputsIOArtifact) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateInputType(formats); err != nil {
+	if err := m.validateProducer(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -50,17 +49,17 @@ func (m *InputOutputsArtifactIO) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *InputOutputsArtifactIO) validateInputType(formats strfmt.Registry) error {
-	if swag.IsZero(m.InputType) { // not required
+func (m *InputOutputsIOArtifact) validateProducer(formats strfmt.Registry) error {
+	if swag.IsZero(m.Producer) { // not required
 		return nil
 	}
 
-	if m.InputType != nil {
-		if err := m.InputType.Validate(formats); err != nil {
+	if m.Producer != nil {
+		if err := m.Producer.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("input_type")
+				return ve.ValidateName("producer")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
-				return ce.ValidateName("input_type")
+				return ce.ValidateName("producer")
 			}
 			return err
 		}
@@ -69,7 +68,7 @@ func (m *InputOutputsArtifactIO) validateInputType(formats strfmt.Registry) erro
 	return nil
 }
 
-func (m *InputOutputsArtifactIO) validateValue(formats strfmt.Registry) error {
+func (m *InputOutputsIOArtifact) validateValue(formats strfmt.Registry) error {
 	if swag.IsZero(m.Value) { // not required
 		return nil
 	}
@@ -88,11 +87,11 @@ func (m *InputOutputsArtifactIO) validateValue(formats strfmt.Registry) error {
 	return nil
 }
 
-// ContextValidate validate this input outputs artifact i o based on the context it is used
-func (m *InputOutputsArtifactIO) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+// ContextValidate validate this input outputs i o artifact based on the context it is used
+func (m *InputOutputsIOArtifact) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.contextValidateInputType(ctx, formats); err != nil {
+	if err := m.contextValidateProducer(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -106,19 +105,19 @@ func (m *InputOutputsArtifactIO) ContextValidate(ctx context.Context, formats st
 	return nil
 }
 
-func (m *InputOutputsArtifactIO) contextValidateInputType(ctx context.Context, formats strfmt.Registry) error {
+func (m *InputOutputsIOArtifact) contextValidateProducer(ctx context.Context, formats strfmt.Registry) error {
 
-	if m.InputType != nil {
+	if m.Producer != nil {
 
-		if swag.IsZero(m.InputType) { // not required
+		if swag.IsZero(m.Producer) { // not required
 			return nil
 		}
 
-		if err := m.InputType.ContextValidate(ctx, formats); err != nil {
+		if err := m.Producer.ContextValidate(ctx, formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("input_type")
+				return ve.ValidateName("producer")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
-				return ce.ValidateName("input_type")
+				return ce.ValidateName("producer")
 			}
 			return err
 		}
@@ -127,7 +126,7 @@ func (m *InputOutputsArtifactIO) contextValidateInputType(ctx context.Context, f
 	return nil
 }
 
-func (m *InputOutputsArtifactIO) contextValidateValue(ctx context.Context, formats strfmt.Registry) error {
+func (m *InputOutputsIOArtifact) contextValidateValue(ctx context.Context, formats strfmt.Registry) error {
 
 	if m.Value != nil {
 
@@ -149,7 +148,7 @@ func (m *InputOutputsArtifactIO) contextValidateValue(ctx context.Context, forma
 }
 
 // MarshalBinary interface implementation
-func (m *InputOutputsArtifactIO) MarshalBinary() ([]byte, error) {
+func (m *InputOutputsIOArtifact) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -157,8 +156,8 @@ func (m *InputOutputsArtifactIO) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary interface implementation
-func (m *InputOutputsArtifactIO) UnmarshalBinary(b []byte) error {
-	var res InputOutputsArtifactIO
+func (m *InputOutputsIOArtifact) UnmarshalBinary(b []byte) error {
+	var res InputOutputsIOArtifact
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}

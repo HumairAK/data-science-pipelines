@@ -316,9 +316,9 @@ message Artifact {
   // Required. The name of an ArtifactType. E.g. Dataset
   ArtifactType type = 3;
 
-  // Required. The uniform resource identifier of the physical artifact.
+  // The uniform resource identifier of the physical artifact.
   // May be empty if there is no physical artifact.
-  string uri = 4;
+  optional string uri = 4;
 
   // Optional. User provided custom properties which are not defined by its type.
   map<string, google.protobuf.Value> metadata = 5;
