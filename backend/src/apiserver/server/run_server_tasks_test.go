@@ -13,7 +13,7 @@ import (
 
 // Helper to create a simple run via resource manager and return its ID.
 func seedOneRun(t *testing.T) (*resource.FakeClientManager, *resource.ResourceManager, string) {
-	clients, manager, run := initWithOneTimeRun(t)
+	clients, manager, run := initWithOneTimeRunV2(t)
 	return clients, manager, run.UUID
 }
 
