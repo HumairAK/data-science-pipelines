@@ -90,6 +90,7 @@ func TestArtifactServer_CreateArtifact_MultiUserCreateAndGet_Succeeds(t *testing
 	assert.Equal(t, "gs://b/f", created.GetUri())
 	assert.Equal(t, "a1", created.GetName())
 
+	// Creating an artifact should create an artifact task
 	// Fetch the artifact task
 	artifactTasks, err := s.ListArtifactTasks(ctxWithUser(), &apiv2beta1.ListArtifactTasksRequest{
 		TaskIds:  []string{task.UUID},

@@ -113,21 +113,30 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Create an artifact and link it as output of the task
-	createdArtifact, err := artSrv.CreateArtifact(ctxWithUser(), &apiv2beta1.CreateArtifactRequest{Artifact: &apiv2beta1.Artifact{
-		Namespace: run.Namespace,
-		Type:      apiv2beta1.Artifact_Model,
-		Uri:       strPTR("gs://bucket/model"),
-		Name:      "m1",
-	}})
+	_, err = artSrv.CreateArtifact(ctxWithUser(),
+		&apiv2beta1.CreateArtifactRequest{
+			RunId:            run.UUID,
+			TaskId:           created.GetTaskId(),
+			ProducerTaskName: "some-parent-task",
+			ProducerKey:      "some-parent-task-output",
+			Type:             apiv2beta1.ArtifactTaskType_OUTPUT,
+			Artifact: &apiv2beta1.Artifact{
+				Namespace: run.Namespace,
+				Type:      apiv2beta1.Artifact_Model,
+				Uri:       strPTR("gs://bucket/model"),
+				Name:      "m1",
+			}})
 	assert.NoError(t, err)
-	_, err = artSrv.CreateArtifactTask(ctxWithUser(), &apiv2beta1.CreateArtifactTaskRequest{ArtifactTask: &apiv2beta1.ArtifactTask{
-		ArtifactId:       createdArtifact.GetArtifactId(),
-		TaskId:           created.GetTaskId(),
-		Type:             apiv2beta1.ArtifactTaskType_OUTPUT,
-		ProducerKey:      "input_dataset",
-		ProducerTaskName: "preprocess",
-	}})
+
+	// Confirm a link was created between the task and the artifact
+	artifactTasks, err := artSrv.ListArtifactTasks(ctxWithUser(), &apiv2beta1.ListArtifactTasksRequest{
+		TaskIds:  []string{created.GetTaskId()},
+		RunIds:   []string{run.UUID},
+		PageSize: 10,
+	})
 	assert.NoError(t, err)
+	assert.Equal(t, int32(1), artifactTasks.GetTotalSize())
+	assert.Equal(t, 1, len(artifactTasks.GetArtifactTasks()))
 
 	// Update task outputs to include an artifact reference in OutputArtifacts
 	_, err = runSrv.UpdateTask(ctxWithUser(),
@@ -161,12 +170,11 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 			// Outputs updated and artifact reference present
 			assert.Equal(t, apiv2beta1.RuntimeState_SUCCEEDED, taskFound.GetStatus())
 		}
-
 		assert.Equal(t, 1, len(taskFound.GetOutputs().GetArtifacts()))
 		if assert.NotNil(t, taskFound.GetOutputs().GetArtifacts(), "artifacts not present in hydrated task") {
-			assert.Equal(t, "preprocess", taskFound.GetOutputs().GetArtifacts()[0].GetProducer().GetTaskName())
-			assert.Equal(t, "input_dataset", taskFound.GetOutputs().GetArtifacts()[0].GetProducer().Key)
-			assert.Equal(t, "gs://bucket/model", taskFound.GetOutputs().GetArtifacts()[0].GetValue().Uri)
+			assert.Equal(t, "some-parent-task", taskFound.GetOutputs().GetArtifacts()[0].GetProducer().GetTaskName())
+			assert.Equal(t, "some-parent-task-output", taskFound.GetOutputs().GetArtifacts()[0].GetProducer().Key)
+			assert.Equal(t, "gs://bucket/model", *taskFound.GetOutputs().GetArtifacts()[0].GetValue().Uri)
 			assert.Equal(t, "m1", taskFound.GetOutputs().GetArtifacts()[0].GetValue().Name)
 		}
 	}
@@ -174,21 +182,39 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 }
 
 func TestListTasks_ByParent(t *testing.T) {
-	clients, manager, runID := seedOneRun(t)
-	defer clients.Close()
-	server := createRunServer(manager)
 
 	// Create parent task
-	parent, err := server.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{Task: &apiv2beta1.PipelineTaskDetail{RunId: runID, Name: "parent"}})
+	parent, err := server.CreateTask(context.Background(),
+		&apiv2beta1.CreateTaskRequest{
+			Task: &apiv2beta1.PipelineTaskDetail{
+				RunId: runID,
+				Name:  "parent",
+			},
+		},
+	)
 	assert.NoError(t, err)
 
 	// Create child task with ParentTaskId
-	child, err := server.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{Task: &apiv2beta1.PipelineTaskDetail{RunId: runID, Name: "child", ParentTaskId: parent.GetTaskId()}})
+	child, err := server.CreateTask(context.Background(),
+		&apiv2beta1.CreateTaskRequest{
+			Task: &apiv2beta1.PipelineTaskDetail{
+				RunId:        runID,
+				Name:         "child",
+				ParentTaskId: parent.GetTaskId(),
+			},
+		},
+	)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, child.GetTaskId())
 
 	// List by parent ID
-	resp, err := server.ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{ParentFilter: &apiv2beta1.ListTasksRequest_ParentId{ParentId: parent.GetTaskId()}, PageSize: 50})
+	resp, err := server.ListTasks(context.Background(),
+		&apiv2beta1.ListTasksRequest{
+			ParentFilter: &apiv2beta1.ListTasksRequest_ParentId{
+				ParentId: parent.GetTaskId(),
+			},
+			PageSize: 50,
+		})
 	assert.NoError(t, err)
 	assert.Equal(t, int32(1), resp.GetTotalSize())
 	assert.Equal(t, 1, len(resp.GetTasks()))
