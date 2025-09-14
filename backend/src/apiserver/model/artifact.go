@@ -21,7 +21,7 @@ type Artifact struct {
 	UUID            string                           `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
 	Namespace       string                           `gorm:"column:Namespace; not null; type:varchar(63); index:idx_type_namespace,priority:1;"`
 	Type            apiv2beta1.Artifact_ArtifactType `gorm:"column:Type; default:null; index:idx_type_namespace,priority:2;"`
-	Uri             string                           `gorm:"column:Uri; type:text;"`
+	Uri             *string                          `gorm:"column:Uri; type:text;"`
 	Name            string                           `gorm:"column:Name; type:varchar(128); default:null;"`
 	CreatedAtInSec  int64                            `gorm:"column:CreatedAtInSec; not null; default:0; index:idx_artifact_created_timestamp;"`
 	LastUpdateInSec int64                            `gorm:"column:LastUpdateInSec; not null; default:0; index:idx_artifact_last_update_timestamp;"`

@@ -122,8 +122,8 @@ func (s *ArtifactStore) CreateArtifact(artifact *model.Artifact) (*model.Artifac
 func (s *ArtifactStore) scanRows(rows *sql.Rows) ([]*model.Artifact, error) {
 	var artifacts []*model.Artifact
 	for rows.Next() {
-		var uuid, namespace, uri string
-		var name sql.NullString
+		var uuid, namespace string
+		var name, uri sql.NullString
 		var artifactType int32
 		var createdAtInSec, lastUpdateInSec int64
 		var metadataBytes []byte
@@ -157,7 +157,6 @@ func (s *ArtifactStore) scanRows(rows *sql.Rows) ([]*model.Artifact, error) {
 			UUID:            uuid,
 			Namespace:       namespace,
 			Type:            apiv2beta1.Artifact_ArtifactType(artifactType),
-			Uri:             uri,
 			Name:            name.String,
 			CreatedAtInSec:  createdAtInSec,
 			LastUpdateInSec: lastUpdateInSec,
@@ -165,6 +164,10 @@ func (s *ArtifactStore) scanRows(rows *sql.Rows) ([]*model.Artifact, error) {
 		}
 		if numberValue.Valid {
 			artifact.NumberValue = &numberValue.Float64
+		}
+
+		if uri.Valid {
+			artifact.Uri = &uri.String
 		}
 		artifacts = append(artifacts, artifact)
 	}

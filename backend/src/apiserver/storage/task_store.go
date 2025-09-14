@@ -166,12 +166,12 @@ func scanTaskRow(rowscanner interface{ Scan(dest ...any) error }) (*model.Task, 
 		Name:             name.String,
 		DisplayName:      displayName.String,
 		ParentTaskUUID:   parentTaskId.String,
-		Status:           taskStatus,
+		Status:           model.TaskStatus(taskStatus),
 		StatusMetadata:   statusMetadataNew,
 		StateHistory:     stateHistoryNew,
 		InputParameters:  inputParameters,
 		OutputParameters: outputParameters,
-		Type:             taskType,
+		Type:             model.TaskType(taskType),
 		TypeAttrs:        typeAttrsData,
 	}, nil
 }
@@ -232,10 +232,10 @@ func hydrateArtifactsForTasks(db *DB, tasks []*model.Task) error {
 		var taskID string
 		var linkType sql.NullInt32
 		var producerTaskName, producerKey string
-		var artUUID, artNamespace, artURI, artName string
+		var artUUID, artNamespace, artName string
 		var artType sql.NullInt32
 		var createdAt, updatedAt sql.NullInt64
-		var metadata sql.NullString
+		var metadata, artURI sql.NullString
 
 		if err := rows.Scan(&taskID, &linkType, &producerTaskName, &producerKey,
 			&artUUID, &artNamespace, &artType, &artURI, &artName, &createdAt, &updatedAt, &metadata); err != nil {
@@ -257,26 +257,22 @@ func hydrateArtifactsForTasks(db *DB, tasks []*model.Task) error {
 			UUID:            artUUID,
 			Namespace:       artNamespace,
 			Type:            apiv2beta1.Artifact_ArtifactType(artType.Int32),
-			Uri:             artURI,
 			Name:            artName,
 			CreatedAtInSec:  createdAt.Int64,
 			LastUpdateInSec: updatedAt.Int64,
 			Metadata:        metaMap,
 		}
-
-		// Input type: if both producer fields empty -> ResolvedValue; otherwise PipelineChannel
-		inputType := apiv2beta1.PipelineTaskDetail_ResolvedValue
-		if producerTaskName != "" && producerKey != "" {
-			inputType = apiv2beta1.PipelineTaskDetail_PipelineChannel
+		if artURI.Valid {
+			mArtifact.Uri = &artURI.String
 		}
 
 		h := model.TaskArtifactHydrated{
-			InputType:        inputType,
-			ArtifactID:       artUUID,
-			Value:            mArtifact,
-			Name:             mArtifact.Name,
-			ProducerTaskName: producerTaskName,
-			ProducerKey:      producerKey,
+			ParameterName: mArtifact.Name,
+			Value:         mArtifact,
+			Producer: model.IOProducer{
+				TaskName: producerTaskName,
+				Key:      producerKey,
+			},
 		}
 
 		if linkType.Int32 == int32(apiv2beta1.ArtifactTaskType_OUTPUT) {

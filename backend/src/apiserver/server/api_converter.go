@@ -2213,7 +2213,7 @@ func toModelArtifact(a *apiv2beta1.Artifact) (*model.Artifact, error) {
 		UUID:      a.GetArtifactId(),
 		Namespace: a.GetNamespace(),
 		Type:      a.GetType(),
-		Uri:       a.GetUri(),
+		Uri:       a.Uri,
 		Name:      a.GetName(),
 		// NumberValue can be nil & nullable, so directly apply it
 		// instead of using a.GetNumberValue() (which will return 0 if nil).
@@ -2359,10 +2359,10 @@ func toModelTask(apiTask *apiv2beta1.PipelineTaskDetail) (*model.Task, error) {
 	}
 
 	// Convert status
-	task.Status = int32(apiTask.GetStatus())
+	task.Status = model.TaskStatus(apiTask.GetStatus())
 
 	// Convert task type
-	task.Type = int32(apiTask.GetType())
+	task.Type = model.TaskType(apiTask.GetType())
 	if apiTask.GetPods() != nil {
 		pods, err := model.ProtoSliceToJSONSlice(apiTask.GetPods())
 		if err != nil {
@@ -2521,11 +2521,11 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 	}
 
 	// Populate artifacts from hydrated fields on the model task with shared converter
-	convertHydrated := func(in []model.TaskArtifactHydrated) ([]*apiv2beta1.PipelineTaskDetail_InputOutputs_ArtifactIO, error) {
+	convertHydrated := func(in []model.TaskArtifactHydrated) ([]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOArtifact, error) {
 		if len(in) == 0 {
 			return nil, nil
 		}
-		out := make([]*apiv2beta1.PipelineTaskDetail_InputOutputs_ArtifactIO, 0, len(in))
+		out := make([]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOArtifact, 0, len(in))
 		for _, h := range in {
 			var apiArt *apiv2beta1.Artifact
 			if h.Value != nil {
@@ -2535,11 +2535,13 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 				}
 				apiArt = apiArtConv
 			}
-			out = append(out, &apiv2beta1.PipelineTaskDetail_InputOutputs_ArtifactIO{
-				InputType:        h.InputType,
-				Value:            apiArt,
-				ProducerTaskName: h.ProducerTaskName,
-				ProducerKey:      h.ProducerKey,
+			out = append(out, &apiv2beta1.PipelineTaskDetail_InputOutputs_IOArtifact{
+				ParameterName: h.ParameterName,
+				Value:         apiArt,
+				Producer: &apiv2beta1.PipelineTaskDetail_InputOutputs_IOProducer{
+					TaskName: h.Producer.TaskName,
+					Key:      h.Producer.Key,
+				},
 			})
 		}
 		return out, nil

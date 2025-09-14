@@ -26,10 +26,10 @@ func TestTask_Create_Update_Get_List(t *testing.T) {
 
 	// Create task with inputs/outputs
 	inParams := []*apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter{
-		{Name: "p1", Value: "v1"},
+		{Name: strPTR("p1"), Value: "v1"},
 	}
 	outParams := []*apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter{
-		{Name: "op1", Value: "3.14"},
+		{Name: strPTR("op1"), Value: "3.14"},
 	}
 	createReq := &apiv2beta1.CreateTaskRequest{Task: &apiv2beta1.PipelineTaskDetail{
 		RunId:   runID,
@@ -57,7 +57,7 @@ func TestTask_Create_Update_Get_List(t *testing.T) {
 		Name:   "trainer",
 		Status: apiv2beta1.RuntimeState_SUCCEEDED,
 		Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter{
-			{Name: "op1", Value: "done"},
+			{Name: strPTR("op1"), Value: "done"},
 		}},
 	}}
 	updated, err := runSrv.UpdateTask(context.Background(), updReq)
@@ -103,10 +103,10 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 			Name:   "preprocess",
 			Status: apiv2beta1.RuntimeState_RUNNING,
 			Inputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter{
-				{Name: "threshold", Value: "0.5"},
+				{Name: strPTR("threshold"), Value: "0.5"},
 			}},
 			Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter{
-				{Name: "rows", Value: "100"},
+				{Name: strPTR("rows"), Value: "100"},
 			}},
 		}}
 	created, err := runSrv.CreateTask(ctxWithUser(), create)
@@ -116,7 +116,7 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 	createdArtifact, err := artSrv.CreateArtifact(ctxWithUser(), &apiv2beta1.CreateArtifactRequest{Artifact: &apiv2beta1.Artifact{
 		Namespace: run.Namespace,
 		Type:      apiv2beta1.Artifact_Model,
-		Uri:       "gs://bucket/model",
+		Uri:       strPTR("gs://bucket/model"),
 		Name:      "m1",
 	}})
 	assert.NoError(t, err)
@@ -164,14 +164,13 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 
 		assert.Equal(t, 1, len(taskFound.GetOutputs().GetArtifacts()))
 		if assert.NotNil(t, taskFound.GetOutputs().GetArtifacts(), "artifacts not present in hydrated task") {
-			assert.Equal(t, apiv2beta1.Artifact_Artifact, taskFound.GetOutputs().GetArtifacts()[0].GetInputType())
-			assert.Equal(t, "preprocess", taskFound.GetOutputs().GetArtifacts()[0].GetProducerTaskName())
-			assert.Equal(t, "input_dataset", taskFound.GetOutputs().GetArtifacts()[0].GetProducerKey())
+			assert.Equal(t, "preprocess", taskFound.GetOutputs().GetArtifacts()[0].GetProducer().GetTaskName())
+			assert.Equal(t, "input_dataset", taskFound.GetOutputs().GetArtifacts()[0].GetProducer().Key)
 			assert.Equal(t, "gs://bucket/model", taskFound.GetOutputs().GetArtifacts()[0].GetValue().Uri)
 			assert.Equal(t, "m1", taskFound.GetOutputs().GetArtifacts()[0].GetValue().Name)
 		}
 	}
-	
+
 }
 
 func TestListTasks_ByParent(t *testing.T) {

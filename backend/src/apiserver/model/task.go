@@ -83,36 +83,40 @@ func (p *PodNames) Value() (driver.Value, error) {
 
 // TaskArtifactHydrated holds hydrated artifact info per task (not stored in DB)
 type TaskArtifactHydrated struct {
-	InputType        apiv2beta1.PipelineTaskDetail_InputType
-	ArtifactID       string
-	Value            *Artifact
-	Name             string
-	ProducerTaskName string
-	ProducerKey      string
+	ParameterName string
+	Value         *Artifact
+	Producer      IOProducer
+}
+type IOProducer struct {
+	TaskName string
+	Key      string
 }
 
+type TaskType apiv2beta1.PipelineTaskDetail_TaskType
+type TaskStatus apiv2beta1.RuntimeState
+
 type Task struct {
-	UUID             string    `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
-	Namespace        string    `gorm:"column:Namespace; not null; type:varchar(63);"`
-	PipelineName     string    `gorm:"column:PipelineName; not null; type:varchar(128); index:idx_pipeline_name;"`
-	RunUUID          string    `gorm:"column:RunUUID; type:varchar(191); not null; index:idx_parent_run,priority:1;"`
-	Run              Run       `gorm:"foreignKey:RunUUID;references:UUID;constraint:tasks_RunUUID_run_details_UUID_foreign,OnDelete:CASCADE,OnUpdate:CASCADE;"`
-	Pods             JSONSlice `gorm:"column:pods; not null; type:json;"`
-	CreatedAtInSec   int64     `gorm:"column:CreatedAtInSec; not null; index:idx_task_created_timestamp;"`
-	StartedInSec     int64     `gorm:"column:StartedInSec; default:0; index:idx_task_started_timestamp;"`
-	FinishedInSec    int64     `gorm:"column:FinishedInSec; default:0; index:idx_task_finished_timestamp;"`
-	Fingerprint      string    `gorm:"column:Fingerprint; not null; type:varchar(255);"`
-	Name             string    `gorm:"column:Name; type:varchar(128); default:null;"`
-	DisplayName      string    `gorm:"column:DisplayName; type:varchar(128); default:null;"`
-	ParentTaskUUID   string    `gorm:"column:ParentTaskUUID; type:varchar(191); default:null; index:idx_parent_task_uuid; index:idx_parent_run,priority:2;"`
-	ParentTask       *Task     `gorm:"foreignKey:ParentTaskUUID;references:UUID;constraint:fk_tasks_parent_task,OnDelete:CASCADE,OnUpdate:CASCADE;"`
-	Status           int32     `gorm:"column:Status; not null;"`
-	StatusMetadata   JSONData  `gorm:"column:StatusMetadata; type:json; default:null;"`
-	StateHistory     JSONSlice `gorm:"column:StateHistory; type:json;"`
-	InputParameters  JSONSlice `gorm:"column:InputParameters; type:json;"`
-	OutputParameters JSONSlice `gorm:"column:OutputParameters; type:json;"`
-	Type             int32     `gorm:"column:Type; not null; index:idx_task_type;"`
-	TypeAttrs        JSONData  `gorm:"column:TypeAttrs; not null; type:json;"`
+	UUID             string     `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
+	Namespace        string     `gorm:"column:Namespace; not null; type:varchar(63);"`
+	PipelineName     string     `gorm:"column:PipelineName; not null; type:varchar(128); index:idx_pipeline_name;"`
+	RunUUID          string     `gorm:"column:RunUUID; type:varchar(191); not null; index:idx_parent_run,priority:1;"`
+	Run              Run        `gorm:"foreignKey:RunUUID;references:UUID;constraint:tasks_RunUUID_run_details_UUID_foreign,OnDelete:CASCADE,OnUpdate:CASCADE;"`
+	Pods             JSONSlice  `gorm:"column:pods; not null; type:json;"`
+	CreatedAtInSec   int64      `gorm:"column:CreatedAtInSec; not null; index:idx_task_created_timestamp;"`
+	StartedInSec     int64      `gorm:"column:StartedInSec; default:0; index:idx_task_started_timestamp;"`
+	FinishedInSec    int64      `gorm:"column:FinishedInSec; default:0; index:idx_task_finished_timestamp;"`
+	Fingerprint      string     `gorm:"column:Fingerprint; not null; type:varchar(255);"`
+	Name             string     `gorm:"column:Name; type:varchar(128); default:null;"`
+	DisplayName      string     `gorm:"column:DisplayName; type:varchar(128); default:null;"`
+	ParentTaskUUID   string     `gorm:"column:ParentTaskUUID; type:varchar(191); default:null; index:idx_parent_task_uuid; index:idx_parent_run,priority:2;"`
+	ParentTask       *Task      `gorm:"foreignKey:ParentTaskUUID;references:UUID;constraint:fk_tasks_parent_task,OnDelete:CASCADE,OnUpdate:CASCADE;"`
+	Status           TaskStatus `gorm:"column:Status; not null;"`
+	StatusMetadata   JSONData   `gorm:"column:StatusMetadata; type:json; default:null;"`
+	StateHistory     JSONSlice  `gorm:"column:StateHistory; type:json;"`
+	InputParameters  JSONSlice  `gorm:"column:InputParameters; type:json;"`
+	OutputParameters JSONSlice  `gorm:"column:OutputParameters; type:json;"`
+	Type             TaskType   `gorm:"column:Type; not null; index:idx_task_type;"`
+	TypeAttrs        JSONData   `gorm:"column:TypeAttrs; not null; type:json;"`
 
 	// Transient fields populated during hydration (not stored in DB)
 	InputArtifactsHydrated  []TaskArtifactHydrated `gorm:"-"`
@@ -209,7 +213,7 @@ func (t Task) GetFieldValue(name string) interface{} {
 		return t.Name
 	case "DisplayName":
 		return t.DisplayName
- case "InputParameters":
+	case "InputParameters":
 		return t.InputParameters
 	case "OutputParameters":
 		return t.OutputParameters

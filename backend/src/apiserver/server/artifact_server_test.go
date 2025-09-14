@@ -34,6 +34,10 @@ func ctxWithUser() context.Context {
 	return metadata.NewIncomingContext(context.Background(), md)
 }
 
+func strPTR(s string) *string {
+	return &s
+}
+
 func TestArtifactServer_CreateArtifact_MultiUserCreateAndGet_Succeeds(t *testing.T) {
 	viper.Set(common.MultiUserMode, "true")
 	defer viper.Set(common.MultiUserMode, "false")
@@ -75,7 +79,7 @@ func TestArtifactServer_CreateArtifact_MultiUserCreateAndGet_Succeeds(t *testing
 		Artifact: &apiv2beta1.Artifact{
 			Namespace: "ns1",
 			Type:      apiv2beta1.Artifact_Model,
-			Uri:       "gs://b/f",
+			Uri:       strPTR("gs://b/f"),
 			Name:      "a1",
 		}}
 	created, err := s.CreateArtifact(ctxWithUser(), req)
@@ -132,7 +136,7 @@ func TestArtifactServer_ListArtifacts_HappyPath(t *testing.T) {
 	_, err = s.CreateArtifact(ctxWithUser(), &apiv2beta1.CreateArtifactRequest{RunId: runid1, TaskId: listTask.UUID, Type: apiv2beta1.ArtifactTaskType_OUTPUT, ProducerTaskName: "producer-task", ProducerKey: "producer-key", Artifact: &apiv2beta1.Artifact{
 		Namespace: "ns1",
 		Type:      apiv2beta1.Artifact_Model,
-		Uri:       "gs://b/f",
+		Uri:       strPTR("gs://b/f"),
 		Name:      "a1",
 	}})
 	listResp, err := s.ListArtifacts(ctxWithUser(), &apiv2beta1.ListArtifactRequest{
@@ -210,7 +214,7 @@ func TestArtifactServer_SingleUserNamespaceEmpty(t *testing.T) {
 		Artifact: &apiv2beta1.Artifact{
 			Namespace: "ns1",
 			Type:      apiv2beta1.Artifact_Artifact,
-			Uri:       "u",
+			Uri:       strPTR("u"),
 			Name:      "a",
 		},
 	})
@@ -293,14 +297,14 @@ func seedArtifactTasks(t *testing.T) (*ArtifactServer, *resource.FakeClientManag
 	art1, err := clientManager.ArtifactStore().CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      apiv2beta1.Artifact_Artifact,
-		Uri:       "u1",
+		Uri:       strPTR("u"),
 		Name:      "a1",
 	})
 	assert.NoError(t, err)
 	art2, err := clientManager.ArtifactStore().CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      apiv2beta1.Artifact_Artifact,
-		Uri:       "u2",
+		Uri:       strPTR("u2"),
 		Name:      "a2",
 	})
 	assert.NoError(t, err)
