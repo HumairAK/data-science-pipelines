@@ -42,9 +42,13 @@
       "inputs": {
         "artifacts": [
           {
-            "name": "input_dataset",
+            // Parameter name is only applicable on a
+            // runtime task type
+            "parameter_name": "some_param",
+            "producer_task_name": "create_metric",
+            "producer_key": "my_metric_out_param_name",
             "value": {
-              "artifact_id": "4",
+              "artifact_id": "1",
               "name": "my_metric",
               "type": "Metric",
               "uri": "minio://mlpipeline/v2/artifacts/pipeline/9e68aca5-3afa-4028-8777-f697d858053f/input_dataset",
@@ -55,6 +59,8 @@
           },
           {
             "name": "input_dataset",
+            "producer_task_name": "create_dataset",
+            "producer_key": "my_dataset_out_param_name",
             "value": {
               "artifact_id": "5",
               "name": "my_dataset",
@@ -64,22 +70,7 @@
                 "my_data": ["some", "data"],
                 "more_data": { "can_be":  "anythingJSON"}
               },
-              "created_at": "2025-08-08T15:15:41Z",
-            }
-          },
-          {
-            "producer_task_name": "output_artifact",
-            "producer_parameter_id": "some_id",
-            "value": {
-              "artifact_id": "5",
-              "name": "my_dataset",
-              "type": "Model",
-              "uri": "minio://mlpipeline/v2/artifacts/pipeline/9e68aca5-3afa-4028-8777-f697d858053f/input_dataset",
-              "custom_properties": {
-                "my_data": ["some", "data"],
-                "more_data": { "can_be":  "anythingJSON"}
-              },
-              "created_at": "2025-08-08T15:15:41Z",
+              "created_at": "2025-08-08T15:15:41Z"
             }
           }
         ],
@@ -100,7 +91,7 @@
             // We call it ID because it's not always a parameter "name" so producer_parameter_name would be misleading
             // (e.g. in the case of loops pipelinechannel--loop-item-param-1), if we can infer the name of the iteration
             // param then "name" would be better.
-            "producer_parameter_id": "a_msg",
+            "producer_key": "a_msg",
           }
         ]
       },
