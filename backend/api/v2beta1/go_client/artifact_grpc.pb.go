@@ -64,7 +64,7 @@ type ArtifactServiceClient interface {
 	// Gets a metric by task ID and name.
 	GetMetric(ctx context.Context, in *GetArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	// Lists all metrics.
-	ListMetrics(ctx context.Context, in *ListArtifactTasksRequest, opts ...grpc.CallOption) (*ListArtifactTasksResponse, error)
+	ListMetrics(ctx context.Context, in *ListArtifactRequest, opts ...grpc.CallOption) (*ListArtifactResponse, error)
 }
 
 type artifactServiceClient struct {
@@ -145,9 +145,9 @@ func (c *artifactServiceClient) GetMetric(ctx context.Context, in *GetArtifactRe
 	return out, nil
 }
 
-func (c *artifactServiceClient) ListMetrics(ctx context.Context, in *ListArtifactTasksRequest, opts ...grpc.CallOption) (*ListArtifactTasksResponse, error) {
+func (c *artifactServiceClient) ListMetrics(ctx context.Context, in *ListArtifactRequest, opts ...grpc.CallOption) (*ListArtifactResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListArtifactTasksResponse)
+	out := new(ListArtifactResponse)
 	err := c.cc.Invoke(ctx, ArtifactService_ListMetrics_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -176,7 +176,7 @@ type ArtifactServiceServer interface {
 	// Gets a metric by task ID and name.
 	GetMetric(context.Context, *GetArtifactRequest) (*Artifact, error)
 	// Lists all metrics.
-	ListMetrics(context.Context, *ListArtifactTasksRequest) (*ListArtifactTasksResponse, error)
+	ListMetrics(context.Context, *ListArtifactRequest) (*ListArtifactResponse, error)
 	mustEmbedUnimplementedArtifactServiceServer()
 }
 
@@ -208,7 +208,7 @@ func (UnimplementedArtifactServiceServer) LogMetric(context.Context, *CreateArti
 func (UnimplementedArtifactServiceServer) GetMetric(context.Context, *GetArtifactRequest) (*Artifact, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMetric not implemented")
 }
-func (UnimplementedArtifactServiceServer) ListMetrics(context.Context, *ListArtifactTasksRequest) (*ListArtifactTasksResponse, error) {
+func (UnimplementedArtifactServiceServer) ListMetrics(context.Context, *ListArtifactRequest) (*ListArtifactResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListMetrics not implemented")
 }
 func (UnimplementedArtifactServiceServer) mustEmbedUnimplementedArtifactServiceServer() {}
@@ -359,7 +359,7 @@ func _ArtifactService_GetMetric_Handler(srv interface{}, ctx context.Context, de
 }
 
 func _ArtifactService_ListMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListArtifactTasksRequest)
+	in := new(ListArtifactRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -371,7 +371,7 @@ func _ArtifactService_ListMetrics_Handler(srv interface{}, ctx context.Context, 
 		FullMethod: ArtifactService_ListMetrics_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ArtifactServiceServer).ListMetrics(ctx, req.(*ListArtifactTasksRequest))
+		return srv.(ArtifactServiceServer).ListMetrics(ctx, req.(*ListArtifactRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

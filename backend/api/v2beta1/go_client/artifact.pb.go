@@ -964,7 +964,7 @@ const file_backend_api_v2beta1_artifact_proto_rawDesc = "" +
 	"\x10ArtifactTaskType\x12\t\n" +
 	"\x05INPUT\x10\x00\x12\n" +
 	"\n" +
-	"\x06OUTPUT\x10\x012\xc4\x0f\n" +
+	"\x06OUTPUT\x10\x012\xba\x0f\n" +
 	"\x0fArtifactService\x12\x84\x02\n" +
 	"\rListArtifacts\x12;.kubeflow.pipelines.backend.api.v2beta1.ListArtifactRequest\x1a<.kubeflow.pipelines.backend.api.v2beta1.ListArtifactResponse\"x\x92AV\n" +
 	"\x0fArtifactService\x123Finds all artifacts within the specified namespace.*\x0elist_artifacts\x82\xd3\xe4\x93\x02\x19\x12\x17/apis/v2beta1/artifacts\x12\xee\x01\n" +
@@ -981,8 +981,8 @@ const file_backend_api_v2beta1_artifact_proto_rawDesc = "" +
 	"log_metric\x82\xd3\xe4\x93\x02\x1a:\x01*\"\x15/apis/v2beta1/metrics\x12\xea\x01\n" +
 	"\tGetMetric\x12:.kubeflow.pipelines.backend.api.v2beta1.GetArtifactRequest\x1a0.kubeflow.pipelines.backend.api.v2beta1.Artifact\"o\x92AA\n" +
 	"\x0fArtifactService\x12\"Gets a metric by task ID and name.*\n" +
-	"get_metric\x82\xd3\xe4\x93\x02%\x12#/apis/v2beta1/metrics/{artifact_id}\x12\xe7\x01\n" +
-	"\vListMetrics\x12@.kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksRequest\x1aA.kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksResponse\"S\x92A3\n" +
+	"get_metric\x82\xd3\xe4\x93\x02%\x12#/apis/v2beta1/metrics/{artifact_id}\x12\xdd\x01\n" +
+	"\vListMetrics\x12;.kubeflow.pipelines.backend.api.v2beta1.ListArtifactRequest\x1a<.kubeflow.pipelines.backend.api.v2beta1.ListArtifactResponse\"S\x92A3\n" +
 	"\x0fArtifactService\x12\x12Lists all metrics.*\flist_metrics\x82\xd3\xe4\x93\x02\x17\x12\x15/apis/v2beta1/metricsB\x8a\x01\x92AJ*\x02\x01\x02R#\n" +
 	"\adefault\x12\x18\x12\x16\n" +
 	"\x14\x1a\x12.google.rpc.StatusZ\x1f\n" +
@@ -1038,7 +1038,7 @@ var file_backend_api_v2beta1_artifact_proto_depIdxs = []int32{
 	2,  // 15: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.CreateArtifact:input_type -> kubeflow.pipelines.backend.api.v2beta1.CreateArtifactRequest
 	2,  // 16: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.LogMetric:input_type -> kubeflow.pipelines.backend.api.v2beta1.CreateArtifactRequest
 	3,  // 17: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.GetMetric:input_type -> kubeflow.pipelines.backend.api.v2beta1.GetArtifactRequest
-	6,  // 18: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.ListMetrics:input_type -> kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksRequest
+	4,  // 18: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.ListMetrics:input_type -> kubeflow.pipelines.backend.api.v2beta1.ListArtifactRequest
 	5,  // 19: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.ListArtifacts:output_type -> kubeflow.pipelines.backend.api.v2beta1.ListArtifactResponse
 	10, // 20: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.GetArtifact:output_type -> kubeflow.pipelines.backend.api.v2beta1.Artifact
 	7,  // 21: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.ListArtifactTasks:output_type -> kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksResponse
@@ -1046,7 +1046,7 @@ var file_backend_api_v2beta1_artifact_proto_depIdxs = []int32{
 	10, // 23: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.CreateArtifact:output_type -> kubeflow.pipelines.backend.api.v2beta1.Artifact
 	10, // 24: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.LogMetric:output_type -> kubeflow.pipelines.backend.api.v2beta1.Artifact
 	10, // 25: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.GetMetric:output_type -> kubeflow.pipelines.backend.api.v2beta1.Artifact
-	7,  // 26: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.ListMetrics:output_type -> kubeflow.pipelines.backend.api.v2beta1.ListArtifactTasksResponse
+	5,  // 26: kubeflow.pipelines.backend.api.v2beta1.ArtifactService.ListMetrics:output_type -> kubeflow.pipelines.backend.api.v2beta1.ListArtifactResponse
 	19, // [19:27] is the sub-list for method output_type
 	11, // [11:19] is the sub-list for method input_type
 	11, // [11:11] is the sub-list for extension type_name

@@ -53,7 +53,7 @@ func TestCreateArtifact_Success(t *testing.T) {
 	assert.Equal(t, created.CreatedAtInSec, created.LastUpdateInSec)
 	assert.Equal(t, "ns1", created.Namespace)
 	assert.Equal(t, apiv2beta1.Artifact_Artifact, created.Type)
-	assert.Equal(t, "s3://bucket/path/file", created.Uri)
+	assert.Equal(t, "s3://bucket/path/file", *created.Uri)
 	assert.Equal(t, "model.pt", created.Name)
 	assert.Equal(t, "v", created.Metadata["k"])
 

@@ -172,7 +172,6 @@ func (s *ArtifactServer) CreateArtifactTask(ctx context.Context, request *apiv2b
 	if at.GetRunId() == "" {
 		return nil, util.NewInvalidInputError("artifact_task.run_id is required")
 	}
-
 	// Fetch task and artifact for validation and authorization
 	task, err := s.resourceManager.GetTask(at.GetTaskId())
 	if err != nil {
@@ -381,8 +380,8 @@ func (s *ArtifactServer) validateCreateArtifactRequest(request *apiv2beta1.Creat
 	if request.GetProducerTaskName() == "" {
 		return util.NewInvalidInputError("Producer task name is required")
 	}
-	if request.GetProducerKey() == "" || request.GetProducerTaskName() == "null" {
-		return util.NewInvalidInputError("Producer key and Producer task Name are both required")
+	if request.GetProducerKey() == "" {
+		return util.NewInvalidInputError("Producer key is required")
 	}
 	// Metrics validation
 	if request.GetArtifact().GetType() == apiv2beta1.Artifact_Metric &&

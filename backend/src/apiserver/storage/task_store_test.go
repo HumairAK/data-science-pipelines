@@ -137,8 +137,8 @@ func TestCreateTask_Success(t *testing.T) {
 	assert.Equal(t, pods, fetched.Pods)
 	assert.Equal(t, "fp-1", fetched.Fingerprint)
 	assert.Equal(t, "taskA", fetched.Name)
-	assert.Equal(t, int32(1), fetched.Status)
-	assert.Equal(t, int32(0), fetched.Type)
+	assert.Equal(t, model.TaskStatus(1), fetched.Status)
+	assert.Equal(t, model.TaskType(0), fetched.Type)
 }
 
 func TestGetTask_NotFound(t *testing.T) {
@@ -267,7 +267,7 @@ func TestUpdateTask_Success(t *testing.T) {
 	assert.Equal(t, "updatedName", updated.Name)
 	assert.Equal(t, "fp-1", updated.Fingerprint)
 	assert.Equal(t, createTaskPodsAsJSONSlice(pod1, pod2), updated.Pods)
-	assert.Equal(t, int32(2), updated.Status)
+	assert.Equal(t, model.TaskStatus(2), updated.Status)
 }
 
 func TestGetChildTasks_ReturnsChildren(t *testing.T) {
@@ -423,7 +423,7 @@ func TestListTasks_FilterPredicates_EqualsOnColumns(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(res2))
 	assert.Equal(t, 1, total2)
-	assert.Equal(t, int32(2), res2[0].Status)
+	assert.Equal(t, model.TaskStatus(2), res2[0].Status)
 
 	// cache_fingerprint == "fp-alpha"
 	f3Proto := &apiv2beta1.Filter{
@@ -623,7 +623,10 @@ func TestHydrateArtifactsForTask_GetAndList(t *testing.T) {
 	assert.NoError(t, err)
 	if assert.Equal(t, 1, len(fetched.InputArtifactsHydrated)) {
 		ia := fetched.InputArtifactsHydrated[0]
-		assert.Equal(t, ia.Producer, &apiv2beta1.PipelineTaskDetail_InputOutputs_IOProducer{})
+		assert.Equal(t, ia.Producer, model.IOProducer{
+			TaskName: "",
+			Key:      "",
+		})
 		if assert.NotNil(t, ia.Value) {
 			assert.Equal(t, "in-art", ia.Value.Name)
 		}

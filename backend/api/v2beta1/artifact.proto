@@ -150,7 +150,7 @@ service ArtifactService {
   }
 
   // Lists all metrics.
-  rpc ListMetrics(ListArtifactTasksRequest) returns (ListArtifactTasksResponse) {
+  rpc ListMetrics(ListArtifactRequest) returns (ListArtifactResponse) {
     option (google.api.http) = {
       get: "/apis/v2beta1/metrics"
     };

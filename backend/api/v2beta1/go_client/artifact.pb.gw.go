@@ -268,7 +268,7 @@ var filter_ArtifactService_ListMetrics_0 = &utilities.DoubleArray{Encoding: map[
 
 func request_ArtifactService_ListMetrics_0(ctx context.Context, marshaler runtime.Marshaler, client ArtifactServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
-		protoReq ListArtifactTasksRequest
+		protoReq ListArtifactRequest
 		metadata runtime.ServerMetadata
 	)
 	if req.Body != nil {
@@ -286,7 +286,7 @@ func request_ArtifactService_ListMetrics_0(ctx context.Context, marshaler runtim
 
 func local_request_ArtifactService_ListMetrics_0(ctx context.Context, marshaler runtime.Marshaler, server ArtifactServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
-		protoReq ListArtifactTasksRequest
+		protoReq ListArtifactRequest
 		metadata runtime.ServerMetadata
 	)
 	if err := req.ParseForm(); err != nil {
