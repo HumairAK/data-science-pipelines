@@ -825,7 +825,7 @@ func (c *Client) GetExecutionFromFingerprint(ctx context.Context, fingerprint st
 		return 0, nil
 	}
 
-	pipelineCtx, err := c.GetContextByPipelineName(ctx, pipelineName)
+	pipelineCtx, err := c.GetContextByNameTypeAndProperty(ctx, pipelineName, pipelineContextTypeName, "namespace", namespace)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get pipeline context %q: %w", pipelineName, err)
 	}
@@ -844,21 +844,28 @@ func (c *Client) GetExecutionFromFingerprint(ctx context.Context, fingerprint st
 			}
 		}
 	}
-	return 0, nil
 	return executions[0].GetId(), nil
 }
 
-// GetContextByPipelineName searches for a context by name and type pipelineContextTypeName
-func (c *Client) GetContextByPipelineName(ctx context.Context, name string) (*pb.Context, error) {
-	ctxName := pipelineContextTypeName
-	res, err := c.svc.GetContextByTypeAndName(ctx, &pb.GetContextByTypeAndNameRequest{
-		TypeName:    &ctxName,
-		ContextName: proto.String(name),
+func (c *Client) GetContextByNameTypeAndProperty(ctx context.Context, name string, typeName string, propertyName string, propertyValue string) (*pb.Context, error) {
+	query := fmt.Sprintf("name = '%s' AND type = '%s' AND custom_properties.%s = %s",
+		name, typeName, propertyName, propertyValue)
+	res, err := c.svc.GetContexts(ctx, &pb.GetContextsRequest{
+		Options: &pb.ListOperationOptions{
+			FilterQuery: &query,
+		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Failed GetContextByTypeAndName(type=%q, name=%q): %w", pipelineContextTypeName, name, err)
+		return nil, fmt.Errorf("failed to get context by name=%q, type=%q and property %q: %w", name, typeName, propertyName, err)
 	}
-	return res.GetContext(), nil
+	contexts := res.GetContexts()
+	if len(contexts) == 0 {
+		return nil, nil
+	}
+	if len(contexts) > 1 {
+		return nil, fmt.Errorf("found multiple contexts with name=%q, type=%q and property %q", name, typeName, propertyName)
+	}
+	return contexts[0], nil
 }
 
 func (c *Client) GetPipelineFromExecution(ctx context.Context, id int64) (*Pipeline, error) {
