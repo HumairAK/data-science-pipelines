@@ -102,7 +102,7 @@ type ClientInterface interface {
 	GetOrInsertArtifactType(ctx context.Context, schema string) (typeID int64, err error)
 	FindMatchedArtifact(ctx context.Context, artifactToMatch *pb.Artifact, pipelineContextId int64) (matchedArtifact *pb.Artifact, err error)
 	UpdateExecutionCache(ctx context.Context, executionID int64, fingerprint string, cachedExecutionID string) error
-	GetExecutionFromFingerprint(ctx context.Context, fingerprint string, pipelineName string, namespace string) (int64, error)
+	GetExecutionFromFingerprint(ctx context.Context, fingerprint string, pipelineName string, namespace string) (*int64, error)
 }
 
 // Client is an MLMD service client.
@@ -806,9 +806,9 @@ func (c *Client) GetExecution(ctx context.Context, id int64) (*Execution, error)
 	return &Execution{execution: execution, pipeline: pipeline}, nil
 }
 
-func (c *Client) GetExecutionFromFingerprint(ctx context.Context, fingerprint string, pipelineName string, namespace string) (int64, error) {
+func (c *Client) GetExecutionFromFingerprint(ctx context.Context, fingerprint string, pipelineName string, namespace string) (*int64, error) {
 	if fingerprint == "" && pipelineName == "" && namespace == "" {
-		return 0, fmt.Errorf("invalid arguments, fingerprints, pipeline and namespace cannot be empty")
+		return nil, fmt.Errorf("invalid arguments, fingerprints, pipeline and namespace cannot be empty")
 	}
 
 	query := fmt.Sprintf(
@@ -823,14 +823,14 @@ func (c *Client) GetExecutionFromFingerprint(ctx context.Context, fingerprint st
 		},
 	})
 	if err != nil {
-		return 0, fmt.Errorf("failed to get executions with fingerprint=%v: %w", fingerprint, err)
+		return nil, fmt.Errorf("failed to get executions with fingerprint=%v: %w", fingerprint, err)
 	}
 	executions := res.GetExecutions()
 	if len(executions) == 0 {
-		return 0, nil
+		return nil, nil
 	}
-
-	return executions[0].GetId(), nil
+	id := executions[0].GetId()
+	return &id, nil
 }
 
 func (c *Client) GetPipelineFromExecution(ctx context.Context, id int64) (*Pipeline, error) {

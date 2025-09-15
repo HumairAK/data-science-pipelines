@@ -128,7 +128,10 @@ func getFingerPrintsAndID(execution *Execution, opts *Options, cacheClient cache
 		if err != nil {
 			return "", "", fmt.Errorf("failure while getting executionCache: %w", err)
 		}
-		return fingerPrint, strconv.FormatInt(cachedMLMDExecutionID, 10), nil
+		if cachedMLMDExecutionID == nil {
+			return "", "", nil
+		}
+		return fingerPrint, strconv.FormatInt(*cachedMLMDExecutionID, 10), nil
 	} else {
 		return "", "", nil
 	}
