@@ -99,6 +99,8 @@ type ClientInterface interface {
 	RecordArtifact(ctx context.Context, outputName, schema string, runtimeArtifact *pipelinespec.RuntimeArtifact, state pb.Artifact_State, bucketConfig *objectstore.Config) (*OutputArtifact, error)
 	GetOrInsertArtifactType(ctx context.Context, schema string) (typeID int64, err error)
 	FindMatchedArtifact(ctx context.Context, artifactToMatch *pb.Artifact, pipelineContextId int64) (matchedArtifact *pb.Artifact, err error)
+	UpdateExecutionCache(ctx context.Context, executionID int64, fingerprint string, cachedExecutionID string) error
+	GetExecutionFromFingerprint(ctx context.Context, fingerprint string) (int64, error)
 }
 
 // Client is an MLMD service client.
@@ -748,12 +750,27 @@ func (c *Client) UpdateDAGExecutionsState(ctx context.Context, dag *DAG, pipelin
 
 // PutDAGExecutionState updates the given DAG Id to the state provided.
 func (c *Client) PutDAGExecutionState(ctx context.Context, executionID int64, state pb.Execution_State) error {
-
 	e, err := c.GetExecution(ctx, executionID)
 	if err != nil {
 		return err
 	}
 	e.execution.LastKnownState = state.Enum()
+	_, err = c.svc.PutExecution(ctx, &pb.PutExecutionRequest{
+		Execution: e.execution,
+	})
+	return err
+}
+
+func (c *Client) UpdateExecutionCache(ctx context.Context, executionID int64, fingerprint string, cachedExecutionID string) error {
+	e, err := c.GetExecution(ctx, executionID)
+	if err != nil {
+		return err
+	}
+	if e.execution.CustomProperties == nil {
+		e.execution.CustomProperties = make(map[string]*pb.Value)
+	}
+	e.execution.CustomProperties[keyCacheFingerPrint] = StringValue(fingerprint)
+	e.execution.CustomProperties[keyCachedExecutionID] = StringValue(cachedExecutionID)
 	_, err = c.svc.PutExecution(ctx, &pb.PutExecutionRequest{
 		Execution: e.execution,
 	})
@@ -787,6 +804,23 @@ func (c *Client) GetExecution(ctx context.Context, id int64) (*Execution, error)
 		return nil, err
 	}
 	return &Execution{execution: execution, pipeline: pipeline}, nil
+}
+
+func (c *Client) GetExecutionFromFingerprint(ctx context.Context, fingerprint string) (int64, error) {
+	query := fmt.Sprintf("custom_properties.%s.string_value = '%s'", keyCacheFingerPrint, fingerprint)
+	res, err := c.svc.GetExecutions(ctx, &pb.GetExecutionsRequest{
+		Options: &pb.ListOperationOptions{
+			FilterQuery: &query,
+		},
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to get executions with fingerprint=%v: %w", fingerprint, err)
+	}
+	executions := res.GetExecutions()
+	if len(executions) == 0 {
+		return 0, nil
+	}
+	return executions[0].GetId(), nil
 }
 
 func (c *Client) GetPipelineFromExecution(ctx context.Context, id int64) (*Pipeline, error) {

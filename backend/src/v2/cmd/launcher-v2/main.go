@@ -45,6 +45,8 @@ var (
 	logLevel          = flag.String("log_level", "1", "The verbosity level to log.")
 	publishLogs       = flag.String("publish_logs", "true", "Whether to publish component logs to the object store")
 	cacheDisabledFlag = flag.Bool("cache_disabled", false, "Disable cache globally.")
+	fingerPrint       = flag.String("finger_print", "", "The fingerprint of the pipeline executor.")
+	cachedTaskID      = flag.String("cached_task_id", "", "The Task ID of the cached pipeline executor.")
 )
 
 func main() {
@@ -84,6 +86,8 @@ func run() error {
 		RunID:             *runID,
 		PublishLogs:       *publishLogs,
 		CacheDisabled:     *cacheDisabledFlag,
+		CachedFingerprint: *fingerPrint,
+		CachedTaskID:      *cachedTaskID,
 	}
 
 	switch *executorType {
