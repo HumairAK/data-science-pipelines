@@ -57,4 +57,4 @@ if __name__ == "__main__":
     # execute only if run as a script
     compiler.Compiler().compile(
         pipeline_func=pipeline_with_importer,
-        package_path='pipeline_with_importer.json')
+        package_path='pipeline_with_importer.yaml')

@@ -27,7 +27,9 @@ jobs:
         go-version-file: go.mod
 
     - name: Run Backend Tests
+      env:
+        # Use GitHub expressions in env so bash does not re-parse/expand the values
+        GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
+        GIT_REPO: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
       run: |
-        export GIT_BRANCH=${{ github.head_ref || github.ref_name }}
-        export GIT_REPO=${{ github.event.pull_request.head.repo.full_name }}
         ./test/presubmit-backend-test.sh
