@@ -80,6 +80,8 @@ var (
 	}
 )
 
+var _ ClientInterface = &Client{}
+
 type ClientInterface interface {
 	GetPipeline(ctx context.Context, pipelineName, runID, namespace, runResource, pipelineRoot, storeSessionInfo string) (*Pipeline, error)
 	GetDAG(ctx context.Context, executionID int64) (*DAG, error)
@@ -100,7 +102,7 @@ type ClientInterface interface {
 	GetOrInsertArtifactType(ctx context.Context, schema string) (typeID int64, err error)
 	FindMatchedArtifact(ctx context.Context, artifactToMatch *pb.Artifact, pipelineContextId int64) (matchedArtifact *pb.Artifact, err error)
 	UpdateExecutionCache(ctx context.Context, executionID int64, fingerprint string, cachedExecutionID string) error
-	GetExecutionFromFingerprint(ctx context.Context, fingerprint string) (int64, error)
+	GetExecutionFromFingerprint(ctx context.Context, fingerprint string, pipelineName string, namespace string) (int64, error)
 }
 
 // Client is an MLMD service client.
@@ -144,6 +146,7 @@ type ExecutionConfig struct {
 	OutputArtifacts  map[string]*pipelinespec.DagOutputsSpec_DagOutputArtifactSpec
 	InputArtifactIDs map[string][]int64
 	IterationIndex   *int // Index of the iteration.
+	PipelineInfoName string
 
 	// ContainerExecution custom properties
 	Image, CachedMLMDExecutionID, FingerPrint string
@@ -435,10 +438,6 @@ func intValue(i int64) *pb.Value {
 	return &pb.Value{Value: &pb.Value_IntValue{IntValue: i}}
 }
 
-func doubleValue(f float64) *pb.Value {
-	return &pb.Value{Value: &pb.Value_DoubleValue{DoubleValue: f}}
-}
-
 // Event path is conceptually artifact name for the execution.
 // We cannot store the name as a property of artifact "a", because for example:
 // 1. In first task "preprocess", there's an output artifact "processed_data".
@@ -539,12 +538,12 @@ const (
 	keyInputs                = "inputs"
 	keyOutputs               = "outputs"
 	keyParameterProducerTask = "parameter_producer_task"
-	keyOutputArtifacts       = "output_artifacts"
 	keyArtifactProducerTask  = "artifact_producer_task"
 	keyParentDagID           = "parent_dag_id" // Parent DAG Execution ID.
 	keyIterationIndex        = "iteration_index"
 	keyIterationCount        = "iteration_count"
 	keyTotalDagTasks         = "total_dag_tasks"
+	keyPipelineInfoName      = "pipeline_info_name"
 )
 
 // CreateExecution creates a new MLMD execution under the specified Pipeline.
@@ -589,6 +588,7 @@ func (c *Client) CreateExecution(ctx context.Context, pipeline *Pipeline, config
 		e.CustomProperties[keyPodName] = StringValue(config.PodName)
 		e.CustomProperties[keyPodUID] = StringValue(config.PodUID)
 		e.CustomProperties[keyNamespace] = StringValue(config.Namespace)
+		e.CustomProperties[keyPipelineInfoName] = StringValue(config.PipelineInfoName)
 		e.CustomProperties[keyImage] = StringValue(config.Image)
 		if config.CachedMLMDExecutionID != "" {
 			e.CustomProperties[keyCachedExecutionID] = StringValue(config.CachedMLMDExecutionID)
@@ -811,7 +811,12 @@ func (c *Client) GetExecutionFromFingerprint(ctx context.Context, fingerprint st
 		return 0, fmt.Errorf("invalid arguments, fingerprints, pipeline and namespace cannot be empty")
 	}
 
-	query := fmt.Sprintf("custom_properties.%s.string_value = '%s'", keyCacheFingerPrint, fingerprint)
+	query := fmt.Sprintf(
+		"custom_properties.%s.string_value = '%s' AND custom_properties.%s.string_value = '%s' AND custom_properties.%s.string_value = '%s'",
+		keyCacheFingerPrint, fingerprint,
+		"namespace", namespace,
+		"pipeline_info_name", pipelineName,
+	)
 	res, err := c.svc.GetExecutions(ctx, &pb.GetExecutionsRequest{
 		Options: &pb.ListOperationOptions{
 			FilterQuery: &query,
@@ -825,47 +830,7 @@ func (c *Client) GetExecutionFromFingerprint(ctx context.Context, fingerprint st
 		return 0, nil
 	}
 
-	pipelineCtx, err := c.GetContextByNameTypeAndProperty(ctx, pipelineName, pipelineContextTypeName, "namespace", namespace)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get pipeline context %q: %w", pipelineName, err)
-	}
-
-	// Get contexts for each execution and check if matches pipeline context
-	for _, execution := range executions {
-		res, err := c.svc.GetContextsByExecution(ctx, &pb.GetContextsByExecutionRequest{
-			ExecutionId: execution.Id,
-		})
-		if err != nil {
-			return 0, fmt.Errorf("failed to get contexts for execution %v: %w", execution.Id, err)
-		}
-		for _, ctx := range res.GetContexts() {
-			if ctx.GetId() == pipelineCtx.GetId() {
-				return execution.GetId(), nil
-			}
-		}
-	}
 	return executions[0].GetId(), nil
-}
-
-func (c *Client) GetContextByNameTypeAndProperty(ctx context.Context, name string, typeName string, propertyName string, propertyValue string) (*pb.Context, error) {
-	query := fmt.Sprintf("name = '%s' AND type = '%s' AND custom_properties.%s = %s",
-		name, typeName, propertyName, propertyValue)
-	res, err := c.svc.GetContexts(ctx, &pb.GetContextsRequest{
-		Options: &pb.ListOperationOptions{
-			FilterQuery: &query,
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get context by name=%q, type=%q and property %q: %w", name, typeName, propertyName, err)
-	}
-	contexts := res.GetContexts()
-	if len(contexts) == 0 {
-		return nil, nil
-	}
-	if len(contexts) > 1 {
-		return nil, fmt.Errorf("found multiple contexts with name=%q, type=%q and property %q", name, typeName, propertyName)
-	}
-	return contexts[0], nil
 }
 
 func (c *Client) GetPipelineFromExecution(ctx context.Context, id int64) (*Pipeline, error) {

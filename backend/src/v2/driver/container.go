@@ -131,6 +131,8 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 	ecfg.ParentDagID = dag.Execution.GetID()
 	ecfg.IterationIndex = iterationIndex
 	ecfg.NotTriggered = !execution.WillTrigger()
+	ecfg.Namespace = opts.Namespace
+	ecfg.PipelineInfoName = opts.PipelineName
 
 	if isKubernetesPlatformOp {
 		return execution, kubernetesPlatformOps(ctx, mlmd, cacheClient, execution, ecfg, &opts)
@@ -170,7 +172,7 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 			pvcNames = append(pvcNames, GetWorkspacePVCName(opts.RunName))
 		}
 
-		fingerPrint, cachedMLMDExecutionID, err = getFingerPrintsAndID(execution, &opts, cacheClient, pvcNames)
+		fingerPrint, cachedMLMDExecutionID, err = getFingerPrintsAndID(execution, &opts, cacheClient, mlmd, pvcNames)
 		if err != nil {
 			return execution, err
 		}
