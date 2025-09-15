@@ -806,7 +806,11 @@ func (c *Client) GetExecution(ctx context.Context, id int64) (*Execution, error)
 	return &Execution{execution: execution, pipeline: pipeline}, nil
 }
 
-func (c *Client) GetExecutionFromFingerprint(ctx context.Context, fingerprint string) (int64, error) {
+func (c *Client) GetExecutionFromFingerprint(ctx context.Context, fingerprint string, pipelineName string, namespace string) (int64, error) {
+	if fingerprint == "" && pipelineName == "" && namespace == "" {
+		return 0, fmt.Errorf("invalid arguments, fingerprints, pipeline and namespace cannot be empty")
+	}
+
 	query := fmt.Sprintf("custom_properties.%s.string_value = '%s'", keyCacheFingerPrint, fingerprint)
 	res, err := c.svc.GetExecutions(ctx, &pb.GetExecutionsRequest{
 		Options: &pb.ListOperationOptions{
@@ -820,7 +824,41 @@ func (c *Client) GetExecutionFromFingerprint(ctx context.Context, fingerprint st
 	if len(executions) == 0 {
 		return 0, nil
 	}
+
+	pipelineCtx, err := c.GetContextByPipelineName(ctx, pipelineName)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get pipeline context %q: %w", pipelineName, err)
+	}
+
+	// Get contexts for each execution and check if matches pipeline context
+	for _, execution := range executions {
+		res, err := c.svc.GetContextsByExecution(ctx, &pb.GetContextsByExecutionRequest{
+			ExecutionId: execution.Id,
+		})
+		if err != nil {
+			return 0, fmt.Errorf("failed to get contexts for execution %v: %w", execution.Id, err)
+		}
+		for _, ctx := range res.GetContexts() {
+			if ctx.GetId() == pipelineCtx.GetId() {
+				return execution.GetId(), nil
+			}
+		}
+	}
+	return 0, nil
 	return executions[0].GetId(), nil
+}
+
+// GetContextByPipelineName searches for a context by name and type pipelineContextTypeName
+func (c *Client) GetContextByPipelineName(ctx context.Context, name string) (*pb.Context, error) {
+	ctxName := pipelineContextTypeName
+	res, err := c.svc.GetContextByTypeAndName(ctx, &pb.GetContextByTypeAndNameRequest{
+		TypeName:    &ctxName,
+		ContextName: proto.String(name),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Failed GetContextByTypeAndName(type=%q, name=%q): %w", pipelineContextTypeName, name, err)
+	}
+	return res.GetContext(), nil
 }
 
 func (c *Client) GetPipelineFromExecution(ctx context.Context, id int64) (*Pipeline, error) {
