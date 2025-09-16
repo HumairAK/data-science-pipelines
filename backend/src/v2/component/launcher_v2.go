@@ -52,7 +52,6 @@ type LauncherV2Options struct {
 	PublishLogs       string
 	CacheDisabled     bool
 	CachedFingerprint string
-	CachedTaskID      string
 }
 
 type LauncherV2 struct {
@@ -193,8 +192,8 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		if err != nil {
 			glog.Errorf("failed to update DAG state: %s", err.Error())
 		}
-		if status == pb.Execution_COMPLETE && l.options.CachedFingerprint != "" && l.options.CachedTaskID != "" {
-			err := l.clientManager.MetadataClient().UpdateExecutionCache(ctx, execution.GetID(), l.options.CachedFingerprint, l.options.CachedTaskID)
+		if status == pb.Execution_COMPLETE && l.options.CachedFingerprint != "" {
+			err := l.clientManager.MetadataClient().UpdateExecutionCache(ctx, execution.GetID(), l.options.CachedFingerprint)
 			if err != nil {
 				glog.Errorf("failed to update execution cache: %s", err.Error())
 			}

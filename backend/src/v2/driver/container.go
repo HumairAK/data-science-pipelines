@@ -178,7 +178,16 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 		}
 	}
 
-	createdExecution, err := mlmd.CreateExecution(ctx, pipeline, ecfg)
+	var createdExecution *metadata.Execution
+	if opts.DevMode {
+		createdExecution, err = mlmd.GetExecution(ctx, opts.DevExecutionId)
+	} else {
+		createdExecution, err = mlmd.CreateExecution(ctx, pipeline, ecfg)
+	}
+	if err != nil {
+		return nil, err
+	}
+
 	if err != nil {
 		return execution, err
 	}
@@ -228,7 +237,6 @@ func Container(ctx context.Context, opts Options, mlmd *metadata.Client, cacheCl
 		strconv.FormatBool(opts.CacheDisabled),
 		taskConfig,
 		fingerPrint,
-		cachedMLMDExecutionID,
 	)
 	if err != nil {
 		return execution, err

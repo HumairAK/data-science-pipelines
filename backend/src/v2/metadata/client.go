@@ -101,7 +101,7 @@ type ClientInterface interface {
 	RecordArtifact(ctx context.Context, outputName, schema string, runtimeArtifact *pipelinespec.RuntimeArtifact, state pb.Artifact_State, bucketConfig *objectstore.Config) (*OutputArtifact, error)
 	GetOrInsertArtifactType(ctx context.Context, schema string) (typeID int64, err error)
 	FindMatchedArtifact(ctx context.Context, artifactToMatch *pb.Artifact, pipelineContextId int64) (matchedArtifact *pb.Artifact, err error)
-	UpdateExecutionCache(ctx context.Context, executionID int64, fingerprint string, cachedExecutionID string) error
+	UpdateExecutionCache(ctx context.Context, executionID int64, fingerprint string) error
 	GetExecutionFromFingerprint(ctx context.Context, fingerprint string, pipelineName string, namespace string) (*int64, error)
 }
 
@@ -761,7 +761,7 @@ func (c *Client) PutDAGExecutionState(ctx context.Context, executionID int64, st
 	return err
 }
 
-func (c *Client) UpdateExecutionCache(ctx context.Context, executionID int64, fingerprint string, cachedExecutionID string) error {
+func (c *Client) UpdateExecutionCache(ctx context.Context, executionID int64, fingerprint string) error {
 	e, err := c.GetExecution(ctx, executionID)
 	if err != nil {
 		return err
@@ -770,7 +770,6 @@ func (c *Client) UpdateExecutionCache(ctx context.Context, executionID int64, fi
 		e.execution.CustomProperties = make(map[string]*pb.Value)
 	}
 	e.execution.CustomProperties[keyCacheFingerPrint] = StringValue(fingerprint)
-	e.execution.CustomProperties[keyCachedExecutionID] = StringValue(cachedExecutionID)
 	_, err = c.svc.PutExecution(ctx, &pb.PutExecutionRequest{
 		Execution: e.execution,
 	})
