@@ -128,7 +128,6 @@ service RunService {
     };
   }
 
-  // Task management endpoints for MLMD replacement
   rpc CreateTask(CreateTaskRequest) returns (PipelineTaskDetail) {
     option (google.api.http) = {
       post: "/apis/v2beta1/tasks"
@@ -174,7 +173,6 @@ service RunService {
       tags: "RunService"
     };
   }
-
 }
 
 message Run {
@@ -423,17 +421,15 @@ message PipelineTaskDetail {
     repeated TaskPod pods = 3;
   }
 
-  // Sequence of dependen tasks.
+  // Sequence of dependent tasks.
   repeated ChildTask child_tasks = 17;
 
   message InputOutputs {
 
     message IOProducer {
       string task_name = 1;
-      // This would be the equivalent of output_parameter_key
-      // when it's a parameter output, or output_artifact_key
-      // when it is an Artifact.
-      // But is also used for inputs.
+      // This would be the equivalent of output_parameter_key from the upstream task
+      // when it's a parameter input, or output_artifact_key when it is an Artifact.
       string key = 2;
     }
 
@@ -450,6 +446,7 @@ message PipelineTaskDetail {
     message IOArtifact {
       // Optional, this is only included on Runtime Tasks when the parameter name is known.
       string parameter_name = 1;
+
       Artifact value = 2;
 
       // All IO artifacts have a producer, so the following
@@ -609,7 +606,6 @@ message RetryRunRequest {
  string run_id = 2;
 }
 
-// Task management messages for MLMD replacement
 message CreateTaskRequest {
   PipelineTaskDetail task = 1;
 }

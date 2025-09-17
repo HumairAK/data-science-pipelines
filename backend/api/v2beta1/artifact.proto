@@ -283,6 +283,12 @@ message ArtifactTask {
   // in the component spec (found in OutputDefinitions)
   // used to output the artifact.
   string producer_key = 7;
+
+  // The parameter name for the input/output artifact
+  // This maybe the same as the Artifact name if the
+  // artifact name is not specified. It is used to
+  // resolve artifact pipeline channels.
+  string artifact_key = 8;
 }
 
 // Note to be confused with RuntimeArtifact in pipelinespec
@@ -297,6 +303,8 @@ message Artifact {
   // If this is a "Metric" artifact, the name of the metric
   // is treated as the Key in its K/V pair.
   string name = 2;
+
+  string description = 3;
 
   enum ArtifactType {
     // default; treated as "not set"
@@ -314,21 +322,21 @@ message Artifact {
     SlicedClassificationMetric = 8;
   }
   // Required. The name of an ArtifactType. E.g. Dataset
-  ArtifactType type = 3;
+  ArtifactType type = 4;
 
   // The uniform resource identifier of the physical artifact.
   // May be empty if there is no physical artifact.
-  optional string uri = 4;
+  optional string uri = 5;
 
   // Optional. User provided custom properties which are not defined by its type.
-  map<string, google.protobuf.Value> metadata = 5;
+  map<string, google.protobuf.Value> metadata = 6;
 
   // Used primarily for metrics
-  optional double number_value = 6;
+  optional double number_value = 7;
 
   // Output only. Create time of the artifact in millisecond since epoch.
   // Note: The type and name is updated from mlmd artifact to be consistent with other backend apis.
-  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp created_at = 8;
 
-  string namespace = 8;
+  string namespace = 9;
 }
