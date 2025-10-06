@@ -13,6 +13,8 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/component"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
+	"google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -76,8 +78,7 @@ func resolveInputParameter(
 		}
 		return resolvedInput, apiv2beta1.IOType_COMPONENT_INPUT, nil
 	case *pipelinespec.TaskInputsSpec_InputParameterSpec_TaskOutputParameter:
-
-		parameter, err := resolveUpstreamParameters(opts, paramSpec)
+		parameter, err := resolveTaskOutputParameter(opts, paramSpec)
 		if err != nil {
 			return nil, apiv2beta1.IOType_TASK_OUTPUT_INPUT, err
 		}
@@ -111,7 +112,6 @@ func resolveInputParameter(
 				v = structpb.NewStringValue(opts.Run.GetRunId())
 			case "{{$.pipeline_task_name}}":
 				v = structpb.NewStringValue(opts.TaskName)
-			// TODO(HumairAK): Shouldn't this be the name of the Runtime Task UUID ?
 			case "{{$.pipeline_task_uuid}}":
 				if opts.ParentTask == nil {
 					return nil, apiv2beta1.IOType_UNSPECIFIED, fmt.Errorf("parent task should not be nil")
@@ -128,15 +128,21 @@ func resolveInputParameter(
 		default:
 			return nil, apiv2beta1.IOType_UNSPECIFIED, paramError(paramSpec, fmt.Errorf("param runtime value spec of type %T not implemented", t))
 		}
-	case *pipelinespec.TaskInputsSpec_InputParameterSpec_TaskFinalStatus_: // TODO(HumairAK)
-		glog.V(4).Infof("resolving Task Final Statu %s", paramSpec.GetTaskFinalStatus().String())
-		return nil, apiv2beta1.IOType_UNSPECIFIED, paramError(paramSpec, fmt.Errorf("task output parameter not supported yet"))
+	case *pipelinespec.TaskInputsSpec_InputParameterSpec_TaskFinalStatus_:
+		value, err := resolveTaskFinalStatus(opts, paramSpec)
+		if err != nil {
+			return nil, apiv2beta1.IOType_TASK_FINAL_STATUS_OUTPUT, err
+		}
+		return &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+			ParameterKey: "status",
+			Value:        value,
+		}, apiv2beta1.IOType_TASK_FINAL_STATUS_OUTPUT, nil
 	default:
 		return nil, apiv2beta1.IOType_UNSPECIFIED, paramError(paramSpec, fmt.Errorf("parameter spec of type %T not implemented yet", t))
 	}
 }
 
-func resolveUpstreamParameters(
+func resolveTaskOutputParameter(
 	opts common.Options,
 	spec *pipelinespec.TaskInputsSpec_InputParameterSpec,
 ) (*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter, error) {
@@ -264,6 +270,56 @@ func resolveParameterIterator(
 	}
 	count := len(items)
 	return parameterMetadataList, &count, nil
+}
+
+func resolveTaskFinalStatus(opts common.Options,
+	spec *pipelinespec.TaskInputsSpec_InputParameterSpec,
+) (*structpb.Value, error) {
+	tasks, err := getSubTasks(opts.ParentTask, opts.Run.Tasks, nil)
+	if err != nil {
+		return nil, err
+	}
+	if tasks == nil {
+		return nil, fmt.Errorf("failed to get sub tasks for task %s", opts.ParentTask.Name)
+	}
+	producerTaskAmbiguousName := spec.GetTaskFinalStatus().GetProducerTask()
+	if producerTaskAmbiguousName == "" {
+		return nil, fmt.Errorf("producerTask task cannot be empty")
+	}
+	producerTaskUniqueName := getTaskNameWithTaskID(producerTaskAmbiguousName, opts.ParentTask.GetTaskId())
+	producer, ok := tasks[producerTaskUniqueName]
+
+	if len(opts.Task.DependentTasks) <= 0 {
+		return nil, fmt.Errorf("task %v has no dependent tasks", opts.Task.TaskInfo.GetName())
+	}
+	if !ok {
+		return nil, fmt.Errorf("producer task, %v, not in tasks", producer.GetName())
+	}
+	finalStatus := pipelinespec.PipelineTaskFinalStatus{
+		State:                   producer.GetStatus().String(),
+		PipelineTaskName:        producer.GetName(),
+		PipelineJobResourceName: opts.RunName,
+		Error: &status.Status{
+			Message: producer.GetStatusMetadata().GetMessage(),
+			Code:    int32(producer.GetStatus().Number()),
+		},
+	}
+	finalStatusJSON, err := protojson.Marshal(&finalStatus)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal PipelineTaskFinalStatus: %w", err)
+	}
+
+	var finalStatusMap map[string]interface{}
+	if err := json.Unmarshal(finalStatusJSON, &finalStatusMap); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JSON of PipelineTaskFinalStatus: %w", err)
+	}
+
+	finalStatusStruct, err := structpb.NewStruct(finalStatusMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create structpb.Struct: %w", err)
+	}
+
+	return structpb.NewStructValue(finalStatusStruct), nil
 }
 
 // getItems iteration items from a structpb.Value.

@@ -84,8 +84,11 @@ const (
 	// V2beta1IOTypeOUTPUT captures enum value "OUTPUT"
 	V2beta1IOTypeOUTPUT V2beta1IOType = "OUTPUT"
 
-	// V2beta1IOTypeONEOFOUTPUT captures enum value "ONEOF_OUTPUT"
-	V2beta1IOTypeONEOFOUTPUT V2beta1IOType = "ONEOF_OUTPUT"
+	// V2beta1IOTypeONEOFOUTPUT captures enum value "ONE_OF_OUTPUT"
+	V2beta1IOTypeONEOFOUTPUT V2beta1IOType = "ONE_OF_OUTPUT"
+
+	// V2beta1IOTypeTASKFINALSTATUSOUTPUT captures enum value "TASK_FINAL_STATUS_OUTPUT"
+	V2beta1IOTypeTASKFINALSTATUSOUTPUT V2beta1IOType = "TASK_FINAL_STATUS_OUTPUT"
 )
 
 // for schema
@@ -93,7 +96,7 @@ var v2beta1IOTypeEnum []interface{}
 
 func init() {
 	var res []V2beta1IOType
-	if err := json.Unmarshal([]byte(`["UNSPECIFIED","TASK_OUTPUT_INPUT","COMPONENT_INPUT","RUNTIME_VALUE_INPUT","ITERATOR_INPUT","ITERATOR_INPUT_RAW","ITERATOR_OUTPUT","COLLECTED_INPUTS","OUTPUT","ONEOF_OUTPUT"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["UNSPECIFIED","TASK_OUTPUT_INPUT","COMPONENT_INPUT","RUNTIME_VALUE_INPUT","ITERATOR_INPUT","ITERATOR_INPUT_RAW","ITERATOR_OUTPUT","COLLECTED_INPUTS","OUTPUT","ONE_OF_OUTPUT","TASK_FINAL_STATUS_OUTPUT"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {

@@ -242,7 +242,6 @@ message CreateArtifactTasksBulkResponse {
 enum IOType {
   // For validation
   UNSPECIFIED = 0;
-
   // The name seems convoluted, but this aligns with the
   // sdk naming in TaskInputsSpec.kind.task_output_parameter
   // and TaskInputsSpec.kind.task_output_artifact
@@ -260,17 +259,15 @@ enum IOType {
   // When an output is produced by a Runtime Iteration Task
   // This value is use to differentiate between standard inputs
   ITERATOR_OUTPUT = 6;
-
   // Used for dsl.Collected
   // Usage of this type indicates that all
   // Artifacts with8in the IOArtifact.artifacts
   // are inputs collected from sub tasks with
   // ITERATOR_OUTPUT outputs.
   COLLECTED_INPUTS = 7;
-
   OUTPUT = 8;
-
-  ONEOF_OUTPUT = 9;
+  ONE_OF_OUTPUT = 9;
+  TASK_FINAL_STATUS_OUTPUT = 10;
 }
 
 message IOProducer {

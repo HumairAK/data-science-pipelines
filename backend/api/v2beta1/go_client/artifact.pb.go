@@ -72,36 +72,39 @@ const (
 	// Artifacts with8in the IOArtifact.artifacts
 	// are inputs collected from sub tasks with
 	// ITERATOR_OUTPUT outputs.
-	IOType_COLLECTED_INPUTS IOType = 7
-	IOType_OUTPUT           IOType = 8
-	IOType_ONEOF_OUTPUT     IOType = 9
+	IOType_COLLECTED_INPUTS         IOType = 7
+	IOType_OUTPUT                   IOType = 8
+	IOType_ONE_OF_OUTPUT            IOType = 9
+	IOType_TASK_FINAL_STATUS_OUTPUT IOType = 10
 )
 
 // Enum value maps for IOType.
 var (
 	IOType_name = map[int32]string{
-		0: "UNSPECIFIED",
-		1: "TASK_OUTPUT_INPUT",
-		2: "COMPONENT_INPUT",
-		3: "RUNTIME_VALUE_INPUT",
-		4: "ITERATOR_INPUT",
-		5: "ITERATOR_INPUT_RAW",
-		6: "ITERATOR_OUTPUT",
-		7: "COLLECTED_INPUTS",
-		8: "OUTPUT",
-		9: "ONEOF_OUTPUT",
+		0:  "UNSPECIFIED",
+		1:  "TASK_OUTPUT_INPUT",
+		2:  "COMPONENT_INPUT",
+		3:  "RUNTIME_VALUE_INPUT",
+		4:  "ITERATOR_INPUT",
+		5:  "ITERATOR_INPUT_RAW",
+		6:  "ITERATOR_OUTPUT",
+		7:  "COLLECTED_INPUTS",
+		8:  "OUTPUT",
+		9:  "ONE_OF_OUTPUT",
+		10: "TASK_FINAL_STATUS_OUTPUT",
 	}
 	IOType_value = map[string]int32{
-		"UNSPECIFIED":         0,
-		"TASK_OUTPUT_INPUT":   1,
-		"COMPONENT_INPUT":     2,
-		"RUNTIME_VALUE_INPUT": 3,
-		"ITERATOR_INPUT":      4,
-		"ITERATOR_INPUT_RAW":  5,
-		"ITERATOR_OUTPUT":     6,
-		"COLLECTED_INPUTS":    7,
-		"OUTPUT":              8,
-		"ONEOF_OUTPUT":        9,
+		"UNSPECIFIED":              0,
+		"TASK_OUTPUT_INPUT":        1,
+		"COMPONENT_INPUT":          2,
+		"RUNTIME_VALUE_INPUT":      3,
+		"ITERATOR_INPUT":           4,
+		"ITERATOR_INPUT_RAW":       5,
+		"ITERATOR_OUTPUT":          6,
+		"COLLECTED_INPUTS":         7,
+		"OUTPUT":                   8,
+		"ONE_OF_OUTPUT":            9,
+		"TASK_FINAL_STATUS_OUTPUT": 10,
 	}
 )
 
@@ -1136,7 +1139,7 @@ const file_backend_api_v2beta1_artifact_proto_rawDesc = "" +
 	"\x14ClassificationMetric\x10\a\x12\x1e\n" +
 	"\x1aSlicedClassificationMetric\x10\bB\x06\n" +
 	"\x04_uriB\x0f\n" +
-	"\r_number_value*\xd3\x01\n" +
+	"\r_number_value*\xf2\x01\n" +
 	"\x06IOType\x12\x0f\n" +
 	"\vUNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11TASK_OUTPUT_INPUT\x10\x01\x12\x13\n" +
@@ -1147,8 +1150,10 @@ const file_backend_api_v2beta1_artifact_proto_rawDesc = "" +
 	"\x0fITERATOR_OUTPUT\x10\x06\x12\x14\n" +
 	"\x10COLLECTED_INPUTS\x10\a\x12\n" +
 	"\n" +
-	"\x06OUTPUT\x10\b\x12\x10\n" +
-	"\fONEOF_OUTPUT\x10\t2\xd3\f\n" +
+	"\x06OUTPUT\x10\b\x12\x11\n" +
+	"\rONE_OF_OUTPUT\x10\t\x12\x1c\n" +
+	"\x18TASK_FINAL_STATUS_OUTPUT\x10\n" +
+	"2\xd3\f\n" +
 	"\x0fArtifactService\x12\x84\x02\n" +
 	"\rListArtifacts\x12;.kubeflow.pipelines.backend.api.v2beta1.ListArtifactRequest\x1a<.kubeflow.pipelines.backend.api.v2beta1.ListArtifactResponse\"x\x92AV\n" +
 	"\x0fArtifactService\x123Finds all artifacts within the specified namespace.*\x0elist_artifacts\x82\xd3\xe4\x93\x02\x19\x12\x17/apis/v2beta1/artifacts\x12\xee\x01\n" +

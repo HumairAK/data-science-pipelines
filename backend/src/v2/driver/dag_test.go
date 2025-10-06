@@ -595,7 +595,7 @@ func TestOneOf(t *testing.T) {
 		"pipelinechannel--condition-branches-1-oneof-2",
 		analyzeAnimal1TaskArtifactID,
 		nil,
-		apiv2beta1.IOType_ONEOF_OUTPUT,
+		apiv2beta1.IOType_ONE_OF_OUTPUT,
 	)
 
 	// It is also an output of the secondary pipeline
@@ -605,7 +605,7 @@ func TestOneOf(t *testing.T) {
 		"Output",
 		analyzeAnimal1TaskArtifactID,
 		nil,
-		apiv2beta1.IOType_ONEOF_OUTPUT,
+		apiv2beta1.IOType_ONE_OF_OUTPUT,
 	)
 
 	tc.ExitDag()
@@ -635,7 +635,14 @@ func TestFinalStatus(t *testing.T) {
 	tc.ExitDag()
 	parentTask = tc.RootTask
 
-	_, _ = tc.RunContainer("echo-state", parentTask, nil)
+	_, echoStateTask := tc.RunContainer("echo-state", parentTask, nil)
+	require.Len(t, echoStateTask.Inputs.GetParameters(), 1)
+	inputFinalStatusParam := echoStateTask.Inputs.GetParameters()[0]
+	require.NotNil(t, inputFinalStatusParam)
+	// Mock library doesn't update dag statuses, in production we would expect
+	// this to say "SUCCEEDED" once it's done running
+	require.Equal(t, "RUNNING", inputFinalStatusParam.GetValue().GetStructValue().Fields["state"].GetStringValue())
+	require.Equal(t, "exit-handler-1", inputFinalStatusParam.GetValue().GetStructValue().Fields["pipelineTaskName"].GetStringValue())
 }
 
 func TestOptionalFields(t *testing.T) {}

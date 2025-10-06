@@ -54,7 +54,7 @@ func resolveInputArtifact(
 		}
 		return artifactIO, apiv2beta1.IOType_COMPONENT_INPUT, nil
 	case *pipelinespec.TaskInputsSpec_InputArtifactSpec_TaskOutputArtifact:
-		artifact, err := resolveUpstreamArtifacts(opts, artifactSpec)
+		artifact, err := resolveTaskOutputArtifact(opts, artifactSpec)
 		if err != nil {
 			return nil, apiv2beta1.IOType_TASK_OUTPUT_INPUT, err
 		}
@@ -94,7 +94,7 @@ func resolveArtifactComponentInputParameter(
 
 }
 
-func resolveUpstreamArtifacts(
+func resolveTaskOutputArtifact(
 	opts common.Options,
 	spec *pipelinespec.TaskInputsSpec_InputArtifactSpec,
 ) (*apiv2beta1.PipelineTaskDetail_InputOutputs_IOArtifact, error) {

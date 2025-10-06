@@ -61,7 +61,6 @@ func (m *MockDriverAPI) GetRun(ctx context.Context, req *apiv2beta1.GetRunReques
 				populatedRun.Tasks = append(populatedRun.Tasks, populatedTask)
 			}
 		}
-
 		return populatedRun, nil
 	}
 	return nil, fmt.Errorf("run not found: %s", req.RunId)
@@ -106,7 +105,8 @@ func (m *MockDriverAPI) hydrateTask(task *apiv2beta1.PipelineTaskDetail) *apiv2b
 					inputArtifacts = append(inputArtifacts, ioArtifact)
 				case apiv2beta1.IOType_OUTPUT,
 					apiv2beta1.IOType_ITERATOR_OUTPUT,
-					apiv2beta1.IOType_ONEOF_OUTPUT:
+					apiv2beta1.IOType_ONE_OF_OUTPUT,
+					apiv2beta1.IOType_TASK_FINAL_STATUS_OUTPUT:
 					outputArtifacts = append(outputArtifacts, ioArtifact)
 				}
 			}
@@ -660,7 +660,21 @@ func (tc *TestContext) RunContainer(
 	require.Equal(tc.T, execution.TaskID, task.TaskId)
 	require.Equal(tc.T, taskName, task.GetName())
 
+	tc.setContainerToComplete(execution.TaskID)
 	return execution, task
+}
+
+func (tc *TestContext) setContainerToComplete(taskID string) {
+	getTask, err := tc.DriverAPI.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: taskID})
+	require.NoError(tc.T, err)
+	require.NotNil(tc.T, getTask)
+
+	getTask.Status = apiv2beta1.PipelineTaskDetail_SUCCEEDED
+	_, err = tc.DriverAPI.UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
+		TaskId: taskID,
+		Task:   getTask,
+	})
+	require.NoError(tc.T, err)
 }
 
 func (tc *TestContext) RefreshRun() {
