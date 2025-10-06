@@ -619,6 +619,23 @@ func TestOneOf(t *testing.T) {
 }
 
 func TestFinalStatus(t *testing.T) {
+	tc := NewTestContextWithRootExecuted(
+		t,
+		&pipelinespec.PipelineJob_RuntimeConfig{},
+		"test_data/pipeline_with_input_status_state.yaml",
+	)
+	parentTask := tc.RootTask
+	require.NotNil(t, parentTask)
+
+	_, exitHandler1Task := tc.RunDag("exit-handler-1", parentTask)
+	parentTask = exitHandler1Task
+
+	_, _ = tc.RunContainer("some-task", parentTask, nil)
+
+	tc.ExitDag()
+	parentTask = tc.RootTask
+
+	_, _ = tc.RunContainer("echo-state", parentTask, nil)
 }
 
 func TestOptionalFields(t *testing.T) {}
