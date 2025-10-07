@@ -73,9 +73,6 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 		return nil, fmt.Errorf("failed to convert inputs to executor inputs: %w", err)
 	}
 
-	//executorInput := &pipelinespec.ExecutorInput{
-	//	Inputs: inputs,
-	//}
 	execution = &Execution{ExecutorInput: executorInput}
 	condition := opts.Task.GetTriggerPolicy().GetCondition()
 	if condition != "" {
@@ -104,20 +101,6 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 		opts.PublishLogs = "false"
 	}
 
-	// TODO(HumairAK): Outputs should be provisioned in the launcher.
-	// For driver case maybe it makes sense to publish the producer of the outputs??
-	// and launcher provides the value?
-
-	//if execution.WillTrigger() {
-	//	executorInput.Outputs = provisionOutputs(
-	//		run.RuntimeConfig.PipelineRoot,
-	//		opts.TaskName,
-	//		opts.Component.GetOutputDefinitions(),
-	//		uuid.NewString(),
-	//		opts.PublishLogs,
-	//	)
-	//}
-
 	// ######################################
 	// ### TASK REQUEST ###
 	// ######################################
@@ -132,6 +115,7 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 		DisplayName:  opts.Task.GetTaskInfo().GetName(),
 		RunId:        opts.Run.GetRunId(),
 		Type:         apiV2beta1.PipelineTaskDetail_RUNTIME,
+		Status:       apiV2beta1.PipelineTaskDetail_RUNNING,
 		ParentTaskId: util.StringPointer(opts.ParentTask.TaskId),
 		Pods: []*apiV2beta1.PipelineTaskDetail_TaskPod{
 			{
@@ -199,10 +183,6 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 	}
 
 	// ######################################
-	// ### CACHE 1 DONE ###
-	// ######################################
-
-	// ######################################
 	// ### CREATE TASK ###
 	// ######################################
 
@@ -235,7 +215,7 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 			taskToCreate.Status = apiV2beta1.PipelineTaskDetail_CACHED
 			taskToCreate.Outputs = cachedTask.Outputs
 			*execution.Cached = true
-			_, createErr := driverAPI.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+			_, createErr := driverAPI.CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
 				Task: taskToCreate,
 			})
 			if createErr != nil {

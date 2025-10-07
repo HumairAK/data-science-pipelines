@@ -645,18 +645,51 @@ func TestFinalStatus(t *testing.T) {
 	require.Equal(t, "exit-handler-1", inputFinalStatusParam.GetValue().GetStructValue().Fields["pipelineTaskName"].GetStringValue())
 }
 
+func TestWithCaching(t *testing.T) {
+	tc := NewTestContextWithRootExecuted(
+		t,
+		&pipelinespec.PipelineJob_RuntimeConfig{},
+		"test_data/cache_test.py.yaml",
+	)
+	parentTask := tc.RootTask
+	require.NotNil(t, parentTask)
+
+	_, createDatasetTask := tc.RunContainer("create-dataset", parentTask, nil)
+	tc.MockLauncherArtifactCreate(
+		createDatasetTask.GetTaskId(),
+		"output_dataset",
+		apiv2beta1.Artifact_Dataset,
+		apiv2beta1.IOType_OUTPUT,
+		createDatasetTask.GetName(),
+		nil)
+
+	processDatasetExecution, processDatasetTask := tc.RunContainer("process-dataset", parentTask, nil)
+	tc.MockLauncherArtifactCreate(
+		processDatasetTask.GetTaskId(),
+		"output_artifact",
+		apiv2beta1.Artifact_Artifact,
+		apiv2beta1.IOType_OUTPUT,
+		processDatasetTask.GetName(),
+		nil)
+	require.NotNil(t, processDatasetExecution.Cached)
+	require.False(t, *processDatasetExecution.Cached)
+	require.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, processDatasetTask.GetStatus())
+	require.NotEmpty(t, processDatasetExecution.PodSpecPatch)
+
+	processDatasetExecution, processDatasetTask = tc.RunContainer("process-dataset", parentTask, nil)
+	require.NotNil(t, processDatasetExecution.Cached)
+	require.True(t, *processDatasetExecution.Cached)
+	require.Equal(t, apiv2beta1.PipelineTaskDetail_CACHED, processDatasetTask.GetStatus())
+	require.Empty(t, processDatasetExecution.PodSpecPatch)
+}
+
 func TestOptionalFields(t *testing.T) {}
 
-func TestWithCaching(t *testing.T) {
-	// TODO Can't do this unless we can mock the filter API call on fingerprint and status
-	// See getFingerPrintsANDID
-}
+func TestK8SPlatform(t *testing.T) {}
 
 func TestArtifactIterator(t *testing.T) {
 
 }
-
-func TestK8SPlatform(t *testing.T) {}
 
 // This test creates a DAG with a single task that uses a component with inputs
 // and runtime constants. The test verifies that the inputs are correctly passed

@@ -3,6 +3,7 @@ package driver
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -153,6 +155,24 @@ func (m *MockDriverAPI) GetTask(ctx context.Context, req *apiv2beta1.GetTaskRequ
 func (m *MockDriverAPI) ListTasks(ctx context.Context, req *apiv2beta1.ListTasksRequest) (*apiv2beta1.ListTasksResponse, error) {
 	var tasks []*apiv2beta1.PipelineTaskDetail
 
+	var predicates []*apiv2beta1.Predicate
+	if req.GetFilter() != "" {
+		raw := strings.TrimSpace(req.GetFilter())
+		filter := &apiv2beta1.Filter{}
+
+		// First, try parsing as proto text format (matches filter.String()).
+		if err := prototext.Unmarshal([]byte(raw), filter); err != nil {
+			// Fallback to JSON. Support raw array of predicates by wrapping.
+			if len(raw) > 0 && raw[0] == '[' {
+				raw = `{"predicates":` + raw + `}`
+			}
+			if jerr := protojson.Unmarshal([]byte(raw), filter); jerr != nil {
+				return nil, fmt.Errorf("failed to parse filter; textproto error: %v; json error: %v", err, jerr)
+			}
+		}
+		predicates = filter.GetPredicates()
+	}
+
 	// Filter by run ID if specified
 	if runId := req.GetRunId(); runId != "" {
 		for _, task := range m.tasks {
@@ -172,6 +192,33 @@ func (m *MockDriverAPI) ListTasks(ctx context.Context, req *apiv2beta1.ListTasks
 		for _, task := range m.tasks {
 			tasks = append(tasks, task)
 		}
+	}
+
+	// Just handle cache case for now
+	if len(predicates) == 2 {
+		var statusPredicate *apiv2beta1.Predicate
+		var fingerprintPredicate *apiv2beta1.Predicate
+
+		if predicates[0].Key == "status" && predicates[1].Key == "fingerPrint" {
+			statusPredicate = predicates[0]
+			fingerprintPredicate = predicates[1]
+		} else if predicates[1].Key == "status" && predicates[0].Key == "fingerPrint" {
+			statusPredicate = predicates[1]
+			fingerprintPredicate = predicates[0]
+		} else {
+			return nil, fmt.Errorf("only cache filter supported in mock library: %s", req.GetFilter())
+		}
+
+		var filtered []*apiv2beta1.PipelineTaskDetail
+		status := statusPredicate.GetIntValue()
+		fingerprint := fingerprintPredicate.GetStringValue()
+		for _, t := range tasks {
+			if int32(t.GetStatus().Number()) == status && t.GetCacheFingerprint() == fingerprint {
+				filtered = append(filtered, t)
+			}
+
+		}
+		tasks = filtered
 	}
 
 	var hydratedTasks []*apiv2beta1.PipelineTaskDetail
@@ -659,22 +706,32 @@ func (tc *TestContext) RunContainer(
 	require.NotNil(tc.T, task)
 	require.Equal(tc.T, execution.TaskID, task.TaskId)
 	require.Equal(tc.T, taskName, task.GetName())
+	if task.Status != apiv2beta1.PipelineTaskDetail_CACHED {
+		require.Equal(tc.T, apiv2beta1.PipelineTaskDetail_RUNNING, task.Status)
+	}
 
-	tc.setContainerToComplete(execution.TaskID)
+	// Mock Launcher container completion
+	// Do it only for running so we can test the cache case
+	// as well.
+	if task.Status == apiv2beta1.PipelineTaskDetail_RUNNING {
+		task = tc.setContainerToComplete(execution.TaskID)
+	}
+
 	return execution, task
 }
 
-func (tc *TestContext) setContainerToComplete(taskID string) {
+func (tc *TestContext) setContainerToComplete(taskID string) *apiv2beta1.PipelineTaskDetail {
 	getTask, err := tc.DriverAPI.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: taskID})
 	require.NoError(tc.T, err)
 	require.NotNil(tc.T, getTask)
 
 	getTask.Status = apiv2beta1.PipelineTaskDetail_SUCCEEDED
-	_, err = tc.DriverAPI.UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
+	task, err := tc.DriverAPI.UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
 		TaskId: taskID,
 		Task:   getTask,
 	})
 	require.NoError(tc.T, err)
+	return task
 }
 
 func (tc *TestContext) RefreshRun() {
