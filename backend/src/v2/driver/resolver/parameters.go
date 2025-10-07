@@ -15,10 +15,18 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func resolveParameters(opts common.Options) ([]ParameterMetadata, error) {
+
+	// First we populate all the parameters with their default values if they are optional and have a default value
+
+	for key, inputDefParamSpec := range opts.Component.GetInputDefinitions().GetParameters() {
+
+	}
+
 	var parameters []ParameterMetadata
 	for key, paramSpec := range opts.Task.GetInputs().GetParameters() {
 		if compParam := opts.Component.GetInputDefinitions().GetParameters()[key]; compParam != nil {
@@ -30,20 +38,36 @@ func resolveParameters(opts common.Options) ([]ParameterMetadata, error) {
 		}
 
 		v, ioType, err := resolveInputParameter(opts, paramSpec, opts.ParentTask.Inputs.GetParameters())
+
+		componentParam, ok := opts.Component.GetInputDefinitions().GetParameters()[key]
+		if !ok {
+			return nil, fmt.Errorf("parameter %s not found in component input definitions", key)
+		}
+
+		var providedDefaultValue *structpb.Value
+		inputParamInComponentIsOptional := componentParam != nil && componentParam.IsOptional
+		if inputParamInComponentIsOptional && componentParam.GetDefaultValue() != nil {
+			providedDefaultValue = componentParam.GetDefaultValue()
+		}
+
 		if err != nil {
 			if !errors.Is(err, ErrResolvedInputNull) {
 				return nil, err
 			}
-			componentParam, ok := opts.Component.GetInputDefinitions().GetParameters()[key]
-			if !ok {
-				return nil, fmt.Errorf("parameter %s not found in component input definitions", key)
+			// If the resolved parameter was null, use the provided component default if it's a component optional input
+			if inputParamInComponentIsOptional && providedDefaultValue != nil {
+				v = &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+					Value: providedDefaultValue,
+				}
 			}
-			// If the resolved parameter was null and the component input parameter is optional, just skip setting
-			// it and the launcher will handle defaults.
-			if componentParam != nil && componentParam.IsOptional {
-				continue
-			}
-			return nil, err
+		}
+
+		// Do not include this input parameter if:
+		// 1. the parameter was not resolved (nil)
+		// 2. the parameter was optional
+		// 3. The default value was not provided
+		if v == nil && inputParamInComponentIsOptional && providedDefaultValue == nil {
+			continue
 		}
 		pm := ParameterMetadata{
 			Key:                key,
@@ -192,6 +216,12 @@ func resolveParameterComponentInputParameter(
 		generateName := param.ParameterKey
 		if paramName == generateName {
 			if !common.IsLoopArgument(paramName) {
+				// This can occur when a runtime config has a "None" optional value.
+				// In this case we return "nil" and have the callee handle the
+				// ErrResolvedInputNull case.
+				if param.GetValue().GetNullValue() == structpb.NullValue_NULL_VALUE {
+					return nil, ErrResolvedInputNull
+				}
 				return param, nil
 			}
 			// If the input is a loop argument, we need to check if the iteration index matches the current iteration.
@@ -421,4 +451,27 @@ func findParameterByProducerKeyInList(
 		return newParameterIO, nil
 	}
 	return parameterIOList[0], nil
+}
+
+func addDefaultParams(
+	executorInput *pipelinespec.ExecutorInput,
+	component *pipelinespec.ComponentSpec,
+) (*pipelinespec.ExecutorInput, error) {
+	// Make a deep copy so we don't alter the original data
+	executorInputWithDefaultMsg := proto.Clone(executorInput)
+	executorInputWithDefault, ok := executorInputWithDefaultMsg.(*pipelinespec.ExecutorInput)
+	if !ok {
+		return nil, fmt.Errorf("bug: cloned executor input message does not have expected type")
+	}
+
+	if executorInputWithDefault.GetInputs().GetParameterValues() == nil {
+		executorInputWithDefault.Inputs.ParameterValues = make(map[string]*structpb.Value)
+	}
+	for name, value := range component.GetInputDefinitions().GetParameters() {
+		_, hasInput := executorInputWithDefault.GetInputs().GetParameterValues()[name]
+		if value.GetDefaultValue() != nil && !hasInput {
+			executorInputWithDefault.GetInputs().GetParameterValues()[name] = value.GetDefaultValue()
+		}
+	}
+	return executorInputWithDefault, nil
 }
