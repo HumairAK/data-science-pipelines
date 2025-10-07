@@ -683,7 +683,65 @@ func TestWithCaching(t *testing.T) {
 	require.Empty(t, processDatasetExecution.PodSpecPatch)
 }
 
-func TestOptionalFields(t *testing.T) {}
+func TestOptionalFields(t *testing.T) {
+	// The API Server will populate runtime config with
+	// the defaults in the root InputDefinition is they are
+	// not user overridden. We mock this here.
+	runtimeInputs := &pipelinespec.PipelineJob_RuntimeConfig{
+		ParameterValues: map[string]*structpb.Value{
+			"input_str4": structpb.NewNullValue(),
+			"input_str5": structpb.NewStringValue("Some pipeline default"),
+			"input_str6": structpb.NewNullValue(),
+		},
+	}
+
+	tc := NewTestContextWithRootExecuted(
+		t, runtimeInputs,
+		"test_data/component_with_optional_inputs.yaml",
+	)
+	parentTask := tc.RootTask
+	require.NotNil(t, parentTask)
+
+	execution, task := tc.RunContainer("component-op", parentTask, nil)
+	require.NotNil(t, task)
+	require.NotNil(t, execution)
+
+	params := task.Inputs.GetParameters()
+	require.GreaterOrEqual(t, len(params), 0)
+
+	p := tc.fetchParameter("input_str1", params)
+	require.NotNil(t, p)
+
+	p = tc.fetchParameter("input_str2", params)
+	require.NotNil(t, p)
+
+	p = tc.fetchParameter("input_str3", params)
+	require.Nil(t, p)
+
+	p = tc.fetchParameter("input_str4_from_pipeline", params)
+	require.NotNil(t, p)
+
+	p = tc.fetchParameter("input_str5_from_pipeline", params)
+	require.NotNil(t, p)
+
+	p = tc.fetchParameter("input_str6_from_pipeline", params)
+	require.Nil(t, p)
+
+	p = tc.fetchParameter("input_bool1", params)
+	require.NotNil(t, p)
+
+	p = tc.fetchParameter("input_bool2", params)
+	require.Nil(t, p)
+
+	p = tc.fetchParameter("input_dict", params)
+	require.NotNil(t, p)
+
+	p = tc.fetchParameter("input_list", params)
+	require.NotNil(t, p)
+
+	p = tc.fetchParameter("input_int", params)
+	require.NotNil(t, p)
+}
 
 func TestK8SPlatform(t *testing.T) {}
 
@@ -713,13 +771,13 @@ func TestContainerComponentInputsAndRuntimeConstants(t *testing.T) {
 
 	// Fetch the task created by the Container() call
 	params := processInputsTask.Inputs.GetParameters()
-	require.Equal(t, apiv2beta1.IOType_COMPONENT_INPUT, fetchParameter("name", params).GetType())
-	require.Equal(t, apiv2beta1.IOType_COMPONENT_INPUT, fetchParameter("number", params).GetType())
-	require.Equal(t, apiv2beta1.IOType_COMPONENT_INPUT, fetchParameter("active", params).GetType())
-	require.Equal(t, apiv2beta1.IOType_COMPONENT_INPUT, fetchParameter("threshold", params).GetType())
-	require.Equal(t, apiv2beta1.IOType_RUNTIME_VALUE_INPUT, fetchParameter("a_runtime_string", params).GetType())
-	require.Equal(t, apiv2beta1.IOType_RUNTIME_VALUE_INPUT, fetchParameter("a_runtime_number", params).GetType())
-	require.Equal(t, apiv2beta1.IOType_RUNTIME_VALUE_INPUT, fetchParameter("a_runtime_bool", params).GetType())
+	require.Equal(t, apiv2beta1.IOType_COMPONENT_INPUT, tc.fetchParameter("name", params).GetType())
+	require.Equal(t, apiv2beta1.IOType_COMPONENT_INPUT, tc.fetchParameter("number", params).GetType())
+	require.Equal(t, apiv2beta1.IOType_COMPONENT_INPUT, tc.fetchParameter("active", params).GetType())
+	require.Equal(t, apiv2beta1.IOType_COMPONENT_INPUT, tc.fetchParameter("threshold", params).GetType())
+	require.Equal(t, apiv2beta1.IOType_RUNTIME_VALUE_INPUT, tc.fetchParameter("a_runtime_string", params).GetType())
+	require.Equal(t, apiv2beta1.IOType_RUNTIME_VALUE_INPUT, tc.fetchParameter("a_runtime_number", params).GetType())
+	require.Equal(t, apiv2beta1.IOType_RUNTIME_VALUE_INPUT, tc.fetchParameter("a_runtime_bool", params).GetType())
 
 	require.Equal(t, processInputsExecution.TaskID, processInputsTask.TaskId)
 	require.Equal(t, processInputsExecution.ExecutorInput.Inputs.ParameterValues["name"].GetStringValue(), "some_name")
@@ -753,13 +811,4 @@ func TestContainerComponentInputsAndRuntimeConstants(t *testing.T) {
 	require.Equal(t, "s3://some.location/output_text", artifact.Uri)
 	require.Equal(t, apiv2beta1.Artifact_Dataset.String(), artifact.Type.GetSchemaTitle())
 	require.Equal(t, "output_text", artifact.Name)
-}
-
-func fetchParameter(key string, params []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter) *apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter {
-	for _, p := range params {
-		if key == p.ParameterKey {
-			return p
-		}
-	}
-	panic("parameter not found")
 }

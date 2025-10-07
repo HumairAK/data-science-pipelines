@@ -953,3 +953,12 @@ func (tc *TestContext) setupContainerOptions(
 		PodUID:                   "some-uid",
 	}
 }
+
+func (tc *TestContext) fetchParameter(key string, params []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter) *apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter {
+	for _, p := range params {
+		if key == p.ParameterKey {
+			return p
+		}
+	}
+	return nil
+}

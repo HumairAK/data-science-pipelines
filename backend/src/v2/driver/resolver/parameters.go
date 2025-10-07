@@ -200,7 +200,7 @@ func resolveParameterComponentInputParameter(
 			}
 		}
 	}
-	return nil, fmt.Errorf("failed to find input param %s", paramName)
+	return nil, ErrResolvedInputNull
 }
 
 // resolveParameterIterator handles parameter Iterator Input resolution
