@@ -32,6 +32,8 @@ type ArtifactMetadata struct {
 	ArtifactIO        *apiV2beta1.PipelineTaskDetail_InputOutputs_IOArtifact
 }
 
+// InputMetadata collects artifacts and parameters as arrays because
+// the "key" is not unique in the case of Iterator parameters.
 type InputMetadata struct {
 	Parameters []ParameterMetadata
 	Artifacts  []ArtifactMetadata

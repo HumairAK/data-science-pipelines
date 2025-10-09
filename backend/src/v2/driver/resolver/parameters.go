@@ -19,6 +19,15 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
+func findParameterByKey(key string, parameters []ParameterMetadata) (*ParameterMetadata, error) {
+	for _, parameter := range parameters {
+		if parameter.Key == key {
+			return &parameter, nil
+		}
+	}
+	return nil, fmt.Errorf("parameter %s not found", key)
+}
+
 func resolveParameters(opts common.Options) ([]ParameterMetadata, error) {
 	var parameters []ParameterMetadata
 	for key, paramSpec := range opts.Task.GetInputs().GetParameters() {
@@ -35,16 +44,26 @@ func resolveParameters(opts common.Options) ([]ParameterMetadata, error) {
 			if !errors.Is(err, ErrResolvedInputNull) {
 				return nil, err
 			}
+			// At this point we have determined no parameter was passed down as an argument.
+			// We must now check if the parameter is optional and whether a default is provided
+			// at the component level.
+			// First check to see if it's both: Optional && DefaultValue is set
+			// If true, then use the DefaultValue. If false, then return an error.
 			componentParam, ok := opts.Component.GetInputDefinitions().GetParameters()[key]
 			if !ok {
-				return nil, fmt.Errorf("parameter %s not found in component input definitions", key)
+				return nil, fmt.Errorf("parameter %s was not found in the task %s's inputDefinition", key, opts.TaskName)
 			}
-			// If the resolved parameter was null and the component input parameter is optional, just skip setting
-			// it and the launcher will handle defaults.
-			if componentParam != nil && componentParam.IsOptional {
-				continue
+			canSetDefaultValue := componentParam != nil && componentParam.IsOptional
+			defaultValue := componentParam.GetDefaultValue()
+			if canSetDefaultValue && defaultValue != nil {
+				v = &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+					Value: defaultValue,
+				}
+			} else if canSetDefaultValue {
+				continue // If the parameter is optional and has no default value, we can skip it.
+			} else {
+				return nil, fmt.Errorf("parameter %s is not resolved", key)
 			}
-			return nil, err
 		}
 		pm := ParameterMetadata{
 			Key:                key,
@@ -60,6 +79,12 @@ func resolveParameters(opts common.Options) ([]ParameterMetadata, error) {
 			pm.ParameterIO.Producer.Iteration = util.Int64Pointer(int64(opts.IterationIndex))
 		}
 		parameters = append(parameters, pm)
+	}
+
+	// There are cases where a parameter is not passed down as an argument, but is still optionally set
+	// We need to resolve these as well:
+	for key, paramSpec := range opts.Component.GetInputDefinitions().GetParameters() {
+
 	}
 
 	return parameters, nil
