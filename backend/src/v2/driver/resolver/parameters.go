@@ -20,13 +20,6 @@ import (
 )
 
 func resolveParameters(opts common.Options) ([]ParameterMetadata, error) {
-
-	// First we populate all the parameters with their default values if they are optional and have a default value
-
-	for key, inputDefParamSpec := range opts.Component.GetInputDefinitions().GetParameters() {
-
-	}
-
 	var parameters []ParameterMetadata
 	for key, paramSpec := range opts.Task.GetInputs().GetParameters() {
 		if compParam := opts.Component.GetInputDefinitions().GetParameters()[key]; compParam != nil {
@@ -38,36 +31,20 @@ func resolveParameters(opts common.Options) ([]ParameterMetadata, error) {
 		}
 
 		v, ioType, err := resolveInputParameter(opts, paramSpec, opts.ParentTask.Inputs.GetParameters())
-
-		componentParam, ok := opts.Component.GetInputDefinitions().GetParameters()[key]
-		if !ok {
-			return nil, fmt.Errorf("parameter %s not found in component input definitions", key)
-		}
-
-		var providedDefaultValue *structpb.Value
-		inputParamInComponentIsOptional := componentParam != nil && componentParam.IsOptional
-		if inputParamInComponentIsOptional && componentParam.GetDefaultValue() != nil {
-			providedDefaultValue = componentParam.GetDefaultValue()
-		}
-
 		if err != nil {
 			if !errors.Is(err, ErrResolvedInputNull) {
 				return nil, err
 			}
-			// If the resolved parameter was null, use the provided component default if it's a component optional input
-			if inputParamInComponentIsOptional && providedDefaultValue != nil {
-				v = &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
-					Value: providedDefaultValue,
-				}
+			componentParam, ok := opts.Component.GetInputDefinitions().GetParameters()[key]
+			if !ok {
+				return nil, fmt.Errorf("parameter %s not found in component input definitions", key)
 			}
-		}
-
-		// Do not include this input parameter if:
-		// 1. the parameter was not resolved (nil)
-		// 2. the parameter was optional
-		// 3. The default value was not provided
-		if v == nil && inputParamInComponentIsOptional && providedDefaultValue == nil {
-			continue
+			// If the resolved parameter was null and the component input parameter is optional, just skip setting
+			// it and the launcher will handle defaults.
+			if componentParam != nil && componentParam.IsOptional {
+				continue
+			}
+			return nil, err
 		}
 		pm := ParameterMetadata{
 			Key:                key,
@@ -219,7 +196,11 @@ func resolveParameterComponentInputParameter(
 				// This can occur when a runtime config has a "None" optional value.
 				// In this case we return "nil" and have the callee handle the
 				// ErrResolvedInputNull case.
-				if param.GetValue().GetNullValue() == structpb.NullValue_NULL_VALUE {
+				val := param.GetValue()
+				if val == nil {
+					return nil, ErrResolvedInputNull
+				}
+				if _, isNull := val.GetKind().(*structpb.Value_NullValue); isNull {
 					return nil, ErrResolvedInputNull
 				}
 				return param, nil
