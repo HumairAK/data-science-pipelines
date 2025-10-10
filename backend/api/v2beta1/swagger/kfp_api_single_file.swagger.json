@@ -90,6 +90,7 @@
             "type": "string",
             "enum": [
               "UNSPECIFIED",
+              "COMPONENT_DEFAULT_INPUT",
               "TASK_OUTPUT_INPUT",
               "COMPONENT_INPUT",
               "RUNTIME_VALUE_INPUT",
@@ -2270,6 +2271,7 @@
       "type": "string",
       "enum": [
         "UNSPECIFIED",
+        "COMPONENT_DEFAULT_INPUT",
         "TASK_OUTPUT_INPUT",
         "COMPONENT_INPUT",
         "RUNTIME_VALUE_INPUT",

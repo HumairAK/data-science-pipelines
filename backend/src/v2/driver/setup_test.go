@@ -678,16 +678,20 @@ func (tc *TestContext) RunContainer(
 	taskName string,
 	parentTask *apiv2beta1.PipelineTaskDetail,
 	iterationIndex *int64,
+	autoUpdateScope bool,
 ) (*Execution, *apiv2beta1.PipelineTaskDetail) {
 	tc.RefreshRun()
 	defer tc.RefreshRun()
 
 	// Add scope path and pop it once done
 	err := tc.ScopePath.Push(taskName)
-	defer func() {
-		_, ok := tc.ScopePath.Pop()
-		require.True(tc.T, ok)
-	}()
+
+	if autoUpdateScope {
+		defer func() {
+			_, ok := tc.ScopePath.Pop()
+			require.True(tc.T, ok)
+		}()
+	}
 
 	require.NoError(tc.T, err)
 	taskSpec := tc.GetLast().GetTaskSpec()
@@ -782,6 +786,57 @@ func (tc *TestContext) MockLauncherParameterCreate(
 	require.NotNil(tc.T, task)
 
 	tc.RefreshRun()
+}
+
+func (tc *TestContext) MockLauncherDefaultParametersUpdate(
+	TaskId string,
+	componentSpec *pipelinespec.ComponentSpec,
+) *apiv2beta1.PipelineTaskDetail {
+	defer func() { tc.RefreshRun() }()
+
+	// Get Task
+	task, err := tc.DriverAPI.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: TaskId})
+	require.NoError(tc.T, err)
+	require.NotNil(tc.T, task)
+
+	taskInputParameters := task.GetInputs().GetParameters()
+
+	// Find all optional parameters that have default values and add them to the task input parameters
+	for key, inputParamSpec := range componentSpec.GetInputDefinitions().GetParameters() {
+		if !parameterExistsWithKey(taskInputParameters, key) {
+			var value *structpb.Value
+			if inputParamSpec.GetDefaultValue() != nil {
+				value = inputParamSpec.GetDefaultValue()
+			} else {
+				require.True(tc.T, inputParamSpec.IsOptional, "Parameter %s is not optional", key)
+				continue
+			}
+			require.NotNil(tc.T, value)
+			parameterIO := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+				Value:        value,
+				Type:         apiv2beta1.IOType_COMPONENT_DEFAULT_INPUT,
+				ParameterKey: key,
+			}
+			taskInputParameters = append(taskInputParameters, parameterIO)
+		}
+	}
+	task.Inputs.Parameters = taskInputParameters
+	task, err = tc.DriverAPI.UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
+		TaskId: TaskId,
+		Task:   task,
+	})
+	require.NoError(tc.T, err)
+	require.NotNil(tc.T, task)
+	return task
+}
+
+func parameterExistsWithKey(parameters []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter, key string) bool {
+	for _, parameter := range parameters {
+		if parameter.ParameterKey == key {
+			return true
+		}
+	}
+	return false
 }
 
 func (tc *TestContext) MockLauncherArtifactCreate(

@@ -79,7 +79,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 	// Now we'll run the subtasks in the secondary pipeline, one of which is a loop of 3 iterations
 
 	// Run the Downstream Task that will use the output artifact
-	createDataSetExecution, _ := tc.RunContainer("create-dataset", parentTask, nil)
+	createDataSetExecution, _ := tc.RunContainer("create-dataset", parentTask, nil, true)
 	require.Nil(t, createDataSetExecution.ExecutorInput.Outputs)
 
 	// Mock a Launcher run by updating the task with output data
@@ -108,7 +108,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 	for index, paramID := range []string{"1", "2", "3"} {
 
 		// Run the "process-dataset" Container Task with iteration index
-		processExecution, _ := tc.RunContainer("process-dataset", parentTask, util.Int64Pointer(int64(index)))
+		processExecution, _ := tc.RunContainer("process-dataset", parentTask, util.Int64Pointer(int64(index)), true)
 		require.Nil(t, processExecution.ExecutorInput.Outputs)
 		require.NotNil(t, processExecution.ExecutorInput.Inputs.Artifacts["input_dataset"])
 		require.Equal(t, 1, len(processExecution.ExecutorInput.Inputs.Artifacts["input_dataset"].GetArtifacts()))
@@ -172,7 +172,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 		require.Equal(t, len(secondaryPipelineTask.Outputs.Artifacts), index+1)
 
 		// Run next iteration component
-		analyzeExecution, _ := tc.RunContainer("analyze-artifact", parentTask, util.Int64Pointer(int64(index)))
+		analyzeExecution, _ := tc.RunContainer("analyze-artifact", parentTask, util.Int64Pointer(int64(index)), true)
 		require.Nil(t, createDataSetExecution.ExecutorInput.Outputs)
 		require.Nil(t, analyzeExecution.ExecutorInput.Outputs)
 		require.NotNil(t, analyzeExecution.ExecutorInput.Inputs.Artifacts["analyze_artifact_input"])
@@ -209,7 +209,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 	parentTask = secondaryPipelineTask
 	tc.ExitDag()
 
-	analyzeArtifactListExecution, _ := tc.RunContainer("analyze-artifact-list", parentTask, nil)
+	analyzeArtifactListExecution, _ := tc.RunContainer("analyze-artifact-list", parentTask, nil, true)
 	require.Nil(t, analyzeArtifactListExecution.ExecutorInput.Outputs)
 	require.NotNil(t, analyzeArtifactListExecution.ExecutorInput.Inputs.Artifacts["artifact_list_input"])
 	require.Equal(t, 3, len(analyzeArtifactListExecution.ExecutorInput.Inputs.Artifacts["artifact_list_input"].GetArtifacts()))
@@ -227,7 +227,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 
 	// Not to be confused with the "analyze-artifact-list" task in secondary pipeline,
 	// this is the "analyze-artifact-list" task in the primary pipeline
-	analyzeArtifactListOuterExecution, _ := tc.RunContainer("analyze-artifact-list", parentTask, nil)
+	analyzeArtifactListOuterExecution, _ := tc.RunContainer("analyze-artifact-list", parentTask, nil, true)
 	require.Nil(t, analyzeArtifactListExecution.ExecutorInput.Outputs)
 	require.Nil(t, analyzeArtifactListOuterExecution.ExecutorInput.Outputs)
 	require.NotNil(t, analyzeArtifactListOuterExecution.ExecutorInput.Inputs.Artifacts["artifact_list_input"])
@@ -259,7 +259,7 @@ func TestParameterInputIterator(t *testing.T) {
 	parentTask := tc.RootTask
 	_, secondaryPipelineTask := tc.RunDag("secondary-pipeline", parentTask)
 	parentTask = secondaryPipelineTask
-	_, splitIDsTask := tc.RunContainer("split-ids", parentTask, nil)
+	_, splitIDsTask := tc.RunContainer("split-ids", parentTask, nil, true)
 
 	tc.MockLauncherParameterCreate(
 		splitIDsTask.GetTaskId(),
@@ -288,6 +288,7 @@ func TestParameterInputIterator(t *testing.T) {
 			"create-file",
 			parentTask,
 			index64,
+			true,
 		)
 
 		tc.MockLauncherArtifactCreate(
@@ -304,6 +305,7 @@ func TestParameterInputIterator(t *testing.T) {
 			"read-single-file",
 			parentTask,
 			index64,
+			true,
 		)
 		mockSingleFileTaskOutputParameterValue := &structpb.Value{
 			Kind: &structpb.Value_StringValue{
@@ -342,7 +344,7 @@ func TestParameterInputIterator(t *testing.T) {
 	tc.ExitDag()
 	parentTask = secondaryPipelineTask
 
-	_, readValuesTask := tc.RunContainer("read-values", parentTask, nil)
+	_, readValuesTask := tc.RunContainer("read-values", parentTask, nil, true)
 	tc.MockLauncherParameterCreate(
 		readValuesTask.GetTaskId(),
 		"Output",
@@ -355,7 +357,7 @@ func TestParameterInputIterator(t *testing.T) {
 	tc.ExitDag()
 	parentTask = tc.RootTask
 
-	_, readValuesTask2 := tc.RunContainer("read-values", parentTask, nil)
+	_, readValuesTask2 := tc.RunContainer("read-values", parentTask, nil, true)
 	tc.MockLauncherParameterCreate(
 		readValuesTask2.GetTaskId(),
 		"Output",
@@ -381,7 +383,7 @@ func TestNestedDag(t *testing.T) {
 	tc := NewTestContextWithRootExecuted(t, &pipelinespec.PipelineJob_RuntimeConfig{}, "test_data/nested_naming_conflicts.py.yaml")
 	parentTask := tc.RootTask
 
-	_, aTask := tc.RunContainer("a", parentTask, nil)
+	_, aTask := tc.RunContainer("a", parentTask, nil, true)
 	tc.MockLauncherArtifactCreate(
 		aTask.GetTaskId(),
 		"output_dataset",
@@ -393,7 +395,7 @@ func TestNestedDag(t *testing.T) {
 	_, pipelineBTask := tc.RunDag("pipeline-b", parentTask)
 	parentTask = pipelineBTask
 
-	_, nestedATask := tc.RunContainer("a", parentTask, nil)
+	_, nestedATask := tc.RunContainer("a", parentTask, nil, true)
 	tc.MockLauncherArtifactCreate(
 		nestedATask.GetTaskId(),
 		"output_dataset",
@@ -402,7 +404,7 @@ func TestNestedDag(t *testing.T) {
 		"a",
 		nil)
 
-	_, nestedBTask := tc.RunContainer("b", parentTask, nil)
+	_, nestedBTask := tc.RunContainer("b", parentTask, nil, true)
 	tc.MockLauncherArtifactCreate(
 		nestedBTask.GetTaskId(),
 		"output_artifact_b",
@@ -414,7 +416,7 @@ func TestNestedDag(t *testing.T) {
 	_, pipelineCTask := tc.RunDag("pipeline-c", parentTask)
 	parentTask = pipelineCTask
 
-	_, nestedNestedATask := tc.RunContainer("a", parentTask, nil)
+	_, nestedNestedATask := tc.RunContainer("a", parentTask, nil, true)
 	tc.MockLauncherArtifactCreate(
 		nestedNestedATask.GetTaskId(),
 		"output_dataset",
@@ -423,7 +425,7 @@ func TestNestedDag(t *testing.T) {
 		"a",
 		nil)
 
-	_, nestedNestedBTask := tc.RunContainer("b", parentTask, nil)
+	_, nestedNestedBTask := tc.RunContainer("b", parentTask, nil, true)
 	tc.MockLauncherArtifactCreate(
 		nestedNestedBTask.GetTaskId(),
 		"output_artifact_b",
@@ -432,7 +434,7 @@ func TestNestedDag(t *testing.T) {
 		"b",
 		nil)
 
-	_, cTask := tc.RunContainer("c", parentTask, nil)
+	_, cTask := tc.RunContainer("c", parentTask, nil, true)
 	cTaskArtifactID := tc.MockLauncherArtifactCreate(
 		cTask.GetTaskId(),
 		"output_artifact_c",
@@ -457,7 +459,7 @@ func TestNestedDag(t *testing.T) {
 	tc.ExitDag()
 	parentTask = tc.RootTask
 
-	_, _ = tc.RunContainer("verify", parentTask, nil)
+	_, _ = tc.RunContainer("verify", parentTask, nil, true)
 
 	var err error
 
@@ -482,7 +484,7 @@ func TestParameterTaskOutput(t *testing.T) {
 	parentTask := tc.RootTask
 
 	// Run Dag on the First Task
-	cdExecution, _ := tc.RunContainer("create-dataset", parentTask, nil)
+	cdExecution, _ := tc.RunContainer("create-dataset", parentTask, nil, true)
 	tc.MockLauncherParameterCreate(
 		cdExecution.TaskID,
 		"output_parameter_path",
@@ -491,7 +493,7 @@ func TestParameterTaskOutput(t *testing.T) {
 		"create-dataset",
 		nil,
 	)
-	pdExecution, _ := tc.RunContainer("process-dataset", parentTask, nil)
+	pdExecution, _ := tc.RunContainer("process-dataset", parentTask, nil, true)
 	tc.MockLauncherParameterCreate(
 		pdExecution.TaskID,
 		"output_int",
@@ -500,7 +502,7 @@ func TestParameterTaskOutput(t *testing.T) {
 		"process-dataset",
 		nil,
 	)
-	analyzeArtifactExecution, _ := tc.RunContainer("analyze-artifact", parentTask, nil)
+	analyzeArtifactExecution, _ := tc.RunContainer("analyze-artifact", parentTask, nil, true)
 	tc.MockLauncherParameterCreate(
 		analyzeArtifactExecution.TaskID,
 		"output_opinion",
@@ -521,7 +523,7 @@ func TestOneOf(t *testing.T) {
 	parentTask = secondaryPipelineTask
 
 	// Run create_dataset()
-	_, createDatasetTask := tc.RunContainer("create-dataset", parentTask, nil)
+	_, createDatasetTask := tc.RunContainer("create-dataset", parentTask, nil, true)
 	tc.MockLauncherArtifactCreate(
 		createDatasetTask.GetTaskId(),
 		"output_dataset",
@@ -564,7 +566,7 @@ func TestOneOf(t *testing.T) {
 	require.True(t, *condition3Execution.Condition)
 
 	parentTask = condition3Task
-	_, giveAnimal1Task := tc.RunContainer("give-animal-2", parentTask, nil)
+	_, giveAnimal1Task := tc.RunContainer("give-animal-2", parentTask, nil, true)
 	tc.MockLauncherArtifactCreate(
 		giveAnimal1Task.GetTaskId(),
 		"output_animal",
@@ -573,7 +575,7 @@ func TestOneOf(t *testing.T) {
 		giveAnimal1Task.GetName(),
 		nil,
 	)
-	_, analyzeAnimal1Task := tc.RunContainer("analyze-animal", parentTask, nil)
+	_, analyzeAnimal1Task := tc.RunContainer("analyze-animal", parentTask, nil, true)
 	analyzeAnimal1TaskArtifactID := tc.MockLauncherArtifactCreate(
 		analyzeAnimal1Task.GetTaskId(),
 		"analysis_output",
@@ -615,7 +617,7 @@ func TestOneOf(t *testing.T) {
 	tc.ExitDag()
 	parentTask = tc.RootTask
 
-	_, _ = tc.RunContainer("check-animal", parentTask, nil)
+	_, _ = tc.RunContainer("check-animal", parentTask, nil, true)
 }
 
 func TestFinalStatus(t *testing.T) {
@@ -630,12 +632,12 @@ func TestFinalStatus(t *testing.T) {
 	_, exitHandler1Task := tc.RunDag("exit-handler-1", parentTask)
 	parentTask = exitHandler1Task
 
-	_, _ = tc.RunContainer("some-task", parentTask, nil)
+	_, _ = tc.RunContainer("some-task", parentTask, nil, true)
 
 	tc.ExitDag()
 	parentTask = tc.RootTask
 
-	_, echoStateTask := tc.RunContainer("echo-state", parentTask, nil)
+	_, echoStateTask := tc.RunContainer("echo-state", parentTask, nil, true)
 	require.Len(t, echoStateTask.Inputs.GetParameters(), 1)
 	inputFinalStatusParam := echoStateTask.Inputs.GetParameters()[0]
 	require.NotNil(t, inputFinalStatusParam)
@@ -654,7 +656,7 @@ func TestWithCaching(t *testing.T) {
 	parentTask := tc.RootTask
 	require.NotNil(t, parentTask)
 
-	_, createDatasetTask := tc.RunContainer("create-dataset", parentTask, nil)
+	_, createDatasetTask := tc.RunContainer("create-dataset", parentTask, nil, true)
 	tc.MockLauncherArtifactCreate(
 		createDatasetTask.GetTaskId(),
 		"output_dataset",
@@ -663,7 +665,7 @@ func TestWithCaching(t *testing.T) {
 		createDatasetTask.GetName(),
 		nil)
 
-	processDatasetExecution, processDatasetTask := tc.RunContainer("process-dataset", parentTask, nil)
+	processDatasetExecution, processDatasetTask := tc.RunContainer("process-dataset", parentTask, nil, true)
 	tc.MockLauncherArtifactCreate(
 		processDatasetTask.GetTaskId(),
 		"output_artifact",
@@ -676,7 +678,7 @@ func TestWithCaching(t *testing.T) {
 	require.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, processDatasetTask.GetStatus())
 	require.NotEmpty(t, processDatasetExecution.PodSpecPatch)
 
-	processDatasetExecution, processDatasetTask = tc.RunContainer("process-dataset", parentTask, nil)
+	processDatasetExecution, processDatasetTask = tc.RunContainer("process-dataset", parentTask, nil, true)
 	require.NotNil(t, processDatasetExecution.Cached)
 	require.True(t, *processDatasetExecution.Cached)
 	require.Equal(t, apiv2beta1.PipelineTaskDetail_CACHED, processDatasetTask.GetStatus())
@@ -702,9 +704,10 @@ func TestOptionalFields(t *testing.T) {
 	parentTask := tc.RootTask
 	require.NotNil(t, parentTask)
 
-	execution, task := tc.RunContainer("component-op", parentTask, nil)
+	execution, task := tc.RunContainer("component-op", parentTask, nil, false)
 	require.NotNil(t, task)
 	require.NotNil(t, execution)
+	task = tc.MockLauncherDefaultParametersUpdate(task.TaskId, tc.GetLast().GetComponentSpec())
 
 	params := task.Inputs.GetParameters()
 	require.GreaterOrEqual(t, len(params), 0)
@@ -766,7 +769,7 @@ func TestContainerComponentInputsAndRuntimeConstants(t *testing.T) {
 	tc := NewTestContextWithRootExecuted(t, runtimeInputs, "test_data/componentInput_level_1_test.py.yaml")
 
 	// Run Container on the First Task
-	processInputsExecution, processInputsTask := tc.RunContainer("process-inputs", tc.RootTask, nil)
+	processInputsExecution, processInputsTask := tc.RunContainer("process-inputs", tc.RootTask, nil, true)
 	require.Nil(t, processInputsExecution.ExecutorInput.Outputs)
 
 	// Fetch the task created by the Container() call
@@ -798,7 +801,7 @@ func TestContainerComponentInputsAndRuntimeConstants(t *testing.T) {
 		nil,
 	)
 
-	analyzeInputsExecution, _ := tc.RunContainer("analyze-inputs", tc.RootTask, nil)
+	analyzeInputsExecution, _ := tc.RunContainer("analyze-inputs", tc.RootTask, nil, true)
 	require.Nil(t, analyzeInputsExecution.ExecutorInput.Outputs)
 	require.Nil(t, analyzeInputsExecution.ExecutorInput.Outputs)
 	require.Equal(t, 1, len(analyzeInputsExecution.ExecutorInput.Inputs.Artifacts["input_text"].Artifacts))
