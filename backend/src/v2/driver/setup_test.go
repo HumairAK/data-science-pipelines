@@ -20,6 +20,8 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 const TestPipelineName = "test-pipeline"
@@ -290,11 +292,12 @@ func (m *MockDriverAPI) AddRun(run *apiv2beta1.Run) {
 type TestContext struct {
 	Run *apiv2beta1.Run
 	util.ScopePath
-	T            *testing.T
-	DriverAPI    *MockDriverAPI
-	PipelineSpec *pipelinespec.PipelineSpec
-	RootTask     *apiv2beta1.PipelineTaskDetail
-	PlatformSpec *pipelinespec.PlatformSpec
+	T                 *testing.T
+	DriverAPI         *MockDriverAPI
+	PipelineSpec      *pipelinespec.PipelineSpec
+	RootTask          *apiv2beta1.PipelineTaskDetail
+	PlatformSpec      *pipelinespec.PlatformSpec
+	K8sClientOverride kubernetes.Interface
 }
 
 // NewTestContextWithRootExecuted creates a new test context with basic configuration
@@ -335,6 +338,8 @@ func NewTestContextWithRootExecuted(t *testing.T, runtimeConfig *pipelinespec.Pi
 	tc.PipelineSpec = pipelineSpec
 	tc.PlatformSpec = platformSpec
 	tc.T = t
+
+	tc.K8sClientOverride = fake.NewClientset()
 
 	// Create a root DAG execution using basic inputs
 	_, rootTask := tc.RunRootDag(tc, run, runtimeConfig)
@@ -1017,6 +1022,7 @@ func (tc *TestContext) setupContainerOptions(
 		TaskName:                 taskSpec.TaskInfo.GetName(),
 		PodName:                  "system-container-impl",
 		PodUID:                   "some-uid",
+		K8sClientOverride:        tc.K8sClientOverride,
 	}
 }
 

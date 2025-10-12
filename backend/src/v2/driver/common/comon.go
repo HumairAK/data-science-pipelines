@@ -8,6 +8,7 @@ import (
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/kubernetes_platform/go/kubernetesplatform"
 	"google.golang.org/protobuf/types/known/structpb"
+	"k8s.io/client-go/kubernetes"
 )
 
 // Options contain driver options
@@ -49,6 +50,8 @@ type Options struct {
 	TaskName         string // the original name of the task, used for input resolution
 	PodName          string
 	PodUID           string
+	// k8sClientOverride is an optional parameter for testing - when nil, a new client is created.
+	K8sClientOverride kubernetes.Interface
 }
 
 // Info provides information used for debugging

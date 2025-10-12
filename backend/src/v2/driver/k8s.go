@@ -52,19 +52,24 @@ var dummyImages = map[string]string{
 // delete PVC, etc. In these operations we skip the launcher due to there being no user container.
 // It also prepublishes and publishes the execution, which are usually done in the launcher.
 func kubernetesPlatformOps(ctx context.Context, driverAPI common.DriverAPI, execution *Execution, taskToCreate *apiV2beta1.PipelineTaskDetail, opts *common.Options) (err error) {
-	k8sClient, err := createK8sClient()
-	if err != nil {
-		return fmt.Errorf("cannot generate k8s clientset: %w", err)
+	var k8sClient kubernetes.Interface
+	if opts.K8sClientOverride != nil {
+		k8sClient = opts.K8sClientOverride
+	} else {
+		k8sClient, err = createK8sClient()
+		if err != nil {
+			return fmt.Errorf("cannot generate k8s clientset: %w", err)
+		}
 	}
 
 	switch opts.Container.Image {
 	case "argostub/createpvc":
-		err = createPVCTask(ctx, k8sClient, *execution, opts, driverAPI, taskToCreate)
+		err = createPVCTask(ctx, k8sClient, execution, opts, driverAPI, taskToCreate)
 		if err != nil {
 			return err
 		}
 	case "argostub/deletepvc":
-		if err = deletePVCTask(ctx, k8sClient, *execution, opts, driverAPI, taskToCreate); err != nil {
+		if err = deletePVCTask(ctx, k8sClient, execution, opts, driverAPI, taskToCreate); err != nil {
 			return err
 		}
 	default:
@@ -632,11 +637,11 @@ func extendPodSpecPatch(
 	return nil
 }
 
-// execution is passed by value because we make changes to it to generate  fingerprint
+// execution is passed by pointer so we can update TaskID for the defer function
 func createPVCTask(
 	ctx context.Context,
 	k8sClient kubernetes.Interface,
-	execution Execution,
+	execution *Execution,
 	opts *common.Options,
 	driverAPI common.DriverAPI,
 	taskToCreate *apiV2beta1.PipelineTaskDetail,
@@ -653,7 +658,8 @@ func createPVCTask(
 		}
 		if taskCreated {
 			_, updateErr := driverAPI.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
-				Task: taskToCreate,
+				TaskId: execution.TaskID,
+				Task:   taskToCreate,
 			})
 			if updateErr != nil {
 				err = errors.Join(err, fmt.Errorf("failed to update task: %w", updateErr))
@@ -756,7 +762,7 @@ func createPVCTask(
 	// (1) Cache is enabled globally
 	// (2) Cache is enabled for the task
 	// (3) We had a cache hit for this Task
-	fingerPrint, cachedTask, err := getFingerPrintsAndID(ctx, &execution, driverAPI, opts, nil)
+	fingerPrint, cachedTask, err := getFingerPrintsAndID(ctx, execution, driverAPI, opts, nil)
 	if err != nil {
 		return err
 	}
@@ -801,7 +807,7 @@ func createPVCTask(
 func deletePVCTask(
 	ctx context.Context,
 	k8sClient kubernetes.Interface,
-	execution Execution,
+	execution *Execution,
 	opts *common.Options,
 	driverAPI common.DriverAPI,
 	taskToCreate *apiV2beta1.PipelineTaskDetail,
@@ -818,7 +824,8 @@ func deletePVCTask(
 		}
 		if taskCreated {
 			_, updateErr := driverAPI.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
-				Task: taskToCreate,
+				TaskId: execution.TaskID,
+				Task:   taskToCreate,
 			})
 			if updateErr != nil {
 				err = errors.Join(err, fmt.Errorf("failed to update task: %w", updateErr))
@@ -867,7 +874,7 @@ func deletePVCTask(
 	// (1) Cache is enabled globally
 	// (2) Cache is enabled for the task
 	// (3) We had a cache hit for this Task
-	fingerPrint, cachedTask, err := getFingerPrintsAndID(ctx, &execution, driverAPI, opts, nil)
+	fingerPrint, cachedTask, err := getFingerPrintsAndID(ctx, execution, driverAPI, opts, nil)
 	if err != nil {
 		return err
 	}
