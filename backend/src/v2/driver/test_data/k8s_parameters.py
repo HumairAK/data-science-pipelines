@@ -125,8 +125,6 @@ def assert_values():
     assert len(pvcs) == 1
     assert pvcs[0].claim_name.endswith('pvc-1')
 
-
-
 @dsl.component(packages_to_install=['kubernetes'])
 def assert_values_two():
     from kubernetes import client, config
@@ -165,7 +163,6 @@ def assert_values_two():
     match_expressions = required_terms[0].match_expressions
     assert len(match_expressions) == 1
     assert has_match_expression(match_expressions, "kubernetes.io/os", "In", ["linux"])
-
 
 @dsl.component(packages_to_install=['kubernetes'])
 def assert_values_three():
@@ -215,6 +212,57 @@ def get_access_mode(access_mode: OutputPath(List[str])):
     with open(access_mode, 'w') as f:
         f.write(json.dumps(["ReadWriteOnce"]))
 
+@dsl.component()
+def get_node_affinity(node_affinity: OutputPath(dict)):
+    import json
+    with open(node_affinity, 'w') as f:
+        f.write(json.dumps(
+            {
+                "requiredDuringSchedulingIgnoredDuringExecution": {
+                    "nodeSelectorTerms": [
+                        {
+                            "matchExpressions": [
+                                {
+                                    "key": "kubernetes.io/os",
+                                    "operator": "In",
+                                    "values": ["linux"]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        ))
+
+@dsl.component()
+def generate_requests_resources(cpu_request_out: OutputPath(str), memory_request_out: OutputPath(str)):
+    with open(cpu_request_out, 'w') as f:
+        f.write('100m')
+    with open(memory_request_out, 'w') as f:
+        f.write('50Mi')
+
+@dsl.component()
+def get_node_affinity(node_affinity: OutputPath(dict)):
+    import json
+    with open(node_affinity, 'w') as f:
+        f.write(json.dumps(
+            {
+                "requiredDuringSchedulingIgnoredDuringExecution": {
+                    "nodeSelectorTerms": [
+                        {
+                            "matchExpressions": [
+                                {
+                                    "key": "kubernetes.io/os",
+                                    "operator": "In",
+                                    "values": ["linux"]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        ))
+
 # TODO (HumairAK): Empty Dir and Field Path TaskOutputParameters
 # not supported yet
 # @dsl.component()
@@ -255,28 +303,6 @@ def secondary_pipeline(train_tolerations: list):
     task = assert_values_three()
     kubernetes.add_toleration_json(task, train_tolerations)
 
-@dsl.component()
-def get_node_affinity(node_affinity: OutputPath(dict)):
-    import json
-    with open(node_affinity, 'w') as f:
-        f.write(json.dumps(
-            {
-                "requiredDuringSchedulingIgnoredDuringExecution": {
-                    "nodeSelectorTerms": [
-                        {
-                            "matchExpressions": [
-                                {
-                                    "key": "kubernetes.io/os",
-                                    "operator": "In",
-                                    "values": ["linux"]
-                                }
-                            ]
-                        }
-                    ]
-                }
-            }
-        ))
-
 default_node_affinity = {
                 "requiredDuringSchedulingIgnoredDuringExecution": {
                     "nodeSelectorTerms": [
@@ -307,6 +333,9 @@ def primary_pipeline(
         empty_dir_mnt_path: str = '/empty_dir/path',
         field_path: str = 'spec.serviceAccountName',
         default_node_affinity_input: dict = default_node_affinity,
+        cpu_limit: str = '200m',
+        memory_limit: str = '50Mi',
+        container_image: str = 'python:3.7-alpine',
 ):
 
     cfg_name_generator_task = cfg_name_generator()
@@ -446,6 +475,15 @@ def primary_pipeline(
         default_node_affinity_input  # Component Input Parameter
     )
 
+    # cpu/memory/container image
+    generate_requests_resources_task = generate_requests_resources()
+    task.set_cpu_request(generate_requests_resources_task.outputs["cpu_request_out"])
+    task.set_memory_request(generate_requests_resources_task.outputs["memory_request_out"])
+
+    task.set_cpu_limit(cpu_limit)
+    task.set_memory_limit(memory_limit)
+    task.set_container_image(container_image)
+
     # TODO(HumairAK) Empty dir doesn't support parameterization
     # empty dir
     # empty_dir_volume_name_task = get_empty_dir_volume_name()
@@ -465,8 +503,6 @@ def primary_pipeline(
     #     field_path=field_path,                       # Component Input Parameter
     #     env_name=get_field_path_env_var_task.output, # Task Output Parameter
     # )
-
-
 
 
 if __name__ == '__main__':

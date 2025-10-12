@@ -878,9 +878,23 @@ func TestK8SPlatform(t *testing.T) {
 	// Run create-pvc task since it depended on get-access-mode
 	// There is no launcher for this task, we expect the output
 	// parameter to be created by the driver call
-	_, createPvcTask := tc.RunContainer("create-pvc", parentTask, nil, true)
+	_, createPvcTask := tc.RunContainer("createpvc", parentTask, nil, true)
 	require.NotNil(t, createPvcTask.Outputs)
 	require.Len(t, createPvcTask.Outputs.GetParameters(), 1)
+
+	tc.MockLauncherOutputParameterCreate(
+		createPvcTask.TaskId,
+		"name",
+		structpb.NewStringValue("foo-pvc-1"),
+		apiv2beta1.IOType_OUTPUT,
+		createPvcTask.GetName(),
+		nil,
+	)
+
+	_, assertValuesTask := tc.RunContainer("assert-values", parentTask, nil, true)
+	require.NotNil(t, assertValuesTask.Outputs)
+	require.Len(t, assertValuesTask.Outputs.GetParameters(), 1)
+
 }
 
 func TestArtifactIterator(t *testing.T) {

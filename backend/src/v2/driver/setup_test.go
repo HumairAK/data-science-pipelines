@@ -294,6 +294,7 @@ type TestContext struct {
 	DriverAPI    *MockDriverAPI
 	PipelineSpec *pipelinespec.PipelineSpec
 	RootTask     *apiv2beta1.PipelineTaskDetail
+	PlatformSpec *pipelinespec.PlatformSpec
 }
 
 // NewTestContextWithRootExecuted creates a new test context with basic configuration
@@ -324,13 +325,15 @@ func NewTestContextWithRootExecuted(t *testing.T, runtimeConfig *pipelinespec.Pi
 	require.NotNil(t, run)
 
 	// Load pipeline spec
-	pipelineSpec, err := util.LoadPipelineSpecFromYAML(pipelinePath)
+	pipelineSpec, platformSpec, err := util.LoadPipelineAndPlatformSpec(pipelinePath)
 	require.NoError(t, err)
+	require.NotNil(t, platformSpec)
 	require.NotNil(t, pipelineSpec)
 
 	tc.Run = run
 	tc.ScopePath = util.NewScopePath(pipelineSpec)
 	tc.PipelineSpec = pipelineSpec
+	tc.PlatformSpec = platformSpec
 	tc.T = t
 
 	// Create a root DAG execution using basic inputs
@@ -698,7 +701,10 @@ func (tc *TestContext) RunContainer(
 
 	require.NoError(tc.T, err)
 	taskSpec := tc.GetLast().GetTaskSpec()
-	opts := tc.setupContainerOptions(parentTask, taskSpec, nil)
+
+	kubernetesExecutorConfig, err := util.LoadKubernetesExecutorConfig(tc.GetLast().GetComponentSpec(), tc.PlatformSpec)
+	require.NoError(tc.T, err)
+	opts := tc.setupContainerOptions(parentTask, taskSpec, kubernetesExecutorConfig)
 
 	if iterationIndex != nil {
 		opts.IterationIndex = int(*iterationIndex)
