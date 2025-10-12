@@ -674,6 +674,9 @@ func (tc *TestContext) RunDag(
 	return execution, task
 }
 
+// RunContainer runs a container for the given task.
+// If autoUpdateScope is true, the scope path will
+// be popped after the container is completed.
 func (tc *TestContext) RunContainer(
 	taskName string,
 	parentTask *apiv2beta1.PipelineTaskDetail,
@@ -750,7 +753,7 @@ func (tc *TestContext) ExitDag() {
 	require.True(tc.T, ok)
 }
 
-func (tc *TestContext) MockLauncherParameterCreate(
+func (tc *TestContext) MockLauncherOutputParameterCreate(
 	TaskId string,
 	parameterKey string,
 	value *structpb.Value,
@@ -788,7 +791,9 @@ func (tc *TestContext) MockLauncherParameterCreate(
 	tc.RefreshRun()
 }
 
-func (tc *TestContext) MockLauncherDefaultParametersUpdate(
+// This helper will update a Runtime Tasks inputs with optional values if
+// no upstream input was provided.
+func (tc *TestContext) MockLauncherDefaultInputParametersUpdate(
 	TaskId string,
 	componentSpec *pipelinespec.ComponentSpec,
 ) *apiv2beta1.PipelineTaskDetail {
@@ -839,7 +844,7 @@ func parameterExistsWithKey(parameters []*apiv2beta1.PipelineTaskDetail_InputOut
 	return false
 }
 
-func (tc *TestContext) MockLauncherArtifactCreate(
+func (tc *TestContext) MockLauncherOutputArtifactCreate(
 	TaskId string,
 	artifactKey string,
 	artifactType apiv2beta1.Artifact_ArtifactType,

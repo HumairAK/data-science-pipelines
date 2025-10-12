@@ -641,6 +641,8 @@ func createPVCTask(
 	driverAPI common.DriverAPI,
 	taskToCreate *apiV2beta1.PipelineTaskDetail,
 ) (err error) {
+	taskCreated := false
+
 	// Ensure that we update the final task state after creation, or if we fail the procedure
 	defer func() {
 		if err != nil {
@@ -649,10 +651,20 @@ func createPVCTask(
 				Message: err.Error(),
 			}
 		}
-		if _, createErr := driverAPI.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
-			Task: taskToCreate,
-		}); createErr != nil {
-			err = errors.Join(err, fmt.Errorf("failed to update task: %w", createErr))
+		if taskCreated {
+			_, updateErr := driverAPI.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+				Task: taskToCreate,
+			})
+			if updateErr != nil {
+				err = errors.Join(err, fmt.Errorf("failed to update task: %w", updateErr))
+			}
+		} else {
+			_, createErr := driverAPI.CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
+				Task: taskToCreate,
+			})
+			if createErr != nil {
+				err = errors.Join(err, fmt.Errorf("failed to create task: %w", createErr))
+			}
 		}
 	}()
 
@@ -732,6 +744,7 @@ func createPVCTask(
 		return err
 	}
 	glog.Infof("Created Task: %s", task.TaskId)
+	taskCreated = true
 	execution.TaskID = task.TaskId
 	if !execution.WillTrigger() {
 		taskToCreate.Status = apiV2beta1.PipelineTaskDetail_SKIPPED
@@ -793,6 +806,8 @@ func deletePVCTask(
 	driverAPI common.DriverAPI,
 	taskToCreate *apiV2beta1.PipelineTaskDetail,
 ) (err error) {
+	taskCreated := false
+
 	// Ensure that we update the final task state after creation, or if we fail the procedure
 	defer func() {
 		if err != nil {
@@ -801,10 +816,20 @@ func deletePVCTask(
 				Message: err.Error(),
 			}
 		}
-		if _, createErr := driverAPI.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
-			Task: taskToCreate,
-		}); createErr != nil {
-			err = errors.Join(err, fmt.Errorf("failed to update task: %w", createErr))
+		if taskCreated {
+			_, updateErr := driverAPI.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+				Task: taskToCreate,
+			})
+			if updateErr != nil {
+				err = errors.Join(err, fmt.Errorf("failed to update task: %w", updateErr))
+			}
+		} else {
+			_, createErr := driverAPI.CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
+				Task: taskToCreate,
+			})
+			if createErr != nil {
+				err = errors.Join(err, fmt.Errorf("failed to create task: %w", createErr))
+			}
 		}
 	}()
 
@@ -830,6 +855,7 @@ func deletePVCTask(
 		return err
 	}
 	glog.Infof("Created Task: %s", task.TaskId)
+	taskCreated = true
 	execution.TaskID = task.TaskId
 	if !execution.WillTrigger() {
 		taskToCreate.Status = apiV2beta1.PipelineTaskDetail_SKIPPED

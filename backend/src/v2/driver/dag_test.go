@@ -83,7 +83,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 	require.Nil(t, createDataSetExecution.ExecutorInput.Outputs)
 
 	// Mock a Launcher run by updating the task with output data
-	createDataSetOutputArtifactID := tc.MockLauncherArtifactCreate(
+	createDataSetOutputArtifactID := tc.MockLauncherOutputArtifactCreate(
 		createDataSetExecution.TaskID,
 		"output_dataset",
 		apiv2beta1.Artifact_Dataset,
@@ -117,7 +117,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 		require.Equal(t, processExecution.ExecutorInput.Inputs.ParameterValues["model_id_in"].GetStringValue(), paramID)
 
 		// Mock the Launcher run
-		processDataSetArtifactID := tc.MockLauncherArtifactCreate(
+		processDataSetArtifactID := tc.MockLauncherOutputArtifactCreate(
 			processExecution.TaskID,
 			"output_artifact",
 			apiv2beta1.Artifact_Artifact,
@@ -180,7 +180,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 		require.Equal(t, analyzeExecution.ExecutorInput.Inputs.Artifacts["analyze_artifact_input"].GetArtifacts()[0].ArtifactId, processDataSetArtifactID)
 
 		// Mock the Launcher run
-		_ = tc.MockLauncherArtifactCreate(
+		_ = tc.MockLauncherOutputArtifactCreate(
 			processExecution.TaskID,
 			"analyze_output_artifact",
 			apiv2beta1.Artifact_Artifact,
@@ -261,7 +261,7 @@ func TestParameterInputIterator(t *testing.T) {
 	parentTask = secondaryPipelineTask
 	_, splitIDsTask := tc.RunContainer("split-ids", parentTask, nil, true)
 
-	tc.MockLauncherParameterCreate(
+	tc.MockLauncherOutputParameterCreate(
 		splitIDsTask.GetTaskId(),
 		"Output",
 		&structpb.Value{
@@ -291,7 +291,7 @@ func TestParameterInputIterator(t *testing.T) {
 			true,
 		)
 
-		tc.MockLauncherArtifactCreate(
+		tc.MockLauncherOutputArtifactCreate(
 			createFileTask.GetTaskId(),
 			"file",
 			apiv2beta1.Artifact_Artifact,
@@ -312,7 +312,7 @@ func TestParameterInputIterator(t *testing.T) {
 				StringValue: fmt.Sprintf("file-%d", index),
 			},
 		}
-		tc.MockLauncherParameterCreate(
+		tc.MockLauncherOutputParameterCreate(
 			readSingleFileTask.GetTaskId(),
 			"Output",
 			mockSingleFileTaskOutputParameterValue,
@@ -322,7 +322,7 @@ func TestParameterInputIterator(t *testing.T) {
 		)
 
 		// Parameter should be also sent upstream for collection
-		tc.MockLauncherParameterCreate(
+		tc.MockLauncherOutputParameterCreate(
 			loopTask.GetTaskId(),
 			"pipelinechannel--read-single-file-Output",
 			mockSingleFileTaskOutputParameterValue,
@@ -330,7 +330,7 @@ func TestParameterInputIterator(t *testing.T) {
 			"read-single-file",
 			index64,
 		)
-		tc.MockLauncherParameterCreate(
+		tc.MockLauncherOutputParameterCreate(
 			secondaryPipelineTask.GetTaskId(),
 			"Output",
 			mockSingleFileTaskOutputParameterValue,
@@ -345,7 +345,7 @@ func TestParameterInputIterator(t *testing.T) {
 	parentTask = secondaryPipelineTask
 
 	_, readValuesTask := tc.RunContainer("read-values", parentTask, nil, true)
-	tc.MockLauncherParameterCreate(
+	tc.MockLauncherOutputParameterCreate(
 		readValuesTask.GetTaskId(),
 		"Output",
 		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "files read"}},
@@ -358,7 +358,7 @@ func TestParameterInputIterator(t *testing.T) {
 	parentTask = tc.RootTask
 
 	_, readValuesTask2 := tc.RunContainer("read-values", parentTask, nil, true)
-	tc.MockLauncherParameterCreate(
+	tc.MockLauncherOutputParameterCreate(
 		readValuesTask2.GetTaskId(),
 		"Output",
 		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "files read"}},
@@ -384,7 +384,7 @@ func TestNestedDag(t *testing.T) {
 	parentTask := tc.RootTask
 
 	_, aTask := tc.RunContainer("a", parentTask, nil, true)
-	tc.MockLauncherArtifactCreate(
+	tc.MockLauncherOutputArtifactCreate(
 		aTask.GetTaskId(),
 		"output_dataset",
 		apiv2beta1.Artifact_Dataset,
@@ -396,7 +396,7 @@ func TestNestedDag(t *testing.T) {
 	parentTask = pipelineBTask
 
 	_, nestedATask := tc.RunContainer("a", parentTask, nil, true)
-	tc.MockLauncherArtifactCreate(
+	tc.MockLauncherOutputArtifactCreate(
 		nestedATask.GetTaskId(),
 		"output_dataset",
 		apiv2beta1.Artifact_Dataset,
@@ -405,7 +405,7 @@ func TestNestedDag(t *testing.T) {
 		nil)
 
 	_, nestedBTask := tc.RunContainer("b", parentTask, nil, true)
-	tc.MockLauncherArtifactCreate(
+	tc.MockLauncherOutputArtifactCreate(
 		nestedBTask.GetTaskId(),
 		"output_artifact_b",
 		apiv2beta1.Artifact_Artifact,
@@ -417,7 +417,7 @@ func TestNestedDag(t *testing.T) {
 	parentTask = pipelineCTask
 
 	_, nestedNestedATask := tc.RunContainer("a", parentTask, nil, true)
-	tc.MockLauncherArtifactCreate(
+	tc.MockLauncherOutputArtifactCreate(
 		nestedNestedATask.GetTaskId(),
 		"output_dataset",
 		apiv2beta1.Artifact_Dataset,
@@ -426,7 +426,7 @@ func TestNestedDag(t *testing.T) {
 		nil)
 
 	_, nestedNestedBTask := tc.RunContainer("b", parentTask, nil, true)
-	tc.MockLauncherArtifactCreate(
+	tc.MockLauncherOutputArtifactCreate(
 		nestedNestedBTask.GetTaskId(),
 		"output_artifact_b",
 		apiv2beta1.Artifact_Artifact,
@@ -435,7 +435,7 @@ func TestNestedDag(t *testing.T) {
 		nil)
 
 	_, cTask := tc.RunContainer("c", parentTask, nil, true)
-	cTaskArtifactID := tc.MockLauncherArtifactCreate(
+	cTaskArtifactID := tc.MockLauncherOutputArtifactCreate(
 		cTask.GetTaskId(),
 		"output_artifact_c",
 		apiv2beta1.Artifact_Artifact,
@@ -485,7 +485,7 @@ func TestParameterTaskOutput(t *testing.T) {
 
 	// Run Dag on the First Task
 	cdExecution, _ := tc.RunContainer("create-dataset", parentTask, nil, true)
-	tc.MockLauncherParameterCreate(
+	tc.MockLauncherOutputParameterCreate(
 		cdExecution.TaskID,
 		"output_parameter_path",
 		&structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 10.0}},
@@ -494,7 +494,7 @@ func TestParameterTaskOutput(t *testing.T) {
 		nil,
 	)
 	pdExecution, _ := tc.RunContainer("process-dataset", parentTask, nil, true)
-	tc.MockLauncherParameterCreate(
+	tc.MockLauncherOutputParameterCreate(
 		pdExecution.TaskID,
 		"output_int",
 		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "output_int_value"}},
@@ -503,7 +503,7 @@ func TestParameterTaskOutput(t *testing.T) {
 		nil,
 	)
 	analyzeArtifactExecution, _ := tc.RunContainer("analyze-artifact", parentTask, nil, true)
-	tc.MockLauncherParameterCreate(
+	tc.MockLauncherOutputParameterCreate(
 		analyzeArtifactExecution.TaskID,
 		"output_opinion",
 		&structpb.Value{Kind: &structpb.Value_BoolValue{BoolValue: true}},
@@ -524,7 +524,7 @@ func TestOneOf(t *testing.T) {
 
 	// Run create_dataset()
 	_, createDatasetTask := tc.RunContainer("create-dataset", parentTask, nil, true)
-	tc.MockLauncherArtifactCreate(
+	tc.MockLauncherOutputArtifactCreate(
 		createDatasetTask.GetTaskId(),
 		"output_dataset",
 		apiv2beta1.Artifact_Dataset,
@@ -532,7 +532,7 @@ func TestOneOf(t *testing.T) {
 		createDatasetTask.GetName(),
 		nil,
 	)
-	tc.MockLauncherParameterCreate(
+	tc.MockLauncherOutputParameterCreate(
 		createDatasetTask.GetTaskId(),
 		"condition_out",
 		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "second"}},
@@ -567,7 +567,7 @@ func TestOneOf(t *testing.T) {
 
 	parentTask = condition3Task
 	_, giveAnimal1Task := tc.RunContainer("give-animal-2", parentTask, nil, true)
-	tc.MockLauncherArtifactCreate(
+	tc.MockLauncherOutputArtifactCreate(
 		giveAnimal1Task.GetTaskId(),
 		"output_animal",
 		apiv2beta1.Artifact_Artifact,
@@ -576,7 +576,7 @@ func TestOneOf(t *testing.T) {
 		nil,
 	)
 	_, analyzeAnimal1Task := tc.RunContainer("analyze-animal", parentTask, nil, true)
-	analyzeAnimal1TaskArtifactID := tc.MockLauncherArtifactCreate(
+	analyzeAnimal1TaskArtifactID := tc.MockLauncherOutputArtifactCreate(
 		analyzeAnimal1Task.GetTaskId(),
 		"analysis_output",
 		apiv2beta1.Artifact_Artifact,
@@ -657,7 +657,7 @@ func TestWithCaching(t *testing.T) {
 	require.NotNil(t, parentTask)
 
 	_, createDatasetTask := tc.RunContainer("create-dataset", parentTask, nil, true)
-	tc.MockLauncherArtifactCreate(
+	tc.MockLauncherOutputArtifactCreate(
 		createDatasetTask.GetTaskId(),
 		"output_dataset",
 		apiv2beta1.Artifact_Dataset,
@@ -666,7 +666,7 @@ func TestWithCaching(t *testing.T) {
 		nil)
 
 	processDatasetExecution, processDatasetTask := tc.RunContainer("process-dataset", parentTask, nil, true)
-	tc.MockLauncherArtifactCreate(
+	tc.MockLauncherOutputArtifactCreate(
 		processDatasetTask.GetTaskId(),
 		"output_artifact",
 		apiv2beta1.Artifact_Artifact,
@@ -707,7 +707,7 @@ func TestOptionalFields(t *testing.T) {
 	execution, task := tc.RunContainer("component-op", parentTask, nil, false)
 	require.NotNil(t, task)
 	require.NotNil(t, execution)
-	task = tc.MockLauncherDefaultParametersUpdate(task.TaskId, tc.GetLast().GetComponentSpec())
+	task = tc.MockLauncherDefaultInputParametersUpdate(task.TaskId, tc.GetLast().GetComponentSpec())
 
 	params := task.Inputs.GetParameters()
 	require.GreaterOrEqual(t, len(params), 0)
@@ -746,7 +746,142 @@ func TestOptionalFields(t *testing.T) {
 	require.NotNil(t, p)
 }
 
-func TestK8SPlatform(t *testing.T) {}
+func TestK8SPlatform(t *testing.T) {
+
+	nodeAffinity := structpb.NewStructValue(&structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"requiredDuringSchedulingIgnoredDuringExecution": structpb.NewStructValue(&structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"nodeSelectorTerms": structpb.NewListValue(&structpb.ListValue{
+						Values: []*structpb.Value{
+							structpb.NewStructValue(&structpb.Struct{
+								Fields: map[string]*structpb.Value{
+									"matchExpressions": structpb.NewListValue(&structpb.ListValue{
+										Values: []*structpb.Value{
+											structpb.NewStructValue(&structpb.Struct{
+												Fields: map[string]*structpb.Value{
+													"key":      structpb.NewStringValue("kubernetes.io/os"),
+													"operator": structpb.NewStringValue("In"),
+													"values": structpb.NewListValue(&structpb.ListValue{
+														Values: []*structpb.Value{
+															structpb.NewStringValue("linux"),
+														},
+													}),
+												},
+											}),
+										},
+									}),
+								},
+							}),
+						},
+					}),
+				},
+			}),
+		},
+	})
+
+	// The API Server will populate runtime config with
+	// the defaults in the root InputDefinition is they are
+	// not user overridden. We mock this here.
+	runtimeInputs := &pipelinespec.PipelineJob_RuntimeConfig{
+		ParameterValues: map[string]*structpb.Value{
+			"configmap_parm":              structpb.NewStringValue("cfg-2"),
+			"default_node_affinity_input": nodeAffinity,
+			"empty_dir_mnt_path":          structpb.NewStringValue("/empty_dir/path"),
+			"field_path":                  structpb.NewStringValue("spec.serviceAccountName"),
+			"node_selector_input": structpb.NewStructValue(&structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"kubernetes.io/os": structpb.NewStringValue("linux"),
+				},
+			}),
+			"pull_secret_1":         structpb.NewStringValue("pull-secret-1"),
+			"pull_secret_2":         structpb.NewStringValue("pull-secret-2"),
+			"pull_secret_3":         structpb.NewStringValue("pull-secret-3"),
+			"pvc_name_suffix_input": structpb.NewStringValue("-pvc-1"),
+			"secret_param":          structpb.NewStringValue("secret-2"),
+			"tolerations_dict_input": structpb.NewStructValue(&structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"effect":   structpb.NewStringValue("NoSchedule"),
+					"key":      structpb.NewStringValue("some_foo_key6"),
+					"operator": structpb.NewStringValue("Equal"),
+					"value":    structpb.NewStringValue("value3"),
+				},
+			}),
+			"tolerations_list_input": structpb.NewListValue(&structpb.ListValue{
+				Values: []*structpb.Value{
+					structpb.NewStructValue(&structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"effect":   structpb.NewStringValue("NoSchedule"),
+							"key":      structpb.NewStringValue("some_foo_key4"),
+							"operator": structpb.NewStringValue("Equal"),
+							"value":    structpb.NewStringValue("value2"),
+						},
+					}),
+					structpb.NewStructValue(&structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"effect":   structpb.NewStringValue("NoExecute"),
+							"key":      structpb.NewStringValue("some_foo_key5"),
+							"operator": structpb.NewStringValue("Exists"),
+						},
+					}),
+				},
+			}),
+		},
+	}
+
+	tc := NewTestContextWithRootExecuted(
+		t, runtimeInputs,
+		"test_data/k8s_parameters.yaml",
+	)
+	parentTask := tc.RootTask
+	require.NotNil(t, parentTask)
+
+	// Execute all the preliminary tasks that will feed Task Output Parameters to the
+	// Assert tasks (and secondary pipeline)
+	_, cfgNameGeneratorTask := tc.RunContainer("cfg-name-generator", parentTask, nil, true)
+	tc.MockLauncherOutputParameterCreate(
+		cfgNameGeneratorTask.TaskId,
+		"some_output",
+		structpb.NewStringValue("cfg-3"),
+		apiv2beta1.IOType_OUTPUT,
+		cfgNameGeneratorTask.GetName(),
+		nil,
+	)
+	_, getAccessModeTask := tc.RunContainer("get-access-mode", parentTask, nil, true)
+	tc.MockLauncherOutputParameterCreate(
+		getAccessModeTask.TaskId,
+		"access_mode",
+		structpb.NewListValue(&structpb.ListValue{Values: []*structpb.Value{structpb.NewStringValue("ReadWriteOnce")}}),
+		apiv2beta1.IOType_OUTPUT,
+		getAccessModeTask.GetName(),
+		nil,
+	)
+	_, getNodeAffinityTask := tc.RunContainer("get-node-affinity", parentTask, nil, true)
+	tc.MockLauncherOutputParameterCreate(
+		getNodeAffinityTask.TaskId,
+		"node_affinity",
+		nodeAffinity,
+		apiv2beta1.IOType_OUTPUT,
+		getNodeAffinityTask.GetName(),
+		nil,
+	)
+	_, secretNameGeneratorTask := tc.RunContainer("secret-name-generator", parentTask, nil, true)
+	tc.MockLauncherOutputParameterCreate(
+		secretNameGeneratorTask.TaskId,
+		"some_output",
+		nodeAffinity,
+		apiv2beta1.IOType_OUTPUT,
+		secretNameGeneratorTask.GetName(),
+		nil,
+	)
+
+	// Run create-pvc task since it depended on get-access-mode
+	// There is no launcher for this task, we expect the output
+	// parameter to be created by the driver call
+	_, createPvcTask := tc.RunContainer("create-pvc", parentTask, nil, true)
+	require.NotNil(t, createPvcTask.Outputs)
+	require.Len(t, createPvcTask.Outputs.GetParameters(), 1)
+}
 
 func TestArtifactIterator(t *testing.T) {
 
@@ -792,7 +927,7 @@ func TestContainerComponentInputsAndRuntimeConstants(t *testing.T) {
 	require.Equal(t, processInputsExecution.ExecutorInput.Inputs.ParameterValues["a_runtime_bool"].GetBoolValue(), true)
 
 	// Mock a Launcher run by updating the task with output data
-	tc.MockLauncherArtifactCreate(
+	tc.MockLauncherOutputArtifactCreate(
 		processInputsTask.TaskId,
 		"output_text",
 		apiv2beta1.Artifact_Dataset,
