@@ -715,7 +715,7 @@ func (tc *TestContext) RunContainer(
 		opts.IterationIndex = int(*iterationIndex)
 	}
 
-	execution, err := Container(context.Background(), opts, tc.DriverAPI)
+	execution, err := Container(context.Background(), opts, tc.DriverAPI, tc.K8sClientOverride)
 	require.NoError(tc.T, err)
 	require.NotNil(tc.T, execution)
 
@@ -725,9 +725,17 @@ func (tc *TestContext) RunContainer(
 	require.Equal(tc.T, execution.TaskID, task.TaskId)
 	require.Equal(tc.T, taskName, task.GetName())
 	if task.Status != apiv2beta1.PipelineTaskDetail_CACHED {
-		require.Equal(tc.T, apiv2beta1.PipelineTaskDetail_RUNNING, task.Status)
+		// In the case of k8s ops like createpvc/deletepvc
+		// There are no launchers, so we mark them success
+		// within driver.
+		require.True(
+			tc.T,
+			task.Status == apiv2beta1.PipelineTaskDetail_RUNNING ||
+				task.Status == apiv2beta1.PipelineTaskDetail_SUCCEEDED,
+			"expected task.Status to be RUNNING or SUCCEEDED, got %v",
+			task.Status,
+		)
 	}
-
 	// Mock Launcher container completion
 	// Do it only for running so we can test the cache case
 	// as well.
@@ -1022,7 +1030,6 @@ func (tc *TestContext) setupContainerOptions(
 		TaskName:                 taskSpec.TaskInfo.GetName(),
 		PodName:                  "system-container-impl",
 		PodUID:                   "some-uid",
-		K8sClientOverride:        tc.K8sClientOverride,
 	}
 }
 

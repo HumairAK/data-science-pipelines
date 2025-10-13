@@ -16,12 +16,13 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/expression"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
+	"k8s.io/client-go/kubernetes"
 )
 
 // Container mirrors Container but uses KFP RunService/ArtifactService instead of MLMD.
 // Initial version wires inputs and creates a runtime task; output recording via
 // ArtifactService will be added in subsequent steps.
-func Container(ctx context.Context, opts common.Options, driverAPI common.DriverAPI) (execution *Execution, err error) {
+func Container(ctx context.Context, opts common.Options, driverAPI common.DriverAPI, k8sClientOverride kubernetes.Interface) (execution *Execution, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("driver.Container(%s) failed: %w", opts.Info(), err)
@@ -134,7 +135,7 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 	// ### HANDLE K8S OP ###
 	// ######################################
 	if isKubernetesPlatformOp {
-		return execution, kubernetesPlatformOps(ctx, driverAPI, execution, taskToCreate, &opts)
+		return execution, kubernetesPlatformOps(ctx, driverAPI, execution, taskToCreate, &opts, k8sClientOverride)
 	}
 
 	var inputParams []*apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter

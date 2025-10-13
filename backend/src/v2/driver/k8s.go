@@ -51,10 +51,10 @@ var dummyImages = map[string]string{
 // kubernetesPlatformOps() carries out the Kubernetes-specific operations, such as create PVC,
 // delete PVC, etc. In these operations we skip the launcher due to there being no user container.
 // It also prepublishes and publishes the execution, which are usually done in the launcher.
-func kubernetesPlatformOps(ctx context.Context, driverAPI common.DriverAPI, execution *Execution, taskToCreate *apiV2beta1.PipelineTaskDetail, opts *common.Options) (err error) {
+func kubernetesPlatformOps(ctx context.Context, driverAPI common.DriverAPI, execution *Execution, taskToCreate *apiV2beta1.PipelineTaskDetail, opts *common.Options, k8sClientOverride kubernetes.Interface) (err error) {
 	var k8sClient kubernetes.Interface
-	if opts.K8sClientOverride != nil {
-		k8sClient = opts.K8sClientOverride
+	if k8sClientOverride != nil {
+		k8sClient = k8sClientOverride
 	} else {
 		k8sClient, err = createK8sClient()
 		if err != nil {
