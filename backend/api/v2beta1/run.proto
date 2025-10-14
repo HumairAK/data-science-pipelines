@@ -474,6 +474,13 @@ message PipelineTaskDetail {
   }
   InputOutputs inputs = 18;
   InputOutputs outputs = 19;
+
+  // The scope of this task within the
+  // pipeline spec. Each entry represents
+  // either a Dag Task or a Container task.
+  // Note that Container task will are
+  // always the last entry in a scope_path.
+  repeated string scope_path = 20;
 }
 
 // Runtime information of a pipeline task executor.

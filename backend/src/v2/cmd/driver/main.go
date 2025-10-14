@@ -23,6 +23,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
@@ -200,6 +201,11 @@ func drive() (err error) {
 		return err
 	}
 
+	scopePath, err := buildScopePath(ctx, run, parentTask, *taskName, driverAPI)
+	if err != nil || scopePath == nil {
+		return fmt.Errorf("failed to build scope path: %w", err)
+	}
+
 	options := common.Options{
 		PipelineName:     *pipelineName,
 		Run:              run,
@@ -218,6 +224,7 @@ func drive() (err error) {
 		PodName:          podName,
 		PodUID:           podUID,
 		DriverAPI:        driverAPI,
+		ScopePath:        *scopePath,
 	}
 	var execution *driver.Execution
 	switch *driverType {
@@ -229,7 +236,7 @@ func drive() (err error) {
 	case CONTAINER:
 		options.Container = containerSpec
 		options.KubernetesExecutorConfig = k8sExecCfg
-		execution, err = driver.Container(ctx, options, driverAPI)
+		execution, err = driver.Container(ctx, options, driverAPI, nil)
 	default:
 		err = fmt.Errorf("unknown driverType %s", *driverType)
 	}
@@ -344,4 +351,65 @@ func writeFile(path string, data []byte) (err error) {
 		return err
 	}
 	return os.WriteFile(path, data, 0o644)
+}
+
+// Require PipelineSpec for scope path
+// Runs api may directly return the PipelineSpec or return a reference to it.
+// In the latter case we fetch the PipelineSpec from the Server.
+// TODO(Humair) The usage of scope-path renders the need for passing the component/task specs unnecessary
+// so we can remove those arguments. The canonical task name + parent task's scope path is sufficient
+// to fetch current task's scope which contains ComponentSpec and TaskSpec.
+func buildScopePath(
+	ctx context.Context,
+	run *go_client.Run,
+	parentTask *go_client.PipelineTaskDetail,
+	taskName string,
+	driverAPI common.DriverAPI) (*util.ScopePath, error) {
+	pipelineSpecStruct, err := fetchPipelineSpec(run.GetPipelineSpec(), run, driverAPI, ctx)
+	if err != nil {
+		return nil, err
+	}
+	var scopePath util.ScopePath
+	if driverType == nil {
+		return nil, fmt.Errorf("argument --%s must be specified", driverTypeArg)
+	}
+	if *driverType == ROOT_DAG {
+		scopePath, err = util.NewScopePathFromStruct(pipelineSpecStruct)
+		if err != nil {
+			return nil, err
+		}
+		err = scopePath.Push("root")
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		scopePath, err = util.ScopePathFromStringPath(
+			pipelineSpecStruct,
+			parentTask.GetScopePath(),
+			taskName,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &scopePath, nil
+}
+
+func fetchPipelineSpec(pipelineSpecStruct *structpb.Struct, run *go_client.Run, driverAPI common.DriverAPI, ctx context.Context) (*structpb.Struct, error) {
+	if run.GetPipelineSpec() != nil {
+		pipelineSpecStruct = run.GetPipelineSpec()
+	} else if run.GetPipelineVersionReference() != nil {
+		pvr := run.GetPipelineVersionReference()
+		pipeline, err := driverAPI.GetPipelineVersion(ctx, &go_client.GetPipelineVersionRequest{
+			PipelineId:        pvr.GetPipelineId(),
+			PipelineVersionId: pvr.GetPipelineVersionId(),
+		})
+		if err != nil {
+			return nil, err
+		}
+		pipelineSpecStruct = pipeline.GetPipelineSpec()
+	} else {
+		return nil, fmt.Errorf("pipeline spec is not set")
+	}
+	return pipelineSpecStruct, nil
 }

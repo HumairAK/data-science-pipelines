@@ -993,6 +993,13 @@
         },
         "outputs": {
           "$ref": "#/definitions/PipelineTaskDetailInputOutputs"
+        },
+        "scope_path": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The scope of this task within the\npipeline spec. Each entry represents\neither a Dag Task or a Container task.\nNote that Container task will are\nalways the last entry in a scope_path."
         }
       },
       "description": "Runtime information of a task execution."

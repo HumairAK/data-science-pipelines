@@ -76,17 +76,14 @@ func DAG(ctx context.Context, opts common.Options, driverAPI common.DriverAPI) (
 		return execution, fmt.Errorf("task name flag is required for DAG")
 	}
 
-	if opts.Task.GetArtifactIterator() != nil {
-		return execution, fmt.Errorf("ArtifactIterator is not implemented")
-	}
-
 	taskToCreate := &gc.PipelineTaskDetail{
 		Name:        taskName,
 		DisplayName: opts.Task.GetTaskInfo().GetName(),
 		RunId:       opts.Run.GetRunId(),
 		// Default to DAG
-		Type:   gc.PipelineTaskDetail_DAG,
-		Status: gc.PipelineTaskDetail_RUNNING,
+		Type:      gc.PipelineTaskDetail_DAG,
+		Status:    gc.PipelineTaskDetail_RUNNING,
+		ScopePath: opts.ScopePath.StringPath(),
 		Pods: []*gc.PipelineTaskDetail_TaskPod{
 			{
 				Name: opts.PodName,

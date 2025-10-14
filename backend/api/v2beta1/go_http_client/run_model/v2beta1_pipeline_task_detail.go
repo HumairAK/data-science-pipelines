@@ -61,6 +61,13 @@ type V2beta1PipelineTaskDetail struct {
 	// ID of the parent run.
 	RunID string `json:"run_id,omitempty"`
 
+	// The scope of this task within the
+	// pipeline spec. Each entry represents
+	// either a Dag Task or a Container task.
+	// Note that Container task will are
+	// always the last entry in a scope_path.
+	ScopePath []string `json:"scope_path"`
+
 	// Starting time of a task.
 	// Format: date-time
 	StartTime strfmt.DateTime `json:"start_time,omitempty"`

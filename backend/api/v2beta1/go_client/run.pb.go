@@ -844,9 +844,15 @@ type PipelineTaskDetail struct {
 	// Empty if the task is at the root level.
 	ParentTaskId *string `protobuf:"bytes,16,opt,name=parent_task_id,json=parentTaskId,proto3,oneof" json:"parent_task_id,omitempty"`
 	// Sequence of dependent tasks.
-	ChildTasks    []*PipelineTaskDetail_ChildTask  `protobuf:"bytes,17,rep,name=child_tasks,json=childTasks,proto3" json:"child_tasks,omitempty"`
-	Inputs        *PipelineTaskDetail_InputOutputs `protobuf:"bytes,18,opt,name=inputs,proto3" json:"inputs,omitempty"`
-	Outputs       *PipelineTaskDetail_InputOutputs `protobuf:"bytes,19,opt,name=outputs,proto3" json:"outputs,omitempty"`
+	ChildTasks []*PipelineTaskDetail_ChildTask  `protobuf:"bytes,17,rep,name=child_tasks,json=childTasks,proto3" json:"child_tasks,omitempty"`
+	Inputs     *PipelineTaskDetail_InputOutputs `protobuf:"bytes,18,opt,name=inputs,proto3" json:"inputs,omitempty"`
+	Outputs    *PipelineTaskDetail_InputOutputs `protobuf:"bytes,19,opt,name=outputs,proto3" json:"outputs,omitempty"`
+	// The scope of this task within the
+	// pipeline spec. Each entry represents
+	// either a Dag Task or a Container task.
+	// Note that Container task will are
+	// always the last entry in a scope_path.
+	ScopePath     []string `protobuf:"bytes,20,rep,name=scope_path,json=scopePath,proto3" json:"scope_path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1010,6 +1016,13 @@ func (x *PipelineTaskDetail) GetInputs() *PipelineTaskDetail_InputOutputs {
 func (x *PipelineTaskDetail) GetOutputs() *PipelineTaskDetail_InputOutputs {
 	if x != nil {
 		return x.Outputs
+	}
+	return nil
+}
+
+func (x *PipelineTaskDetail) GetScopePath() []string {
+	if x != nil {
+		return x.ScopePath
 	}
 	return nil
 }
@@ -2605,7 +2618,7 @@ const file_backend_api_v2beta1_run_proto_rawDesc = "" +
 	"RunDetails\x12.\n" +
 	"\x13pipeline_context_id\x18\x01 \x01(\x03R\x11pipelineContextId\x125\n" +
 	"\x17pipeline_run_context_id\x18\x02 \x01(\x03R\x14pipelineRunContextId\x12]\n" +
-	"\ftask_details\x18\x03 \x03(\v2:.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetailR\vtaskDetails\"\xcf\x17\n" +
+	"\ftask_details\x18\x03 \x03(\v2:.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetailR\vtaskDetails\"\xee\x17\n" +
 	"\x12PipelineTaskDetail\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x17\n" +
@@ -2629,7 +2642,9 @@ const file_backend_api_v2beta1_run_proto_rawDesc = "" +
 	"\vchild_tasks\x18\x11 \x03(\v2D.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetail.ChildTaskR\n" +
 	"childTasks\x12_\n" +
 	"\x06inputs\x18\x12 \x01(\v2G.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetail.InputOutputsR\x06inputs\x12a\n" +
-	"\aoutputs\x18\x13 \x01(\v2G.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetail.InputOutputsR\aoutputs\x1a\x8b\x01\n" +
+	"\aoutputs\x18\x13 \x01(\v2G.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetail.InputOutputsR\aoutputs\x12\x1d\n" +
+	"\n" +
+	"scope_path\x18\x14 \x03(\tR\tscopePath\x1a\x8b\x01\n" +
 	"\aTaskPod\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x10\n" +
 	"\x03uid\x18\x02 \x01(\tR\x03uid\x12Z\n" +

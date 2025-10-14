@@ -11,10 +11,11 @@ import (
 
 // Client provides typed clients for KFP v2beta1 API services used by driver/launcher.
 type Client struct {
-	Run       gc.RunServiceClient
-	Artifact  gc.ArtifactServiceClient
-	Conn      *grpc.ClientConn
-	Endpoint  string
+	Run      gc.RunServiceClient
+	Pipeline gc.PipelineServiceClient
+	Artifact gc.ArtifactServiceClient
+	Conn     *grpc.ClientConn
+	Endpoint string
 }
 
 // Config holds connection options.
@@ -50,6 +51,7 @@ func New(cfg *Config) (*Client, error) {
 	}
 	return &Client{
 		Run:      gc.NewRunServiceClient(conn),
+		Pipeline: gc.NewPipelineServiceClient(conn),
 		Artifact: gc.NewArtifactServiceClient(conn),
 		Conn:     conn,
 		Endpoint: cfg.Endpoint,

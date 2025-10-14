@@ -6,6 +6,7 @@ import (
 
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/kubernetes_platform/go/kubernetesplatform"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -20,7 +21,10 @@ type Options struct {
 	Component *pipelinespec.ComponentSpec
 	// required
 	ParentTask *apiv2beta1.PipelineTaskDetail
-	DriverAPI  DriverAPI
+	// required
+	DriverAPI DriverAPI
+	// required
+	ScopePath util.ScopePath
 
 	// optional, iteration index. -1 means not an iteration.
 	IterationIndex int

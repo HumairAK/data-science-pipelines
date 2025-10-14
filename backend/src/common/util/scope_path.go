@@ -4,11 +4,14 @@ import (
 	"fmt"
 
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type ScopePath struct {
 	list         *LinkedList[ScopePathEntry]
 	pipelineSpec *pipelinespec.PipelineSpec
+	size         int
 }
 type ScopePathEntry struct {
 	taskName      string
@@ -32,6 +35,20 @@ func NewScopePath(
 	}
 }
 
+func NewScopePathFromStruct(spec *structpb.Struct) (ScopePath, error) {
+	pipelineSpec := &pipelinespec.PipelineSpec{}
+	// Convert struct to JSON
+	b, err := spec.MarshalJSON()
+	if err != nil {
+		return ScopePath{}, fmt.Errorf("failed to marshal spec to JSON: %w", err)
+	}
+	// Unmarshal JSON to PipelineSpec
+	if err := protojson.Unmarshal(b, pipelineSpec); err != nil {
+		return ScopePath{}, fmt.Errorf("failed to unmarshal spec: %w", err)
+	}
+	return NewScopePath(pipelineSpec), nil
+}
+
 func (s *ScopePath) Push(taskName string) error {
 	if s.list == nil {
 		s.list = &LinkedList[ScopePathEntry]{}
@@ -42,6 +59,7 @@ func (s *ScopePath) Push(taskName string) error {
 			componentSpec: s.pipelineSpec.Root,
 		}
 		s.list.append(sp)
+		s.size++
 		return nil
 	}
 	if s.list.head == nil {
@@ -68,11 +86,16 @@ func (s *ScopePath) Push(taskName string) error {
 		componentSpec: componentSpec,
 	}
 	s.list.append(sp)
+	s.size++
 	return nil
 }
 
 func (s *ScopePath) Pop() (ScopePathEntry, bool) {
-	return s.list.pop()
+	entry, ok := s.list.pop()
+	if ok {
+		s.size--
+	}
+	return entry, ok
 }
 
 func (s *ScopePath) GetRoot() *ScopePathEntry {
@@ -87,6 +110,10 @@ func (s *ScopePath) GetLast() *ScopePathEntry {
 	return &spe
 }
 
+func (s *ScopePath) GetSize() int {
+	return s.size
+}
+
 func (s *ScopePath) StringPath() []string {
 	var path []string
 	if s.list == nil {
@@ -96,6 +123,25 @@ func (s *ScopePath) StringPath() []string {
 		path = append(path, n.Value.taskName)
 	}
 	return path
+}
+
+// ScopePathFromStringPath builds a ScopePath from a string path and push's the newTask to the end of the path.
+func ScopePathFromStringPath(spec *structpb.Struct, path []string, newTask string) (ScopePath, error) {
+	scopePath, err := NewScopePathFromStruct(spec)
+	if err != nil {
+		return ScopePath{}, fmt.Errorf("failed to build scope path: %w", err)
+	}
+	for _, taskName := range path {
+		if err := scopePath.Push(taskName); err != nil {
+			return ScopePath{}, fmt.Errorf("failed to build scope path at task %q: %w", taskName, err)
+		}
+	}
+	// Update scope path to current context
+	err = scopePath.Push(newTask)
+	if err != nil {
+		return ScopePath{}, err
+	}
+	return scopePath, nil
 }
 
 // Node represents one element in the list.

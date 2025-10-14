@@ -53,6 +53,7 @@ func RootDAG(ctx context.Context, opts common.Options, api common.DriverAPI) (ex
 		Inputs:         inputs,
 		TypeAttributes: &apiV2beta1.PipelineTaskDetail_TypeAttributes{},
 		Status:         apiV2beta1.PipelineTaskDetail_SUCCEEDED,
+		ScopePath:      opts.ScopePath.StringPath(),
 		Pods: []*apiV2beta1.PipelineTaskDetail_TaskPod{
 			{
 				Name: opts.PodName,

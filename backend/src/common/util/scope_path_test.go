@@ -4,11 +4,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestScopePath(t *testing.T) {
 	// Load pipeline spec
-	pipelineSpec, err := LoadPipelineSpecFromYAML("test_data/loop_collected.py.yaml")
+	pipelineSpec, _, err := LoadPipelineAndPlatformSpec("test_data/loop_collected.py.yaml")
 	require.NoError(t, err)
 	require.NotNil(t, pipelineSpec)
 
@@ -20,9 +22,12 @@ func TestScopePath(t *testing.T) {
 	err = scopePath.Push("not-root")
 	require.Error(t, err)
 
+	require.Equal(t, 0, scopePath.GetSize())
+
 	err = scopePath.Push("root")
 	require.NoError(t, err)
 	require.NotNil(t, scopePath)
+	require.Equal(t, 1, scopePath.GetSize())
 
 	head := scopePath.GetRoot()
 	last := scopePath.GetLast()
@@ -50,6 +55,7 @@ func TestScopePath(t *testing.T) {
 	require.Len(t, last.GetComponentSpec().GetDag().GetTasks(), 2)
 
 	require.Equal(t, []string{"root", "secondary-pipeline", "for-loop-2"}, scopePath.StringPath())
+	require.Equal(t, 3, scopePath.GetSize())
 
 	spe, ok := scopePath.Pop()
 	require.True(t, ok)
@@ -72,5 +78,31 @@ func TestScopePath(t *testing.T) {
 	require.False(t, ok)
 	require.Empty(t, spe)
 
+	require.Equal(t, 0, scopePath.GetSize())
+
 	require.Empty(t, scopePath.StringPath())
+}
+
+func TestBuildFromStringPath(t *testing.T) {
+	// Load pipeline spec
+	pipelineSpec, _, err := LoadPipelineAndPlatformSpec("test_data/loop_collected.py.yaml")
+	require.NoError(t, err)
+
+	// Convert PipelineSpec to Struct
+	b, err := protojson.Marshal(pipelineSpec)
+	require.NoError(t, err)
+	var st structpb.Struct
+	err = protojson.Unmarshal(b, &st)
+	require.NoError(t, err)
+
+	// Test successful path construction
+	path := []string{"root", "secondary-pipeline"}
+	scopePath, err := ScopePathFromStringPath(&st, path, "for-loop-2")
+	require.NoError(t, err)
+	require.Equal(t, []string{"root", "secondary-pipeline", "for-loop-2"}, scopePath.StringPath())
+
+	// Test invalid path
+	invalidPath := []string{"root", "non-existent-task"}
+	_, err = ScopePathFromStringPath(&st, invalidPath, "")
+	require.Error(t, err)
 }
