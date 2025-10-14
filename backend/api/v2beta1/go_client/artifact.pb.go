@@ -49,7 +49,10 @@ type IOType int32
 
 const (
 	// For validation
-	IOType_UNSPECIFIED             IOType = 0
+	IOType_UNSPECIFIED IOType = 0
+	// This is used for inputs that are
+	// provided via default parameters in
+	// the component input definitions
 	IOType_COMPONENT_DEFAULT_INPUT IOType = 1
 	// The name seems convoluted, but this aligns with the
 	// sdk naming in TaskInputsSpec.kind.task_output_parameter
@@ -224,9 +227,12 @@ type CreateArtifactRequest struct {
 	//
 	// here the producer_key == "my_output"
 	// Note that producer_task_name == task_name
-	ProducerKey   string `protobuf:"bytes,5,opt,name=producer_key,json=producerKey,proto3" json:"producer_key,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	ProducerKey string `protobuf:"bytes,5,opt,name=producer_key,json=producerKey,proto3" json:"producer_key,omitempty"`
+	// If the producing task is in a parallelFor iteration
+	// this field designates the iteration index
+	IterationIndex *int64 `protobuf:"varint,6,opt,name=iteration_index,json=iterationIndex,proto3,oneof" json:"iteration_index,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CreateArtifactRequest) Reset() {
@@ -285,6 +291,13 @@ func (x *CreateArtifactRequest) GetProducerKey() string {
 		return x.ProducerKey
 	}
 	return ""
+}
+
+func (x *CreateArtifactRequest) GetIterationIndex() int64 {
+	if x != nil && x.IterationIndex != nil {
+		return *x.IterationIndex
+	}
+	return 0
 }
 
 type GetArtifactRequest struct {
@@ -1058,12 +1071,14 @@ var File_backend_api_v2beta1_artifact_proto protoreflect.FileDescriptor
 
 const file_backend_api_v2beta1_artifact_proto_rawDesc = "" +
 	"\n" +
-	"\"backend/api/v2beta1/artifact.proto\x12&kubeflow.pipelines.backend.api.v2beta1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xb8\x01\n" +
+	"\"backend/api/v2beta1/artifact.proto\x12&kubeflow.pipelines.backend.api.v2beta1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xfa\x01\n" +
 	"\x15CreateArtifactRequest\x12L\n" +
 	"\bartifact\x18\x01 \x01(\v20.kubeflow.pipelines.backend.api.v2beta1.ArtifactR\bartifact\x12\x15\n" +
 	"\x06run_id\x18\x02 \x01(\tR\x05runId\x12\x17\n" +
 	"\atask_id\x18\x03 \x01(\tR\x06taskId\x12!\n" +
-	"\fproducer_key\x18\x05 \x01(\tR\vproducerKey\"5\n" +
+	"\fproducer_key\x18\x05 \x01(\tR\vproducerKey\x12,\n" +
+	"\x0fiteration_index\x18\x06 \x01(\x03H\x00R\x0eiterationIndex\x88\x01\x01B\x12\n" +
+	"\x10_iteration_index\"5\n" +
 	"\x12GetArtifactRequest\x12\x1f\n" +
 	"\vartifact_id\x18\x01 \x01(\tR\n" +
 	"artifactId\"\xa0\x01\n" +
@@ -1247,6 +1262,7 @@ func file_backend_api_v2beta1_artifact_proto_init() {
 	if File_backend_api_v2beta1_artifact_proto != nil {
 		return
 	}
+	file_backend_api_v2beta1_artifact_proto_msgTypes[0].OneofWrappers = []any{}
 	file_backend_api_v2beta1_artifact_proto_msgTypes[9].OneofWrappers = []any{}
 	file_backend_api_v2beta1_artifact_proto_msgTypes[11].OneofWrappers = []any{}
 	type x struct{}

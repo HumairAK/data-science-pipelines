@@ -21,6 +21,10 @@ type V2beta1CreateArtifactRequest struct {
 	// Required. The artifact to create.
 	Artifact *V2beta1Artifact `json:"artifact,omitempty"`
 
+	// If the producing task is in a parallelFor iteration
+	// this field designates the iteration index
+	IterationIndex string `json:"iteration_index,omitempty"`
+
 	// The outgoing parameter name of this Artifact within this task's component spec.
 	// For example:
 	// def preprocess(my_output: dsl.Outputs[dsl.Artifact]):

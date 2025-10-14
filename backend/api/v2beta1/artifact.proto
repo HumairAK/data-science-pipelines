@@ -148,6 +148,10 @@ message CreateArtifactRequest {
   // here the producer_key == "my_output"
   // Note that producer_task_name == task_name
   string producer_key = 5;
+
+  // If the producing task is in a parallelFor iteration
+  // this field designates the iteration index
+  optional int64 iteration_index = 6;
 }
 
 message GetArtifactRequest {
@@ -220,7 +224,6 @@ message CreateArtifactTaskRequest {
   ArtifactTask artifact_task = 1;
 }
 
-
 message CreateArtifactTasksBulkRequest {
   // Required. The list of artifact-task relationships to create.
   repeated ArtifactTask artifact_tasks = 1;
@@ -230,7 +233,6 @@ message CreateArtifactTasksBulkResponse {
   // The list of created artifact-task relationships.
   repeated ArtifactTask artifact_tasks = 1;
 }
-
 
 // Describes the I/O relationship between
 // this Artifacts & Parameters and Task

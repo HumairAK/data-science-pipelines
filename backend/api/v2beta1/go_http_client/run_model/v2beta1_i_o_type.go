@@ -22,6 +22,10 @@ import (
 // dsl.Collected outputs.
 //
 //   - UNSPECIFIED: For validation
+//   - COMPONENT_DEFAULT_INPUT: This is used for inputs that are
+//
+// provided via default parameters in
+// the component input definitions
 //   - TASK_OUTPUT_INPUT: The name seems convoluted, but this aligns with the
 //
 // sdk naming in TaskInputsSpec.kind.task_output_parameter

@@ -2423,8 +2423,8 @@ type PipelineTaskDetail_InputOutputs_IOParameter struct {
 	Type         IOType                 `protobuf:"varint,2,opt,name=type,proto3,enum=kubeflow.pipelines.backend.api.v2beta1.IOType" json:"type,omitempty"`
 	ParameterKey string                 `protobuf:"bytes,3,opt,name=parameter_key,json=parameterKey,proto3" json:"parameter_key,omitempty"`
 	// This field is optional because in the case of
-	// Input RuntimeValues and Raw Iterator Inputs
-	// there are no producers
+	// Input RuntimeValues, ComponentDefaultInptus,
+	// and Raw Iterator Input there are no producers.
 	Producer      *IOProducer `protobuf:"bytes,4,opt,name=producer,proto3,oneof" json:"producer,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

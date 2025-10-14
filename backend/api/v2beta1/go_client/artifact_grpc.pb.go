@@ -59,7 +59,6 @@ type ArtifactServiceClient interface {
 	// if Reimport = false.
 	CreateArtifactTask(ctx context.Context, in *CreateArtifactTaskRequest, opts ...grpc.CallOption) (*ArtifactTask, error)
 	// Creates multiple artifact-task relationships in bulk.
-	// TODO(HumairAK): Implement the backend and test logic
 	CreateArtifactTasksBulk(ctx context.Context, in *CreateArtifactTasksBulkRequest, opts ...grpc.CallOption) (*CreateArtifactTasksBulkResponse, error)
 }
 
@@ -149,7 +148,6 @@ type ArtifactServiceServer interface {
 	// if Reimport = false.
 	CreateArtifactTask(context.Context, *CreateArtifactTaskRequest) (*ArtifactTask, error)
 	// Creates multiple artifact-task relationships in bulk.
-	// TODO(HumairAK): Implement the backend and test logic
 	CreateArtifactTasksBulk(context.Context, *CreateArtifactTasksBulkRequest) (*CreateArtifactTasksBulkResponse, error)
 	mustEmbedUnimplementedArtifactServiceServer()
 }
