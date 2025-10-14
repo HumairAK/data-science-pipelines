@@ -34,7 +34,7 @@ var artifactTaskColumns = []string{
 	"artifact_tasks.Type",
 	"artifact_tasks.RunUUID",
 	"artifact_tasks.Producer",
-	"artifact_tasks.Key",
+	"artifact_tasks.ArtifactKey",
 }
 
 type ArtifactTaskStoreInterface interface {
@@ -85,13 +85,13 @@ func (s *ArtifactTaskStore) CreateArtifactTask(artifactTask *model.ArtifactTask)
 		Insert(artifactTaskTableName).
 		SetMap(
 			sq.Eq{
-				"UUID":       newArtifactTask.UUID,
-				"ArtifactID": newArtifactTask.ArtifactID,
-				"TaskID":     newArtifactTask.TaskID,
-				"Type":       newArtifactTask.Type,
-				"RunUUID":    newArtifactTask.RunUUID,
-				"Producer":   producerValue,
-				"Key":        newArtifactTask.Key,
+				"UUID":        newArtifactTask.UUID,
+				"ArtifactID":  newArtifactTask.ArtifactID,
+				"TaskID":      newArtifactTask.TaskID,
+				"Type":        newArtifactTask.Type,
+				"RunUUID":     newArtifactTask.RunUUID,
+				"Producer":    producerValue,
+				"ArtifactKey": newArtifactTask.ArtifactKey,
 			},
 		).
 		ToSql()
@@ -139,13 +139,13 @@ func (s *ArtifactTaskStore) CreateArtifactTasks(artifactTasks []*model.ArtifactT
 			Insert(artifactTaskTableName).
 			SetMap(
 				sq.Eq{
-					"UUID":       newArtifactTask.UUID,
-					"ArtifactID": newArtifactTask.ArtifactID,
-					"TaskID":     newArtifactTask.TaskID,
-					"Type":       newArtifactTask.Type,
-					"RunUUID":    newArtifactTask.RunUUID,
-					"Producer":   producerValue,
-					"Key":        newArtifactTask.Key,
+					"UUID":        newArtifactTask.UUID,
+					"ArtifactID":  newArtifactTask.ArtifactID,
+					"TaskID":      newArtifactTask.TaskID,
+					"Type":        newArtifactTask.Type,
+					"RunUUID":     newArtifactTask.RunUUID,
+					"Producer":    producerValue,
+					"ArtifactKey": newArtifactTask.ArtifactKey,
 				},
 			).
 			ToSql()
@@ -191,13 +191,13 @@ func (s *ArtifactTaskStore) scanRows(rows *sql.Rows) ([]*model.ArtifactTask, err
 		}
 
 		artifactTask := &model.ArtifactTask{
-			UUID:       uuid,
-			ArtifactID: artifactID,
-			TaskID:     taskID,
-			Type:       model.IOType(ioType),
-			RunUUID:    runUUID,
-			Producer:   producer,
-			Key:        key,
+			UUID:        uuid,
+			ArtifactID:  artifactID,
+			TaskID:      taskID,
+			Type:        model.IOType(ioType),
+			RunUUID:     runUUID,
+			Producer:    producer,
+			ArtifactKey: key,
 		}
 		artifactTasks = append(artifactTasks, artifactTask)
 	}

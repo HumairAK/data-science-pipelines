@@ -21,13 +21,13 @@ type IOType apiv2beta1.IOType
 
 // ArtifactTask represents the relationship between artifacts and tasks (replaces MLMD Events)
 type ArtifactTask struct {
-	UUID       string   `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
-	ArtifactID string   `gorm:"column:ArtifactID; not null; type:varchar(191); index:idx_link_artifact_id; uniqueIndex:UniqueLink,priority:1;"`
-	TaskID     string   `gorm:"column:TaskID; not null; type:varchar(191); index:idx_link_task_id; uniqueIndex:UniqueLink,priority:2;"`
-	Type       IOType   `gorm:"column:Type; not null; uniqueIndex:UniqueLink,priority:3;"`
-	RunUUID    string   `gorm:"column:RunUUID; not null; type:varchar(191); index:idx_link_run_id;"`
-	Producer   JSONData `gorm:"column:Producer; type:json; default:null;"`
-	Key        string   `gorm:"column:Key; not null; type:varchar(191); default:'';"`
+	UUID        string   `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
+	ArtifactID  string   `gorm:"column:ArtifactID; not null; type:varchar(191); index:idx_link_artifact_id; uniqueIndex:UniqueLink,priority:1;"`
+	TaskID      string   `gorm:"column:TaskID; not null; type:varchar(191); index:idx_link_task_id; uniqueIndex:UniqueLink,priority:2;"`
+	Type        IOType   `gorm:"column:Type; not null; uniqueIndex:UniqueLink,priority:3;"`
+	RunUUID     string   `gorm:"column:RunUUID; not null; type:varchar(191); index:idx_link_run_id;"`
+	Producer    JSONData `gorm:"column:Producer; type:json; default:null;"`
+	ArtifactKey string   `gorm:"column:ArtifactKey; not null; type:varchar(191); default:'';"`
 
 	// Relationships
 	Artifact Artifact `gorm:"foreignKey:ArtifactID;references:UUID;constraint:fk_artifact_tasks_artifacts,OnDelete:CASCADE,OnUpdate:CASCADE;"`
@@ -66,7 +66,7 @@ var artifactTaskAPIToModelFieldMap = map[string]string{
 	"type":        "Type",
 	"run_id":      "RunUUID",
 	"producer":    "Producer",
-	"key":         "Key",
+	"key":         "ArtifactKey",
 }
 
 func (at ArtifactTask) GetField(name string) (string, bool) {
@@ -90,8 +90,8 @@ func (at ArtifactTask) GetFieldValue(name string) interface{} {
 		return at.RunUUID
 	case "Producer":
 		return at.Producer
-	case "Key":
-		return at.Key
+	case "ArtifactKey":
+		return at.ArtifactKey
 	default:
 		return nil
 	}

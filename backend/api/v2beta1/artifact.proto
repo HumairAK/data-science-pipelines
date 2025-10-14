@@ -152,6 +152,7 @@ message CreateArtifactRequest {
   // If the producing task is in a parallelFor iteration
   // this field designates the iteration index
   optional int64 iteration_index = 6;
+  // TODO: add iotype and make it required
 }
 
 message GetArtifactRequest {
@@ -282,7 +283,6 @@ message IOProducer {
   // task type inside a ParallelFor
   optional int64 iteration = 2;
 }
-
 
 message ArtifactTask {
   // Output only. The unique server generated id of the ArtifactTask.

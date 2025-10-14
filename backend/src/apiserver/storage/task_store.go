@@ -208,7 +208,7 @@ func hydrateArtifactsForTasks(db *DB, tasks []*model.Task) error {
 			"artifact_tasks.TaskID",
 			"artifact_tasks.Type",
 			"artifact_tasks.Producer",
-			"artifact_tasks.Key",
+			"artifact_tasks.ArtifactKey",
 			"artifacts.UUID",
 			"artifacts.Namespace",
 			"artifacts.Type",

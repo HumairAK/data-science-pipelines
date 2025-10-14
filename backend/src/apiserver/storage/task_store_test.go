@@ -599,11 +599,11 @@ func TestHydrateArtifactsForTask_GetAndList(t *testing.T) {
 	ats1 := NewArtifactTaskStore(db, util.NewFakeUUIDGeneratorOrFatal("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1", nil))
 	// Input link with no producer fields -> ResolvedValue
 	_, err = ats1.CreateArtifactTask(&model.ArtifactTask{
-		ArtifactID: artIn.UUID,
-		TaskID:     task.UUID,
-		Type:       model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
-		RunUUID:    task.RunUUID,
-		Key:        "input-key",
+		ArtifactID:  artIn.UUID,
+		TaskID:      task.UUID,
+		Type:        model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
+		RunUUID:     task.RunUUID,
+		ArtifactKey: "input-key",
 	})
 	assert.NoError(t, err)
 	// Output link with producer fields -> PipelineChannel
@@ -616,7 +616,7 @@ func TestHydrateArtifactsForTask_GetAndList(t *testing.T) {
 		Producer: model.JSONData{
 			"taskName": "producer-task",
 		},
-		Key: "output-key",
+		ArtifactKey: "output-key",
 	})
 	assert.NoError(t, err)
 

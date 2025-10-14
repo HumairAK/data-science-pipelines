@@ -2301,7 +2301,7 @@ func toApiArtifactTask(artifactTask *model.ArtifactTask) *apiv2beta1.ArtifactTas
 		TaskId:     artifactTask.TaskID,
 		Type:       apiv2beta1.IOType(artifactTask.Type),
 		RunId:      artifactTask.RunUUID,
-		Key:        artifactTask.Key,
+		Key:        artifactTask.ArtifactKey,
 	}
 
 	// Convert Producer from JSONData to IOProducer
@@ -2336,12 +2336,12 @@ func toModelArtifactTask(apiAT *apiv2beta1.ArtifactTask) (*model.ArtifactTask, e
 	}
 
 	modelAT := &model.ArtifactTask{
-		UUID:       apiAT.GetId(),
-		RunUUID:    apiAT.GetRunId(),
-		ArtifactID: apiAT.GetArtifactId(),
-		TaskID:     apiAT.GetTaskId(),
-		Type:       model.IOType(apiAT.GetType()),
-		Key:        apiAT.GetKey(),
+		UUID:        apiAT.GetId(),
+		RunUUID:     apiAT.GetRunId(),
+		ArtifactID:  apiAT.GetArtifactId(),
+		TaskID:      apiAT.GetTaskId(),
+		Type:        model.IOType(apiAT.GetType()),
+		ArtifactKey: apiAT.GetKey(),
 	}
 
 	// Convert Producer from IOProducer to JSONData

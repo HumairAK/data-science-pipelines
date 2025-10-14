@@ -81,11 +81,11 @@ func TestCreateArtifactTask_Success(t *testing.T) {
 	// Link as INPUT
 	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID1, nil)
 	link, err := linkStore.CreateArtifactTask(&model.ArtifactTask{
-		ArtifactID: art.UUID,
-		TaskID:     task.UUID,
-		RunUUID:    runId1,
-		Type:       model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
-		Key:        "input-key",
+		ArtifactID:  art.UUID,
+		TaskID:      task.UUID,
+		RunUUID:     runId1,
+		Type:        model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
+		ArtifactKey: "input-key",
 	})
 	assert.NoError(t, err)
 	assert.Equal(t, linkUUID1, link.UUID)
@@ -163,30 +163,30 @@ func TestListArtifactTasks_Filters(t *testing.T) {
 	// Create links: art1<->t1 (INPUT), art2<->t1 (OUTPUT), art2<->t2 (INPUT)
 	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID1, nil)
 	_, err = linkStore.CreateArtifactTask(&model.ArtifactTask{
-		ArtifactID: art1.UUID,
-		TaskID:     t1.UUID,
-		RunUUID:    runId1,
-		Type:       model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
-		Key:        "input1",
+		ArtifactID:  art1.UUID,
+		TaskID:      t1.UUID,
+		RunUUID:     runId1,
+		Type:        model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
+		ArtifactKey: "input1",
 	})
 	assert.NoError(t, err)
 	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID2, nil)
 	_, err = linkStore.CreateArtifactTask(&model.ArtifactTask{
-		ArtifactID: art2.UUID,
-		TaskID:     t1.UUID,
-		RunUUID:    runId1,
-		Type:       model.IOType(apiv2beta1.IOType_OUTPUT),
-		Key:        "output1",
+		ArtifactID:  art2.UUID,
+		TaskID:      t1.UUID,
+		RunUUID:     runId1,
+		Type:        model.IOType(apiv2beta1.IOType_OUTPUT),
+		ArtifactKey: "output1",
 	})
 	assert.NoError(t, err)
 	// another link with a fresh random UUID
 	linkStore.uuid = util.NewUUIDGenerator()
 	_, err = linkStore.CreateArtifactTask(&model.ArtifactTask{
-		ArtifactID: art2.UUID,
-		TaskID:     t2.UUID,
-		RunUUID:    runId2,
-		Type:       model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
-		Key:        "input2",
+		ArtifactID:  art2.UUID,
+		TaskID:      t2.UUID,
+		RunUUID:     runId2,
+		Type:        model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
+		ArtifactKey: "input2",
 	})
 	assert.NoError(t, err)
 
@@ -265,20 +265,20 @@ func TestListArtifactsForTask_UsingArtifactTasks(t *testing.T) {
 	// Link both artifacts to t1
 	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID1, nil)
 	_, err = linkStore.CreateArtifactTask(&model.ArtifactTask{
-		ArtifactID: art1.UUID,
-		TaskID:     t1.UUID,
-		RunUUID:    runId1,
-		Type:       model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
-		Key:        "input1",
+		ArtifactID:  art1.UUID,
+		TaskID:      t1.UUID,
+		RunUUID:     runId1,
+		Type:        model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
+		ArtifactKey: "input1",
 	})
 	assert.NoError(t, err)
 	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID2, nil)
 	_, err = linkStore.CreateArtifactTask(&model.ArtifactTask{
-		ArtifactID: art2.UUID,
-		TaskID:     t1.UUID,
-		RunUUID:    runId1,
-		Type:       model.IOType(apiv2beta1.IOType_OUTPUT),
-		Key:        "output1",
+		ArtifactID:  art2.UUID,
+		TaskID:      t1.UUID,
+		RunUUID:     runId1,
+		Type:        model.IOType(apiv2beta1.IOType_OUTPUT),
+		ArtifactKey: "output1",
 	})
 	assert.NoError(t, err)
 
@@ -340,29 +340,29 @@ func TestListArtifactTasks_Pagination_PageSizeAndNextPageToken(t *testing.T) {
 	// Create 3 links with deterministic UUID order
 	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID1, nil)
 	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
-		ArtifactID: art1.UUID,
-		TaskID:     t1.UUID,
-		RunUUID:    runId1,
-		Type:       model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
-		Key:        "input1",
+		ArtifactID:  art1.UUID,
+		TaskID:      t1.UUID,
+		RunUUID:     runId1,
+		Type:        model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
+		ArtifactKey: "input1",
 	})
 
 	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID2, nil)
 	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
-		ArtifactID: art1.UUID,
-		TaskID:     t1.UUID,
-		RunUUID:    runId1,
-		Type:       model.IOType(apiv2beta1.IOType_OUTPUT),
-		Key:        "output1",
+		ArtifactID:  art1.UUID,
+		TaskID:      t1.UUID,
+		RunUUID:     runId1,
+		Type:        model.IOType(apiv2beta1.IOType_OUTPUT),
+		ArtifactKey: "output1",
 	})
 
 	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID3, nil)
 	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
-		ArtifactID: art2.UUID,
-		TaskID:     t1.UUID,
-		RunUUID:    runId1,
-		Type:       model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
-		Key:        "input2",
+		ArtifactID:  art2.UUID,
+		TaskID:      t1.UUID,
+		RunUUID:     runId1,
+		Type:        model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
+		ArtifactKey: "input2",
 	})
 
 	// Page 1: size 2
@@ -445,29 +445,29 @@ func TestListArtifactTasks_Pagination_WithFilter(t *testing.T) {
 	// Links: 2 for t1, 1 for t2
 	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID1, nil)
 	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
-		ArtifactID: art1.UUID,
-		TaskID:     t1.UUID,
-		RunUUID:    runId1,
-		Type:       model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
-		Key:        "input1",
+		ArtifactID:  art1.UUID,
+		TaskID:      t1.UUID,
+		RunUUID:     runId1,
+		Type:        model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
+		ArtifactKey: "input1",
 	})
 
 	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID2, nil)
 	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
-		ArtifactID: art2.UUID,
-		TaskID:     t1.UUID,
-		RunUUID:    runId1,
-		Type:       model.IOType(apiv2beta1.IOType_OUTPUT),
-		Key:        "output1",
+		ArtifactID:  art2.UUID,
+		TaskID:      t1.UUID,
+		RunUUID:     runId1,
+		Type:        model.IOType(apiv2beta1.IOType_OUTPUT),
+		ArtifactKey: "output1",
 	})
 
 	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID3, nil)
 	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
-		ArtifactID: art2.UUID,
-		TaskID:     t2.UUID,
-		RunUUID:    runId2,
-		Type:       model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
-		Key:        "input2",
+		ArtifactID:  art2.UUID,
+		TaskID:      t2.UUID,
+		RunUUID:     runId2,
+		Type:        model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
+		ArtifactKey: "input2",
 	})
 
 	filterByT1 := []*model.FilterContext{{ReferenceKey: &model.ReferenceKey{Type: model.TaskResourceType, ID: t1.UUID}}}
