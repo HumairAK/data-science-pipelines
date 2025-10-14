@@ -85,10 +85,11 @@ func (p *PodNames) Value() (driver.Value, error) {
 type TaskArtifactHydrated struct {
 	Value    *Artifact
 	Producer *IOProducer
+	Key      string
 }
 type IOProducer struct {
-	TaskName string
-	Key      string
+	TaskName  string
+	Iteration *int64
 }
 
 type TaskType apiv2beta1.PipelineTaskDetail_TaskType

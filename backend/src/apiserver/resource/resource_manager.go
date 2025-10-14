@@ -2080,8 +2080,8 @@ func (r *ResourceManager) GetTaskChildren(taskId string) ([]*model.Task, error) 
 }
 
 // ListArtifactTasks Fetches artifact tasks with given filtering and listing options.
-func (r *ResourceManager) ListArtifactTasks(filterContexts []*model.FilterContext, opts *list.Options) ([]*model.ArtifactTask, int, string, error) {
-	artifactTasks, totalSize, nextPageToken, err := r.artifactTaskStore.ListArtifactTasks(filterContexts, opts)
+func (r *ResourceManager) ListArtifactTasks(filterContexts []*model.FilterContext, ioType *model.IOType, opts *list.Options) ([]*model.ArtifactTask, int, string, error) {
+	artifactTasks, totalSize, nextPageToken, err := r.artifactTaskStore.ListArtifactTasks(filterContexts, ioType, opts)
 	if err != nil {
 		return nil, 0, "", util.Wrap(err, "Failed to list artifact tasks")
 	}
@@ -2095,6 +2095,15 @@ func (r *ResourceManager) CreateArtifactTask(artifactTask *model.ArtifactTask) (
 		return nil, util.Wrap(err, "Failed to create artifact-task relationship")
 	}
 	return newAT, nil
+}
+
+// CreateArtifactTasks Creates multiple artifact-task relationship entries in bulk.
+func (r *ResourceManager) CreateArtifactTasks(artifactTasks []*model.ArtifactTask) ([]*model.ArtifactTask, error) {
+	newATs, err := r.artifactTaskStore.CreateArtifactTasks(artifactTasks)
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to create artifact-task relationships in bulk")
+	}
+	return newATs, nil
 }
 
 // GetArtifact Fetches an artifact with a given id.

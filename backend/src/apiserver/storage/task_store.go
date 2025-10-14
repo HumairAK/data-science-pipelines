@@ -207,8 +207,8 @@ func hydrateArtifactsForTasks(db *DB, tasks []*model.Task) error {
 		Select(
 			"artifact_tasks.TaskID",
 			"artifact_tasks.Type",
-			"artifact_tasks.ProducerTaskName",
-			"artifact_tasks.ProducerKey",
+			"artifact_tasks.Producer",
+			"artifact_tasks.Key",
 			"artifacts.UUID",
 			"artifacts.Namespace",
 			"artifacts.Type",
@@ -235,13 +235,14 @@ func hydrateArtifactsForTasks(db *DB, tasks []*model.Task) error {
 	for rows.Next() {
 		var taskID string
 		var linkType sql.NullInt32
-		var producerTaskName, producerKey string
+		var producer sql.NullString
+		var key string
 		var artUUID, artNamespace, artName string
 		var artType sql.NullInt32
 		var createdAt, updatedAt sql.NullInt64
 		var metadata, artURI sql.NullString
 
-		if err := rows.Scan(&taskID, &linkType, &producerTaskName, &producerKey,
+		if err := rows.Scan(&taskID, &linkType, &producer, &key,
 			&artUUID, &artNamespace, &artType, &artURI, &artName, &createdAt, &updatedAt, &metadata); err != nil {
 			return err
 		}
@@ -270,15 +271,29 @@ func hydrateArtifactsForTasks(db *DB, tasks []*model.Task) error {
 			mArtifact.Uri = &artURI.String
 		}
 
-		h := model.TaskArtifactHydrated{
-			Value: mArtifact,
-			Producer: &model.IOProducer{
-				TaskName: producerTaskName,
-				Key:      producerKey,
-			},
+		// Parse producer JSON to IOProducer
+		var producerProto *model.IOProducer
+		if producer.Valid && producer.String != "" {
+			var producerData model.JSONData
+			if err := json.Unmarshal([]byte(producer.String), &producerData); err == nil {
+				producerProto = &model.IOProducer{}
+				if taskName, ok := producerData["task_name"].(string); ok {
+					producerProto.TaskName = taskName
+				}
+				if iteration, ok := producerData["iteration"].(float64); ok {
+					iterInt := int64(iteration)
+					producerProto.Iteration = &iterInt
+				}
+			}
 		}
 
-		if linkType.Int32 == int32(apiv2beta1.ArtifactTaskType_OUTPUT) {
+		h := model.TaskArtifactHydrated{
+			Value:    mArtifact,
+			Producer: producerProto,
+			Key:      key,
+		}
+
+		if linkType.Int32 == int32(apiv2beta1.IOType_OUTPUT) {
 			task.OutputArtifactsHydrated = append(task.OutputArtifactsHydrated, h)
 		} else {
 			task.InputArtifactsHydrated = append(task.InputArtifactsHydrated, h)

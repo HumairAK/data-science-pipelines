@@ -33,9 +33,8 @@ var artifactTaskColumns = []string{
 	"artifact_tasks.TaskID",
 	"artifact_tasks.Type",
 	"artifact_tasks.RunUUID",
-	"artifact_tasks.ProducerTaskName",
-	"artifact_tasks.ProducerKey",
-	"artifact_tasks.ArtifactKey",
+	"artifact_tasks.Producer",
+	"artifact_tasks.Key",
 }
 
 type ArtifactTaskStoreInterface interface {
@@ -49,8 +48,9 @@ type ArtifactTaskStoreInterface interface {
 	GetArtifactTask(id string) (*model.ArtifactTask, error)
 
 	// ListArtifactTasks Fetches artifact-task relationships for given filtering and listing options.
-	// filterContexts supports multiple filters: ArtifactID, TaskID, RunUUID, or Type
-	ListArtifactTasks(filterContexts []*model.FilterContext, opts *list.Options) ([]*model.ArtifactTask, int, string, error)
+	// filterContexts supports multiple filters: ArtifactID, TaskID, RunUUID
+	// ioType optionally filters by IOType (pass nil to skip filtering by type)
+	ListArtifactTasks(filterContexts []*model.FilterContext, ioType *model.IOType, opts *list.Options) ([]*model.ArtifactTask, int, string, error)
 }
 
 type ArtifactTaskStore struct {
@@ -79,14 +79,13 @@ func (s *ArtifactTaskStore) CreateArtifactTask(artifactTask *model.ArtifactTask)
 		Insert(artifactTaskTableName).
 		SetMap(
 			sq.Eq{
-				"UUID":             newArtifactTask.UUID,
-				"ArtifactID":       newArtifactTask.ArtifactID,
-				"TaskID":           newArtifactTask.TaskID,
-				"Type":             newArtifactTask.Type,
-				"RunUUID":          newArtifactTask.RunUUID,
-				"ProducerTaskName": newArtifactTask.ProducerTaskName,
-				"ProducerKey":      newArtifactTask.ProducerKey,
-				"ArtifactKey":      newArtifactTask.ArtifactKey,
+				"UUID":       newArtifactTask.UUID,
+				"ArtifactID": newArtifactTask.ArtifactID,
+				"TaskID":     newArtifactTask.TaskID,
+				"Type":       newArtifactTask.Type,
+				"RunUUID":    newArtifactTask.RunUUID,
+				"Producer":   newArtifactTask.Producer,
+				"Key":        newArtifactTask.Key,
 			},
 		).
 		ToSql()
@@ -124,18 +123,17 @@ func (s *ArtifactTaskStore) CreateArtifactTasks(artifactTasks []*model.ArtifactT
 		}
 		newArtifactTask.UUID = id.String()
 
-		sql, args, err := sq.
+		toSql, args, err := sq.
 			Insert(artifactTaskTableName).
 			SetMap(
 				sq.Eq{
-					"UUID":             newArtifactTask.UUID,
-					"ArtifactID":       newArtifactTask.ArtifactID,
-					"TaskID":           newArtifactTask.TaskID,
-					"Type":             newArtifactTask.Type,
-					"RunUUID":          newArtifactTask.RunUUID,
-					"ProducerTaskName": newArtifactTask.ProducerTaskName,
-					"ProducerKey":      newArtifactTask.ProducerKey,
-					"ArtifactKey":      newArtifactTask.ArtifactKey,
+					"UUID":       newArtifactTask.UUID,
+					"ArtifactID": newArtifactTask.ArtifactID,
+					"TaskID":     newArtifactTask.TaskID,
+					"Type":       newArtifactTask.Type,
+					"RunUUID":    newArtifactTask.RunUUID,
+					"Producer":   newArtifactTask.Producer,
+					"Key":        newArtifactTask.Key,
 				},
 			).
 			ToSql()
@@ -143,7 +141,7 @@ func (s *ArtifactTaskStore) CreateArtifactTasks(artifactTasks []*model.ArtifactT
 			return nil, util.NewInternalServerError(err, "Failed to create query to insert artifact-task: %v", err.Error())
 		}
 
-		_, err = tx.Exec(sql, args...)
+		_, err = tx.Exec(toSql, args...)
 		if err != nil {
 			return nil, util.NewInternalServerError(err, "Failed to add artifact-task: %v", err.Error())
 		}
@@ -163,33 +161,31 @@ func (s *ArtifactTaskStore) scanRows(rows *sql.Rows) ([]*model.ArtifactTask, err
 	var artifactTasks []*model.ArtifactTask
 	for rows.Next() {
 		var uuid, artifactID, taskID string
-		var runUUID, producerTaskName, producerKey, artifactKey string
-		var artifactTaskType int32
+		var runUUID, key string
+		var ioType int32
+		var producer model.JSONData
 
 		err := rows.Scan(
 			&uuid,
 			&artifactID,
 			&taskID,
-			&artifactTaskType,
+			&ioType,
 			&runUUID,
-			&producerTaskName,
-			&producerKey,
-			&artifactKey,
+			&producer,
+			&key,
 		)
 		if err != nil {
 			return artifactTasks, err
 		}
 
-		// Convert string type back to enum type
 		artifactTask := &model.ArtifactTask{
-			UUID:             uuid,
-			ArtifactID:       artifactID,
-			TaskID:           taskID,
-			Type:             model.ArtifactTaskType(artifactTaskType),
-			RunUUID:          runUUID,
-			ProducerTaskName: producerTaskName,
-			ProducerKey:      producerKey,
-			ArtifactKey:      artifactKey,
+			UUID:       uuid,
+			ArtifactID: artifactID,
+			TaskID:     taskID,
+			Type:       model.IOType(ioType),
+			RunUUID:    runUUID,
+			Producer:   producer,
+			Key:        key,
 		}
 		artifactTasks = append(artifactTasks, artifactTask)
 	}
@@ -249,7 +245,7 @@ func (s *ArtifactTaskStore) applyFilterContextsToQuery(sqlBuilder sq.SelectBuild
 	return sqlBuilder
 }
 
-func (s *ArtifactTaskStore) ListArtifactTasks(filterContexts []*model.FilterContext, opts *list.Options) ([]*model.ArtifactTask, int, string, error) {
+func (s *ArtifactTaskStore) ListArtifactTasks(filterContexts []*model.FilterContext, ioType *model.IOType, opts *list.Options) ([]*model.ArtifactTask, int, string, error) {
 	errorF := func(err error) ([]*model.ArtifactTask, int, string, error) {
 		return nil, 0, "", util.NewInternalServerError(err, "Failed to list artifact-tasks: %v", err)
 	}
@@ -257,6 +253,12 @@ func (s *ArtifactTaskStore) ListArtifactTasks(filterContexts []*model.FilterCont
 	// SQL for getting the filtered and paginated rows
 	sqlBuilder := sq.Select(artifactTaskColumns...).From(artifactTaskTableName)
 	sqlBuilder = s.applyFilterContextsToQuery(sqlBuilder, filterContexts)
+
+	// Apply IOType filter if provided
+	if ioType != nil {
+		sqlBuilder = sqlBuilder.Where(sq.Eq{"artifact_tasks.Type": *ioType})
+	}
+
 	sqlBuilder = opts.AddFilterToSelect(sqlBuilder)
 
 	rowsSql, rowsArgs, err := opts.AddPaginationToSelect(sqlBuilder).ToSql()
@@ -267,6 +269,12 @@ func (s *ArtifactTaskStore) ListArtifactTasks(filterContexts []*model.FilterCont
 	// SQL for getting total size
 	countBuilder := sq.Select("count(*)").From(artifactTaskTableName)
 	countBuilder = s.applyFilterContextsToQuery(countBuilder, filterContexts)
+
+	// Apply IOType filter if provided
+	if ioType != nil {
+		countBuilder = countBuilder.Where(sq.Eq{"artifact_tasks.Type": *ioType})
+	}
+
 	sizeSql, sizeArgs, err := opts.AddFilterToSelect(countBuilder).ToSql()
 	if err != nil {
 		return errorF(err)

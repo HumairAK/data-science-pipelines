@@ -80,10 +80,12 @@ func (s *ArtifactServer) CreateArtifact(ctx context.Context, request *apiv2beta1
 		TaskId:     task.UUID,
 		RunId:      request.GetRunId(),
 		// An artifact at creation is an output of the associated task.
-		Type: apiv2beta1.ArtifactTaskType_OUTPUT,
+		Type: apiv2beta1.IOType_OUTPUT,
 		// The producer task is implicitly the creator task of this artifact.
-		ProducerTaskName: task.Name,
-		ProducerKey:      request.GetProducerKey(),
+		Producer: &apiv2beta1.IOProducer{
+			TaskName: task.Name,
+		},
+		Key: request.GetProducerKey(),
 	}
 
 	modelAT, err := toModelArtifactTask(artifactTask)
@@ -234,7 +236,14 @@ func (s *ArtifactServer) ListArtifactTasks(ctx context.Context, request *apiv2be
 		return nil, util.Wrap(err, "Validating filter failed")
 	}
 
-	artifactTasks, totalSize, nextPageToken, err := s.resourceManager.ListArtifactTasks(filterContexts, opts)
+	// Convert IOType from proto to model if provided
+	var ioType *model.IOType
+	if request.Type != apiv2beta1.IOType_UNSPECIFIED {
+		modelIOType := model.IOType(request.Type)
+		ioType = &modelIOType
+	}
+
+	artifactTasks, totalSize, nextPageToken, err := s.resourceManager.ListArtifactTasks(filterContexts, ioType, opts)
 	if err != nil {
 		return nil, util.Wrap(err, "List artifact tasks failed")
 	}
@@ -243,6 +252,67 @@ func (s *ArtifactServer) ListArtifactTasks(ctx context.Context, request *apiv2be
 		ArtifactTasks: toApiArtifactTasks(artifactTasks),
 		TotalSize:     int32(totalSize),
 		NextPageToken: nextPageToken,
+	}, nil
+}
+
+// CreateArtifactTasksBulk creates multiple artifact-task relationships in bulk.
+func (s *ArtifactServer) CreateArtifactTasksBulk(ctx context.Context, request *apiv2beta1.CreateArtifactTasksBulkRequest) (*apiv2beta1.CreateArtifactTasksBulkResponse, error) {
+	if request == nil || len(request.GetArtifactTasks()) == 0 {
+		return nil, util.NewInvalidInputError("CreateArtifactTasksBulkRequest must contain at least one artifact task")
+	}
+
+	// Validate all artifact tasks and check authorization
+	modelArtifactTasks := make([]*model.ArtifactTask, 0, len(request.GetArtifactTasks()))
+	for _, apiAT := range request.GetArtifactTasks() {
+		if apiAT.GetArtifactId() == "" {
+			return nil, util.NewInvalidInputError("artifact_task.artifact_id is required")
+		}
+		if apiAT.GetTaskId() == "" {
+			return nil, util.NewInvalidInputError("artifact_task.task_id is required")
+		}
+		if apiAT.GetRunId() == "" {
+			return nil, util.NewInvalidInputError("artifact_task.run_id is required")
+		}
+
+		// Fetch task and artifact for validation and authorization
+		task, err := s.resourceManager.GetTask(apiAT.GetTaskId())
+		if err != nil {
+			return nil, util.Wrap(err, "Failed to fetch task for CreateArtifactTasksBulk")
+		}
+		artifact, err := s.resourceManager.GetArtifact(apiAT.GetArtifactId())
+		if err != nil {
+			return nil, util.Wrap(err, "Failed to fetch artifact for CreateArtifactTasksBulk")
+		}
+
+		// Optional: enforce same-namespace linkage
+		if common.IsMultiUserMode() && task.Namespace != "" && artifact.Namespace != "" && task.Namespace != artifact.Namespace {
+			return nil, util.NewInvalidInputError("artifact and task must be in the same namespace: artifact=%s task=%s", artifact.Namespace, task.Namespace)
+		}
+
+		// Authorize create in the task's namespace
+		resourceAttributes := &authorizationv1.ResourceAttributes{
+			Namespace: task.Namespace,
+			Verb:      common.RbacResourceVerbCreate,
+		}
+		if err = s.canAccessRun(ctx, "", resourceAttributes); err != nil {
+			return nil, util.Wrap(err, "Failed to authorize the request")
+		}
+
+		modelAT, err := toModelArtifactTask(apiAT)
+		if err != nil {
+			return nil, util.Wrap(err, "Failed to convert artifact_task")
+		}
+		modelArtifactTasks = append(modelArtifactTasks, modelAT)
+	}
+
+	// Create all artifact tasks in bulk
+	createdArtifactTasks, err := s.resourceManager.CreateArtifactTasks(modelArtifactTasks)
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to create artifact-tasks in bulk")
+	}
+
+	return &apiv2beta1.CreateArtifactTasksBulkResponse{
+		ArtifactTasks: toApiArtifactTasks(createdArtifactTasks),
 	}, nil
 }
 

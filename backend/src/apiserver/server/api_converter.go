@@ -2294,15 +2294,29 @@ func toApiArtifactTask(artifactTask *model.ArtifactTask) *apiv2beta1.ArtifactTas
 	if artifactTask == nil {
 		return &apiv2beta1.ArtifactTask{}
 	}
-	return &apiv2beta1.ArtifactTask{
-		Id:               artifactTask.UUID,
-		ArtifactId:       artifactTask.ArtifactID,
-		TaskId:           artifactTask.TaskID,
-		Type:             apiv2beta1.ArtifactTaskType(artifactTask.Type),
-		ProducerKey:      artifactTask.ProducerKey,
-		ProducerTaskName: artifactTask.ProducerTaskName,
-		ArtifactKey:      artifactTask.ArtifactKey,
+
+	apiArtifactTask := &apiv2beta1.ArtifactTask{
+		Id:         artifactTask.UUID,
+		ArtifactId: artifactTask.ArtifactID,
+		TaskId:     artifactTask.TaskID,
+		Type:       apiv2beta1.IOType(artifactTask.Type),
+		RunId:      artifactTask.RunUUID,
+		Key:        artifactTask.Key,
 	}
+
+	// Convert Producer from JSONData to IOProducer
+	if artifactTask.Producer != nil {
+		producer, err := model.JSONDataToProtoMessage(
+			artifactTask.Producer,
+			func() *apiv2beta1.IOProducer {
+				return &apiv2beta1.IOProducer{}
+			})
+		if err == nil {
+			apiArtifactTask.Producer = producer
+		}
+	}
+
+	return apiArtifactTask
 }
 
 // Converts an array of internal artifact task representations to an array of their API counterparts.
@@ -2320,16 +2334,26 @@ func toModelArtifactTask(apiAT *apiv2beta1.ArtifactTask) (*model.ArtifactTask, e
 	if apiAT == nil {
 		return nil, util.NewInvalidInputError("ArtifactTask cannot be nil")
 	}
-	return &model.ArtifactTask{
-		UUID:             apiAT.GetId(),
-		RunUUID:          apiAT.GetRunId(),
-		ArtifactID:       apiAT.GetArtifactId(),
-		TaskID:           apiAT.GetTaskId(),
-		Type:             model.ArtifactTaskType(apiAT.GetType()),
-		ProducerTaskName: apiAT.GetProducerTaskName(),
-		ProducerKey:      apiAT.GetProducerKey(),
-		ArtifactKey:      apiAT.GetArtifactKey(),
-	}, nil
+
+	modelAT := &model.ArtifactTask{
+		UUID:       apiAT.GetId(),
+		RunUUID:    apiAT.GetRunId(),
+		ArtifactID: apiAT.GetArtifactId(),
+		TaskID:     apiAT.GetTaskId(),
+		Type:       model.IOType(apiAT.GetType()),
+		Key:        apiAT.GetKey(),
+	}
+
+	// Convert Producer from IOProducer to JSONData
+	if apiAT.GetProducer() != nil {
+		producer, err := model.ProtoMessageToJSONData(apiAT.GetProducer())
+		if err != nil {
+			return nil, util.Wrap(err, "Failed to convert producer to JSONData")
+		}
+		modelAT.Producer = producer
+	}
+
+	return modelAT, nil
 }
 
 // Converts API PipelineTaskDetail to its internal representation.
@@ -2505,8 +2529,8 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 	if modelTask.InputParameters != nil {
 		apiInputParams, err := model.JSONSliceToProtoSlice(
 			modelTask.InputParameters,
-			func() *apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter {
-				return &apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter{}
+			func() *apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter {
+				return &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{}
 			})
 		if err != nil {
 			return nil, err
@@ -2518,8 +2542,8 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 	if modelTask.OutputParameters != nil {
 		apiOutputParams, err := model.JSONSliceToProtoSlice(
 			modelTask.OutputParameters,
-			func() *apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter {
-				return &apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter{}
+			func() *apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter {
+				return &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{}
 			})
 		if err != nil {
 			return nil, err
@@ -2543,16 +2567,14 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 				apiArt = apiArtConv
 			}
 			ioArtifact := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOArtifact{
-				Artifacts: []*apiv2beta1.Artifact{apiArt},
+				Artifacts:   []*apiv2beta1.Artifact{apiArt},
+				ArtifactKey: h.Key,
 			}
-			if h.Producer == nil {
-				return nil, util.NewInternalServerError(nil, "Producer is nil")
-			}
-			ioArtifact.Source = &apiv2beta1.PipelineTaskDetail_InputOutputs_IOArtifact_Producer{
-				Producer: &apiv2beta1.PipelineTaskDetail_InputOutputs_IOProducer{
-					TaskName: h.Producer.TaskName,
-					Key:      h.Producer.Key,
-				},
+			if h.Producer != nil {
+				ioArtifact.Producer = &apiv2beta1.IOProducer{
+					TaskName:  h.Producer.TaskName,
+					Iteration: h.Producer.Iteration,
+				}
 			}
 			out = append(out, ioArtifact)
 		}

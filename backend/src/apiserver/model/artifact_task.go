@@ -16,21 +16,18 @@ package model
 
 import apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 
-// ArtifactTaskType represents the type of artifact-task relationship
-type ArtifactTaskType apiv2beta1.ArtifactTaskType
+// IOType represents the I/O relationship type
+type IOType apiv2beta1.IOType
 
 // ArtifactTask represents the relationship between artifacts and tasks (replaces MLMD Events)
-// TODO(HumairAK): we may need to add a unique index on ProducerKey when looking for artifacts associated with
-// a specific key, for a given task
 type ArtifactTask struct {
-	UUID             string           `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
-	ArtifactID       string           `gorm:"column:ArtifactID; not null; type:varchar(191); index:idx_link_artifact_id; uniqueIndex:UniqueLink,priority:1;"`
-	TaskID           string           `gorm:"column:TaskID; not null; type:varchar(191); index:idx_link_task_id; uniqueIndex:UniqueLink,priority:2;"`
-	Type             ArtifactTaskType `gorm:"column:Type; not null; uniqueIndex:UniqueLink,priority:3;"`
-	RunUUID          string           `gorm:"column:RunUUID; not null; type:varchar(191); index:idx_link_run_id;"`
-	ProducerTaskName string           `gorm:"column:ProducerTaskName; not null; type:varchar(128); default:'';"`
-	ProducerKey      string           `gorm:"column:ProducerKey; not null; type:varchar(191); default:'';"`
-	ArtifactKey      string           `gorm:"column:ArtifactKey; not null; type:varchar(191); default:'';"`
+	UUID       string   `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
+	ArtifactID string   `gorm:"column:ArtifactID; not null; type:varchar(191); index:idx_link_artifact_id; uniqueIndex:UniqueLink,priority:1;"`
+	TaskID     string   `gorm:"column:TaskID; not null; type:varchar(191); index:idx_link_task_id; uniqueIndex:UniqueLink,priority:2;"`
+	Type       IOType   `gorm:"column:Type; not null; uniqueIndex:UniqueLink,priority:3;"`
+	RunUUID    string   `gorm:"column:RunUUID; not null; type:varchar(191); index:idx_link_run_id;"`
+	Producer   JSONData `gorm:"column:Producer; type:json; default:null;"`
+	Key        string   `gorm:"column:Key; not null; type:varchar(191); default:'';"`
 
 	// Relationships
 	Artifact Artifact `gorm:"foreignKey:ArtifactID;references:UUID;constraint:fk_artifact_tasks_artifacts,OnDelete:CASCADE,OnUpdate:CASCADE;"`
@@ -63,14 +60,13 @@ func (at ArtifactTask) GetKeyFieldPrefix() string {
 }
 
 var artifactTaskAPIToModelFieldMap = map[string]string{
-	"id":                 "UUID",
-	"artifact_id":        "ArtifactID",
-	"task_id":            "TaskID",
-	"type":               "Type",
-	"run_id":             "RunUUID",
-	"producer_task_name": "ProducerTaskName",
-	"producer_key":       "ProducerKey",
-	"artifact_key":       "ArtifactKey",
+	"id":          "UUID",
+	"artifact_id": "ArtifactID",
+	"task_id":     "TaskID",
+	"type":        "Type",
+	"run_id":      "RunUUID",
+	"producer":    "Producer",
+	"key":         "Key",
 }
 
 func (at ArtifactTask) GetField(name string) (string, bool) {
@@ -92,12 +88,10 @@ func (at ArtifactTask) GetFieldValue(name string) interface{} {
 		return at.Type
 	case "RunUUID":
 		return at.RunUUID
-	case "ProducerTaskName":
-		return at.ProducerTaskName
-	case "ProducerKey":
-		return at.ProducerKey
-	case "ArtifactKey":
-		return at.ArtifactKey
+	case "Producer":
+		return at.Producer
+	case "Key":
+		return at.Key
 	default:
 		return nil
 	}

@@ -118,7 +118,6 @@ service ArtifactService {
   }
 
   // Creates multiple artifact-task relationships in bulk.
-  // TODO(HumairAK): Implement the backend and test logic
   rpc CreateArtifactTasksBulk(CreateArtifactTasksBulkRequest) returns (CreateArtifactTasksBulkResponse) {
     option (google.api.http) = {
       post: "/apis/v2beta1/artifact_tasks:batchCreate"
@@ -287,7 +286,7 @@ message ArtifactTask {
   string task_id = 4;
   IOType type = 5;
   IOProducer producer = 6;
-  string key = 7;;
+  string key = 7;
 }
 
 // Note to be confused with RuntimeArtifact in pipelinespec
