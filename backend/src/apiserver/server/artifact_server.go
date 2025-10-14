@@ -182,6 +182,16 @@ func (s *ArtifactServer) CreateArtifactTask(ctx context.Context, request *apiv2b
 	if at.GetRunId() == "" {
 		return nil, util.NewInvalidInputError("artifact_task.run_id is required")
 	}
+	if at.GetType() == apiv2beta1.IOType_UNSPECIFIED {
+		return nil, util.NewInvalidInputError("artifact_task.type is required")
+	}
+	if at.GetProducer() == nil {
+		return nil, util.NewInvalidInputError("artifact_task.producer is required")
+	}
+	if at.GetKey() == "" {
+		return nil, util.NewInvalidInputError("artifact_task.key is required")
+	}
+
 	// Fetch task and artifact for validation and authorization
 	task, err := s.resourceManager.GetTask(at.GetTaskId())
 	if err != nil {
@@ -482,6 +492,12 @@ func (s *ArtifactServer) validateCreateArtifactRequest(request *apiv2beta1.Creat
 		request.GetArtifact().GetType() == apiv2beta1.Artifact_SlicedClassificationMetric) &&
 		request.GetArtifact().GetMetadata() == nil {
 		return util.NewInvalidInputError("metadata is required for a ClassificationMetric or SlicedClassificationMetric artifact")
+	}
+	if request.GetType() == apiv2beta1.IOType_UNSPECIFIED {
+		return util.NewInvalidInputError("Artifact type is required")
+	}
+	if request.GetProducerKey() == "" {
+		return util.NewInvalidInputError("Producer key is required")
 	}
 	return nil
 }

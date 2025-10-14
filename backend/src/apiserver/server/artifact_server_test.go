@@ -11,6 +11,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 )
@@ -74,6 +75,7 @@ func TestArtifactServer_CreateArtifact_MultiUserCreateAndGet_Succeeds(t *testing
 		RunId:       runid1,
 		TaskId:      task.UUID,
 		ProducerKey: "producer-key",
+		Type:        apiv2beta1.IOType_RUNTIME_VALUE_INPUT,
 		Artifact: &apiv2beta1.Artifact{
 			Namespace:   "ns1",
 			Type:        apiv2beta1.Artifact_Model,
@@ -149,6 +151,7 @@ func TestArtifactServer_CreateArtifact_WithIterationIndex(t *testing.T) {
 		TaskId:         task.UUID,
 		ProducerKey:    "output-artifact",
 		IterationIndex: &iterationIndex,
+		Type:           apiv2beta1.IOType_RUNTIME_VALUE_INPUT,
 		Artifact: &apiv2beta1.Artifact{
 			Namespace:   "ns1",
 			Type:        apiv2beta1.Artifact_Dataset,
@@ -209,13 +212,22 @@ func TestArtifactServer_ListArtifacts_HappyPath(t *testing.T) {
 		Status:       1,
 	})
 	assert.NoError(t, err)
-	_, err = s.CreateArtifact(ctxWithUser(), &apiv2beta1.CreateArtifactRequest{RunId: runid1, TaskId: listTask.UUID, ProducerKey: "producer-key", Artifact: &apiv2beta1.Artifact{
-		Namespace:   "ns1",
-		Type:        apiv2beta1.Artifact_Model,
-		Uri:         strPTR("gs://b/f"),
-		Name:        "a1",
-		Description: "desc-list",
-	}})
+	_, err = s.CreateArtifact(ctxWithUser(),
+		&apiv2beta1.CreateArtifactRequest{
+			RunId:       runid1,
+			TaskId:      listTask.UUID,
+			ProducerKey: "producer-key",
+			Type:        apiv2beta1.IOType_RUNTIME_VALUE_INPUT,
+			Artifact: &apiv2beta1.Artifact{
+				Namespace:   "ns1",
+				Type:        apiv2beta1.Artifact_Model,
+				Uri:         strPTR("gs://b/f"),
+				Name:        "a1",
+				Description: "desc-list",
+			},
+		},
+	)
+	require.NoError(t, err)
 	listResp, err := s.ListArtifacts(ctxWithUser(), &apiv2beta1.ListArtifactRequest{
 		Namespace: "ns1",
 		PageSize:  10,

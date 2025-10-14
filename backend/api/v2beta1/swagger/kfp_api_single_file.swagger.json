@@ -2220,6 +2220,9 @@
           "type": "string",
           "format": "int64",
           "title": "If the producing task is in a parallelFor iteration\nthis field designates the iteration index"
+        },
+        "type": {
+          "$ref": "#/definitions/v2beta1IOType"
         }
       }
     },
