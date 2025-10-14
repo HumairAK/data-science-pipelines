@@ -110,6 +110,80 @@ func TestArtifactServer_CreateArtifact_MultiUserCreateAndGet_Succeeds(t *testing
 
 }
 
+func TestArtifactServer_CreateArtifact_WithIterationIndex(t *testing.T) {
+	viper.Set(common.MultiUserMode, "true")
+	defer viper.Set(common.MultiUserMode, "false")
+	clientManager := resource.NewFakeClientManagerOrFatal(util.NewFakeTimeForEpoch())
+	resourceManager := resource.NewResourceManager(clientManager, &resource.ResourceManagerOptions{CollectMetrics: false})
+	s := createArtifactServer(resourceManager)
+
+	// Create run
+	_, err := clientManager.RunStore().CreateRun(&model.Run{
+		UUID:         runid1,
+		K8SName:      "iteration-run",
+		DisplayName:  "iteration-run",
+		StorageState: model.StorageStateAvailable,
+		Namespace:    "ns1",
+		RunDetails: model.RunDetails{
+			CreatedAtInSec:   1,
+			ScheduledAtInSec: 1,
+			State:            model.RuntimeStateRunning,
+		},
+	})
+	assert.NoError(t, err)
+
+	// Create task for the run
+	task, err := clientManager.TaskStore().CreateTask(&model.Task{
+		Namespace:    "ns1",
+		PipelineName: "iteration-pipeline",
+		RunUUID:      runid1,
+		Name:         "iteration-task",
+		Status:       1,
+	})
+	assert.NoError(t, err)
+
+	// Create artifact with iteration_index
+	iterationIndex := int64(5)
+	req := &apiv2beta1.CreateArtifactRequest{
+		RunId:          runid1,
+		TaskId:         task.UUID,
+		ProducerKey:    "output-artifact",
+		IterationIndex: &iterationIndex,
+		Artifact: &apiv2beta1.Artifact{
+			Namespace:   "ns1",
+			Type:        apiv2beta1.Artifact_Dataset,
+			Uri:         strPTR("gs://bucket/iteration-5/data"),
+			Name:        "iteration-dataset",
+			Description: "Dataset from iteration 5",
+		}}
+	created, err := s.CreateArtifact(ctxWithUser(), req)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, created.GetArtifactId())
+	assert.Equal(t, "ns1", created.GetNamespace())
+	assert.Equal(t, apiv2beta1.Artifact_Dataset, created.GetType())
+	assert.Equal(t, "iteration-dataset", created.GetName())
+
+	// Verify the artifact task was created with iteration in producer
+	artifactTasks, err := s.ListArtifactTasks(ctxWithUser(), &apiv2beta1.ListArtifactTasksRequest{
+		TaskIds:  []string{task.UUID},
+		PageSize: 10,
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, int32(1), artifactTasks.GetTotalSize())
+	assert.Equal(t, 1, len(artifactTasks.GetArtifactTasks()))
+
+	at := artifactTasks.GetArtifactTasks()[0]
+	assert.Equal(t, created.GetArtifactId(), at.GetArtifactId())
+	assert.Equal(t, task.UUID, at.GetTaskId())
+	assert.Equal(t, apiv2beta1.IOType_OUTPUT, at.GetType())
+	assert.Equal(t, "output-artifact", at.GetKey())
+	assert.NotNil(t, at.GetProducer())
+	assert.Equal(t, task.Name, at.GetProducer().GetTaskName())
+	// Verify iteration was set
+	assert.NotNil(t, at.GetProducer().Iteration)
+	assert.Equal(t, int64(5), *at.GetProducer().Iteration)
+}
+
 func TestArtifactServer_ListArtifacts_HappyPath(t *testing.T) {
 	viper.Set(common.MultiUserMode, "true")
 	defer viper.Set(common.MultiUserMode, "false")

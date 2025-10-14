@@ -75,17 +75,23 @@ func (s *ArtifactServer) CreateArtifact(ctx context.Context, request *apiv2beta1
 		return nil, util.Wrap(err, "Failed to create artifact")
 	}
 
+	// Build the IOProducer with task name
+	producer := &apiv2beta1.IOProducer{
+		TaskName: task.Name,
+	}
+	// Add iteration index if provided
+	if request.IterationIndex != nil {
+		producer.Iteration = request.IterationIndex
+	}
+
 	artifactTask := &apiv2beta1.ArtifactTask{
 		ArtifactId: artifact.UUID,
 		TaskId:     task.UUID,
 		RunId:      request.GetRunId(),
 		// An artifact at creation is an output of the associated task.
-		Type: apiv2beta1.IOType_OUTPUT,
-		// The producer task is implicitly the creator task of this artifact.
-		Producer: &apiv2beta1.IOProducer{
-			TaskName: task.Name,
-		},
-		Key: request.GetProducerKey(),
+		Type:     apiv2beta1.IOType_OUTPUT,
+		Producer: producer,
+		Key:      request.GetProducerKey(),
 	}
 
 	modelAT, err := toModelArtifactTask(artifactTask)
