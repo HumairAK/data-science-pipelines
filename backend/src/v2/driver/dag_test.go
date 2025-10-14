@@ -747,7 +747,6 @@ func TestOptionalFields(t *testing.T) {
 }
 
 func TestK8SPlatform(t *testing.T) {
-
 	nodeAffinity := structpb.NewStructValue(&structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"requiredDuringSchedulingIgnoredDuringExecution": structpb.NewStructValue(&structpb.Struct{

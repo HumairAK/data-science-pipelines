@@ -29,19 +29,21 @@ const TestNamespace = "test-namespace"
 
 // MockDriverAPI provides a mock implementation of DriverAPI for testing
 type MockDriverAPI struct {
-	runs          map[string]*apiv2beta1.Run
-	tasks         map[string]*apiv2beta1.PipelineTaskDetail
-	artifacts     map[string]*apiv2beta1.Artifact
-	artifactTasks map[string]*apiv2beta1.ArtifactTask
+	runs             map[string]*apiv2beta1.Run
+	tasks            map[string]*apiv2beta1.PipelineTaskDetail
+	artifacts        map[string]*apiv2beta1.Artifact
+	artifactTasks    map[string]*apiv2beta1.ArtifactTask
+	pipelineVersions map[string]*apiv2beta1.PipelineVersion
 }
 
 // NewMockDriverAPI creates a new mock driver API
 func NewMockDriverAPI() *MockDriverAPI {
 	return &MockDriverAPI{
-		runs:          make(map[string]*apiv2beta1.Run),
-		tasks:         make(map[string]*apiv2beta1.PipelineTaskDetail),
-		artifacts:     make(map[string]*apiv2beta1.Artifact),
-		artifactTasks: make(map[string]*apiv2beta1.ArtifactTask),
+		runs:             make(map[string]*apiv2beta1.Run),
+		tasks:            make(map[string]*apiv2beta1.PipelineTaskDetail),
+		artifacts:        make(map[string]*apiv2beta1.Artifact),
+		artifactTasks:    make(map[string]*apiv2beta1.ArtifactTask),
+		pipelineVersions: make(map[string]*apiv2beta1.PipelineVersion),
 	}
 }
 
@@ -278,6 +280,14 @@ func (m *MockDriverAPI) CreateArtifactTasks(ctx context.Context, req *apiv2beta1
 	return &apiv2beta1.CreateArtifactTasksBulkResponse{
 		ArtifactTasks: createdTasks,
 	}, nil
+}
+
+func (m *MockDriverAPI) GetPipelineVersion(ctx context.Context, req *apiv2beta1.GetPipelineVersionRequest) (*apiv2beta1.PipelineVersion, error) {
+	key := req.PipelineId + ":" + req.PipelineVersionId
+	if pv, exists := m.pipelineVersions[key]; exists {
+		return pv, nil
+	}
+	return nil, fmt.Errorf("pipeline version not found: %s", key)
 }
 
 // AddRun adds a run to the mock for testing
@@ -642,6 +652,7 @@ func (tc *TestContext) RunRootDag(testSetup *TestContext, run *apiv2beta1.Run, r
 		TaskName:                 "", // Empty for root driver
 		PodName:                  "system-dag-driver",
 		PodUID:                   "some-uid",
+		ScopePath:                tc.ScopePath,
 	}
 	// Execute RootDAG
 	execution, err := RootDAG(context.Background(), opts, testSetup.DriverAPI)
@@ -984,6 +995,7 @@ func (tc *TestContext) setupDagOptions(
 		TaskName:                 taskSpec.TaskInfo.GetName(),
 		PodName:                  "system-dag-driver",
 		PodUID:                   "some-uid",
+		ScopePath:                tc.ScopePath,
 	}
 }
 
@@ -1030,6 +1042,7 @@ func (tc *TestContext) setupContainerOptions(
 		TaskName:                 taskSpec.TaskInfo.GetName(),
 		PodName:                  "system-container-impl",
 		PodUID:                   "some-uid",
+		ScopePath:                tc.ScopePath,
 	}
 }
 
