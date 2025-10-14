@@ -277,7 +277,7 @@ func hydrateArtifactsForTasks(db *DB, tasks []*model.Task) error {
 			var producerData model.JSONData
 			if err := json.Unmarshal([]byte(producer.String), &producerData); err == nil {
 				producerProto = &model.IOProducer{}
-				if taskName, ok := producerData["task_name"].(string); ok {
+				if taskName, ok := producerData["taskName"].(string); ok {
 					producerProto.TaskName = taskName
 				}
 				if iteration, ok := producerData["iteration"].(float64); ok {
@@ -293,13 +293,36 @@ func hydrateArtifactsForTasks(db *DB, tasks []*model.Task) error {
 			Key:      key,
 		}
 
-		if linkType.Int32 == int32(apiv2beta1.IOType_OUTPUT) {
+		isOutput, err := iOTypeIsOutput(apiv2beta1.IOType(linkType.Int32))
+		if err != nil {
+			return err
+		}
+		if isOutput {
 			task.OutputArtifactsHydrated = append(task.OutputArtifactsHydrated, h)
 		} else {
 			task.InputArtifactsHydrated = append(task.InputArtifactsHydrated, h)
 		}
 	}
 	return rows.Err()
+}
+
+func iOTypeIsOutput(ioType apiv2beta1.IOType) (bool, error) {
+	switch ioType {
+	case apiv2beta1.IOType_OUTPUT,
+		apiv2beta1.IOType_ITERATOR_OUTPUT,
+		apiv2beta1.IOType_ONE_OF_OUTPUT,
+		apiv2beta1.IOType_TASK_FINAL_STATUS_OUTPUT:
+		return true, nil
+	case apiv2beta1.IOType_COMPONENT_INPUT,
+		apiv2beta1.IOType_TASK_OUTPUT_INPUT,
+		apiv2beta1.IOType_RUNTIME_VALUE_INPUT,
+		apiv2beta1.IOType_ITERATOR_INPUT,
+		apiv2beta1.IOType_ITERATOR_INPUT_RAW,
+		apiv2beta1.IOType_COMPONENT_DEFAULT_INPUT:
+		return false, nil
+	default:
+		return false, fmt.Errorf("Unknown IOType %v", ioType)
+	}
 }
 
 func (s *TaskStore) scanRows(rows *sql.Rows) ([]*model.Task, error) {

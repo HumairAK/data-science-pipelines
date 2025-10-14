@@ -30,20 +30,16 @@ func TestTask_Create_Update_Get_List(t *testing.T) {
 	assert.NoError(t, err)
 	v2, err := structpb.NewValue("3.14")
 	assert.NoError(t, err)
-	inParams := []*apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter{
+	inParams := []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 		{
-			Value: v1,
-			Source: &apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter_ParameterName{
-				ParameterName: "p1",
-			},
+			Value:        v1,
+			ParameterKey: "p1",
 		},
 	}
-	outParams := []*apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter{
+	outParams := []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 		{
-			Value: v2,
-			Source: &apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter_ParameterName{
-				ParameterName: "op1",
-			},
+			Value:        v2,
+			ParameterKey: "op1",
 		},
 	}
 	createReq := &apiv2beta1.CreateTaskRequest{Task: &apiv2beta1.PipelineTaskDetail{
@@ -61,9 +57,9 @@ func TestTask_Create_Update_Get_List(t *testing.T) {
 	assert.Equal(t, "trainer", created.GetName())
 	// Verify inputs/outputs echoed back
 	assert.Len(t, created.GetInputs().GetParameters(), 1)
-	assert.Equal(t, "p1", created.GetInputs().GetParameters()[0].GetParameterName())
+	assert.Equal(t, "p1", created.GetInputs().GetParameters()[0].GetParameterKey())
 	assert.Len(t, created.GetOutputs().GetParameters(), 1)
-	assert.Equal(t, "op1", created.GetOutputs().GetParameters()[0].GetParameterName())
+	assert.Equal(t, "op1", created.GetOutputs().GetParameters()[0].GetParameterKey())
 
 	// Update task: change status and outputs
 	updReq := &apiv2beta1.UpdateTaskRequest{TaskId: created.GetTaskId(), Task: &apiv2beta1.PipelineTaskDetail{
@@ -71,12 +67,10 @@ func TestTask_Create_Update_Get_List(t *testing.T) {
 		RunId:  runID,
 		Name:   "trainer",
 		Status: apiv2beta1.PipelineTaskDetail_SUCCEEDED,
-		Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter{
+		Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 			{
-				Value: func() *structpb.Value { v, _ := structpb.NewValue("done"); return v }(),
-				Source: &apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter_ParameterName{
-					ParameterName: "op1",
-				},
+				Value:        func() *structpb.Value { v, _ := structpb.NewValue("done"); return v }(),
+				ParameterKey: "op1",
 			},
 		}},
 	}}
@@ -122,20 +116,16 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 			RunId:  run.UUID,
 			Name:   "preprocess",
 			Status: apiv2beta1.PipelineTaskDetail_RUNNING,
-			Inputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter{
+			Inputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 				{
-					Value: func() *structpb.Value { v, _ := structpb.NewValue("0.5"); return v }(),
-					Source: &apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter_ParameterName{
-						ParameterName: "threshold",
-					},
+					Value:        func() *structpb.Value { v, _ := structpb.NewValue("0.5"); return v }(),
+					ParameterKey: "threshold",
 				},
 			}},
-			Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter{
+			Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 				{
-					Value: func() *structpb.Value { v, _ := structpb.NewValue("100"); return v }(),
-					Source: &apiv2beta1.PipelineTaskDetail_InputOutputs_Parameter_ParameterName{
-						ParameterName: "rows",
-					},
+					Value:        func() *structpb.Value { v, _ := structpb.NewValue("100"); return v }(),
+					ParameterKey: "rows",
 				},
 			}},
 		}}
@@ -194,16 +184,16 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 		// Parameters present
 		assert.Equal(t, 1, len(taskFound.GetInputs().GetParameters()))
 		if assert.NotNil(t, taskFound.GetInputs().GetParameters(), "parameters not present in hydrated task") {
-			assert.Equal(t, "threshold", taskFound.GetInputs().GetParameters()[0].GetParameterName())
+			assert.Equal(t, "threshold", taskFound.GetInputs().GetParameters()[0].GetParameterKey())
 			// Outputs updated and artifact reference present
 			assert.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, taskFound.GetStatus())
 		}
 		assert.Equal(t, 1, len(taskFound.GetOutputs().GetArtifacts()))
 		if assert.NotNil(t, taskFound.GetOutputs().GetArtifacts(), "artifacts not present in hydrated task") {
 			ioArtifact := taskFound.GetOutputs().GetArtifacts()[0]
+			assert.Equal(t, "some-parent-task-output", ioArtifact.GetArtifactKey())
 			if assert.NotNil(t, ioArtifact.GetProducer()) {
 				assert.Equal(t, taskFound.Name, ioArtifact.GetProducer().GetTaskName())
-				assert.Equal(t, "some-parent-task-output", ioArtifact.GetProducer().Key)
 			}
 			if len(ioArtifact.GetArtifacts()) > 0 {
 				artifact := ioArtifact.GetArtifacts()[0]

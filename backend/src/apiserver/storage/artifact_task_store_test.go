@@ -83,13 +83,15 @@ func TestCreateArtifactTask_Success(t *testing.T) {
 	link, err := linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID: art.UUID,
 		TaskID:     task.UUID,
-		Type:       model.ArtifactTaskType(apiv2beta1.ArtifactTaskType_INPUT),
+		RunUUID:    runId1,
+		Type:       model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
+		Key:        "input-key",
 	})
 	assert.NoError(t, err)
 	assert.Equal(t, linkUUID1, link.UUID)
 	assert.Equal(t, art.UUID, link.ArtifactID)
 	assert.Equal(t, task.UUID, link.TaskID)
-	assert.Equal(t, model.ArtifactTaskType(apiv2beta1.ArtifactTaskType_INPUT), link.Type)
+	assert.Equal(t, model.IOType(apiv2beta1.IOType_COMPONENT_INPUT), link.Type)
 
 	// Fetch back
 	got, err := linkStore.GetArtifactTask(link.UUID)
@@ -164,7 +166,8 @@ func TestListArtifactTasks_Filters(t *testing.T) {
 		ArtifactID: art1.UUID,
 		TaskID:     t1.UUID,
 		RunUUID:    runId1,
-		Type:       model.ArtifactTaskType(apiv2beta1.ArtifactTaskType_INPUT),
+		Type:       model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
+		Key:        "input1",
 	})
 	assert.NoError(t, err)
 	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID2, nil)
@@ -172,7 +175,8 @@ func TestListArtifactTasks_Filters(t *testing.T) {
 		ArtifactID: art2.UUID,
 		TaskID:     t1.UUID,
 		RunUUID:    runId1,
-		Type:       model.ArtifactTaskType(apiv2beta1.ArtifactTaskType_OUTPUT),
+		Type:       model.IOType(apiv2beta1.IOType_OUTPUT),
+		Key:        "output1",
 	})
 	assert.NoError(t, err)
 	// another link with a fresh random UUID
@@ -181,39 +185,40 @@ func TestListArtifactTasks_Filters(t *testing.T) {
 		ArtifactID: art2.UUID,
 		TaskID:     t2.UUID,
 		RunUUID:    runId2,
-		Type:       model.ArtifactTaskType(apiv2beta1.ArtifactTaskType_INPUT),
+		Type:       model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
+		Key:        "input2",
 	})
 	assert.NoError(t, err)
 
 	opts, _ := list.NewOptions(&model.ArtifactTask{}, 20, "", nil)
 
 	// List all
-	all, total, npt, err := linkStore.ListArtifactTasks(nil, opts)
+	all, total, npt, err := linkStore.ListArtifactTasks(nil, nil, opts)
 	assert.NoError(t, err)
 	assert.Equal(t, 3, len(all))
 	assert.Equal(t, 3, total)
 	assert.Equal(t, "", npt)
 
 	// Filter by task t1
-	byTask, totalTask, _, err := linkStore.ListArtifactTasks([]*model.FilterContext{{ReferenceKey: &model.ReferenceKey{Type: model.TaskResourceType, ID: t1.UUID}}}, opts)
+	byTask, totalTask, _, err := linkStore.ListArtifactTasks([]*model.FilterContext{{ReferenceKey: &model.ReferenceKey{Type: model.TaskResourceType, ID: t1.UUID}}}, nil, opts)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, len(byTask))
 	assert.Equal(t, 2, totalTask)
 
 	// Filter by artifact art2
-	byArtifact, totalArt, _, err := linkStore.ListArtifactTasks([]*model.FilterContext{{ReferenceKey: &model.ReferenceKey{Type: model.ArtifactResourceType, ID: art2.UUID}}}, opts)
+	byArtifact, totalArt, _, err := linkStore.ListArtifactTasks([]*model.FilterContext{{ReferenceKey: &model.ReferenceKey{Type: model.ArtifactResourceType, ID: art2.UUID}}}, nil, opts)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, len(byArtifact)) // art2 is linked twice
 	assert.Equal(t, 2, totalArt)
 
 	// Filter by run runId2 (should return only links for tasks in run-2)
-	byRun, totalRun, _, err := linkStore.ListArtifactTasks([]*model.FilterContext{{ReferenceKey: &model.ReferenceKey{Type: model.RunResourceType, ID: runId2}}}, opts)
+	byRun, totalRun, _, err := linkStore.ListArtifactTasks([]*model.FilterContext{{ReferenceKey: &model.ReferenceKey{Type: model.RunResourceType, ID: runId2}}}, nil, opts)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(byRun))
 	assert.Equal(t, 1, totalRun)
 	assert.Equal(t, art2.UUID, byRun[0].ArtifactID)
 	assert.Equal(t, t2.UUID, byRun[0].TaskID)
-	assert.Equal(t, model.ArtifactTaskType(apiv2beta1.ArtifactTaskType_INPUT), byRun[0].Type)
+	assert.Equal(t, model.IOType(apiv2beta1.IOType_COMPONENT_INPUT), byRun[0].Type)
 }
 
 func TestListArtifactsForTask_UsingArtifactTasks(t *testing.T) {
@@ -262,20 +267,24 @@ func TestListArtifactsForTask_UsingArtifactTasks(t *testing.T) {
 	_, err = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID: art1.UUID,
 		TaskID:     t1.UUID,
-		Type:       model.ArtifactTaskType(apiv2beta1.ArtifactTaskType_INPUT),
+		RunUUID:    runId1,
+		Type:       model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
+		Key:        "input1",
 	})
 	assert.NoError(t, err)
 	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID2, nil)
 	_, err = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID: art2.UUID,
 		TaskID:     t1.UUID,
-		Type:       model.ArtifactTaskType(apiv2beta1.ArtifactTaskType_OUTPUT),
+		RunUUID:    runId1,
+		Type:       model.IOType(apiv2beta1.IOType_OUTPUT),
+		Key:        "output1",
 	})
 	assert.NoError(t, err)
 
 	// Use artifactTasks to list artifacts for task t1
 	opts, _ := list.NewOptions(&model.ArtifactTask{}, 20, "", nil)
-	rows, total, _, err := linkStore.ListArtifactTasks([]*model.FilterContext{{ReferenceKey: &model.ReferenceKey{Type: model.TaskResourceType, ID: t1.UUID}}}, opts)
+	rows, total, _, err := linkStore.ListArtifactTasks([]*model.FilterContext{{ReferenceKey: &model.ReferenceKey{Type: model.TaskResourceType, ID: t1.UUID}}}, nil, opts)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, total)
 
@@ -333,26 +342,32 @@ func TestListArtifactTasks_Pagination_PageSizeAndNextPageToken(t *testing.T) {
 	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID: art1.UUID,
 		TaskID:     t1.UUID,
-		Type:       model.ArtifactTaskType(apiv2beta1.ArtifactTaskType_INPUT),
+		RunUUID:    runId1,
+		Type:       model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
+		Key:        "input1",
 	})
 
 	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID2, nil)
 	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID: art1.UUID,
 		TaskID:     t1.UUID,
-		Type:       model.ArtifactTaskType(apiv2beta1.ArtifactTaskType_OUTPUT),
+		RunUUID:    runId1,
+		Type:       model.IOType(apiv2beta1.IOType_OUTPUT),
+		Key:        "output1",
 	})
 
 	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID3, nil)
 	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID: art2.UUID,
 		TaskID:     t1.UUID,
-		Type:       model.ArtifactTaskType(apiv2beta1.ArtifactTaskType_INPUT),
+		RunUUID:    runId1,
+		Type:       model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
+		Key:        "input2",
 	})
 
 	// Page 1: size 2
 	opts1, _ := list.NewOptions(&model.ArtifactTask{}, 2, "", nil)
-	page1, total, token1, err := linkStore.ListArtifactTasks(nil, opts1)
+	page1, total, token1, err := linkStore.ListArtifactTasks(nil, nil, opts1)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, len(page1))
 	assert.Equal(t, 3, total)
@@ -364,7 +379,7 @@ func TestListArtifactTasks_Pagination_PageSizeAndNextPageToken(t *testing.T) {
 	// Page 2: use token
 	opts2, err := list.NewOptionsFromToken(token1, 2)
 	assert.NoError(t, err)
-	page2, total2, token2, err := linkStore.ListArtifactTasks(nil, opts2)
+	page2, total2, token2, err := linkStore.ListArtifactTasks(nil, nil, opts2)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(page2))
 	assert.Equal(t, 3, total2)
@@ -432,28 +447,34 @@ func TestListArtifactTasks_Pagination_WithFilter(t *testing.T) {
 	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID: art1.UUID,
 		TaskID:     t1.UUID,
-		Type:       model.ArtifactTaskType(apiv2beta1.ArtifactTaskType_INPUT),
+		RunUUID:    runId1,
+		Type:       model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
+		Key:        "input1",
 	})
 
 	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID2, nil)
 	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID: art2.UUID,
 		TaskID:     t1.UUID,
-		Type:       model.ArtifactTaskType(apiv2beta1.ArtifactTaskType_OUTPUT),
+		RunUUID:    runId1,
+		Type:       model.IOType(apiv2beta1.IOType_OUTPUT),
+		Key:        "output1",
 	})
 
 	linkStore.uuid = util.NewFakeUUIDGeneratorOrFatal(linkUUID3, nil)
 	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID: art2.UUID,
 		TaskID:     t2.UUID,
-		Type:       model.ArtifactTaskType(apiv2beta1.ArtifactTaskType_INPUT),
+		RunUUID:    runId2,
+		Type:       model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
+		Key:        "input2",
 	})
 
 	filterByT1 := []*model.FilterContext{{ReferenceKey: &model.ReferenceKey{Type: model.TaskResourceType, ID: t1.UUID}}}
 
 	// Page size 1 for filtered list
 	opts1, _ := list.NewOptions(&model.ArtifactTask{}, 1, "", nil)
-	p1, total1, tok1, err := linkStore.ListArtifactTasks(filterByT1, opts1)
+	p1, total1, tok1, err := linkStore.ListArtifactTasks(filterByT1, nil, opts1)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(p1))
 	assert.Equal(t, 2, total1)
@@ -462,7 +483,7 @@ func TestListArtifactTasks_Pagination_WithFilter(t *testing.T) {
 	// Second page
 	opts2, err := list.NewOptionsFromToken(tok1, 1)
 	assert.NoError(t, err)
-	p2, total2, tok2, err := linkStore.ListArtifactTasks(filterByT1, opts2)
+	p2, total2, tok2, err := linkStore.ListArtifactTasks(filterByT1, nil, opts2)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(p2))
 	assert.Equal(t, 2, total2)

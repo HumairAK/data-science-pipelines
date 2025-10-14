@@ -241,6 +241,9 @@ message CreateArtifactTasksBulkResponse {
 enum IOType {
   // For validation
   UNSPECIFIED = 0;
+  // This is used for inputs that are
+  // provided via default parameters in
+  // the component input definitions
   COMPONENT_DEFAULT_INPUT = 1;
   // The name seems convoluted, but this aligns with the
   // sdk naming in TaskInputsSpec.kind.task_output_parameter
@@ -256,6 +259,7 @@ enum IOType {
   ITERATOR_INPUT = 5;
   // Raw Iterator inputs have no producer
   ITERATOR_INPUT_RAW = 6;
+
   // When an output is produced by a Runtime Iteration Task
   // This value is use to differentiate between standard inputs
   ITERATOR_OUTPUT = 7;

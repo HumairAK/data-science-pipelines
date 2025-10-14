@@ -103,11 +103,10 @@ func TestArtifactServer_CreateArtifact_MultiUserCreateAndGet_Succeeds(t *testing
 	at := artifactTasks.GetArtifactTasks()[0]
 	assert.Equal(t, created.GetArtifactId(), at.GetArtifactId())
 	assert.Equal(t, task.UUID, at.GetTaskId())
-	assert.Equal(t, apiv2beta1.ArtifactTaskType_OUTPUT, at.GetType())
-	assert.Equal(t, task.Name, at.GetProducerTaskName())
-	assert.Equal(t, "producer-key", at.GetProducerKey())
-	// ArtifactKey may be empty for CreateArtifact path; ensure it defaults to empty string
-	assert.Equal(t, "", at.GetArtifactKey())
+	assert.Equal(t, apiv2beta1.IOType_OUTPUT, at.GetType())
+	assert.NotNil(t, at.GetProducer())
+	assert.Equal(t, task.Name, at.GetProducer().GetTaskName())
+	assert.Equal(t, "producer-key", at.GetKey())
 
 }
 
@@ -318,37 +317,40 @@ func seedArtifactTasks(t *testing.T) (*ArtifactServer, *resource.FakeClientManag
 	// Links
 	_, err = s.CreateArtifactTask(ctxWithUser(), &apiv2beta1.CreateArtifactTaskRequest{
 		ArtifactTask: &apiv2beta1.ArtifactTask{
-			ArtifactId:       art1.UUID,
-			TaskId:           t1.UUID,
-			RunId:            serverRunID1,
-			Type:             apiv2beta1.ArtifactTaskType_INPUT,
-			ProducerTaskName: "t1",
-			ProducerKey:      "k1",
-			ArtifactKey:      "in1",
+			ArtifactId: art1.UUID,
+			TaskId:     t1.UUID,
+			RunId:      serverRunID1,
+			Type:       apiv2beta1.IOType_COMPONENT_INPUT,
+			Producer: &apiv2beta1.IOProducer{
+				TaskName: "t1",
+			},
+			Key: "in1",
 		},
 	})
 	assert.NoError(t, err)
 	_, err = s.CreateArtifactTask(ctxWithUser(), &apiv2beta1.CreateArtifactTaskRequest{
 		ArtifactTask: &apiv2beta1.ArtifactTask{
-			ArtifactId:       art2.UUID,
-			TaskId:           t1.UUID,
-			RunId:            serverRunID1,
-			Type:             apiv2beta1.ArtifactTaskType_OUTPUT,
-			ProducerTaskName: "t1",
-			ProducerKey:      "k2",
-			ArtifactKey:      "out1",
+			ArtifactId: art2.UUID,
+			TaskId:     t1.UUID,
+			RunId:      serverRunID1,
+			Type:       apiv2beta1.IOType_OUTPUT,
+			Producer: &apiv2beta1.IOProducer{
+				TaskName: "t1",
+			},
+			Key: "out1",
 		},
 	})
 	assert.NoError(t, err)
 	_, err = s.CreateArtifactTask(ctxWithUser(), &apiv2beta1.CreateArtifactTaskRequest{
 		ArtifactTask: &apiv2beta1.ArtifactTask{
-			ArtifactId:       art2.UUID,
-			TaskId:           t2.UUID,
-			RunId:            serverRunID2,
-			Type:             apiv2beta1.ArtifactTaskType_INPUT,
-			ProducerTaskName: "t2",
-			ProducerKey:      "k3",
-			ArtifactKey:      "in2",
+			ArtifactId: art2.UUID,
+			TaskId:     t2.UUID,
+			RunId:      serverRunID2,
+			Type:       apiv2beta1.IOType_COMPONENT_INPUT,
+			Producer: &apiv2beta1.IOProducer{
+				TaskName: "t2",
+			},
+			Key: "in2",
 		},
 	})
 	assert.NoError(t, err)
@@ -362,8 +364,8 @@ func TestArtifactServer_ListArtifactTasks_FilterByTaskIds(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int32(2), resp.GetTotalSize())
 	assert.Equal(t, 2, len(resp.GetArtifactTasks()))
-	// Ensure artifact_key values are present
-	keys := []string{resp.GetArtifactTasks()[0].GetArtifactKey(), resp.GetArtifactTasks()[1].GetArtifactKey()}
+	// Ensure key values are present
+	keys := []string{resp.GetArtifactTasks()[0].GetKey(), resp.GetArtifactTasks()[1].GetKey()}
 	assert.Contains(t, keys, "in1")
 	assert.Contains(t, keys, "out1")
 	assert.Empty(t, resp.GetNextPageToken())
@@ -375,8 +377,8 @@ func TestArtifactServer_ListArtifactTasks_FilterByArtifactIds(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int32(2), resp.GetTotalSize())
 	assert.Equal(t, 2, len(resp.GetArtifactTasks()))
-	// Ensure artifact_key values are as expected for art2 links
-	keys := []string{resp.GetArtifactTasks()[0].GetArtifactKey(), resp.GetArtifactTasks()[1].GetArtifactKey()}
+	// Ensure key values are as expected for art2 links
+	keys := []string{resp.GetArtifactTasks()[0].GetKey(), resp.GetArtifactTasks()[1].GetKey()}
 	assert.Contains(t, keys, "out1")
 	assert.Contains(t, keys, "in2")
 }
@@ -390,7 +392,7 @@ func TestArtifactServer_ListArtifactTasks_FilterByRunIds(t *testing.T) {
 	at := resp.GetArtifactTasks()[0]
 	assert.Equal(t, art2.UUID, at.GetArtifactId())
 	assert.Equal(t, t2.UUID, at.GetTaskId())
-	assert.Equal(t, "in2", at.GetArtifactKey())
+	assert.Equal(t, "in2", at.GetKey())
 }
 
 func TestArtifactServer_ListArtifactTasks_ErrorWhenNoFilters(t *testing.T) {
@@ -416,4 +418,160 @@ func TestArtifactServer_ListArtifactTasks_Pagination_TaskIds(t *testing.T) {
 	id1 := page1.GetArtifactTasks()[0].GetId()
 	id2 := page2.GetArtifactTasks()[0].GetId()
 	assert.NotEqual(t, id1, id2)
+}
+
+func TestArtifactServer_CreateArtifactTasksBulk_Success(t *testing.T) {
+	viper.Set(common.MultiUserMode, "true")
+	defer viper.Set(common.MultiUserMode, "false")
+	clientManager := resource.NewFakeClientManagerOrFatalV2()
+	resourceManager := resource.NewResourceManager(clientManager, &resource.ResourceManagerOptions{CollectMetrics: false})
+	s := createArtifactServer(resourceManager)
+
+	// Create a run
+	_, err := clientManager.RunStore().CreateRun(&model.Run{
+		UUID:         serverRunID1,
+		K8SName:      "bulk-run",
+		DisplayName:  "bulk-run",
+		StorageState: model.StorageStateAvailable,
+		Namespace:    "ns1",
+		RunDetails: model.RunDetails{
+			CreatedAtInSec:   1,
+			ScheduledAtInSec: 1,
+			State:            model.RuntimeStateRunning,
+		},
+	})
+	assert.NoError(t, err)
+
+	// Create tasks
+	t1, err := clientManager.TaskStore().CreateTask(&model.Task{
+		Namespace:    "ns1",
+		PipelineName: "p1",
+		RunUUID:      serverRunID1,
+		Name:         "task1",
+		Status:       1,
+	})
+	assert.NoError(t, err)
+
+	t2, err := clientManager.TaskStore().CreateTask(&model.Task{
+		Namespace:    "ns1",
+		PipelineName: "p1",
+		RunUUID:      serverRunID1,
+		Name:         "task2",
+		Status:       1,
+	})
+	assert.NoError(t, err)
+
+	// Create artifacts
+	art1, err := clientManager.ArtifactStore().CreateArtifact(&model.Artifact{
+		Namespace: "ns1",
+		Type:      model.ArtifactType(apiv2beta1.Artifact_Artifact),
+		Uri:       strPTR("uri1"),
+		Name:      "artifact1",
+	})
+	assert.NoError(t, err)
+
+	art2, err := clientManager.ArtifactStore().CreateArtifact(&model.Artifact{
+		Namespace: "ns1",
+		Type:      model.ArtifactType(apiv2beta1.Artifact_Artifact),
+		Uri:       strPTR("uri2"),
+		Name:      "artifact2",
+	})
+	assert.NoError(t, err)
+
+	// Create bulk artifact tasks
+	req := &apiv2beta1.CreateArtifactTasksBulkRequest{
+		ArtifactTasks: []*apiv2beta1.ArtifactTask{
+			{
+				ArtifactId: art1.UUID,
+				TaskId:     t1.UUID,
+				RunId:      serverRunID1,
+				Type:       apiv2beta1.IOType_COMPONENT_INPUT,
+				Producer: &apiv2beta1.IOProducer{
+					TaskName: "task1",
+				},
+				Key: "input1",
+			},
+			{
+				ArtifactId: art2.UUID,
+				TaskId:     t1.UUID,
+				RunId:      serverRunID1,
+				Type:       apiv2beta1.IOType_OUTPUT,
+				Producer: &apiv2beta1.IOProducer{
+					TaskName: "task1",
+				},
+				Key: "output1",
+			},
+			{
+				ArtifactId: art2.UUID,
+				TaskId:     t2.UUID,
+				RunId:      serverRunID1,
+				Type:       apiv2beta1.IOType_COMPONENT_INPUT,
+				Producer: &apiv2beta1.IOProducer{
+					TaskName: "task2",
+				},
+				Key: "input2",
+			},
+		},
+	}
+
+	resp, err := s.CreateArtifactTasksBulk(ctxWithUser(), req)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, 3, len(resp.GetArtifactTasks()))
+
+	// Verify all artifact tasks were created
+	for i, at := range resp.GetArtifactTasks() {
+		assert.NotEmpty(t, at.GetId())
+		assert.Equal(t, req.ArtifactTasks[i].GetArtifactId(), at.GetArtifactId())
+		assert.Equal(t, req.ArtifactTasks[i].GetTaskId(), at.GetTaskId())
+		assert.Equal(t, req.ArtifactTasks[i].GetRunId(), at.GetRunId())
+		assert.Equal(t, req.ArtifactTasks[i].GetType(), at.GetType())
+		assert.Equal(t, req.ArtifactTasks[i].GetKey(), at.GetKey())
+		assert.Equal(t, req.ArtifactTasks[i].GetProducer().GetTaskName(), at.GetProducer().GetTaskName())
+	}
+
+	// Verify they can be listed
+	listResp, err := s.ListArtifactTasks(ctxWithUser(), &apiv2beta1.ListArtifactTasksRequest{
+		TaskIds:  []string{t1.UUID},
+		PageSize: 10,
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, int32(2), listResp.GetTotalSize())
+}
+
+func TestArtifactServer_CreateArtifactTasksBulk_EmptyRequest(t *testing.T) {
+	viper.Set(common.MultiUserMode, "true")
+	defer viper.Set(common.MultiUserMode, "false")
+	clientManager := resource.NewFakeClientManagerOrFatalV2()
+	resourceManager := resource.NewResourceManager(clientManager, &resource.ResourceManagerOptions{CollectMetrics: false})
+	s := createArtifactServer(resourceManager)
+
+	// Empty request should fail with validation error
+	_, err := s.CreateArtifactTasksBulk(ctxWithUser(), &apiv2beta1.CreateArtifactTasksBulkRequest{
+		ArtifactTasks: []*apiv2beta1.ArtifactTask{},
+	})
+	assert.Error(t, err)
+	assert.Equal(t, codes.InvalidArgument, err.(*util.UserError).ExternalStatusCode())
+}
+
+func TestArtifactServer_CreateArtifactTasksBulk_ValidationError(t *testing.T) {
+	viper.Set(common.MultiUserMode, "true")
+	defer viper.Set(common.MultiUserMode, "false")
+	clientManager := resource.NewFakeClientManagerOrFatalV2()
+	resourceManager := resource.NewResourceManager(clientManager, &resource.ResourceManagerOptions{CollectMetrics: false})
+	s := createArtifactServer(resourceManager)
+
+	// Request with invalid artifact task (missing required fields)
+	req := &apiv2beta1.CreateArtifactTasksBulkRequest{
+		ArtifactTasks: []*apiv2beta1.ArtifactTask{
+			{
+				ArtifactId: "art1",
+				// Missing TaskId, RunId, Type
+			},
+		},
+	}
+
+	_, err := s.CreateArtifactTasksBulk(ctxWithUser(), req)
+	assert.Error(t, err)
+	assert.Equal(t, codes.InvalidArgument, err.(*util.UserError).ExternalStatusCode())
 }

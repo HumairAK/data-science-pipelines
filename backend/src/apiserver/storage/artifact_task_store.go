@@ -75,6 +75,12 @@ func (s *ArtifactTaskStore) CreateArtifactTask(artifactTask *model.ArtifactTask)
 	}
 	newArtifactTask.UUID = id.String()
 
+	// Serialize Producer to JSON if present
+	producerValue, err := newArtifactTask.Producer.Value()
+	if err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to marshal producer JSON: %v", err.Error())
+	}
+
 	sql, args, err := sq.
 		Insert(artifactTaskTableName).
 		SetMap(
@@ -84,7 +90,7 @@ func (s *ArtifactTaskStore) CreateArtifactTask(artifactTask *model.ArtifactTask)
 				"TaskID":     newArtifactTask.TaskID,
 				"Type":       newArtifactTask.Type,
 				"RunUUID":    newArtifactTask.RunUUID,
-				"Producer":   newArtifactTask.Producer,
+				"Producer":   producerValue,
 				"Key":        newArtifactTask.Key,
 			},
 		).
@@ -123,6 +129,12 @@ func (s *ArtifactTaskStore) CreateArtifactTasks(artifactTasks []*model.ArtifactT
 		}
 		newArtifactTask.UUID = id.String()
 
+		// Serialize Producer to JSON if present
+		producerValue, err := newArtifactTask.Producer.Value()
+		if err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to marshal producer JSON: %v", err.Error())
+		}
+
 		toSql, args, err := sq.
 			Insert(artifactTaskTableName).
 			SetMap(
@@ -132,7 +144,7 @@ func (s *ArtifactTaskStore) CreateArtifactTasks(artifactTasks []*model.ArtifactT
 					"TaskID":     newArtifactTask.TaskID,
 					"Type":       newArtifactTask.Type,
 					"RunUUID":    newArtifactTask.RunUUID,
-					"Producer":   newArtifactTask.Producer,
+					"Producer":   producerValue,
 					"Key":        newArtifactTask.Key,
 				},
 			).
