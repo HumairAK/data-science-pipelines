@@ -710,6 +710,25 @@ func createPVCTask(
 		execution.ExecutorInput.Inputs.ParameterValues[pvcName] = structpb.NewStringValue(pvcName)
 	}
 
+	if taskToCreate.Outputs == nil {
+		taskToCreate.Outputs = &apiV2beta1.PipelineTaskDetail_InputOutputs{
+			Parameters: make([]*apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter, 0),
+		}
+	}
+	if taskToCreate.Outputs.Parameters == nil {
+		taskToCreate.Outputs.Parameters = make([]*apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter, 0)
+	}
+	taskToCreate.Outputs.Parameters = append(
+		taskToCreate.Outputs.Parameters,
+		&apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+			Value:        execution.ExecutorInput.Inputs.ParameterValues[pvcName],
+			ParameterKey: "name", // create-pvc output parameter is always "name"
+			Type:         apiV2beta1.IOType_OUTPUT,
+			Producer: &apiV2beta1.IOProducer{
+				TaskName: opts.Task.GetTaskInfo().GetName(),
+			},
+		})
+
 	// Size is required input.
 	volumeSizeInput, ok := inputs.ParameterValues["size"]
 	if !ok || volumeSizeInput == nil {

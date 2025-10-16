@@ -881,7 +881,9 @@ func TestK8SPlatform(t *testing.T) {
 	// Create a mock Kubernetes client for PVC operations
 	_, createPvcTask := tc.RunContainer("createpvc", parentTask, nil, true)
 	require.NotNil(t, createPvcTask.Outputs)
+	// CreatePvc always has one output, which is the pvc name
 	require.Len(t, createPvcTask.Outputs.GetParameters(), 1)
+	require.Equal(t, createPvcTask.Outputs.GetParameters()[0].ParameterKey, "name")
 
 	tc.MockLauncherOutputParameterCreate(
 		createPvcTask.TaskId,
