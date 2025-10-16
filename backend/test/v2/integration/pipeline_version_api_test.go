@@ -137,7 +137,7 @@ func (s *PipelineVersionApiTest) TestPipelineSpec() {
 
 	/* ---------- Import pipeline version YAML by URL ---------- */
 	pipelineURL := "https://raw.githubusercontent.com/kubeflow/pipelines/refs/heads/master/test_data/sdk_compiled_pipelines/valid/sequential_v2.yaml"
-	if pullNumber := os.Getenv("PullNumber"); pullNumber != "" {
+	if pullNumber := os.Getenv("PULL_NUMBER"); pullNumber != "" {
 		pipelineURL = fmt.Sprintf("https://raw.githubusercontent.com/kubeflow/pipelines/pull/%s/head/test_data/sdk_compiled_pipelines/valid/sequential_v2.yaml", pullNumber)
 	}
 	time.Sleep(1 * time.Second)

@@ -148,7 +148,7 @@ func (s *PipelineVersionApiTest) TestArgoSpec() {
 		Version: &pipeline_model.APIPipelineVersion{
 			Name: "sequential",
 			PackageURL: &pipeline_model.APIURL{
-				PipelineURL: "https://raw.githubusercontent.com/opendatahub-io/data-science-pipelines/refs/heads/master/backend/test/v2/resources/sequential.yaml",
+				PipelineURL: "https://raw.githubusercontent.com/kubeflow/pipelines/refs/heads/master/backend/test/v2/resources/sequential.yaml",
 			},
 			ResourceReferences: []*pipeline_model.APIResourceReference{
 				{
