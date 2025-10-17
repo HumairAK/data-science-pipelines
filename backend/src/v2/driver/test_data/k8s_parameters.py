@@ -446,6 +446,15 @@ def primary_pipeline(
     kubernetes.add_toleration_json(task, tolerations_dict_input)
     kubernetes.add_toleration_json(task, tolerations_list_input)
 
+    # cpu/memory/container image
+    generate_requests_resources_task = generate_requests_resources()
+    task.set_cpu_request(generate_requests_resources_task.outputs["cpu_request_out"])
+    task.set_memory_request(generate_requests_resources_task.outputs["memory_request_out"])
+
+    task.set_cpu_limit(cpu_limit)
+    task.set_memory_limit(memory_limit)
+    task.set_container_image(container_image)
+
     # Test nested toleration
     secondary_pipeline(train_tolerations=tolerations_list_input)
 
@@ -475,14 +484,6 @@ def primary_pipeline(
         default_node_affinity_input  # Component Input Parameter
     )
 
-    # cpu/memory/container image
-    generate_requests_resources_task = generate_requests_resources()
-    task.set_cpu_request(generate_requests_resources_task.outputs["cpu_request_out"])
-    task.set_memory_request(generate_requests_resources_task.outputs["memory_request_out"])
-
-    task.set_cpu_limit(cpu_limit)
-    task.set_memory_limit(memory_limit)
-    task.set_container_image(container_image)
 
     # TODO(HumairAK) Empty dir doesn't support parameterization
     # empty dir

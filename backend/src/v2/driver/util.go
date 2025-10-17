@@ -17,80 +17,11 @@ package driver
 import (
 	"context"
 	"fmt"
-	"regexp"
 
-	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	apiV2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/resolver"
-	"google.golang.org/protobuf/types/known/structpb"
 )
-
-// inputPipelineChannelPattern define a regex pattern to match the content within single quotes
-// example input channel looks like "{{$.inputs.parameters['pipelinechannel--val']}}"
-const inputPipelineChannelPattern = `\$.inputs.parameters\['(.+?)'\]`
-
-func isInputParameterChannel(inputChannel string) bool {
-	re := regexp.MustCompile(inputPipelineChannelPattern)
-	match := re.FindStringSubmatch(inputChannel)
-	if len(match) == 2 {
-		return true
-	} else {
-		// if len(match) > 2, then this is still incorrect because
-		// inputChannel should contain only one parameter channel input
-		return false
-	}
-}
-
-// extractInputParameterFromChannel takes an inputChannel that adheres to
-// inputPipelineChannelPattern and extracts the channel parameter name.
-// For example given an input channel of the form "{{$.inputs.parameters['pipelinechannel--val']}}"
-// the channel parameter name "pipelinechannel--val" is returned.
-func extractInputParameterFromChannel(inputChannel string) (string, error) {
-	re := regexp.MustCompile(inputPipelineChannelPattern)
-	match := re.FindStringSubmatch(inputChannel)
-	if len(match) > 1 {
-		extractedValue := match[1]
-		return extractedValue, nil
-	} else {
-		return "", fmt.Errorf("failed to extract input parameter from channel: %s", inputChannel)
-	}
-}
-
-// inputParamConstant convert and return value as a RuntimeValue
-func inputParamConstant(value string) *pipelinespec.TaskInputsSpec_InputParameterSpec {
-	return &pipelinespec.TaskInputsSpec_InputParameterSpec{
-		Kind: &pipelinespec.TaskInputsSpec_InputParameterSpec_RuntimeValue{
-			RuntimeValue: &pipelinespec.ValueOrRuntimeParameter{
-				Value: &pipelinespec.ValueOrRuntimeParameter_Constant{
-					Constant: structpb.NewStringValue(value),
-				},
-			},
-		},
-	}
-}
-
-// inputParamComponent convert and return value as a ComponentInputParameter
-func inputParamComponent(value string) *pipelinespec.TaskInputsSpec_InputParameterSpec {
-	return &pipelinespec.TaskInputsSpec_InputParameterSpec{
-		Kind: &pipelinespec.TaskInputsSpec_InputParameterSpec_ComponentInputParameter{
-			ComponentInputParameter: value,
-		},
-	}
-}
-
-// inputParamTaskOutput convert and return producerTask & outputParamKey
-// as a TaskOutputParameter.
-func inputParamTaskOutput(producerTask, outputParamKey string) *pipelinespec.TaskInputsSpec_InputParameterSpec {
-	return &pipelinespec.TaskInputsSpec_InputParameterSpec{
-		Kind: &pipelinespec.TaskInputsSpec_InputParameterSpec_TaskOutputParameter{
-			TaskOutputParameter: &pipelinespec.TaskInputsSpec_InputParameterSpec_TaskOutputParameterSpec{
-				ProducerTask:       producerTask,
-				OutputParameterKey: outputParamKey,
-			},
-		},
-	}
-}
 
 // validateRootDAG contains validation for root DAG driver options, without MLMD dependencies.
 func validateRootDAG(opts common.Options) (err error) {

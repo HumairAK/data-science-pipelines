@@ -785,9 +785,12 @@ func TestK8SPlatform(t *testing.T) {
 	runtimeInputs := &pipelinespec.PipelineJob_RuntimeConfig{
 		ParameterValues: map[string]*structpb.Value{
 			"configmap_parm":              structpb.NewStringValue("cfg-2"),
+			"container_image":             structpb.NewStringValue("python:3.7-alpine"),
+			"cpu_limit":                   structpb.NewStringValue("200m"),
 			"default_node_affinity_input": nodeAffinity,
 			"empty_dir_mnt_path":          structpb.NewStringValue("/empty_dir/path"),
 			"field_path":                  structpb.NewStringValue("spec.serviceAccountName"),
+			"memory_limit":                structpb.NewStringValue("50Mi"),
 			"node_selector_input": structpb.NewStructValue(&structpb.Struct{
 				Fields: map[string]*structpb.Value{
 					"kubernetes.io/os": structpb.NewStringValue("linux"),
@@ -871,6 +874,24 @@ func TestK8SPlatform(t *testing.T) {
 		nodeAffinity,
 		apiv2beta1.IOType_OUTPUT,
 		secretNameGeneratorTask.GetName(),
+		nil,
+	)
+
+	_, generateRequestTask := tc.RunContainer("generate-requests-resources", parentTask, nil, true)
+	tc.MockLauncherOutputParameterCreate(
+		generateRequestTask.TaskId,
+		"cpu_request_out",
+		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "100m"}},
+		apiv2beta1.IOType_OUTPUT,
+		generateRequestTask.GetName(),
+		nil,
+	)
+	tc.MockLauncherOutputParameterCreate(
+		generateRequestTask.TaskId,
+		"memory_request_out",
+		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "50Mi"}},
+		apiv2beta1.IOType_OUTPUT,
+		generateRequestTask.GetName(),
 		nil,
 	)
 

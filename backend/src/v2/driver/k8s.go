@@ -940,14 +940,14 @@ func makeVolumeMountPatch(
 			pvcNameParameter = pvcMount.PvcNameParameter
 		} else { // Support deprecated fields
 			if pvcMount.GetConstant() != "" {
-				pvcNameParameter = inputParamConstant(pvcMount.GetConstant())
+				pvcNameParameter = common.InputParamConstant(pvcMount.GetConstant())
 			} else if pvcMount.GetTaskOutputParameter() != nil {
-				pvcNameParameter = inputParamTaskOutput(
+				pvcNameParameter = common.InputParamTaskOutput(
 					pvcMount.GetTaskOutputParameter().GetProducerTask(),
 					pvcMount.GetTaskOutputParameter().GetOutputParameterKey(),
 				)
 			} else if pvcMount.GetComponentInputParameter() != "" {
-				pvcNameParameter = inputParamComponent(pvcMount.GetComponentInputParameter())
+				pvcNameParameter = common.InputParamComponent(pvcMount.GetComponentInputParameter())
 			} else {
 				return nil, nil, fmt.Errorf("failed to make podSpecPatch: volume mount: volume name not provided")
 			}

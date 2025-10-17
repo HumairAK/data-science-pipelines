@@ -118,6 +118,17 @@ func resolveInputParameter(
 			default:
 				v = val
 			}
+			// When a constant runtime value is a pipeline channel, then we expect the source value to be found
+			// via the pipeline channel's key within this task's inputs.
+			isMatch, isPipelineChannel, paramName := common.ParsePipelineParam(v.GetStringValue())
+			if isMatch && isPipelineChannel {
+				channelParamSpec, ok := opts.Task.Inputs.GetParameters()[paramName]
+				if !ok {
+					return nil, apiv2beta1.IOType_RUNTIME_VALUE_INPUT, fmt.Errorf("pipeline channel %s not found in task %s", v.GetStringValue(), opts.TaskName)
+				}
+				return resolveInputParameter(opts, channelParamSpec, inputParams)
+			}
+
 			ioParameter := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 				ParameterKey: "",
 				Value:        v,
