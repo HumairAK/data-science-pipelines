@@ -112,7 +112,7 @@ func extendPodSpecPatch(
 
 	// Get volume mount information
 	if kubernetesExecutorConfig.GetPvcMount() != nil {
-		volumeMounts, volumes, err := makeVolumeMountPatch(ctx, opts, kubernetesExecutorConfig.GetPvcMount(), inputParams)
+		volumeMounts, volumes, err := makeVolumeMountPatch(opts, kubernetesExecutorConfig.GetPvcMount(), inputParams)
 		if err != nil {
 			return fmt.Errorf("failed to extract volume mount info: %w", err)
 		}
@@ -247,7 +247,7 @@ func extendPodSpecPatch(
 	for _, secretAsVolume := range kubernetesExecutorConfig.GetSecretAsVolume() {
 		var secretName string
 		if secretAsVolume.SecretNameParameter != nil {
-			resolvedSecretName, err := resolver.ResolveInputParameterStr(ctx, opts, secretAsVolume.SecretNameParameter, inputParams)
+			resolvedSecretName, err := resolver.ResolveInputParameterStr(opts, secretAsVolume.SecretNameParameter, inputParams)
 			if err != nil {
 				return fmt.Errorf("failed to resolve secret name: %w", err)
 			}
@@ -305,7 +305,7 @@ func extendPodSpecPatch(
 
 			var secretName string
 			if secretAsEnv.SecretNameParameter != nil {
-				resolvedSecretName, err := resolver.ResolveInputParameterStr(ctx, opts, secretAsEnv.SecretNameParameter, inputParams)
+				resolvedSecretName, err := resolver.ResolveInputParameterStr(opts, secretAsEnv.SecretNameParameter, inputParams)
 				if err != nil {
 					return fmt.Errorf("failed to resolve secret name: %w", err)
 				}
@@ -333,7 +333,7 @@ func extendPodSpecPatch(
 	for _, configMapAsVolume := range kubernetesExecutorConfig.GetConfigMapAsVolume() {
 		var configMapName string
 		if configMapAsVolume.ConfigMapNameParameter != nil {
-			resolvedSecretName, err := resolver.ResolveInputParameterStr(ctx, opts,
+			resolvedSecretName, err := resolver.ResolveInputParameterStr(opts,
 				configMapAsVolume.ConfigMapNameParameter, inputParams)
 			if err != nil {
 				return fmt.Errorf("failed to resolve configmap name: %w", err)
@@ -394,7 +394,7 @@ func extendPodSpecPatch(
 
 			var configMapName string
 			if configMapAsEnv.ConfigMapNameParameter != nil {
-				resolvedSecretName, err := resolver.ResolveInputParameterStr(ctx, opts,
+				resolvedSecretName, err := resolver.ResolveInputParameterStr(opts,
 					configMapAsEnv.ConfigMapNameParameter, inputParams)
 				if err != nil {
 					return fmt.Errorf("failed to resolve configmap name: %w", err)
@@ -423,7 +423,7 @@ func extendPodSpecPatch(
 	for _, imagePullSecret := range kubernetesExecutorConfig.GetImagePullSecret() {
 		var secretName string
 		if imagePullSecret.SecretNameParameter != nil {
-			resolvedSecretName, err := resolver.ResolveInputParameterStr(ctx, opts,
+			resolvedSecretName, err := resolver.ResolveInputParameterStr(opts,
 				imagePullSecret.SecretNameParameter, inputParams)
 			if err != nil {
 				return fmt.Errorf("failed to resolve image pull secret name: %w", err)
@@ -924,7 +924,6 @@ func deletePVCTask(
 }
 
 func makeVolumeMountPatch(
-	ctx context.Context,
 	opts common.Options,
 	pvcMounts []*kubernetesplatform.PvcMount,
 	inputParams []*apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter,
@@ -953,7 +952,7 @@ func makeVolumeMountPatch(
 			}
 		}
 
-		resolvedPvcName, err := resolver.ResolveInputParameterStr(ctx, opts, pvcNameParameter, inputParams)
+		resolvedPvcName, err := resolver.ResolveInputParameterStr(opts, pvcNameParameter, inputParams)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to resolve pvc name: %w", err)
 		}

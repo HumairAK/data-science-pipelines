@@ -384,14 +384,32 @@ func ResolveK8sJsonParameter[k8sResource any](
 	return nil
 }
 
+// ResolveInputParameterStr is like resolveInputParameter but returns an error if the resolved value is not a non-empty
+// string.
 func ResolveInputParameterStr(
-	ctx context.Context,
 	opts common.Options,
 	parameter *pipelinespec.TaskInputsSpec_InputParameterSpec,
 	params []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter) (*structpb.Value, error) {
 
-	return nil, nil
+	val, _, err := resolveInputParameter(opts, parameter, params)
+	if err != nil || val == nil || val.GetValue() == nil {
+		return nil, fmt.Errorf("failed to resolve input parameter. Error: %w", err)
+	}
+	if typedVal, ok := val.GetValue().GetKind().(*structpb.Value_StringValue); ok && typedVal != nil {
+		if typedVal.StringValue == "" {
+			return nil, fmt.Errorf("resolving input parameter with spec %s. Expected a non-empty string", parameter.String())
+		}
+	} else {
+		return nil, fmt.Errorf(
+			"resolving input parameter with spec %s. Expected a string but got: %T",
+			parameter.String(),
+			val.GetValue().GetKind(),
+		)
+	}
+
+	return val.GetValue(), nil
 }
+
 func ResolveInputParameter(
 	ctx context.Context,
 	opts common.Options,

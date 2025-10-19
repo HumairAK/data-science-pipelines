@@ -158,7 +158,7 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 		var pvcNames []string
 		if opts.KubernetesExecutorConfig != nil && opts.KubernetesExecutorConfig.GetPvcMount() != nil {
 			_, volumes, err := makeVolumeMountPatch(
-				ctx, opts, opts.KubernetesExecutorConfig.GetPvcMount(),
+				opts, opts.KubernetesExecutorConfig.GetPvcMount(),
 				inputParams)
 			if err != nil {
 				return nil, fmt.Errorf("failed to extract volume mount info while generating fingerprint: %w", err)

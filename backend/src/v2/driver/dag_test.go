@@ -906,14 +906,8 @@ func TestK8SPlatform(t *testing.T) {
 	require.Len(t, createPvcTask.Outputs.GetParameters(), 1)
 	require.Equal(t, createPvcTask.Outputs.GetParameters()[0].ParameterKey, "name")
 
-	tc.MockLauncherOutputParameterCreate(
-		createPvcTask.TaskId,
-		"name",
-		structpb.NewStringValue("some-name"),
-		apiv2beta1.IOType_OUTPUT,
-		createPvcTask.GetName(),
-		nil,
-	)
+	// Note we don't need to mock the parameter output for k8s tasks like createpvc since
+	// there is no launcher for them.
 
 	_, assertValuesTask := tc.RunContainer("assert-values", parentTask, nil, true)
 	require.NotNil(t, assertValuesTask.Outputs)
