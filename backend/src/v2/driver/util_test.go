@@ -70,7 +70,7 @@ func Test_resolvePodSpecRuntimeParameter(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			actual, err := resolver.ResolvePodSpecInputRuntimeParameter(test.input, test.executorInput)
+			actual, err := resolver.ResolveParameterOrPipelineChannel(test.input, test.executorInput)
 			if test.wantErr {
 				assert.NotNil(t, err)
 			} else {

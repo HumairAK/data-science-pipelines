@@ -72,7 +72,7 @@ func getPodResource(
 	if new != "" {
 		var err error
 
-		resolved, err = resolver.ResolvePodSpecInputRuntimeParameter(new, executorInput)
+		resolved, err = resolver.ResolveParameterOrPipelineChannel(new, executorInput)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve executor input when retrieving pod resource: %w", err)
 		}
@@ -268,7 +268,7 @@ func initPodSpecPatch(
 	if accelerator != nil {
 		var acceleratorType string
 		if accelerator.GetResourceType() != "" {
-			acceleratorType, err = resolver.ResolvePodSpecInputRuntimeParameter(accelerator.GetResourceType(), executorInput)
+			acceleratorType, err = resolver.ResolveParameterOrPipelineChannel(accelerator.GetResourceType(), executorInput)
 			if err != nil {
 				return nil, fmt.Errorf("failed to init podSpecPatch: %w", err)
 			}
@@ -281,7 +281,7 @@ func initPodSpecPatch(
 		if accelerator.GetResourceCount() != "" {
 			var err error
 
-			acceleratorCount, err = resolver.ResolvePodSpecInputRuntimeParameter(accelerator.GetResourceCount(), executorInput)
+			acceleratorCount, err = resolver.ResolveParameterOrPipelineChannel(accelerator.GetResourceCount(), executorInput)
 			if err != nil {
 				return nil, fmt.Errorf("failed to init podSpecPatch: %w", err)
 			}
@@ -298,7 +298,7 @@ func initPodSpecPatch(
 		}
 	}
 
-	containerImage, err := resolver.ResolvePodSpecInputRuntimeParameter(container.Image, executorInput)
+	containerImage, err := resolver.ResolveParameterOrPipelineChannel(container.Image, executorInput)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init podSpecPatch: %w", err)
 	}

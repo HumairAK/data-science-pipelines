@@ -371,8 +371,18 @@ func toListValue(items []*structpb.Value) *structpb.Value {
 	return &listValue
 }
 
-func ResolvePodSpecInputRuntimeParameter(n string, input *pipelinespec.ExecutorInput) (string, error) {
-	return "", nil
+// ResolveParameterOrPipelineChannel resolves a parameter or pipeline channel value using the executor input.
+func ResolveParameterOrPipelineChannel(ParameterValueOrPipelineChannel string, executorInput *pipelinespec.ExecutorInput) (string, error) {
+	isMatch, isPipelineChannel, paramName := common.ParsePipelineParam(ParameterValueOrPipelineChannel)
+	if isMatch && isPipelineChannel {
+		value, ok := executorInput.GetInputs().GetParameterValues()[paramName]
+		if !ok {
+			return "", fmt.Errorf("pipeline channel %s not found in executorinput", ParameterValueOrPipelineChannel)
+		}
+		return value.GetStringValue(), nil
+	}
+
+	return ParameterValueOrPipelineChannel, nil
 }
 
 func ResolveK8sJsonParameter[k8sResource any](

@@ -91,8 +91,6 @@ func extendPodSpecPatch(
 	ctx context.Context,
 	podSpec *k8score.PodSpec,
 	opts common.Options,
-	parentTask *apiV2beta1.PipelineTaskDetail,
-	apiDriver common.DriverAPI,
 	inputParams []*apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter,
 	taskConfig *TaskConfig,
 ) error {

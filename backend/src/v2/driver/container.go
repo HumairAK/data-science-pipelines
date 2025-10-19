@@ -253,7 +253,7 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 		return execution, err
 	}
 	if opts.KubernetesExecutorConfig != nil {
-		err = extendPodSpecPatch(ctx, podSpec, opts, opts.ParentTask, driverAPI, inputParams, taskConfig)
+		err = extendPodSpecPatch(ctx, podSpec, opts, inputParams, taskConfig)
 		if err != nil {
 			return execution, err
 		}
