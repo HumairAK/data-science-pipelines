@@ -1,7 +1,6 @@
 package resolver
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,7 +29,7 @@ func resolveParameters(opts common.Options) ([]ParameterMetadata, error) {
 			}
 		}
 
-		v, ioType, err := resolveInputParameter(opts, paramSpec, opts.ParentTask.Inputs.GetParameters())
+		v, ioType, err := ResolveInputParameter(opts, paramSpec, opts.ParentTask.Inputs.GetParameters())
 		if err != nil {
 			if !errors.Is(err, ErrResolvedInputNull) {
 				return nil, err
@@ -62,7 +61,7 @@ func resolveParameters(opts common.Options) ([]ParameterMetadata, error) {
 	return parameters, nil
 }
 
-func resolveInputParameter(
+func ResolveInputParameter(
 	opts common.Options,
 	paramSpec *pipelinespec.TaskInputsSpec_InputParameterSpec,
 	inputParams []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter,
@@ -126,7 +125,7 @@ func resolveInputParameter(
 				if !ok {
 					return nil, apiv2beta1.IOType_RUNTIME_VALUE_INPUT, fmt.Errorf("pipeline channel %s not found in task %s", v.GetStringValue(), opts.TaskName)
 				}
-				return resolveInputParameter(opts, channelParamSpec, inputParams)
+				return ResolveInputParameter(opts, channelParamSpec, inputParams)
 			}
 
 			ioParameter := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
@@ -386,22 +385,39 @@ func ResolveParameterOrPipelineChannel(ParameterValueOrPipelineChannel string, e
 }
 
 func ResolveK8sJsonParameter[k8sResource any](
-	ctx context.Context,
 	opts common.Options,
-	selectorJson *pipelinespec.TaskInputsSpec_InputParameterSpec,
-	params []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter, res *k8sResource) error {
+	parameter *pipelinespec.TaskInputsSpec_InputParameterSpec,
+	params []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter,
+	res *k8sResource,
+) error {
 
+	resolvedParam, _, err := ResolveInputParameter(opts, parameter, params)
+	if err != nil {
+		return fmt.Errorf("failed to resolve k8s parameter: %w", err)
+	}
+	if resolvedParam == nil || resolvedParam.GetValue() == nil || resolvedParam.GetValue().GetStructValue() == nil {
+		return fmt.Errorf("resolved k8s parameter is nil")
+	}
+	paramJSON, err := resolvedParam.GetValue().GetStructValue().MarshalJSON()
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(paramJSON, &res)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal k8s Resource json "+
+			"ensure that k8s Resource json correctly adheres to its respective k8s spec: %w", err)
+	}
 	return nil
 }
 
-// ResolveInputParameterStr is like resolveInputParameter but returns an error if the resolved value is not a non-empty
+// ResolveInputParameterStr is like ResolveInputParameter but returns an error if the resolved value is not a non-empty
 // string.
 func ResolveInputParameterStr(
 	opts common.Options,
 	parameter *pipelinespec.TaskInputsSpec_InputParameterSpec,
 	params []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter) (*structpb.Value, error) {
 
-	val, _, err := resolveInputParameter(opts, parameter, params)
+	val, _, err := ResolveInputParameter(opts, parameter, params)
 	if err != nil || val == nil || val.GetValue() == nil {
 		return nil, fmt.Errorf("failed to resolve input parameter. Error: %w", err)
 	}
@@ -418,15 +434,6 @@ func ResolveInputParameterStr(
 	}
 
 	return val.GetValue(), nil
-}
-
-func ResolveInputParameter(
-	ctx context.Context,
-	opts common.Options,
-	paramSpec *pipelinespec.TaskInputsSpec_InputParameterSpec,
-	inputParams []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter,
-) (*structpb.Value, error) {
-	return nil, nil
 }
 
 func findParameterByProducerKeyInList(

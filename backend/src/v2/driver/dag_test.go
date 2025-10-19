@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/json"
 )
 
 func TestRootDagComponentInputs(t *testing.T) {
@@ -871,7 +873,7 @@ func TestK8SPlatform(t *testing.T) {
 	tc.MockLauncherOutputParameterCreate(
 		secretNameGeneratorTask.TaskId,
 		"some_output",
-		nodeAffinity,
+		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "secret-3"}},
 		apiv2beta1.IOType_OUTPUT,
 		secretNameGeneratorTask.GetName(),
 		nil,
@@ -909,9 +911,198 @@ func TestK8SPlatform(t *testing.T) {
 	// Note we don't need to mock the parameter output for k8s tasks like createpvc since
 	// there is no launcher for them.
 
-	_, assertValuesTask := tc.RunContainer("assert-values", parentTask, nil, true)
+	executorInput, assertValuesTask := tc.RunContainer("assert-values", parentTask, nil, true)
 	require.NotNil(t, assertValuesTask.Outputs)
-	require.Len(t, assertValuesTask.Outputs.GetParameters(), 1)
+	require.NotNil(t, executorInput)
+
+	podSpecString := executorInput.PodSpecPatch
+	require.NotEmpty(t, podSpecString)
+
+	podSpec := &v1.PodSpec{}
+	err := json.Unmarshal([]byte(podSpecString), podSpec)
+	require.NoError(t, err)
+
+	// Check that pod spec values were correctly set
+	require.Equal(t, "python:3.7-alpine", podSpec.Containers[0].Image)
+	require.Contains(t, podSpec.NodeSelector, "kubernetes.io/arch")
+	require.Equal(t, "amd64", podSpec.NodeSelector["kubernetes.io/arch"])
+	require.Len(t, podSpec.Containers, 1)
+
+	// The volumes are: cfg-map volume, secret volume, and pvc volume
+	require.Len(t, podSpec.Volumes, 3)
+	require.Len(t, podSpec.Containers[0].VolumeMounts, 3)
+
+	// Verify all volumes are present and configured correctly
+	volume := podSpec.Volumes[0]
+	require.Contains(t, volume.Name, "-pvc-1")
+	require.Contains(t, volume.PersistentVolumeClaim.ClaimName, "-pvc-1")
+
+	volume = podSpec.Volumes[1]
+	require.Equal(t, "secret-2", volume.Name)
+	require.Equal(t, "secret-2", volume.Secret.SecretName)
+	require.False(t, *volume.Secret.Optional)
+
+	volume = podSpec.Volumes[2]
+	require.Equal(t, "cfg-2", volume.Name)
+	require.Equal(t, "cfg-2", volume.ConfigMap.Name)
+	require.False(t, *volume.ConfigMap.Optional)
+
+	// Node affinity
+	require.NotNil(t, podSpec.Affinity)
+	require.NotNil(t, podSpec.Affinity.NodeAffinity)
+	require.NotNil(t, podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution)
+	require.Len(t, podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, 1)
+	require.Len(t, podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions, 1)
+	require.Equal(t, "kubernetes.io/os", podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions[0].Key)
+	require.Equal(t, "In", string(podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions[0].Operator))
+	require.Equal(t, []string{"linux"}, podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions[0].Values)
+
+	// Image pull secrets
+	require.Len(t, podSpec.ImagePullSecrets, 6)
+	expectedPullSecrets := []string{"pull-secret-1", "pull-secret-2", "pull_secret_1", "pull_secret_2", "pull-secret-3", "pull-secret-4"}
+	for i, secret := range podSpec.ImagePullSecrets {
+		require.Equal(t, expectedPullSecrets[i], secret.Name)
+	}
+
+	// Environment variables
+	require.Len(t, podSpec.Containers[0].Env, 8)
+	expectedEnvVars := []v1.EnvVar{
+		{
+			Name: "SECRET_KEY_1",
+			ValueFrom: &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					LocalObjectReference: v1.LocalObjectReference{Name: "secret-1"},
+					Key:                  "secretKey1",
+					Optional:             &[]bool{false}[0],
+				},
+			},
+		},
+		{
+			Name: "SECRET_KEY_2",
+			ValueFrom: &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					LocalObjectReference: v1.LocalObjectReference{Name: "secret-1"},
+					Key:                  "secretKey2",
+					Optional:             &[]bool{false}[0],
+				},
+			},
+		},
+		{
+			Name: "SECRET_KEY_3",
+			ValueFrom: &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					LocalObjectReference: v1.LocalObjectReference{Name: "secret-2"},
+					Key:                  "secretKey3",
+					Optional:             &[]bool{false}[0],
+				},
+			},
+		},
+		{
+			Name: "SECRET_KEY_4",
+			ValueFrom: &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					LocalObjectReference: v1.LocalObjectReference{Name: "secret-3"},
+					Key:                  "secretKey4",
+					Optional:             &[]bool{false}[0],
+				},
+			},
+		},
+		{
+			Name: "CFG_KEY_1",
+			ValueFrom: &v1.EnvVarSource{
+				ConfigMapKeyRef: &v1.ConfigMapKeySelector{
+					LocalObjectReference: v1.LocalObjectReference{Name: "cfg-1"},
+					Key:                  "cfgKey1",
+					Optional:             &[]bool{false}[0],
+				},
+			},
+		},
+		{
+			Name: "CFG_KEY_2",
+			ValueFrom: &v1.EnvVarSource{
+				ConfigMapKeyRef: &v1.ConfigMapKeySelector{
+					LocalObjectReference: v1.LocalObjectReference{Name: "cfg-1"},
+					Key:                  "cfgKey2",
+					Optional:             &[]bool{false}[0],
+				},
+			},
+		},
+		{
+			Name: "CFG_KEY_3",
+			ValueFrom: &v1.EnvVarSource{
+				ConfigMapKeyRef: &v1.ConfigMapKeySelector{
+					LocalObjectReference: v1.LocalObjectReference{Name: "cfg-2"},
+					Key:                  "cfgKey3",
+					Optional:             &[]bool{false}[0],
+				},
+			},
+		},
+		{
+			Name: "CFG_KEY_4",
+			ValueFrom: &v1.EnvVarSource{
+				ConfigMapKeyRef: &v1.ConfigMapKeySelector{
+					LocalObjectReference: v1.LocalObjectReference{Name: "cfg-3"},
+					Key:                  "cfgKey4",
+					Optional:             &[]bool{false}[0],
+				},
+			},
+		},
+	}
+	for i, env := range podSpec.Containers[0].Env {
+		require.Equal(t, expectedEnvVars[i].Name, env.Name)
+		require.Equal(t, expectedEnvVars[i].ValueFrom, env.ValueFrom)
+	}
+
+	// Resource limits and requests
+	require.Equal(t, "200m", podSpec.Containers[0].Resources.Limits.Cpu().String())
+	require.Equal(t, "50Mi", podSpec.Containers[0].Resources.Limits.Memory().String())
+	require.Equal(t, "100m", podSpec.Containers[0].Resources.Requests.Cpu().String())
+	require.Equal(t, "50Mi", podSpec.Containers[0].Resources.Requests.Memory().String())
+
+	// Tolerations
+	require.Len(t, podSpec.Tolerations, 6)
+	expectedTolerations := []v1.Toleration{
+		{
+			Key:      "some_foo_key1",
+			Operator: "Equal",
+			Value:    "value1",
+			Effect:   "NoSchedule",
+		},
+		{
+			Key:      "some_foo_key2",
+			Operator: "Exists",
+			Effect:   "NoExecute",
+		},
+		{
+			Key:      "some_foo_key3",
+			Operator: "Equal",
+			Value:    "value1",
+			Effect:   "NoSchedule",
+		},
+		{
+			Key:      "some_foo_key6",
+			Operator: "Equal",
+			Value:    "value3",
+			Effect:   "NoSchedule",
+		},
+		{
+			Key:      "some_foo_key4",
+			Operator: "Equal",
+			Value:    "value2",
+			Effect:   "NoSchedule",
+		},
+		{
+			Key:      "some_foo_key5",
+			Operator: "Exists",
+			Effect:   "NoExecute",
+		},
+	}
+	for i, toleration := range podSpec.Tolerations {
+		require.Equal(t, expectedTolerations[i].Key, toleration.Key)
+		require.Equal(t, expectedTolerations[i].Operator, toleration.Operator)
+		require.Equal(t, expectedTolerations[i].Value, toleration.Value)
+		require.Equal(t, expectedTolerations[i].Effect, toleration.Effect)
+	}
 
 }
 

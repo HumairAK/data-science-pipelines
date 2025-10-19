@@ -150,7 +150,7 @@ func extendPodSpecPatch(
 		var nodeSelector map[string]string
 		if kubernetesExecutorConfig.GetNodeSelector().GetNodeSelectorJson() != nil {
 			err := resolver.ResolveK8sJsonParameter(
-				ctx, opts, kubernetesExecutorConfig.GetNodeSelector().GetNodeSelectorJson(),
+				opts, kubernetesExecutorConfig.GetNodeSelector().GetNodeSelectorJson(),
 				inputParams, &nodeSelector)
 			if err != nil {
 				return fmt.Errorf("failed to resolve node selector: %w", err)
@@ -177,7 +177,7 @@ func extendPodSpecPatch(
 			if toleration != nil {
 				k8sToleration := &k8score.Toleration{}
 				if toleration.TolerationJson != nil {
-					resolvedParam, err := resolver.ResolveInputParameter(ctx, opts, toleration.GetTolerationJson(), inputParams)
+					resolvedParam, _, err := resolver.ResolveInputParameter(opts, toleration.GetTolerationJson(), inputParams)
 					if err != nil {
 						return fmt.Errorf("failed to resolve toleration: %w", err)
 					}
@@ -186,12 +186,12 @@ func extendPodSpecPatch(
 					// the field accepts both, and in both cases the tolerations are appended
 					// to the total executor pod toleration list.
 					var paramJSON []byte
-					isSingleToleration := resolvedParam.GetStructValue() != nil
-					isListToleration := resolvedParam.GetListValue() != nil
+					isSingleToleration := resolvedParam.GetValue().GetStructValue() != nil
+					isListToleration := resolvedParam.GetValue().GetListValue() != nil
 					if isSingleToleration {
-						structVal := resolvedParam.GetStructValue()
+						structVal := resolvedParam.GetValue().GetStructValue()
 						if structVal != nil && len(structVal.Fields) > 0 {
-							paramJSON, err = resolvedParam.GetStructValue().MarshalJSON()
+							paramJSON, err = resolvedParam.GetValue().GetStructValue().MarshalJSON()
 							if err != nil {
 								return err
 							}
@@ -204,9 +204,9 @@ func extendPodSpecPatch(
 							glog.V(4).Info("encountered empty tolerations struct, ignoring.")
 						}
 					} else if isListToleration {
-						listVal := resolvedParam.GetListValue()
+						listVal := resolvedParam.GetValue().GetListValue()
 						if listVal != nil && len(listVal.Values) > 0 {
-							paramJSON, err = resolvedParam.GetListValue().MarshalJSON()
+							paramJSON, err = resolvedParam.GetValue().GetListValue().MarshalJSON()
 							if err != nil {
 								return err
 							}
@@ -553,8 +553,12 @@ func extendPodSpecPatch(
 			}
 			if nodeAffinityTerm.GetNodeAffinityJson() != nil {
 				var k8sNodeAffinity json.RawMessage
-				err := resolver.ResolveK8sJsonParameter(ctx, opts,
-					nodeAffinityTerm.GetNodeAffinityJson(), inputParams, &k8sNodeAffinity)
+				err := resolver.ResolveK8sJsonParameter(
+					opts,
+					nodeAffinityTerm.GetNodeAffinityJson(),
+					inputParams,
+					&k8sNodeAffinity,
+				)
 				if err != nil {
 					return fmt.Errorf("failed to resolve node affinity json: %w", err)
 				}

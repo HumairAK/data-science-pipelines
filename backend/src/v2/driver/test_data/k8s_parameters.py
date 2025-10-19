@@ -202,9 +202,9 @@ def cfg_name_generator(some_output: OutputPath(str)):
 
 @dsl.component()
 def secret_name_generator(some_output: OutputPath(str)):
-    configmap_name = "secret-3"
+    secret_name = "secret-3"
     with open(some_output, 'w') as f:
-        f.write(configmap_name)
+        f.write(secret_name)
 
 @dsl.component()
 def get_access_mode(access_mode: OutputPath(List[str])):
