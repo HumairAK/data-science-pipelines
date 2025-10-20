@@ -22,7 +22,7 @@ type InputOutputsIOParameter struct {
 	ParameterKey string `json:"parameter_key,omitempty"`
 
 	// This field is optional because in the case of
-	// Input RuntimeValues, ComponentDefaultInptus,
+	// Input RuntimeValues, ComponentDefaultInputs,
 	// and Raw Iterator Input there are no producers.
 	Producer *V2beta1IOProducer `json:"producer,omitempty"`
 

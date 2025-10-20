@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package component
 
 import (
@@ -46,8 +47,6 @@ type LauncherV2Options struct {
 	Namespace,
 	PodName,
 	PodUID,
-	MLMDServerAddress,
-	MLMDServerPort,
 	PipelineName,
 	RunID string
 	// TaskID of the current PipelineTaskDetail for recording outputs via KFP API.
@@ -69,7 +68,6 @@ type LauncherV2 struct {
 
 // NewLauncherV2 is a factory function that returns an instance of LauncherV2.
 func NewLauncherV2(
-	executionID int64,
 	executorInputJSON,
 	componentSpecJSON string,
 	cmdArgs []string,

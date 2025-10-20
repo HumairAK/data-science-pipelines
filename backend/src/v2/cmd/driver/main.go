@@ -130,7 +130,6 @@ func drive() (err error) {
 
 	// Initialize connection to new KFP v2beta1 API server (Tasks/Artifacts)
 	apiCfg := apiclient.FromEnv()
-	// TODO(Add Auth consideration, use pipeline runner SA token)
 	kfpAPIClient, apiErr := apiclient.New(apiCfg)
 	if apiErr != nil {
 		return fmt.Errorf("failed to init KFP API client: %w", apiErr)

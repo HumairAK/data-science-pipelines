@@ -26,6 +26,7 @@ type Config struct {
 
 // FromEnv builds a Config from environment with sensible defaults.
 // KFP_API_ADDRESS and KFP_API_PORT are used; default is ml-pipeline.kubeflow:8887.
+// TODO(HumairAK): use pipeline runner SA token)
 func FromEnv() *Config {
 	addr := os.Getenv("KFP_API_ADDRESS")
 	port := os.Getenv("KFP_API_PORT")

@@ -6,16 +6,16 @@ import (
 	"fmt"
 	"strings"
 
+	pb "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 
-	pb "github.com/kubeflow/pipelines/third_party/ml-metadata/go/ml_metadata"
+	delete "github.com/kubeflow/pipelines/third_party/ml-metadata/go/ml_metadata"
 
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
+	delete_also "github.com/kubeflow/pipelines/backend/src/v2/metadata"
 	"google.golang.org/protobuf/encoding/protojson"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 type ImporterLauncherOptions struct {
@@ -49,13 +49,17 @@ type ImportLauncher struct {
 	task                    *pipelinespec.PipelineTaskSpec
 	launcherV2Options       LauncherV2Options
 	importerLauncherOptions ImporterLauncherOptions
-
-	// clients
-	metadataClient *metadata.Client
-	k8sClient      *kubernetes.Clientset
+	clientManager           client_manager.ClientManagerInterface
 }
 
-func NewImporterLauncher(ctx context.Context, componentSpecJSON, importerSpecJSON, taskSpecJSON string, launcherV2Opts *LauncherV2Options, importerLauncherOpts *ImporterLauncherOptions) (l *ImportLauncher, err error) {
+func NewImporterLauncher(
+	componentSpecJSON,
+	importerSpecJSON,
+	taskSpecJSON string,
+	launcherV2Opts *LauncherV2Options,
+	importerLauncherOpts *ImporterLauncherOptions,
+	clientManager client_manager.ClientManagerInterface,
+) (l *ImportLauncher, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("failed to create importer launcher: %w", err)
@@ -84,26 +88,13 @@ func NewImporterLauncher(ctx context.Context, componentSpecJSON, importerSpecJSO
 	if err != nil {
 		return nil, err
 	}
-	restConfig, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize kubernetes client: %w", err)
-	}
-	k8sClient, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize kubernetes client set: %w", err)
-	}
-	metadataClient, err := metadata.NewClient(launcherV2Opts.MLMDServerAddress, launcherV2Opts.MLMDServerPort)
-	if err != nil {
-		return nil, err
-	}
 	return &ImportLauncher{
 		component:               component,
 		importer:                importer,
 		task:                    task,
 		launcherV2Options:       *launcherV2Opts,
 		importerLauncherOptions: *importerLauncherOpts,
-		metadataClient:          metadataClient,
-		k8sClient:               k8sClient,
+		clientManager:           clientManager,
 	}, nil
 }
 
@@ -113,8 +104,7 @@ func (l *ImportLauncher) Execute(ctx context.Context) (err error) {
 			err = fmt.Errorf("failed to execute importer component: %w", err)
 		}
 	}()
-	// TODO(Bobgy): there's no need to pass any parameters, because pipeline
-	// and pipeline run context have been created by root DAG driver.
+
 	pipeline, err := l.metadataClient.GetPipeline(ctx, l.importerLauncherOptions.PipelineName, l.importerLauncherOptions.RunID, "", "", "", "")
 	if err != nil {
 		return err
@@ -128,6 +118,15 @@ func (l *ImportLauncher) Execute(ctx context.Context) (err error) {
 		ParentDagID:   l.importerLauncherOptions.ParentDagID,
 	}
 	createdExecution, err := l.metadataClient.CreateExecution(ctx, pipeline, ecfg)
+
+	driverAPI := l.clientManager.DriverAPI()
+	createdTask, err := driverAPI.CreateTask(ctx, &pb.CreateTaskRequest{
+		Task: &pb.PipelineTaskDetail{},
+	})
+	if err != nil {
+		return execution, err
+	}
+
 	if err != nil {
 		return err
 	}

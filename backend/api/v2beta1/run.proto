@@ -410,10 +410,11 @@ message PipelineTaskDetail {
     // Task Group for Loop Iterations
     LOOP = 4;
     EXIT_HANDLER = 5;
+    IMPORTER = 6;
     // Generic DAG task type for types like Nested Pipelines
     // where there is no declarative way to detect this within
     // a driver.
-    DAG = 6;
+    DAG = 7;
   }
   TaskType type = 13;
 

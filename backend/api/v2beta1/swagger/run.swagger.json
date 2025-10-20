@@ -632,7 +632,7 @@
         },
         "producer": {
           "$ref": "#/definitions/v2beta1IOProducer",
-          "description": "This field is optional because in the case of\nInput RuntimeValues, ComponentDefaultInptus,\nand Raw Iterator Input there are no producers."
+          "description": "This field is optional because in the case of\nInput RuntimeValues, ComponentDefaultInputs,\nand Raw Iterator Input there are no producers."
         }
       }
     },
@@ -729,6 +729,7 @@
         "CONDITION",
         "LOOP",
         "EXIT_HANDLER",
+        "IMPORTER",
         "DAG"
       ],
       "default": "ROOT",

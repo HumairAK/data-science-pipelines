@@ -59,6 +59,9 @@ const (
 	// PipelineTaskDetailTaskTypeEXITHANDLER captures enum value "EXIT_HANDLER"
 	PipelineTaskDetailTaskTypeEXITHANDLER PipelineTaskDetailTaskType = "EXIT_HANDLER"
 
+	// PipelineTaskDetailTaskTypeIMPORTER captures enum value "IMPORTER"
+	PipelineTaskDetailTaskTypeIMPORTER PipelineTaskDetailTaskType = "IMPORTER"
+
 	// PipelineTaskDetailTaskTypeDAG captures enum value "DAG"
 	PipelineTaskDetailTaskTypeDAG PipelineTaskDetailTaskType = "DAG"
 )
@@ -68,7 +71,7 @@ var pipelineTaskDetailTaskTypeEnum []interface{}
 
 func init() {
 	var res []PipelineTaskDetailTaskType
-	if err := json.Unmarshal([]byte(`["ROOT","RUNTIME","CONDITION_BRANCH","CONDITION","LOOP","EXIT_HANDLER","DAG"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["ROOT","RUNTIME","CONDITION_BRANCH","CONDITION","LOOP","EXIT_HANDLER","IMPORTER","DAG"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {

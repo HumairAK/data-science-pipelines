@@ -299,10 +299,11 @@ const (
 	// Task Group for Loop Iterations
 	PipelineTaskDetail_LOOP         PipelineTaskDetail_TaskType = 4
 	PipelineTaskDetail_EXIT_HANDLER PipelineTaskDetail_TaskType = 5
+	PipelineTaskDetail_IMPORTER     PipelineTaskDetail_TaskType = 6
 	// Generic DAG task type for types like Nested Pipelines
 	// where there is no declarative way to detect this within
 	// a driver.
-	PipelineTaskDetail_DAG PipelineTaskDetail_TaskType = 6
+	PipelineTaskDetail_DAG PipelineTaskDetail_TaskType = 7
 )
 
 // Enum value maps for PipelineTaskDetail_TaskType.
@@ -314,7 +315,8 @@ var (
 		3: "CONDITION",
 		4: "LOOP",
 		5: "EXIT_HANDLER",
-		6: "DAG",
+		6: "IMPORTER",
+		7: "DAG",
 	}
 	PipelineTaskDetail_TaskType_value = map[string]int32{
 		"ROOT":             0,
@@ -323,7 +325,8 @@ var (
 		"CONDITION":        3,
 		"LOOP":             4,
 		"EXIT_HANDLER":     5,
-		"DAG":              6,
+		"IMPORTER":         6,
+		"DAG":              7,
 	}
 )
 
@@ -2436,7 +2439,7 @@ type PipelineTaskDetail_InputOutputs_IOParameter struct {
 	Type         IOType                 `protobuf:"varint,2,opt,name=type,proto3,enum=kubeflow.pipelines.backend.api.v2beta1.IOType" json:"type,omitempty"`
 	ParameterKey string                 `protobuf:"bytes,3,opt,name=parameter_key,json=parameterKey,proto3" json:"parameter_key,omitempty"`
 	// This field is optional because in the case of
-	// Input RuntimeValues, ComponentDefaultInptus,
+	// Input RuntimeValues, ComponentDefaultInputs,
 	// and Raw Iterator Input there are no producers.
 	Producer      *IOProducer `protobuf:"bytes,4,opt,name=producer,proto3,oneof" json:"producer,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -2618,7 +2621,7 @@ const file_backend_api_v2beta1_run_proto_rawDesc = "" +
 	"RunDetails\x12.\n" +
 	"\x13pipeline_context_id\x18\x01 \x01(\x03R\x11pipelineContextId\x125\n" +
 	"\x17pipeline_run_context_id\x18\x02 \x01(\x03R\x14pipelineRunContextId\x12]\n" +
-	"\ftask_details\x18\x03 \x03(\v2:.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetailR\vtaskDetails\"\xee\x17\n" +
+	"\ftask_details\x18\x03 \x03(\v2:.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetailR\vtaskDetails\"\xfc\x17\n" +
 	"\x12PipelineTaskDetail\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x17\n" +
@@ -2692,15 +2695,16 @@ const file_backend_api_v2beta1_run_proto_rawDesc = "" +
 	"\n" +
 	"\x06FAILED\x10\x04\x12\n" +
 	"\n" +
-	"\x06CACHED\x10\x05\"k\n" +
+	"\x06CACHED\x10\x05\"y\n" +
 	"\bTaskType\x12\b\n" +
 	"\x04ROOT\x10\x00\x12\v\n" +
 	"\aRUNTIME\x10\x01\x12\x14\n" +
 	"\x10CONDITION_BRANCH\x10\x02\x12\r\n" +
 	"\tCONDITION\x10\x03\x12\b\n" +
 	"\x04LOOP\x10\x04\x12\x10\n" +
-	"\fEXIT_HANDLER\x10\x05\x12\a\n" +
-	"\x03DAG\x10\x06B\x11\n" +
+	"\fEXIT_HANDLER\x10\x05\x12\f\n" +
+	"\bIMPORTER\x10\x06\x12\a\n" +
+	"\x03DAG\x10\aB\x11\n" +
 	"\x0f_parent_task_id\"\xd6\x01\n" +
 	"\x1aPipelineTaskExecutorDetail\x12\x19\n" +
 	"\bmain_job\x18\x01 \x01(\tR\amainJob\x121\n" +
