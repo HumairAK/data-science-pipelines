@@ -107,6 +107,11 @@ type ListArtifactTasksParams struct {
 	 - TASK_OUTPUT_INPUT: The name seems convoluted, but this aligns with the
 	sdk naming in TaskInputsSpec.kind.task_output_parameter
 	and TaskInputsSpec.kind.task_output_artifact
+	 - COLLECTED_INPUTS: Used for dsl.Collected
+	Usage of this type indicates that all
+	Artifacts within the IOArtifact.artifacts
+	are inputs collected from sub tasks with
+	ITERATOR_OUTPUT outputs.
 	 - ITERATOR_INPUT: In a for loop task, introduced via ParallelFor, this type
 	is used to indicate whether this resolved input belongs
 	to a parameterIterator or artifactIterator.
@@ -115,11 +120,6 @@ type ListArtifactTasksParams struct {
 	 - ITERATOR_INPUT_RAW: Raw Iterator inputs have no producer
 	 - ITERATOR_OUTPUT: When an output is produced by a Runtime Iteration Task
 	This value is use to differentiate between standard inputs
-	 - COLLECTED_INPUTS: Used for dsl.Collected
-	Usage of this type indicates that all
-	Artifacts with8in the IOArtifact.artifacts
-	are inputs collected from sub tasks with
-	ITERATOR_OUTPUT outputs.
 
 	     Default: "UNSPECIFIED"
 	*/

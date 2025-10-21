@@ -47,6 +47,7 @@ var (
 	publishLogs       = flag.String("publish_logs", "true", "Whether to publish component logs to the object store")
 	cacheDisabledFlag = flag.Bool("cache_disabled", false, "Disable cache globally.")
 	fingerPrint       = flag.String("fingerprint", "", "The fingerprint of the pipeline executor.")
+	iterationIndex    = flag.Int("iteration_index", -1, "iteration index, -1 means not an interation")
 )
 
 func main() {
@@ -138,6 +139,10 @@ func run() error {
 		ComponentSpec:     componentSpec,
 		TaskSpec:          taskSpec,
 		ScopePath:         scopePath,
+	}
+
+	if iterationIndex != nil && *iterationIndex > -1 {
+		launcherV2Opts.IterationIndex = util.Int64Pointer(int64(*iterationIndex))
 	}
 
 	switch *executorType {

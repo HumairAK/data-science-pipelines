@@ -30,6 +30,12 @@ import (
 //
 // sdk naming in TaskInputsSpec.kind.task_output_parameter
 // and TaskInputsSpec.kind.task_output_artifact
+//   - COLLECTED_INPUTS: Used for dsl.Collected
+//
+// Usage of this type indicates that all
+// Artifacts within the IOArtifact.artifacts
+// are inputs collected from sub tasks with
+// ITERATOR_OUTPUT outputs.
 //   - ITERATOR_INPUT: In a for loop task, introduced via ParallelFor, this type
 //
 // is used to indicate whether this resolved input belongs
@@ -40,12 +46,6 @@ import (
 //   - ITERATOR_OUTPUT: When an output is produced by a Runtime Iteration Task
 //
 // This value is use to differentiate between standard inputs
-//   - COLLECTED_INPUTS: Used for dsl.Collected
-//
-// Usage of this type indicates that all
-// Artifacts with8in the IOArtifact.artifacts
-// are inputs collected from sub tasks with
-// ITERATOR_OUTPUT outputs.
 //
 // swagger:model v2beta1IOType
 type V2beta1IOType string
@@ -76,6 +76,9 @@ const (
 	// V2beta1IOTypeRUNTIMEVALUEINPUT captures enum value "RUNTIME_VALUE_INPUT"
 	V2beta1IOTypeRUNTIMEVALUEINPUT V2beta1IOType = "RUNTIME_VALUE_INPUT"
 
+	// V2beta1IOTypeCOLLECTEDINPUTS captures enum value "COLLECTED_INPUTS"
+	V2beta1IOTypeCOLLECTEDINPUTS V2beta1IOType = "COLLECTED_INPUTS"
+
 	// V2beta1IOTypeITERATORINPUT captures enum value "ITERATOR_INPUT"
 	V2beta1IOTypeITERATORINPUT V2beta1IOType = "ITERATOR_INPUT"
 
@@ -84,9 +87,6 @@ const (
 
 	// V2beta1IOTypeITERATOROUTPUT captures enum value "ITERATOR_OUTPUT"
 	V2beta1IOTypeITERATOROUTPUT V2beta1IOType = "ITERATOR_OUTPUT"
-
-	// V2beta1IOTypeCOLLECTEDINPUTS captures enum value "COLLECTED_INPUTS"
-	V2beta1IOTypeCOLLECTEDINPUTS V2beta1IOType = "COLLECTED_INPUTS"
 
 	// V2beta1IOTypeOUTPUT captures enum value "OUTPUT"
 	V2beta1IOTypeOUTPUT V2beta1IOType = "OUTPUT"
@@ -103,7 +103,7 @@ var v2beta1IOTypeEnum []interface{}
 
 func init() {
 	var res []V2beta1IOType
-	if err := json.Unmarshal([]byte(`["UNSPECIFIED","COMPONENT_DEFAULT_INPUT","TASK_OUTPUT_INPUT","COMPONENT_INPUT","RUNTIME_VALUE_INPUT","ITERATOR_INPUT","ITERATOR_INPUT_RAW","ITERATOR_OUTPUT","COLLECTED_INPUTS","OUTPUT","ONE_OF_OUTPUT","TASK_FINAL_STATUS_OUTPUT"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["UNSPECIFIED","COMPONENT_DEFAULT_INPUT","TASK_OUTPUT_INPUT","COMPONENT_INPUT","RUNTIME_VALUE_INPUT","COLLECTED_INPUTS","ITERATOR_INPUT","ITERATOR_INPUT_RAW","ITERATOR_OUTPUT","OUTPUT","ONE_OF_OUTPUT","TASK_FINAL_STATUS_OUTPUT"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {

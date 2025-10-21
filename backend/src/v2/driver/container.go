@@ -252,6 +252,7 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 		strconv.FormatBool(opts.CacheDisabled),
 		taskConfig,
 		fingerPrint,
+		iterationIndex,
 	)
 	if err != nil {
 		return execution, err

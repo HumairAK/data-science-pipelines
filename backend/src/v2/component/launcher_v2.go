@@ -59,6 +59,7 @@ type LauncherV2Options struct {
 	Run               *apiV2beta1.Run
 	ParentTask        *apiV2beta1.PipelineTaskDetail
 	Task              *apiV2beta1.PipelineTaskDetail
+	IterationIndex    *int64
 }
 
 type LauncherV2 struct {
@@ -200,9 +201,10 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		return err
 	}
 	// After successful execution and uploads, record outputs in KFP API
-	// 1) Create artifacts for each output port
-	for portName, al := range l.executorInput.GetOutputs().GetArtifacts() {
-		for _, ra := range al.GetArtifacts() {
+	// Create artifacts for each output port
+	artifactTasks := make([]*apiV2beta1.ArtifactTask, 0, len(l.executorInput.GetOutputs().GetArtifacts()))
+	for artifactKey, artifactSpec := range l.executorInput.GetOutputs().GetArtifacts() {
+		for _, ra := range artifactSpec.GetArtifacts() {
 			u := ra.GetUri()
 			m := map[string]*structpb.Value{}
 			if ra.GetMetadata() != nil {
@@ -213,35 +215,64 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 				Uri:      &u,
 				Metadata: m,
 			}
-			_, cerr := kfpAPIClient.Artifact.CreateArtifact(ctx, &apiV2beta1.CreateArtifactRequest{
+			artifact, cerr := kfpAPIClient.Artifact.CreateArtifact(ctx, &apiV2beta1.CreateArtifactRequest{
 				Artifact: art,
 				RunId:    l.options.Task.GetTaskId(),
 				TaskId:   l.options.Task.GetTaskId(),
 				// TODO(HumairAK): Allow users to specify canonical artifact name via dsl
-				ProducerKey: portName,
+				ProducerKey: artifactKey,
 			})
 			if cerr != nil {
-				return fmt.Errorf("failed to create artifact for port %s: %w", portName, cerr)
+				return fmt.Errorf("failed to create artifact for port %s: %w", artifactKey, cerr)
 			}
+			artifactTask := &apiV2beta1.ArtifactTask{
+				Key:        artifactKey,
+				ArtifactId: artifact.ArtifactId,
+				RunId:      l.options.Run.GetRunId(),
+				TaskId:     l.options.Task.GetTaskId(),
+				Type:       apiV2beta1.IOType_OUTPUT,
+				Producer: &apiV2beta1.IOProducer{
+					TaskName: l.options.TaskSpec.GetTaskInfo().GetName(),
+				},
+			}
+			if l.options.IterationIndex != nil {
+				artifactTask.Producer.Iteration = l.options.IterationIndex
+				artifactTask.Type = apiV2beta1.IOType_ITERATOR_OUTPUT
+			}
+			artifactTasks = append(artifactTasks, artifactTask)
 		}
 	}
-	// 2) Update task outputs for parameters
+	// Create artifact tasks that associate all output artifacts created with this Task
+	_, err = l.clientManager.DriverAPI().CreateArtifactTasks(ctx, &apiV2beta1.CreateArtifactTasksBulkRequest{
+		ArtifactTasks: artifactTasks,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create artifact tasks: %w", err)
+	}
+	// Update task outputs for parameters
 	if executorOutput != nil && len(executorOutput.GetParameterValues()) > 0 {
 		params := make([]*apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter, 0, len(executorOutput.GetParameterValues()))
-		for name, val := range executorOutput.GetParameterValues() {
-			n := name
-			params = append(params, &apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
-				ParameterKey: n,
+		for key, val := range executorOutput.GetParameterValues() {
+			param := &apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+				ParameterKey: key,
+				Type:         apiV2beta1.IOType_OUTPUT,
 				Value:        val,
-			})
+				Producer: &apiV2beta1.IOProducer{
+					TaskName: l.options.TaskSpec.GetTaskInfo().GetName(),
+				}}
+			if l.options.IterationIndex != nil {
+				param.Producer.Iteration = l.options.IterationIndex
+				param.Type = apiV2beta1.IOType_ITERATOR_OUTPUT
+			}
+			params = append(params, param)
 		}
-		_, uerr := kfpAPIClient.Run.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{Task: &apiV2beta1.PipelineTaskDetail{
+		_, updateErr := kfpAPIClient.Run.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{Task: &apiV2beta1.PipelineTaskDetail{
 			TaskId:  l.options.Task.GetTaskId(),
 			RunId:   l.options.Task.GetTaskId(),
 			Outputs: &apiV2beta1.PipelineTaskDetail_InputOutputs{Parameters: params},
 		}})
-		if uerr != nil {
-			return fmt.Errorf("failed to update task outputs: %w", uerr)
+		if updateErr != nil {
+			return fmt.Errorf("failed to update task outputs: %w", updateErr)
 		}
 	}
 	return nil

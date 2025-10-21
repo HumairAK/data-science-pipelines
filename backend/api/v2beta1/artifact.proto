@@ -255,27 +255,26 @@ enum IOType {
   TASK_OUTPUT_INPUT = 2;
   COMPONENT_INPUT = 3;
   RUNTIME_VALUE_INPUT = 4;
+  // Used for dsl.Collected
+  // Usage of this type indicates that all
+  // Artifacts within the IOArtifact.artifacts
+  // are inputs collected from sub tasks with
+  // ITERATOR_OUTPUT outputs.
+  COLLECTED_INPUTS = 5;
   // In a for loop task, introduced via ParallelFor, this type
   // is used to indicate whether this resolved input belongs
   // to a parameterIterator or artifactIterator.
   // In such a case the "artifacts" field for IOArtifact.artifacts
   // is the list of resolved items for this parallelFor.
-  ITERATOR_INPUT = 5;
+  ITERATOR_INPUT = 6;
   // Raw Iterator inputs have no producer
-  ITERATOR_INPUT_RAW = 6;
-
+  ITERATOR_INPUT_RAW = 7;
   // When an output is produced by a Runtime Iteration Task
   // This value is use to differentiate between standard inputs
-  ITERATOR_OUTPUT = 7;
-  // Used for dsl.Collected
-  // Usage of this type indicates that all
-  // Artifacts with8in the IOArtifact.artifacts
-  // are inputs collected from sub tasks with
-  // ITERATOR_OUTPUT outputs.
-  COLLECTED_INPUTS = 8;
-  OUTPUT = 9;
-  ONE_OF_OUTPUT = 10;
-  TASK_FINAL_STATUS_OUTPUT = 11;
+  ITERATOR_OUTPUT = 8;
+  OUTPUT = 10;
+  ONE_OF_OUTPUT = 11;
+  TASK_FINAL_STATUS_OUTPUT = 12;
 }
 
 message IOProducer {

@@ -257,6 +257,16 @@ func (m *MockDriverAPI) ListArtifactTasks(ctx context.Context, req *apiv2beta1.L
 	}, nil
 }
 
+func (m *MockDriverAPI) ListArtifactsByURI(ctx context.Context, uri string, namespace string) ([]*apiv2beta1.Artifact, error) {
+	var artifacts []*apiv2beta1.Artifact
+	for _, artifact := range m.artifacts {
+		if artifact.GetUri() == uri && artifact.GetNamespace() == namespace {
+			artifacts = append(artifacts, artifact)
+		}
+	}
+	return artifacts, nil
+}
+
 func (m *MockDriverAPI) CreateArtifactTask(ctx context.Context, req *apiv2beta1.CreateArtifactTaskRequest) (*apiv2beta1.ArtifactTask, error) {
 	artifactTask := req.ArtifactTask
 	if artifactTask.Id == "" {

@@ -150,6 +150,7 @@ func initPodSpecPatch(
 	cacheDisabled string,
 	taskConfig *TaskConfig,
 	fingerPrint string,
+	iterationIndex *int,
 ) (*k8score.PodSpec, error) {
 	executorInputJSON, err := protojson.Marshal(executorInput)
 	if err != nil {
@@ -201,6 +202,9 @@ func initPodSpecPatch(
 	}
 	if publishLogs == "true" {
 		launcherCmd = append(launcherCmd, "--publish_logs", publishLogs)
+	}
+	if iterationIndex != nil {
+		launcherCmd = append(launcherCmd, "--iteration_index", fmt.Sprintf("%v", *iterationIndex))
 	}
 	launcherCmd = append(launcherCmd, "--") // separate before user command and args
 	res := k8score.ResourceRequirements{
