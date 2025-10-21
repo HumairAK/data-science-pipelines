@@ -2,62 +2,25 @@ package component
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"net/url"
+	"path"
 	"strings"
 
-	pb "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	apiV2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
-	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
-
-	delete "github.com/kubeflow/pipelines/third_party/ml-metadata/go/ml_metadata"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/golang/glog"
-	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
-	delete_also "github.com/kubeflow/pipelines/backend/src/v2/metadata"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
-type ImporterLauncherOptions struct {
-	// required, pipeline context name
-	PipelineName string
-	// required, KFP run ID
-	RunID string
-	// required, parent DAG execution ID
-	ParentDagID int64
-}
-
-func (o *ImporterLauncherOptions) validate() error {
-	if o == nil {
-		return fmt.Errorf("empty importer launcher options")
-	}
-	if o.PipelineName == "" {
-		return fmt.Errorf("importer launcher options: pipeline name is empty")
-	}
-	if o.RunID == "" {
-		return fmt.Errorf("importer launcher options: Run ID is empty")
-	}
-	if o.ParentDagID == 0 {
-		return fmt.Errorf("importer launcher options: Parent DAG ID is not provided")
-	}
-	return nil
-}
-
 type ImportLauncher struct {
-	component               *pipelinespec.ComponentSpec
-	importer                *pipelinespec.PipelineDeploymentConfig_ImporterSpec
-	task                    *pipelinespec.PipelineTaskSpec
-	launcherV2Options       LauncherV2Options
-	importerLauncherOptions ImporterLauncherOptions
-	clientManager           client_manager.ClientManagerInterface
+	opts          LauncherV2Options
+	clientManager client_manager.ClientManagerInterface
 }
 
 func NewImporterLauncher(
-	componentSpecJSON,
-	importerSpecJSON,
-	taskSpecJSON string,
 	launcherV2Opts *LauncherV2Options,
-	importerLauncherOpts *ImporterLauncherOptions,
 	clientManager client_manager.ClientManagerInterface,
 ) (l *ImportLauncher, err error) {
 	defer func() {
@@ -65,36 +28,13 @@ func NewImporterLauncher(
 			err = fmt.Errorf("failed to create importer launcher: %w", err)
 		}
 	}()
-	component := &pipelinespec.ComponentSpec{}
-	err = protojson.Unmarshal([]byte(componentSpecJSON), component)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal component spec: %w", err)
-	}
-	importer := &pipelinespec.PipelineDeploymentConfig_ImporterSpec{}
-	err = protojson.Unmarshal([]byte(importerSpecJSON), importer)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal importer spec: %w", err)
-	}
-	task := &pipelinespec.PipelineTaskSpec{}
-	err = protojson.Unmarshal([]byte(taskSpecJSON), task)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal task spec: %w", err)
-	}
 	err = launcherV2Opts.validate()
 	if err != nil {
 		return nil, err
 	}
-	err = importerLauncherOpts.validate()
-	if err != nil {
-		return nil, err
-	}
 	return &ImportLauncher{
-		component:               component,
-		importer:                importer,
-		task:                    task,
-		launcherV2Options:       *launcherV2Opts,
-		importerLauncherOptions: *importerLauncherOpts,
-		clientManager:           clientManager,
+		opts:          *launcherV2Opts,
+		clientManager: clientManager,
 	}, nil
 }
 
@@ -104,63 +44,83 @@ func (l *ImportLauncher) Execute(ctx context.Context) (err error) {
 			err = fmt.Errorf("failed to execute importer component: %w", err)
 		}
 	}()
-
-	pipeline, err := l.metadataClient.GetPipeline(ctx, l.importerLauncherOptions.PipelineName, l.importerLauncherOptions.RunID, "", "", "", "")
-	if err != nil {
-		return err
-	}
-	ecfg := &metadata.ExecutionConfig{
-		TaskName:      l.task.GetTaskInfo().GetName(),
-		PodName:       l.launcherV2Options.PodName,
-		PodUID:        l.launcherV2Options.PodUID,
-		Namespace:     l.launcherV2Options.Namespace,
-		ExecutionType: metadata.ImporterExecutionTypeName,
-		ParentDagID:   l.importerLauncherOptions.ParentDagID,
-	}
-	createdExecution, err := l.metadataClient.CreateExecution(ctx, pipeline, ecfg)
-
 	driverAPI := l.clientManager.DriverAPI()
-	createdTask, err := driverAPI.CreateTask(ctx, &pb.CreateTaskRequest{
-		Task: &pb.PipelineTaskDetail{},
+	parentTaskID := l.opts.ParentTask.GetTaskId()
+	createdTask, err := driverAPI.CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
+		Task: &apiV2beta1.PipelineTaskDetail{
+			Name:         l.opts.TaskSpec.GetTaskInfo().GetName(),
+			DisplayName:  l.opts.TaskSpec.GetTaskInfo().GetName(),
+			RunId:        l.opts.Run.RunId,
+			ParentTaskId: &parentTaskID,
+			Type:         apiV2beta1.PipelineTaskDetail_IMPORTER,
+			Status:       apiV2beta1.PipelineTaskDetail_RUNNING,
+			ScopePath:    l.opts.ScopePath.StringPath(),
+			StartTime:    timestamppb.Now(),
+			CreateTime:   timestamppb.Now(),
+			Pods: []*apiV2beta1.PipelineTaskDetail_TaskPod{
+				{
+					Name: l.opts.PodName,
+					Uid:  l.opts.PodUID,
+					Type: apiV2beta1.PipelineTaskDetail_EXECUTOR,
+				},
+			},
+		},
 	})
 	if err != nil {
-		return execution, err
+		return err
+	}
+	if createdTask == nil {
+		return fmt.Errorf("failed to create task for importer execution")
+	}
+	l.opts.Task = createdTask
+
+	artifact, err := l.findOrNewArtifactToImport(ctx)
+	if err != nil {
+		return err
+	}
+	artifactOutputKey, err := l.getArtifactOutputKey()
+	if err != nil {
+		return err
 	}
 
-	if err != nil {
-		return err
+	if createdTask.Outputs == nil {
+		createdTask.Outputs = &apiV2beta1.PipelineTaskDetail_InputOutputs{
+			Artifacts: make([]*apiV2beta1.PipelineTaskDetail_InputOutputs_IOArtifact, 0),
+		}
+	} else if createdTask.Outputs.Artifacts == nil {
+		createdTask.Outputs.Artifacts = make([]*apiV2beta1.PipelineTaskDetail_InputOutputs_IOArtifact, 0)
 	}
-	artifact, err := l.findOrNewArtifactToImport(ctx, createdExecution)
-	if err != nil {
-		return err
-	}
-	outputArtifactName, err := l.getOutPutArtifactName()
-	if err != nil {
-		return err
-	}
-	outputArtifact := &metadata.OutputArtifact{
-		Name:     outputArtifactName,
-		Artifact: artifact,
-		Schema:   l.component.OutputDefinitions.Artifacts[outputArtifactName].GetArtifactType().GetInstanceSchema(),
-	}
-	outputArtifacts := []*metadata.OutputArtifact{outputArtifact}
-	if err := l.metadataClient.PublishExecution(ctx, createdExecution, nil, outputArtifacts, pb.Execution_COMPLETE); err != nil {
-		return fmt.Errorf("failed to publish results of importer execution to ML Metadata: %w", err)
-	}
-
+	createdTask.Outputs.Artifacts = append(createdTask.Outputs.Artifacts, &apiV2beta1.PipelineTaskDetail_InputOutputs_IOArtifact{
+		Artifacts:   []*apiV2beta1.Artifact{artifact},
+		Type:        apiV2beta1.IOType_OUTPUT,
+		ArtifactKey: artifactOutputKey,
+		Producer: &apiV2beta1.IOProducer{
+			TaskName: l.opts.TaskSpec.GetTaskInfo().GetName(),
+		},
+	})
+	createdTask.Status = apiV2beta1.PipelineTaskDetail_SUCCEEDED
+	createdTask.EndTime = timestamppb.Now()
+	_, err = driverAPI.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+		TaskId: createdTask.TaskId,
+		Task:   createdTask,
+	})
 	return nil
 }
 
-func (l *ImportLauncher) findOrNewArtifactToImport(ctx context.Context, execution *metadata.Execution) (artifact *pb.Artifact, err error) {
-	// TODO consider moving logic to package metadata so that *pb.Artifact won't get exposed outside of package metadata
-	artifactToImport, err := l.ImportSpecToMLMDArtifact(ctx)
+// findOrNewArtifactToImport will find an artifact to import.
+// If Re-Import on the importer spec is true then a new artifact is returned for creation.
+// If Re-Import is False, then we search for a matching artifact, if:
+//   - A match is found, then we return the match
+//   - No match is found, then a new artifact is returned for creation.
+func (l *ImportLauncher) findOrNewArtifactToImport(ctx context.Context) (artifact *apiV2beta1.Artifact, err error) {
+	artifactToImport, err := l.ImportSpecToArtifact()
 	if err != nil {
 		return nil, err
 	}
-	if l.importer.Reimport {
+	if l.opts.ImporterSpec.Reimport {
 		return artifactToImport, nil
 	}
-	matchedArtifact, err := l.metadataClient.FindMatchedArtifact(ctx, artifactToImport, execution.GetPipeline().GetCtxID())
+	matchedArtifact, err := l.findMatchedArtifact(ctx, artifactToImport)
 	if err != nil {
 		return nil, err
 	}
@@ -170,55 +130,122 @@ func (l *ImportLauncher) findOrNewArtifactToImport(ctx context.Context, executio
 	return artifactToImport, nil
 }
 
-func (l *ImportLauncher) ImportSpecToMLMDArtifact(ctx context.Context) (artifact *pb.Artifact, err error) {
+func (l *ImportLauncher) findMatchedArtifact(ctx context.Context, artifactToMatch *apiV2beta1.Artifact) (matchedArtifact *apiV2beta1.Artifact, err error) {
+	artifacts, err := l.clientManager.DriverAPI().ListArtifactsByURI(ctx, artifactToMatch.GetUri(), l.opts.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	for _, artifact := range artifacts {
+		if artifact.GetUri() == artifactToMatch.GetUri() {
+			return artifact, nil
+		}
+	}
+	for _, candidateArtifact := range artifacts {
+		if artifactsAreEqual(artifactToMatch, candidateArtifact) {
+			return candidateArtifact, nil
+		}
+	}
+	// No match found
+	return nil, nil
+}
+
+func artifactsAreEqual(artifact1, artifact2 *apiV2beta1.Artifact) bool {
+	if artifact1.GetType() != artifact2.GetType() {
+		return false
+	}
+	if artifact1.GetUri() != artifact2.GetUri() {
+		return false
+	}
+	if artifact1.GetName() != artifact2.GetName() {
+		return false
+	}
+	if artifact1.GetDescription() != artifact2.GetDescription() {
+		return false
+	}
+	// Compare metadata fields
+	metadata1 := artifact1.GetMetadata()
+	metadata2 := artifact2.GetMetadata()
+	if len(metadata1) != len(metadata2) {
+		return false
+	}
+	for k, v1 := range metadata1 {
+		if v2, exists := metadata2[k]; !exists || v1 != v2 {
+			return false
+		}
+	}
+	return true
+}
+
+func artifactTypeSchemaToArtifactType(typeSchema string) (apiV2beta1.Artifact_ArtifactType, error) {
+	switch typeSchema {
+	case "system.Artifact":
+		return apiV2beta1.Artifact_Artifact, nil
+	case "system.Dataset":
+		return apiV2beta1.Artifact_Dataset, nil
+	case "system.Model":
+		return apiV2beta1.Artifact_Model, nil
+	case "system.Metrics":
+		return apiV2beta1.Artifact_Metric, nil
+	case "system.ClassificationMetrics":
+		return apiV2beta1.Artifact_ClassificationMetric, nil
+	case "system.SlicedClassificationMetrics":
+		return apiV2beta1.Artifact_SlicedClassificationMetric, nil
+	case "system.HTML":
+		return apiV2beta1.Artifact_HTML, nil
+	case "system.Markdown":
+		return apiV2beta1.Artifact_Markdown, nil
+	default:
+		return apiV2beta1.Artifact_TYPE_UNSPECIFIED, fmt.Errorf("unknown artifact type: %s", typeSchema)
+	}
+}
+
+func (l *ImportLauncher) ImportSpecToArtifact() (artifact *apiV2beta1.Artifact, err error) {
 	defer func() {
 		if err != nil {
-			err = fmt.Errorf("failed to create MLMD artifact from ImporterSpec: %w", err)
+			err = fmt.Errorf("failed to create Artifact from ImporterSpec: %w", err)
 		}
 	}()
 
-	schema, err := getArtifactSchema(l.importer.TypeSchema)
+	importerSpec := l.opts.ImporterSpec
+	schemaType, err := getArtifactSchemaType(importerSpec.TypeSchema)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get schema from importer spec: %w", err)
+		return nil, fmt.Errorf("failed to get schemaType from importer spec: %w", err)
 	}
-	artifactTypeId, err := l.metadataClient.GetOrInsertArtifactType(ctx, schema)
+	artifactType, err := artifactTypeSchemaToArtifactType(schemaType)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get or insert artifact type with schema %s: %w", schema, err)
+		return nil, fmt.Errorf("invalid artifact type: %v", artifactType)
 	}
 
 	// Resolve artifact URI. Can be one of two sources:
 	// 1) Constant
 	// 2) Runtime Parameter
+	// TODO(Humair): The logic here is very similar to how InputParameters are resolved in the driver's resolver package.
+	// We should consolidate this logic.
 	var artifactUri string
-	if l.importer.GetArtifactUri().GetConstant() != nil {
-		glog.Infof("Artifact URI as constant: %+v", l.importer.GetArtifactUri().GetConstant())
-		artifactUri = l.importer.GetArtifactUri().GetConstant().GetStringValue()
+	if importerSpec.GetArtifactUri().GetConstant() != nil {
+		glog.Infof("Artifact URI as constant: %+v", importerSpec.GetArtifactUri().GetConstant())
+		artifactUri = importerSpec.GetArtifactUri().GetConstant().GetStringValue()
 		if artifactUri == "" {
 			return nil, fmt.Errorf("empty Artifact URI constant value")
 		}
-	} else if l.importer.GetArtifactUri().GetRuntimeParameter() != "" {
-		// When URI is provided using Runtime Parameter, need to retrieve it from dag execution in MLMD
-		paramName := l.importer.GetArtifactUri().GetRuntimeParameter()
-		taskInput, ok := l.task.GetInputs().GetParameters()[paramName]
+	} else if importerSpec.GetArtifactUri().GetRuntimeParameter() != "" {
+		paramName := importerSpec.GetArtifactUri().GetRuntimeParameter()
+		taskInput, ok := l.opts.TaskSpec.GetInputs().GetParameters()[paramName]
 		if !ok {
 			return nil, fmt.Errorf("cannot find parameter %s in task input to fetch artifact uri", paramName)
 		}
 		componentInput := taskInput.GetComponentInputParameter()
-		dag, err := l.metadataClient.GetDAG(ctx, l.importerLauncherOptions.ParentDagID)
-		if err != nil {
-			return nil, fmt.Errorf("error retrieving dag execution for parameter %s: %w", paramName, err)
+		var ioParam *apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter
+		for _, inputParam := range l.opts.ParentTask.GetInputs().GetParameters() {
+			if inputParam.ParameterKey == componentInput {
+				ioParam = inputParam
+				break
+			}
 		}
-		glog.Infof("parent DAG: %+v", dag.Execution)
-		inputParams, _, err := dag.Execution.GetParameters()
-		if err != nil {
-			return nil, fmt.Errorf("error retrieving input parameters from dag execution for parameter %s: %w", paramName, err)
+		if ioParam == nil {
+			return nil, fmt.Errorf("cannot find parameter %s in parent task input to fetch artifact uri", componentInput)
 		}
-		v, ok := inputParams[componentInput]
-		if !ok {
-			return nil, fmt.Errorf("error resolving artifact URI: parent DAG does not have input parameter %s", componentInput)
-		}
-		artifactUri = v.GetStringValue()
-		glog.Infof("Artifact URI from runtime parameter: %s", artifactUri)
+		artifactUri = ioParam.GetValue().GetStringValue()
 		if artifactUri == "" {
 			return nil, fmt.Errorf("empty artifact URI runtime value for parameter %s", paramName)
 		}
@@ -226,67 +253,55 @@ func (l *ImportLauncher) ImportSpecToMLMDArtifact(ctx context.Context) (artifact
 		return nil, fmt.Errorf("artifact uri not provided")
 	}
 
-	state := pb.Artifact_LIVE
-
-	artifact = &pb.Artifact{
-		TypeId:           &artifactTypeId,
-		State:            &state,
-		Uri:              &artifactUri,
-		Properties:       make(map[string]*pb.Value),
-		CustomProperties: make(map[string]*pb.Value),
+	// TODO(HumairAK): Allow user to specify a canonical artifact Name & Description when importing
+	// For now we infer the name from the URI object name.
+	artifactName, err := inferArtifactName(artifactUri)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract filename from artifact uri: %w", err)
 	}
-	if l.importer.Metadata != nil {
-		for k, v := range l.importer.Metadata.Fields {
-			value, err := metadata.StructValueToMLMDValue(v)
-			if err != nil {
-				return nil, fmt.Errorf("failed to convert structValue : %w", err)
-			}
-			artifact.CustomProperties[k] = value
-		}
+	artifact = &apiV2beta1.Artifact{
+		Type:        artifactType,
+		Uri:         &artifactUri,
+		Name:        artifactName,
+		Description: "",
 	}
-
+	if importerSpec.Metadata != nil {
+		artifact.Metadata = importerSpec.Metadata.GetFields()
+	}
 	if strings.HasPrefix(artifactUri, "oci://") {
-		artifactType, err := metadata.SchemaToArtifactType(schema)
-		if err != nil {
-			return nil, fmt.Errorf("converting schema to artifact type failed: %w", err)
+		if artifactType != apiV2beta1.Artifact_Model {
+			return nil, fmt.Errorf("the %s artifact type does not support OCI registries", apiV2beta1.Artifact_Model)
 		}
-
-		if *artifactType.Name != "system.Model" {
-			return nil, fmt.Errorf("the %s artifact type does not support OCI registries", *artifactType.Name)
-		}
-
 		return artifact, nil
 	}
-
-	provider, err := objectstore.ParseProviderFromPath(artifactUri)
-	if err != nil {
-		return nil, fmt.Errorf("no provider scheme found in artifact URI: %s", artifactUri)
-	}
-
-	// Assume all imported artifacts will rely on execution environment for store provider session info
-	storeSessionInfo := objectstore.SessionInfo{
-		Provider: provider,
-		Params: map[string]string{
-			"fromEnv": "true",
-		},
-	}
-	storeSessionInfoJSON, err := json.Marshal(storeSessionInfo)
-	if err != nil {
-		return nil, err
-	}
-	storeSessionInfoStr := string(storeSessionInfoJSON)
-	artifact.CustomProperties["store_session_info"] = metadata.StringValue(storeSessionInfoStr)
 	return artifact, nil
 }
 
-func (l *ImportLauncher) getOutPutArtifactName() (string, error) {
-	outPutNames := make([]string, 0, len(l.component.GetOutputDefinitions().GetArtifacts()))
-	for name := range l.component.GetOutputDefinitions().GetArtifacts() {
-		outPutNames = append(outPutNames, name)
+func (l *ImportLauncher) getArtifactOutputKey() (string, error) {
+	outputNames := make([]string, 0, len(l.opts.ComponentSpec.GetOutputDefinitions().GetArtifacts()))
+	for name := range l.opts.ComponentSpec.GetOutputDefinitions().GetArtifacts() {
+		outputNames = append(outputNames, name)
 	}
-	if len(outPutNames) != 1 {
+	if len(outputNames) != 1 {
 		return "", fmt.Errorf("failed to extract output artifact name from componentOutputSpec")
 	}
-	return outPutNames[0], nil
+	return outputNames[0], nil
+}
 
+func inferArtifactName(uri string) (string, error) {
+	parsed, err := url.Parse(uri)
+	if err != nil {
+		return "", fmt.Errorf("invalid URI: %w", err)
+	}
+	// For cases like "s3://bucket/path/to/file.txt"
+	if parsed.Scheme != "" && parsed.Host != "" {
+		return path.Base(parsed.Path), nil
+	}
+	// For "https://minio.local/bucket/path/to/file.txt"
+	if parsed.Scheme != "" && parsed.Host == "" {
+		return path.Base(parsed.Path), nil
+	}
+	// For URLs without a scheme, e.g. "bucket/path/to/file.txt"
+	cleaned := strings.TrimSuffix(uri, "/")
+	return path.Base(cleaned), nil
 }

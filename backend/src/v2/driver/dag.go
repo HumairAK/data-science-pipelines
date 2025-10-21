@@ -12,6 +12,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/resolver"
 	"github.com/kubeflow/pipelines/backend/src/v2/expression"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // DAG mirrors DAG but uses KFP RunService/ArtifactService instead of MLMD.
@@ -81,9 +82,12 @@ func DAG(ctx context.Context, opts common.Options, driverAPI common.DriverAPI) (
 		DisplayName: opts.Task.GetTaskInfo().GetName(),
 		RunId:       opts.Run.GetRunId(),
 		// Default to DAG
-		Type:      gc.PipelineTaskDetail_DAG,
-		Status:    gc.PipelineTaskDetail_RUNNING,
-		ScopePath: opts.ScopePath.StringPath(),
+		Type:       gc.PipelineTaskDetail_DAG,
+		Status:     gc.PipelineTaskDetail_RUNNING,
+		ScopePath:  opts.ScopePath.StringPath(),
+		StartTime:  timestamppb.Now(),
+		CreateTime: timestamppb.Now(),
+		EndTime:    timestamppb.Now(),
 		Pods: []*gc.PipelineTaskDetail_TaskPod{
 			{
 				Name: opts.PodName,

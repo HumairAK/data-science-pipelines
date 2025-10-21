@@ -21,9 +21,13 @@ import (
 	"fmt"
 
 	"github.com/golang/glog"
+	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
+	"github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/component"
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 var (
@@ -31,7 +35,7 @@ var (
 	pipelineName      = flag.String("pipeline_name", "", "pipeline context name")
 	runID             = flag.String("run_id", "", "pipeline run uid")
 	taskID            = flag.String("task_id", "", "pipeline task id (PipelineTaskDetail.task_id)")
-	parentDagID       = flag.Int64("parent_dag_id", 0, "parent DAG execution ID")
+	parentTaskID      = flag.String("parent_task_id", "", "Parent PipelineTask ID")
 	executorType      = flag.String("executor_type", "container", "The type of the ExecutorSpec")
 	executorInputJSON = flag.String("executor_input", "", "The JSON-encoded ExecutorInput.")
 	componentSpecJSON = flag.String("component_spec", "", "The JSON-encoded ComponentSpec.")
@@ -72,39 +76,83 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	launcherV2Opts := &component.LauncherV2Options{
-		Namespace:         namespace,
-		PodName:           *podName,
-		PodUID:            *podUID,
-		PipelineName:      *pipelineName,
-		RunID:             *runID,
-		TaskID:            *taskID,
-		PublishLogs:       *publishLogs,
-		CacheDisabled:     *cacheDisabledFlag,
-		CachedFingerprint: *fingerPrint,
+
+	componentSpec := &pipelinespec.ComponentSpec{}
+	err = protojson.Unmarshal([]byte(*componentSpecJSON), componentSpec)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal component spec: %w", err)
+	}
+	taskSpec := &pipelinespec.PipelineTaskSpec{}
+	err = protojson.Unmarshal([]byte(*taskSpecJSON), taskSpec)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal task spec: %w", err)
 	}
 
+	// Create client manager
 	clientOptions := &client_manager.Options{
-		CacheDisabled: launcherV2Opts.CacheDisabled,
+		CacheDisabled: *cacheDisabledFlag,
 	}
 	clientManager, err := client_manager.NewClientManager(clientOptions)
 	if err != nil {
 		return err
 	}
 
+	// Fetch Run
+	driverAPI := clientManager.DriverAPI()
+	pipelineRun, err := driverAPI.GetRun(ctx, &go_client.GetRunRequest{RunId: *runID})
+	if err != nil {
+		return err
+	}
+
+	// Fetch Parent Task
+	parentTask, err := driverAPI.GetTask(ctx, &go_client.GetTaskRequest{TaskId: *parentTaskID})
+	if err != nil {
+		return err
+	}
+
+	// Build scope path
+	pipelineSpecStruct, err := driverAPI.FetchPipelineSpecFromRun(ctx, pipelineRun.GetPipelineSpec(), pipelineRun)
+	if err != nil {
+		return err
+	}
+	var scopePath util.ScopePath
+	scopePath, err = util.ScopePathFromStringPath(
+		pipelineSpecStruct,
+		parentTask.GetScopePath(),
+		taskSpec.GetTaskInfo().GetName(),
+	)
+	if err != nil {
+		return err
+	}
+
+	launcherV2Opts := &component.LauncherV2Options{
+		Namespace:         namespace,
+		PodName:           *podName,
+		PodUID:            *podUID,
+		PipelineName:      *pipelineName,
+		Run:               pipelineRun,
+		ParentTask:        parentTask,
+		PublishLogs:       *publishLogs,
+		CacheDisabled:     *cacheDisabledFlag,
+		CachedFingerprint: *fingerPrint,
+		ComponentSpec:     componentSpec,
+		TaskSpec:          taskSpec,
+		ScopePath:         scopePath,
+	}
+
 	switch *executorType {
 	case "importer":
-		importerLauncherOpts := &component.ImporterLauncherOptions{
-			PipelineName: *pipelineName,
-			RunID:        *runID,
-			ParentDagID:  *parentDagID,
+		if importerSpecJSON == nil || *importerSpecJSON == "" {
+			return fmt.Errorf("importer spec is nil or empty")
 		}
+		importerSpec := &pipelinespec.PipelineDeploymentConfig_ImporterSpec{}
+		err = protojson.Unmarshal([]byte(*importerSpecJSON), importerSpec)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal importer spec: %w", err)
+		}
+		launcherV2Opts.ImporterSpec = importerSpec
 		importerLauncher, err := component.NewImporterLauncher(
-			*componentSpecJSON,
-			*importerSpecJSON,
-			*taskSpecJSON,
 			launcherV2Opts,
-			importerLauncherOpts,
 			clientManager,
 		)
 		if err != nil {
@@ -115,9 +163,18 @@ func run() error {
 		}
 		return nil
 	case "container":
+		// Container task should have a pre-existing task created by the Driver
+		if taskID != nil && *taskID != "" {
+			task, err := driverAPI.GetTask(ctx, &go_client.GetTaskRequest{TaskId: *taskID})
+			if err != nil {
+				return err
+			}
+			launcherV2Opts.Task = task
+		} else {
+			return fmt.Errorf("task id is nil or empty")
+		}
 		launcher, err := component.NewLauncherV2(
 			*executorInputJSON,
-			*componentSpecJSON,
 			flag.Args(),
 			launcherV2Opts,
 			clientManager,

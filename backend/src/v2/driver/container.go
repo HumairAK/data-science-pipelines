@@ -16,6 +16,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/expression"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -119,6 +120,9 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 		Status:       apiV2beta1.PipelineTaskDetail_RUNNING,
 		ParentTaskId: util.StringPointer(opts.ParentTask.TaskId),
 		ScopePath:    opts.ScopePath.StringPath(),
+		StartTime:    timestamppb.Now(),
+		CreateTime:   timestamppb.Now(),
+		EndTime:      timestamppb.Now(),
 		Pods: []*apiV2beta1.PipelineTaskDetail_TaskPod{
 			{
 				Name: opts.PodName,

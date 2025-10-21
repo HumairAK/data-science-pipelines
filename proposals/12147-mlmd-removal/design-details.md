@@ -243,6 +243,23 @@ This is a good opportunity to also replace the endpoints used in `cacheDefaultEn
 
 Other changes that will be required in Launcher are mentioned elsewhere in the proposal (see [Caching](#caching), and [Metrics](#metrics) sections).
 
+** Importer ** 
+
+Consider the following example:
+* An artifact is imported via the dsl 
+* ReImport is set to false
+
+Then previously the launcher would search for a matching artifact, and artifact would match if: 
+
+* All the artifact's fields (except the artifact ID) are equal
+* The artifact is attributed to the same PipelineContext that the launcher is running in
+
+Once MLMD is removed and Artifacts hold a namespace property, instead of filtering on the context, the 
+Artifact will match if: 
+
+* All the artifact's fields (except the artifact ID) are equal
+* The artifact is in the same namespace as the launcher is running in
+
 ### Nested Pipelines
 
 There is no direct way to infer whether a Driver run is for a Nested execution, to accommodate this, there is a generic `DAG` task type provided to fit such cases.

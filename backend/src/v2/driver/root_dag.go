@@ -8,6 +8,7 @@ import (
 	"github.com/golang/glog"
 	apiV2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // RootDAG handles initial root dag task creation
@@ -54,6 +55,9 @@ func RootDAG(ctx context.Context, opts common.Options, api common.DriverAPI) (ex
 		TypeAttributes: &apiV2beta1.PipelineTaskDetail_TypeAttributes{},
 		Status:         apiV2beta1.PipelineTaskDetail_SUCCEEDED,
 		ScopePath:      opts.ScopePath.StringPath(),
+		StartTime:      timestamppb.Now(),
+		CreateTime:     timestamppb.Now(),
+		EndTime:        timestamppb.Now(),
 		Pods: []*apiV2beta1.PipelineTaskDetail_TaskPod{
 			{
 				Name: opts.PodName,

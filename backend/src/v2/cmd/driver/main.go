@@ -364,7 +364,7 @@ func buildScopePath(
 	parentTask *go_client.PipelineTaskDetail,
 	taskName string,
 	driverAPI common.DriverAPI) (*util.ScopePath, error) {
-	pipelineSpecStruct, err := fetchPipelineSpec(run.GetPipelineSpec(), run, driverAPI, ctx)
+	pipelineSpecStruct, err := driverAPI.FetchPipelineSpecFromRun(ctx, run.GetPipelineSpec(), run)
 	if err != nil {
 		return nil, err
 	}

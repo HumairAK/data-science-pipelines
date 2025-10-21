@@ -77,10 +77,6 @@ func (c *workflowCompiler) addImporterTemplate() string {
 		fmt.Sprintf("$(%s)", component.EnvPodName),
 		"--pod_uid",
 		fmt.Sprintf("$(%s)", component.EnvPodUID),
-		"--mlmd_server_address",
-		fmt.Sprintf("$(%s)", component.EnvMetadataHost),
-		"--mlmd_server_port",
-		fmt.Sprintf("$(%s)", component.EnvMetadataPort),
 	}
 	if c.cacheDisabled {
 		args = append(args, "--cache_disabled")

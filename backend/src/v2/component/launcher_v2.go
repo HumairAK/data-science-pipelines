@@ -29,11 +29,12 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
-	gc "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	apiV2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient"
 	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
@@ -44,22 +45,25 @@ import (
 )
 
 type LauncherV2Options struct {
-	Namespace,
-	PodName,
-	PodUID,
-	PipelineName,
-	RunID string
-	// TaskID of the current PipelineTaskDetail for recording outputs via KFP API.
-	TaskID            string
+	Namespace    string
+	PodName      string
+	PodUID       string
+	PipelineName string
+
 	PublishLogs       string
 	CacheDisabled     bool
 	CachedFingerprint string
+	ComponentSpec     *pipelinespec.ComponentSpec
+	ImporterSpec      *pipelinespec.PipelineDeploymentConfig_ImporterSpec
+	TaskSpec          *pipelinespec.PipelineTaskSpec
+	ScopePath         util.ScopePath
+	Run               *apiV2beta1.Run
+	ParentTask        *apiV2beta1.PipelineTaskDetail
+	Task              *apiV2beta1.PipelineTaskDetail
 }
 
 type LauncherV2 struct {
-	executionID   int64
 	executorInput *pipelinespec.ExecutorInput
-	component     *pipelinespec.ComponentSpec
 	command       string
 	args          []string
 	options       LauncherV2Options
@@ -68,8 +72,7 @@ type LauncherV2 struct {
 
 // NewLauncherV2 is a factory function that returns an instance of LauncherV2.
 func NewLauncherV2(
-	executorInputJSON,
-	componentSpecJSON string,
+	executorInputJSON string,
 	cmdArgs []string,
 	opts *LauncherV2Options,
 	clientManager client_manager.ClientManagerInterface,
@@ -79,18 +82,11 @@ func NewLauncherV2(
 			err = fmt.Errorf("failed to create component launcher v2: %w", err)
 		}
 	}()
-	if executionID == 0 {
-		return nil, fmt.Errorf("must specify execution ID")
-	}
+
 	executorInput := &pipelinespec.ExecutorInput{}
 	err = protojson.Unmarshal([]byte(executorInputJSON), executorInput)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal executor input: %w", err)
-	}
-	component := &pipelinespec.ComponentSpec{}
-	err = protojson.Unmarshal([]byte(componentSpecJSON), component)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal component spec: %w\ncomponentSpec: %v", err, prettyPrint(componentSpecJSON))
 	}
 	if len(cmdArgs) == 0 {
 		return nil, fmt.Errorf("command and arguments are empty")
@@ -100,9 +96,7 @@ func NewLauncherV2(
 		return nil, err
 	}
 	return &LauncherV2{
-		executionID:   executionID,
 		executorInput: executorInput,
-		component:     component,
 		command:       cmdArgs[0],
 		args:          cmdArgs[1:],
 		options:       *opts,
@@ -194,7 +188,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	executorOutput, err = executeV2(
 		ctx,
 		l.executorInput,
-		l.component,
+		l.options.ComponentSpec,
 		l.command,
 		l.args,
 		bucket,
@@ -215,14 +209,14 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 			if ra.GetMetadata() != nil {
 				m = ra.GetMetadata().GetFields()
 			}
-			art := &gc.Artifact{
+			art := &apiV2beta1.Artifact{
 				Name:     ra.GetName(),
 				Uri:      &u,
 				Metadata: m,
 			}
-			_, cerr := kfpAPIClient.Artifact.CreateArtifact(ctx, &gc.CreateArtifactRequest{
+			_, cerr := kfpAPIClient.Artifact.CreateArtifact(ctx, &apiV2beta1.CreateArtifactRequest{
 				Artifact:    art,
-				RunId:       l.options.RunID,
+				RunId:       l.options.Run.GetRunId(),
 				TaskId:      l.options.TaskID,
 				ProducerKey: portName,
 			})
@@ -233,18 +227,18 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	}
 	// 2) Update task outputs for parameters
 	if executorOutput != nil && len(executorOutput.GetParameterValues()) > 0 {
-		params := make([]*gc.PipelineTaskDetail_InputOutputs_IOParameter, 0, len(executorOutput.GetParameterValues()))
+		params := make([]*apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter, 0, len(executorOutput.GetParameterValues()))
 		for name, val := range executorOutput.GetParameterValues() {
 			n := name
-			params = append(params, &gc.PipelineTaskDetail_InputOutputs_IOParameter{
+			params = append(params, &apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 				ParameterKey: n,
 				Value:        val,
 			})
 		}
-		_, uerr := kfpAPIClient.Run.UpdateTask(ctx, &gc.UpdateTaskRequest{Task: &gc.PipelineTaskDetail{
+		_, uerr := kfpAPIClient.Run.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{Task: &apiV2beta1.PipelineTaskDetail{
 			TaskId:  l.options.TaskID,
 			RunId:   l.options.RunID,
-			Outputs: &gc.PipelineTaskDetail_InputOutputs{Parameters: params},
+			Outputs: &apiV2beta1.PipelineTaskDetail_InputOutputs{Parameters: params},
 		}})
 		if uerr != nil {
 			return fmt.Errorf("failed to update task outputs: %w", uerr)
@@ -267,7 +261,6 @@ func (l *LauncherV2) Info() string {
 func (o *LauncherV2Options) validate() error {
 	empty := func(s string) bool { return len(s) == 0 }
 	err := func(s string) error { return fmt.Errorf("invalid launcher options: must specify %s", s) }
-
 	if empty(o.Namespace) {
 		return err("Namespace")
 	}
@@ -277,14 +270,17 @@ func (o *LauncherV2Options) validate() error {
 	if empty(o.PodUID) {
 		return err("PodUID")
 	}
-	if empty(o.MLMDServerAddress) {
-		return err("MLMDServerAddress")
-	}
-	if empty(o.MLMDServerPort) {
-		return err("MLMDServerPort")
-	}
 	if empty(o.TaskID) {
 		return err("TaskID")
+	}
+	if o.PipelineName == "" {
+		return err("PipelineName")
+	}
+	if o.RunID == "" {
+		return err("RunID")
+	}
+	if o.ParentTaskID == "0" {
+		return err("ParentTaskID")
 	}
 	return nil
 }
@@ -762,12 +758,12 @@ func getPlaceholders(executorInput *pipelinespec.ExecutorInput) (placeholders ma
 	return placeholders, nil
 }
 
-func getArtifactSchema(schema *pipelinespec.ArtifactTypeSchema) (string, error) {
+func getArtifactSchemaType(schema *pipelinespec.ArtifactTypeSchema) (string, error) {
 	switch t := schema.Kind.(type) {
 	case *pipelinespec.ArtifactTypeSchema_InstanceSchema:
 		return t.InstanceSchema, nil
 	case *pipelinespec.ArtifactTypeSchema_SchemaTitle:
-		return "title: " + t.SchemaTitle, nil
+		return t.SchemaTitle, nil
 	case *pipelinespec.ArtifactTypeSchema_SchemaUri:
 		return "", fmt.Errorf("SchemaUri is unsupported")
 	default:
