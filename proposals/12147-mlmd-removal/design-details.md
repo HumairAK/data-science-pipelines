@@ -243,8 +243,9 @@ This is a good opportunity to also replace the endpoints used in `cacheDefaultEn
 
 Other changes that will be required in Launcher are mentioned elsewhere in the proposal (see [Caching](#caching), and [Metrics](#metrics) sections).
 
-** Importer ** 
+#### Importer
 
+##### Matching artifacts
 Consider the following example:
 * An artifact is imported via the dsl 
 * ReImport is set to false
@@ -259,6 +260,14 @@ Artifact will match if:
 
 * All the artifact's fields (except the artifact ID) are equal
 * The artifact is in the same namespace as the launcher is running in
+
+##### Artifact names 
+
+Artifacts will be provided a new name as part of the artifact model. This will serve as the artifact's canonical name. 
+In the future the user will be able to specify the artifact name in the pipeline definition via the KFP sdk. 
+
+For now the artifact name is inferred via the output artifact names when it is uploaded. 
+When the artifact is imported, we infer the name using the base file name of the artifact URI.
 
 ### Nested Pipelines
 

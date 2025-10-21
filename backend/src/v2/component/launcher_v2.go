@@ -36,7 +36,7 @@ import (
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	apiV2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
+	delete "github.com/kubeflow/pipelines/backend/src/v2/metadata"
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 	"gocloud.dev/blob"
 	"google.golang.org/protobuf/encoding/protojson"
