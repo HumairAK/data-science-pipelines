@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -29,17 +28,17 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/kubeflow/pipelines/backend/src/common/util"
-	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	apiV2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient"
+	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 	"gocloud.dev/blob"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -185,70 +184,15 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		return err
 	}
 	var executorOutput *pipelinespec.ExecutorOutput
-	executorOutput, err = executeV2(
+	executorOutput, err = l.executeV2(
 		ctx,
-		l.executorInput,
-		l.options.ComponentSpec,
-		l.command,
-		l.args,
 		bucket,
 		bucketConfig,
-		l.options.Namespace,
-		l.clientManager.K8sClient(),
-		l.options.PublishLogs,
 	)
 	if err != nil {
 		return err
 	}
-	// After successful execution and uploads, record outputs in KFP API
-	// Create artifacts for each output port
-	artifactTasks := make([]*apiV2beta1.ArtifactTask, 0, len(l.executorInput.GetOutputs().GetArtifacts()))
-	for artifactKey, artifactSpec := range l.executorInput.GetOutputs().GetArtifacts() {
-		for _, ra := range artifactSpec.GetArtifacts() {
-			u := ra.GetUri()
-			m := map[string]*structpb.Value{}
-			if ra.GetMetadata() != nil {
-				m = ra.GetMetadata().GetFields()
-			}
-			art := &apiV2beta1.Artifact{
-				Name:     ra.GetName(),
-				Uri:      &u,
-				Metadata: m,
-			}
-			artifact, cerr := kfpAPIClient.Artifact.CreateArtifact(ctx, &apiV2beta1.CreateArtifactRequest{
-				Artifact: art,
-				RunId:    l.options.Task.GetTaskId(),
-				TaskId:   l.options.Task.GetTaskId(),
-				// TODO(HumairAK): Allow users to specify canonical artifact name via dsl
-				ProducerKey: artifactKey,
-			})
-			if cerr != nil {
-				return fmt.Errorf("failed to create artifact for port %s: %w", artifactKey, cerr)
-			}
-			artifactTask := &apiV2beta1.ArtifactTask{
-				Key:        artifactKey,
-				ArtifactId: artifact.ArtifactId,
-				RunId:      l.options.Run.GetRunId(),
-				TaskId:     l.options.Task.GetTaskId(),
-				Type:       apiV2beta1.IOType_OUTPUT,
-				Producer: &apiV2beta1.IOProducer{
-					TaskName: l.options.TaskSpec.GetTaskInfo().GetName(),
-				},
-			}
-			if l.options.IterationIndex != nil {
-				artifactTask.Producer.Iteration = l.options.IterationIndex
-				artifactTask.Type = apiV2beta1.IOType_ITERATOR_OUTPUT
-			}
-			artifactTasks = append(artifactTasks, artifactTask)
-		}
-	}
-	// Create artifact tasks that associate all output artifacts created with this Task
-	_, err = l.clientManager.DriverAPI().CreateArtifactTasks(ctx, &apiV2beta1.CreateArtifactTasksBulkRequest{
-		ArtifactTasks: artifactTasks,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create artifact tasks: %w", err)
-	}
+
 	// Update task outputs for parameters
 	if executorOutput != nil && len(executorOutput.GetParameterValues()) > 0 {
 		params := make([]*apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter, 0, len(executorOutput.GetParameterValues()))
@@ -309,59 +253,47 @@ func (o *LauncherV2Options) validate() error {
 
 // executeV2 handles placeholder substitution for inputs, calls execute to
 // execute end user logic, and uploads the resulting output Artifacts.
-func executeV2(
+func (l *LauncherV2) executeV2(
 	ctx context.Context,
-	executorInput *pipelinespec.ExecutorInput,
-	component *pipelinespec.ComponentSpec,
-	cmd string,
-	args []string,
 	bucket *blob.Bucket,
 	bucketConfig *objectstore.Config,
-	namespace string,
-	k8sClient kubernetes.Interface,
-	publishLogs string,
 ) (*pipelinespec.ExecutorOutput, error) {
 
 	// Add parameter default values to executorInput, if there is not already a user input.
 	// This process is done in the launcher because we let the component resolve default values internally.
 	// Variable executorInputWithDefault is a copy so we don't alter the original data.
-	executorInputWithDefault, err := addDefaultParams(executorInput, component)
+	executorInputWithDefault, err := addDefaultParams(l.executorInput, l.options.ComponentSpec)
 	if err != nil {
 		return nil, err
 	}
 
 	// Fill in placeholders with runtime values.
-	compiledCmd, compiledArgs, err := compileCmdAndArgs(executorInputWithDefault, cmd, args)
+	compiledCmd, compiledArgs, err := compileCmdAndArgs(executorInputWithDefault, l.command, l.args)
 	if err != nil {
 		return nil, err
 	}
 
-	executorOutput, err := execute(
+	executorOutput, err := l.execute(
 		ctx,
-		executorInput,
 		compiledCmd,
 		compiledArgs,
 		bucket,
 		bucketConfig,
-		namespace,
-		k8sClient,
-		publishLogs,
 	)
 	if err != nil {
 		return nil, err
 	}
+
 	// These are not added in execute(), because execute() is shared between v2 compatible and v2 engine launcher.
 	// In v2 compatible mode, we get output parameter info from runtimeInfo. In v2 engine, we get it from component spec.
 	// Because of the difference, we cannot put parameter collection logic in one method.
-	err = collectOutputParameters(executorInput, executorOutput, component)
+	err = l.collectOutputParameters(executorOutput)
 	if err != nil {
 		return nil, err
 	}
+
 	// Upload artifacts from local disk to remote store.
-	err = uploadOutputArtifacts(ctx, executorInput, executorOutput, uploadOutputArtifactsOptions{
-		bucketConfig: bucketConfig,
-		bucket:       bucket,
-	})
+	err = l.uploadOutputArtifacts(ctx, executorOutput, bucketConfig, bucket)
 	if err != nil {
 		return nil, err
 	}
@@ -370,12 +302,12 @@ func executeV2(
 
 // collectOutputParameters collect output parameters from local disk and add them
 // to executor output.
-func collectOutputParameters(executorInput *pipelinespec.ExecutorInput, executorOutput *pipelinespec.ExecutorOutput, component *pipelinespec.ComponentSpec) error {
+func (l *LauncherV2) collectOutputParameters(executorOutput *pipelinespec.ExecutorOutput) error {
 	if executorOutput.ParameterValues == nil {
 		executorOutput.ParameterValues = make(map[string]*structpb.Value)
 	}
 	outputParameters := executorOutput.GetParameterValues()
-	for name, param := range executorInput.GetOutputs().GetParameters() {
+	for name, param := range l.executorInput.GetOutputs().GetParameters() {
 		_, ok := outputParameters[name]
 		if ok {
 			// If the output parameter was already specified in output metadata file,
@@ -383,7 +315,7 @@ func collectOutputParameters(executorInput *pipelinespec.ExecutorInput, executor
 			// the highest priority.
 			continue
 		}
-		paramSpec, ok := component.GetOutputDefinitions().GetParameters()[name]
+		paramSpec, ok := l.options.ComponentSpec.GetOutputDefinitions().GetParameters()[name]
 		if !ok {
 			return fmt.Errorf("failed to find output parameter name=%q in component spec", name)
 		}
@@ -446,28 +378,25 @@ func getLogWriter(artifacts map[string]*pipelinespec.ArtifactList) (writer io.Wr
 
 // execute downloads input artifacts, prepares the execution environment,
 // executes the end user code, and returns the outputs.
-func execute(
+func (l *LauncherV2) execute(
 	ctx context.Context,
-	executorInput *pipelinespec.ExecutorInput,
 	cmd string,
 	args []string,
 	bucket *blob.Bucket,
 	bucketConfig *objectstore.Config,
-	namespace string,
-	k8sClient kubernetes.Interface,
-	publishLogs string,
 ) (*pipelinespec.ExecutorOutput, error) {
-	if err := downloadArtifacts(ctx, executorInput, bucket, bucketConfig, namespace, k8sClient); err != nil {
+	if err := downloadArtifacts(ctx, l.executorInput, bucket,
+		bucketConfig, l.options.Namespace, l.clientManager.K8sClient()); err != nil {
 		return nil, err
 	}
 
-	if err := prepareOutputFolders(executorInput); err != nil {
+	if err := prepareOutputFolders(l.executorInput); err != nil {
 		return nil, err
 	}
 
 	var writer io.Writer
-	if publishLogs == "true" {
-		writer = getLogWriter(executorInput.Outputs.GetArtifacts())
+	if l.options.PublishLogs == "true" {
+		writer = getLogWriter(l.executorInput.Outputs.GetArtifacts())
 	} else {
 		writer = os.Stdout
 	}
@@ -485,42 +414,114 @@ func execute(
 		return nil, err
 	}
 
-	return getExecutorOutputFile(executorInput.GetOutputs().GetOutputFile())
+	return getExecutorOutputFile(l.executorInput.GetOutputs().GetOutputFile())
 }
 
-type uploadOutputArtifactsOptions struct {
-	bucketConfig *objectstore.Config
-	bucket       *blob.Bucket
-}
-
-func uploadOutputArtifacts(ctx context.Context, executorInput *pipelinespec.ExecutorInput, executorOutput *pipelinespec.ExecutorOutput, opts uploadOutputArtifactsOptions) error {
-	for name, artifactList := range executorInput.GetOutputs().GetArtifacts() {
-		if len(artifactList.Artifacts) == 0 {
-			continue
-		}
+// uploadOutputArtifacts iterates over all the Artifacts retrieved from the
+// executor output and uploads them to the object store and registers them
+// with the KFP API.
+func (l *LauncherV2) uploadOutputArtifacts(
+	ctx context.Context,
+	executorOutput *pipelinespec.ExecutorOutput,
+	bucketConfig *objectstore.Config,
+	bucket *blob.Bucket,
+) error {
+	// After successful execution and uploads, record outputs in KFP API
+	// Create artifactsMap for each output port
+	artifactsMap := map[string][]*apiV2beta1.Artifact{}
+	for artifactKey, artifactList := range l.executorInput.GetOutputs().GetArtifacts() {
+		artifactsMap[artifactKey] = []*apiV2beta1.Artifact{}
 		for _, outputArtifact := range artifactList.Artifacts {
 			glog.Infof("outputArtifact in uploadOutputArtifacts call: %s", outputArtifact.Name)
 			// Merge executor output artifact info with executor input
-			if list, ok := executorOutput.Artifacts[name]; ok && len(list.Artifacts) > 0 {
+			if list, ok := executorOutput.Artifacts[artifactKey]; ok && len(list.Artifacts) > 0 {
 				mergeRuntimeArtifacts(list.Artifacts[0], outputArtifact)
 			}
-			// Upload artifacts from local path to remote storages.
+			// Upload artifactsMap from local path to remote storages.
 			localDir, err := LocalPathForURI(outputArtifact.Uri)
 			if err != nil {
-				glog.Warningf("Output Artifact %q does not have a recognized storage URI %q. Skipping uploading to remote storage.", name, outputArtifact.Uri)
-			} else if !strings.HasPrefix(outputArtifact.Uri, "oci://") {
-				blobKey, err := opts.bucketConfig.KeyFromURI(outputArtifact.Uri)
-				if err != nil {
-					return fmt.Errorf("failed to upload output artifact %q: %w", name, err)
-				}
-				if err := objectstore.UploadBlob(ctx, opts.bucket, localDir, blobKey); err != nil {
-					// We allow components to not produce output files
-					if errors.Is(err, os.ErrNotExist) {
-						glog.Warningf("Local filepath %q does not exist", localDir)
-					} else {
-						return fmt.Errorf("failed to upload output artifact %q to remote storage URI %q: %w", name, outputArtifact.Uri, err)
+				glog.Warningf("Output Artifact %q does not have a recognized storage URI %q. Skipping uploading to remote storage.",
+					artifactKey, outputArtifact.Uri)
+			}
+
+			// OCI artifactsMap are accessed via shared storage of a Modelcar
+			if strings.HasPrefix(outputArtifact.Uri, "oci://") {
+				continue
+			}
+
+			artifactType, err := inferArtifactType(outputArtifact.GetType())
+			if err != nil {
+				return fmt.Errorf("failed to infer artifact type for port %s: %w", artifactKey, err)
+			}
+
+			if artifactType == apiV2beta1.Artifact_Metric {
+				// Each key/value pair in `metadata` equates to an Artifact
+				for key, value := range outputArtifact.GetMetadata().GetFields() {
+					numVal, ok := value.Kind.(*structpb.Value_NumberValue)
+					if !ok {
+						return fmt.Errorf("metric value %q must be a number, got %T", key, value.Kind)
 					}
+					artifact := &apiV2beta1.Artifact{
+						Name:        key,
+						Description: "",
+						Type:        artifactType,
+						Metadata:    outputArtifact.GetMetadata().GetFields(),
+						NumberValue: &numVal.NumberValue,
+						CreatedAt:   timestamppb.Now(),
+						Namespace:   l.options.Namespace,
+					}
+					artifactsMap[artifactKey] = append(artifactsMap[artifactKey], artifact)
 				}
+			} else {
+				artifact := &apiV2beta1.Artifact{
+					Name:        outputArtifact.GetName(),
+					Description: "",
+					Type:        artifactType,
+					Metadata:    outputArtifact.GetMetadata().GetFields(),
+					CreatedAt:   timestamppb.Now(),
+				}
+
+				// In the Classification metric case, the metric data is stored in metadata and
+				// not object store
+				isNotAMetric := apiV2beta1.Artifact_ClassificationMetric != artifactType &&
+					apiV2beta1.Artifact_SlicedClassificationMetric != artifactType
+
+				// If the artifact is not a metric, upload it to the object store and store the URI in the artifact
+				if isNotAMetric {
+					blobKey, configErr := bucketConfig.KeyFromURI(outputArtifact.Uri)
+					if configErr != nil {
+						return fmt.Errorf("failed to convert artifact uri to blobkey %q: %w", artifactKey, configErr)
+					}
+					uploadErr := objectstore.UploadBlob(ctx, bucket, localDir, blobKey)
+					if uploadErr != nil {
+						return fmt.Errorf("failed to upload output artifact %q: %w", artifactKey, uploadErr)
+					}
+					artifact.Uri = util.StringPointer(outputArtifact.Uri)
+				}
+
+				artifactsMap[artifactKey] = []*apiV2beta1.Artifact{artifact}
+			}
+		}
+	}
+
+	// Register the Artifacts with the KFP database
+	//  TODO(HumairAK): This should be done in a single API call.
+	for artifactKey, artifacts := range artifactsMap {
+		for _, artifact := range artifacts {
+			request := &apiV2beta1.CreateArtifactRequest{
+				RunId:       l.options.Run.GetRunId(),
+				TaskId:      l.options.Task.GetTaskId(),
+				ProducerKey: artifactKey,
+				Artifact:    artifact,
+				Type:        apiV2beta1.IOType_OUTPUT,
+			}
+			if l.options.IterationIndex != nil {
+				request.IterationIndex = l.options.IterationIndex
+				request.Type = apiV2beta1.IOType_ITERATOR_OUTPUT
+			}
+			_, err := l.clientManager.DriverAPI().CreateArtifact(ctx, request)
+			if err != nil {
+				return fmt.Errorf("failed to create artifact: %w", err)
 			}
 		}
 	}

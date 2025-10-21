@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
+	apiV2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -93,4 +94,40 @@ func textToPbValue(text string, t pipelinespec.ParameterType_ParameterTypeEnum) 
 	default:
 		return nil, msg(fmt.Errorf("unknown type. Expected STRING, NUMBER_INTEGER, NUMBER_DOUBLE, BOOLEAN, LIST or STRUCT"))
 	}
+}
+
+var artifactTypeSchemaToArtifactTypeMap = map[string]apiV2beta1.Artifact_ArtifactType{
+	"system.Artifact":                    apiV2beta1.Artifact_Artifact,
+	"system.Dataset":                     apiV2beta1.Artifact_Dataset,
+	"system.Model":                       apiV2beta1.Artifact_Model,
+	"system.Metrics":                     apiV2beta1.Artifact_Metric,
+	"system.ClassificationMetrics":       apiV2beta1.Artifact_ClassificationMetric,
+	"system.SlicedClassificationMetrics": apiV2beta1.Artifact_SlicedClassificationMetric,
+	"system.HTML":                        apiV2beta1.Artifact_HTML,
+	"system.Markdown":                    apiV2beta1.Artifact_Markdown,
+}
+
+var artifactTypeToArtifactTypeSchemaMap = map[apiV2beta1.Artifact_ArtifactType]string{
+	apiV2beta1.Artifact_Artifact:                   "system.Artifact",
+	apiV2beta1.Artifact_Dataset:                    "system.Dataset",
+	apiV2beta1.Artifact_Model:                      "system.Model",
+	apiV2beta1.Artifact_Metric:                     "system.Metrics",
+	apiV2beta1.Artifact_ClassificationMetric:       "system.ClassificationMetrics",
+	apiV2beta1.Artifact_SlicedClassificationMetric: "system.SlicedClassificationMetrics",
+	apiV2beta1.Artifact_HTML:                       "system.HTML",
+	apiV2beta1.Artifact_Markdown:                   "system.Markdown",
+}
+
+func artifactTypeSchemaToArtifactType(typeSchema string) (apiV2beta1.Artifact_ArtifactType, error) {
+	if artifactType, ok := artifactTypeSchemaToArtifactTypeMap[typeSchema]; ok {
+		return artifactType, nil
+	}
+	return apiV2beta1.Artifact_TYPE_UNSPECIFIED, fmt.Errorf("unknown artifact type: %s", typeSchema)
+}
+
+func artifactTypeToArtifactTypeSchema(artifactType apiV2beta1.Artifact_ArtifactType) (string, error) {
+	if typeSchema, ok := artifactTypeToArtifactTypeSchemaMap[artifactType]; ok {
+		return typeSchema, nil
+	}
+	return "", fmt.Errorf("unknown artifact type: %v", artifactType)
 }

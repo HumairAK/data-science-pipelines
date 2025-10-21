@@ -7,6 +7,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	apiV2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -176,29 +177,6 @@ func artifactsAreEqual(artifact1, artifact2 *apiV2beta1.Artifact) bool {
 	return true
 }
 
-func artifactTypeSchemaToArtifactType(typeSchema string) (apiV2beta1.Artifact_ArtifactType, error) {
-	switch typeSchema {
-	case "system.Artifact":
-		return apiV2beta1.Artifact_Artifact, nil
-	case "system.Dataset":
-		return apiV2beta1.Artifact_Dataset, nil
-	case "system.Model":
-		return apiV2beta1.Artifact_Model, nil
-	case "system.Metrics":
-		return apiV2beta1.Artifact_Metric, nil
-	case "system.ClassificationMetrics":
-		return apiV2beta1.Artifact_ClassificationMetric, nil
-	case "system.SlicedClassificationMetrics":
-		return apiV2beta1.Artifact_SlicedClassificationMetric, nil
-	case "system.HTML":
-		return apiV2beta1.Artifact_HTML, nil
-	case "system.Markdown":
-		return apiV2beta1.Artifact_Markdown, nil
-	default:
-		return apiV2beta1.Artifact_TYPE_UNSPECIFIED, fmt.Errorf("unknown artifact type: %s", typeSchema)
-	}
-}
-
 func (l *ImportLauncher) ImportSpecToArtifact() (artifact *apiV2beta1.Artifact, err error) {
 	defer func() {
 		if err != nil {
@@ -207,15 +185,10 @@ func (l *ImportLauncher) ImportSpecToArtifact() (artifact *apiV2beta1.Artifact, 
 	}()
 
 	importerSpec := l.opts.ImporterSpec
-	schemaType, err := getArtifactSchemaType(importerSpec.TypeSchema)
+	artifactType, err := inferArtifactType(importerSpec.GetTypeSchema())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get schemaType from importer spec: %w", err)
 	}
-	artifactType, err := artifactTypeSchemaToArtifactType(schemaType)
-	if err != nil {
-		return nil, fmt.Errorf("invalid artifact type: %v", artifactType)
-	}
-
 	// Resolve artifact URI. Can be one of two sources:
 	// 1) Constant
 	// 2) Runtime Parameter
@@ -286,6 +259,14 @@ func (l *ImportLauncher) getArtifactOutputKey() (string, error) {
 		return "", fmt.Errorf("failed to extract output artifact name from componentOutputSpec")
 	}
 	return outputNames[0], nil
+}
+
+func inferArtifactType(typeSchema *pipelinespec.ArtifactTypeSchema) (apiV2beta1.Artifact_ArtifactType, error) {
+	schemaType, err := getArtifactSchemaType(typeSchema)
+	if err != nil {
+		return apiV2beta1.Artifact_TYPE_UNSPECIFIED, fmt.Errorf("failed to get schemaType from importer spec: %w", err)
+	}
+	return artifactTypeSchemaToArtifactType(schemaType)
 }
 
 func inferArtifactName(uri string) (string, error) {
