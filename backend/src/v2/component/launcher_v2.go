@@ -36,7 +36,6 @@ import (
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	apiV2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient"
-	delete "github.com/kubeflow/pipelines/backend/src/v2/metadata"
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 	"gocloud.dev/blob"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -142,7 +141,7 @@ func stopWaitingArtifacts(artifacts map[string]*pipelinespec.ArtifactList) {
 	}
 }
 
-// Execute calls executeV2, updates the cache, and publishes the results to MLMD.
+// Execute calls executeV2, updates the cache, and creates artifacts for outputs.
 func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	defer func() {
 		if err != nil {
@@ -215,9 +214,10 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 				Metadata: m,
 			}
 			_, cerr := kfpAPIClient.Artifact.CreateArtifact(ctx, &apiV2beta1.CreateArtifactRequest{
-				Artifact:    art,
-				RunId:       l.options.Run.GetRunId(),
-				TaskId:      l.options.TaskID,
+				Artifact: art,
+				RunId:    l.options.Task.GetTaskId(),
+				TaskId:   l.options.Task.GetTaskId(),
+				// TODO(HumairAK): Allow users to specify canonical artifact name via dsl
 				ProducerKey: portName,
 			})
 			if cerr != nil {
@@ -236,8 +236,8 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 			})
 		}
 		_, uerr := kfpAPIClient.Run.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{Task: &apiV2beta1.PipelineTaskDetail{
-			TaskId:  l.options.TaskID,
-			RunId:   l.options.RunID,
+			TaskId:  l.options.Task.GetTaskId(),
+			RunId:   l.options.Task.GetTaskId(),
 			Outputs: &apiV2beta1.PipelineTaskDetail_InputOutputs{Parameters: params},
 		}})
 		if uerr != nil {
@@ -270,17 +270,8 @@ func (o *LauncherV2Options) validate() error {
 	if empty(o.PodUID) {
 		return err("PodUID")
 	}
-	if empty(o.TaskID) {
-		return err("TaskID")
-	}
 	if o.PipelineName == "" {
 		return err("PipelineName")
-	}
-	if o.RunID == "" {
-		return err("RunID")
-	}
-	if o.ParentTaskID == "0" {
-		return err("ParentTaskID")
 	}
 	return nil
 }
@@ -372,7 +363,7 @@ func collectOutputParameters(executorInput *pipelinespec.ExecutorInput, executor
 		if err != nil {
 			return msg(err)
 		}
-		value, err := metadata.TextToPbValue(string(b), paramSpec.GetParameterType())
+		value, err := textToPbValue(string(b), paramSpec.GetParameterType())
 		if err != nil {
 			return msg(err)
 		}
