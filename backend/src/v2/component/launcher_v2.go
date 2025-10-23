@@ -141,6 +141,17 @@ func stopWaitingArtifacts(artifacts map[string]*pipelinespec.ArtifactList) {
 	}
 }
 
+func updateStatuses() error {
+	// traverse up the dag until we find a parent task that still has other children with "RUNNING" status
+	// for each parent task, examine all it's other children tasks, if:
+	//   * they are all in SUCCEEDED, SKIPPED, or CACHED state then the parent task should be updated to be "SUCCEEDED"
+	//   * if all the child tasks were CACHED, then the parent task should be updated to be "CACHED"
+	// 	 * if any of the child tasks were FAILED, then the parent task should be updated to be "FAILED"
+	//   * if all of the child tasks were SKIPPED, then the parent task should be updated to be "SKIPPED"
+
+	return nil
+}
+
 // Execute calls executeV2, updates the cache, and creates artifacts for outputs.
 func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	defer func() {
@@ -621,7 +632,6 @@ func downloadArtifacts(ctx context.Context, executorInput *pipelinespec.Executor
 				return copyErr(err)
 			}
 		}
-
 	}
 	return nil
 }
