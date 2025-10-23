@@ -141,7 +141,7 @@ func stopWaitingArtifacts(artifacts map[string]*pipelinespec.ArtifactList) {
 	}
 }
 
-func updateStatuses() error {
+func updateStatuses(pipelineTask *apiV2beta1.PipelineTaskDetail) error {
 	// traverse up the dag until we find a parent task that still has other children with "RUNNING" status
 	// for each parent task, examine all it's other children tasks, if:
 	//   * they are all in SUCCEEDED, SKIPPED, or CACHED state then the parent task should be updated to be "SUCCEEDED"
@@ -229,6 +229,11 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		if updateErr != nil {
 			return fmt.Errorf("failed to update task outputs: %w", updateErr)
 		}
+	}
+
+	err = updateStatuses(l.options.Task)
+	if err != nil {
+		return fmt.Errorf("failed to update statuses: %w", err)
 	}
 	return nil
 }
