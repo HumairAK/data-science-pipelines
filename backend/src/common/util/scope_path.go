@@ -125,9 +125,23 @@ func (s *ScopePath) StringPath() []string {
 	return path
 }
 
-// ScopePathFromStringPath builds a ScopePath from a string path and push's the newTask to the end of the path.
-func ScopePathFromStringPath(spec *structpb.Struct, path []string, newTask string) (ScopePath, error) {
-	scopePath, err := NewScopePathFromStruct(spec)
+// ScopePathFromStringPathWithNewTask ScopePathFromStringPath builds a ScopePath from a string path and push's the newTask to the end of the path.
+func ScopePathFromStringPathWithNewTask(rawPipelineSpec *structpb.Struct, path []string, newTask string) (ScopePath, error) {
+	scopePath, err := ScopePathFromStringPath(rawPipelineSpec, path)
+	if err != nil {
+		return ScopePath{}, fmt.Errorf("failed to build scope path: %w", err)
+	}
+	// Update scope path to current context
+	err = scopePath.Push(newTask)
+	if err != nil {
+		return ScopePath{}, err
+	}
+	return scopePath, nil
+}
+
+// ScopePathFromStringPath builds a ScopePath from a string path.
+func ScopePathFromStringPath(rawPipelineSpec *structpb.Struct, path []string) (ScopePath, error) {
+	scopePath, err := NewScopePathFromStruct(rawPipelineSpec)
 	if err != nil {
 		return ScopePath{}, fmt.Errorf("failed to build scope path: %w", err)
 	}
@@ -135,11 +149,6 @@ func ScopePathFromStringPath(spec *structpb.Struct, path []string, newTask strin
 		if err := scopePath.Push(taskName); err != nil {
 			return ScopePath{}, fmt.Errorf("failed to build scope path at task %q: %w", taskName, err)
 		}
-	}
-	// Update scope path to current context
-	err = scopePath.Push(newTask)
-	if err != nil {
-		return ScopePath{}, err
 	}
 	return scopePath, nil
 }

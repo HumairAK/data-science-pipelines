@@ -382,7 +382,7 @@ func buildScopePath(
 			return nil, err
 		}
 	} else {
-		scopePath, err = util.ScopePathFromStringPath(
+		scopePath, err = util.ScopePathFromStringPathWithNewTask(
 			pipelineSpecStruct,
 			parentTask.GetScopePath(),
 			taskName,

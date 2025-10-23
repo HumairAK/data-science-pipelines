@@ -97,12 +97,12 @@ func TestBuildFromStringPath(t *testing.T) {
 
 	// Test successful path construction
 	path := []string{"root", "secondary-pipeline"}
-	scopePath, err := ScopePathFromStringPath(&st, path, "for-loop-2")
+	scopePath, err := ScopePathFromStringPathWithNewTask(&st, path, "for-loop-2")
 	require.NoError(t, err)
 	require.Equal(t, []string{"root", "secondary-pipeline", "for-loop-2"}, scopePath.StringPath())
 
 	// Test invalid path
 	invalidPath := []string{"root", "non-existent-task"}
-	_, err = ScopePathFromStringPath(&st, invalidPath, "")
+	_, err = ScopePathFromStringPathWithNewTask(&st, invalidPath, "")
 	require.Error(t, err)
 }
