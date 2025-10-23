@@ -33,13 +33,13 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
+	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 	"gocloud.dev/blob"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"k8s.io/client-go/kubernetes"
 )
 
 type LauncherV2Options struct {
@@ -67,6 +67,10 @@ type LauncherV2 struct {
 	args          []string
 	options       LauncherV2Options
 	clientManager client_manager.ClientManagerInterface
+	// Maintaining a cache of opened buckets will minimize
+	// the number of calls to the object store, and api server
+	openedBucketCache map[string]*blob.Bucket
+	launcherConfig    *config.Config
 }
 
 // NewLauncherV2 is a factory function that returns an instance of LauncherV2.
@@ -204,6 +208,7 @@ func updateStatuses(ctx context.Context, kfpAPIClient *apiclient.Client, run *ap
 				childCount++
 			}
 		}
+
 		// If not all children created yet, exit traversal
 		if childCount != expectedTotalChildTasks {
 			return nil
@@ -303,6 +308,20 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 
 	defer stopWaitingArtifacts(l.executorInput.GetInputs().GetArtifacts())
 
+	// Close any open buckets in the cache
+	defer func() {
+		for _, bucket := range l.openedBucketCache {
+			_ = bucket.Close()
+		}
+	}()
+
+	// Fetch Launcher config, this will be required for object store initialization
+	launcherConfig, err := config.FetchLauncherConfig(ctx, l.clientManager.K8sClient(), l.options.Namespace)
+	if err != nil {
+		return fmt.Errorf("failed to get launcher configmap: %w", err)
+	}
+	l.launcherConfig = launcherConfig
+
 	// Initialize connection to new KFP v2beta1 API server (Tasks/Artifacts)
 	apiCfg := apiclient.FromEnv()
 	kfpAPIClient, apiErr := apiclient.New(apiCfg)
@@ -313,34 +332,11 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		glog.Infof("Initialized KFP API client at %s", kfpAPIClient.Endpoint)
 	}
 
-	// Prepare object store session based on pipeline root from placeholders in executor input
-	// For V2, we derive bucket config from any output artifact URI in executor input.
-	var bucketConfig *objectstore.Config
-	for _, al := range l.executorInput.GetOutputs().GetArtifacts() {
-		if len(al.Artifacts) > 0 {
-			cfg, cfgErr := objectstore.ParseBucketConfigForArtifactURI(al.Artifacts[0].GetUri())
-			if cfgErr == nil {
-				bucketConfig = cfg
-				break
-			}
-		}
-	}
-	if bucketConfig == nil {
-		return fmt.Errorf("failed to derive bucket config from outputs; at least one output artifact with uri is required")
-	}
-	bucket, err := objectstore.OpenBucket(ctx, l.clientManager.K8sClient(), l.options.Namespace, bucketConfig)
-	if err != nil {
-		return err
-	}
 	if err = prepareOutputFolders(l.executorInput); err != nil {
 		return err
 	}
 	var executorOutput *pipelinespec.ExecutorOutput
-	executorOutput, err = l.executeV2(
-		ctx,
-		bucket,
-		bucketConfig,
-	)
+	executorOutput, err = l.executeV2(ctx)
 	if err != nil {
 		return err
 	}
@@ -430,12 +426,7 @@ func (o *LauncherV2Options) validate() error {
 
 // executeV2 handles placeholder substitution for inputs, calls execute to
 // execute end user logic, and uploads the resulting output Artifacts.
-func (l *LauncherV2) executeV2(
-	ctx context.Context,
-	bucket *blob.Bucket,
-	bucketConfig *objectstore.Config,
-) (*pipelinespec.ExecutorOutput, error) {
-
+func (l *LauncherV2) executeV2(ctx context.Context) (*pipelinespec.ExecutorOutput, error) {
 	// Add parameter default values to executorInput, if there is not already a user input.
 	// This process is done in the launcher because we let the component resolve default values internally.
 	// Variable executorInputWithDefault is a copy so we don't alter the original data.
@@ -450,13 +441,7 @@ func (l *LauncherV2) executeV2(
 		return nil, err
 	}
 
-	executorOutput, err := l.execute(
-		ctx,
-		compiledCmd,
-		compiledArgs,
-		bucket,
-		bucketConfig,
-	)
+	executorOutput, err := l.execute(ctx, compiledCmd, compiledArgs)
 	if err != nil {
 		return nil, err
 	}
@@ -470,7 +455,7 @@ func (l *LauncherV2) executeV2(
 	}
 
 	// Upload artifacts from local disk to remote store.
-	err = l.uploadOutputArtifacts(ctx, executorOutput, bucketConfig, bucket)
+	err = l.uploadOutputArtifacts(ctx, executorOutput)
 	if err != nil {
 		return nil, err
 	}
@@ -559,11 +544,8 @@ func (l *LauncherV2) execute(
 	ctx context.Context,
 	cmd string,
 	args []string,
-	bucket *blob.Bucket,
-	bucketConfig *objectstore.Config,
 ) (*pipelinespec.ExecutorOutput, error) {
-	if err := downloadArtifacts(ctx, l.executorInput, bucket,
-		bucketConfig, l.options.Namespace, l.clientManager.K8sClient()); err != nil {
+	if err := l.downloadArtifacts(ctx); err != nil {
 		return nil, err
 	}
 
@@ -600,9 +582,15 @@ func (l *LauncherV2) execute(
 func (l *LauncherV2) uploadOutputArtifacts(
 	ctx context.Context,
 	executorOutput *pipelinespec.ExecutorOutput,
-	bucketConfig *objectstore.Config,
-	bucket *blob.Bucket,
 ) error {
+	// Manage an opened bucket cache to minimize pool
+	var openedBucketCache = map[string]*blob.Bucket{}
+	defer func() {
+		for _, bucket := range openedBucketCache {
+			_ = bucket.Close()
+		}
+	}()
+
 	// After successful execution and uploads, record outputs in KFP API
 	// Create artifactsMap for each output port
 	artifactsMap := map[string][]*apiV2beta1.Artifact{}
@@ -614,13 +602,6 @@ func (l *LauncherV2) uploadOutputArtifacts(
 			if list, ok := executorOutput.Artifacts[artifactKey]; ok && len(list.Artifacts) > 0 {
 				mergeRuntimeArtifacts(list.Artifacts[0], outputArtifact)
 			}
-			// Upload artifactsMap from local path to remote storages.
-			localDir, err := LocalPathForURI(outputArtifact.Uri)
-			if err != nil {
-				glog.Warningf("Output Artifact %q does not have a recognized storage URI %q. Skipping uploading to remote storage.",
-					artifactKey, outputArtifact.Uri)
-			}
-
 			// OCI artifactsMap are accessed via shared storage of a Modelcar
 			if strings.HasPrefix(outputArtifact.Uri, "oci://") {
 				continue
@@ -631,8 +612,9 @@ func (l *LauncherV2) uploadOutputArtifacts(
 				return fmt.Errorf("failed to infer artifact type for port %s: %w", artifactKey, err)
 			}
 
+			// Metric artifacts don't have a URI, only a numberValue
 			if artifactType == apiV2beta1.Artifact_Metric {
-				// Each key/value pair in `metadata` equates to an Artifact
+				// Each key/value pair in `metadata` equates to a new Artifact
 				for key, value := range outputArtifact.GetMetadata().GetFields() {
 					numVal, ok := value.Kind.(*structpb.Value_NumberValue)
 					if !ok {
@@ -650,6 +632,8 @@ func (l *LauncherV2) uploadOutputArtifacts(
 					artifactsMap[artifactKey] = append(artifactsMap[artifactKey], artifact)
 				}
 			} else {
+				// In this case we can still encounter metrics of type ClassificationMetric or SlicedClassificationMetric
+				// which do not have a numberValue, but nor do they have a URI, their values are stored only in metadata.
 				artifact := &apiV2beta1.Artifact{
 					Name:        outputArtifact.GetName(),
 					Description: "",
@@ -665,13 +649,14 @@ func (l *LauncherV2) uploadOutputArtifacts(
 
 				// If the artifact is not a metric, upload it to the object store and store the URI in the artifact
 				if isNotAMetric {
-					blobKey, configErr := bucketConfig.KeyFromURI(outputArtifact.Uri)
-					if configErr != nil {
-						return fmt.Errorf("failed to convert artifact uri to blobkey %q: %w", artifactKey, configErr)
+					localPath, err := LocalPathForURI(outputArtifact.Uri)
+					if err != nil {
+						glog.Warningf("Output Artifact %q does not have a recognized storage URI %q. Skipping uploading to remote storage.",
+							artifactKey, outputArtifact.Uri)
 					}
-					uploadErr := objectstore.UploadBlob(ctx, bucket, localDir, blobKey)
-					if uploadErr != nil {
-						return fmt.Errorf("failed to upload output artifact %q: %w", artifactKey, uploadErr)
+					err = l.artifactUploadOrDownload(ctx, artifactKey, outputArtifact.Uri, localPath, l.launcherConfig, "upload")
+					if err != nil {
+						return fmt.Errorf("failed to download input artifact %q from remote storage URI %q: %w", artifactKey, artifact.Uri, err)
 					}
 					artifact.Uri = util.StringPointer(outputArtifact.Uri)
 				}
@@ -730,121 +715,78 @@ func waitForModelcar(artifactURI string, localPath string) error {
 	}
 }
 
-func downloadArtifacts(ctx context.Context, executorInput *pipelinespec.ExecutorInput, defaultBucket *blob.Bucket, defaultBucketConfig *objectstore.Config, namespace string, k8sClient kubernetes.Interface) error {
-	// Read input artifact metadata.
-	nonDefaultBuckets, err := fetchNonDefaultBuckets(ctx, executorInput.GetInputs().GetArtifacts(), defaultBucketConfig, namespace, k8sClient)
-	closeNonDefaultBuckets := func(buckets map[string]*blob.Bucket) {
-		for name, bucket := range nonDefaultBuckets {
-			if closeBucketErr := bucket.Close(); closeBucketErr != nil {
-				glog.Warningf("failed to close bucket %q: %q", name, err.Error())
-			}
-		}
-	}
-	defer closeNonDefaultBuckets(nonDefaultBuckets)
-	if err != nil {
-		return fmt.Errorf("failed to fetch non default buckets: %w", err)
-	}
-
-	for name, artifactList := range executorInput.GetInputs().GetArtifacts() {
-		// TODO(neuromage): Support concat-based placholders for arguments.
-		if len(artifactList.Artifacts) == 0 {
-			continue
-		}
+func (l *LauncherV2) downloadArtifacts(ctx context.Context) error {
+	for artifactKey, artifactList := range l.executorInput.GetInputs().GetArtifacts() {
 		for _, artifact := range artifactList.Artifacts {
-			// Iterating through the artifact list allows for collected artifacts to be properly consumed.
-			inputArtifact := artifact
-			localPath, err := LocalPathForURI(inputArtifact.Uri)
+			localPath, err := LocalPathForURI(artifact.Uri)
 			if err != nil {
-				glog.Warningf("Input Artifact %q does not have a recognized storage URI %q. Skipping downloading to local path.", name, inputArtifact.Uri)
-
+				glog.Warningf("Input Artifact %q does not have a recognized storage URI %q. Skipping downloading to local path.", artifactKey, artifact.Uri)
 				continue
 			}
-
 			// OCI artifacts are accessed via shared storage of a Modelcar
-			if strings.HasPrefix(inputArtifact.Uri, "oci://") {
-				err := waitForModelcar(inputArtifact.Uri, localPath)
+			if strings.HasPrefix(artifact.Uri, "oci://") {
+				err := waitForModelcar(artifact.Uri, localPath)
 				if err != nil {
 					return err
 				}
-
 				continue
 			}
-
-			// Copy artifact to local storage.
-			copyErr := func(err error) error {
-				return fmt.Errorf("failed to download input artifact %q from remote storage URI %q: %w", name, inputArtifact.Uri, err)
-			}
-			// TODO: Selectively copy artifacts for which .path was actually specified
-			// on the command line.
-			bucket := defaultBucket
-			bucketConfig := defaultBucketConfig
-			if !strings.HasPrefix(inputArtifact.Uri, defaultBucketConfig.PrefixedBucket()) {
-				nonDefaultBucketConfig, err := objectstore.ParseBucketConfigForArtifactURI(inputArtifact.Uri)
-				if err != nil {
-					return fmt.Errorf("failed to parse bucketConfig for output artifact %q with uri %q: %w", name, inputArtifact.GetUri(), err)
-				}
-				nonDefaultBucket, ok := nonDefaultBuckets[nonDefaultBucketConfig.PrefixedBucket()]
-				if !ok {
-					return fmt.Errorf("failed to get bucket when downloading input artifact %s with bucket key %s: %w", name, nonDefaultBucketConfig.PrefixedBucket(), err)
-				}
-				bucket = nonDefaultBucket
-				bucketConfig = nonDefaultBucketConfig
-			}
-			blobKey, err := bucketConfig.KeyFromURI(inputArtifact.Uri)
+			err = l.artifactUploadOrDownload(ctx, artifactKey, artifact.Uri, localPath, l.launcherConfig, "download")
 			if err != nil {
-				return copyErr(err)
-			}
-			if err := objectstore.DownloadBlob(ctx, bucket, localPath, blobKey); err != nil {
-				return copyErr(err)
+				return fmt.Errorf("failed to download input artifact %q from remote storage URI %q: %w", artifactKey, artifact.Uri, err)
 			}
 		}
 	}
 	return nil
 }
 
-func fetchNonDefaultBuckets(
+func (l *LauncherV2) artifactUploadOrDownload(
 	ctx context.Context,
-	artifacts map[string]*pipelinespec.ArtifactList,
-	defaultBucketConfig *objectstore.Config,
-	namespace string,
-	k8sClient kubernetes.Interface,
-) (buckets map[string]*blob.Bucket, err error) {
-	nonDefaultBuckets := make(map[string]*blob.Bucket)
-	for name, artifactList := range artifacts {
-		if len(artifactList.Artifacts) == 0 {
-			continue
-		}
-		// TODO: Support multiple artifacts someday, probably through the v2 engine.
-		artifact := artifactList.Artifacts[0]
+	artifactKey,
+	artifactUri,
+	localPath string,
+	launcherConfig *config.Config,
+	mode string,
+) error {
 
-		// OCI artifacts are accessed via shared storage of a Modelcar
-		if strings.HasPrefix(artifact.Uri, "oci://") {
-			continue
-		}
-
-		// The artifact does not belong under the object store path for this run. Cases:
-		// 1. Artifact is cached from a different run, so it may still be in the default bucket, but under a different run id subpath
-		// 2. Artifact is imported from the same bucket, but from a different path (re-use the same session)
-		// 3. Artifact is imported from a different bucket, or obj store (default to using user env in this case)
-		if !strings.HasPrefix(artifact.Uri, defaultBucketConfig.PrefixedBucket()) {
-			nonDefaultBucketConfig, parseErr := objectstore.ParseBucketConfigForArtifactURI(artifact.Uri)
-			if parseErr != nil {
-				return nonDefaultBuckets, fmt.Errorf("failed to parse bucketConfig for output artifact %q with uri %q: %w", name, artifact.GetUri(), parseErr)
-			}
-			// check if it's same bucket but under a different path, re-use the default bucket session in this case.
-			if (nonDefaultBucketConfig.Scheme == defaultBucketConfig.Scheme) && (nonDefaultBucketConfig.BucketName == defaultBucketConfig.BucketName) {
-				nonDefaultBucketConfig.SessionInfo = defaultBucketConfig.SessionInfo
-			}
-			nonDefaultBucket, bucketErr := objectstore.OpenBucket(ctx, k8sClient, namespace, nonDefaultBucketConfig)
-			if bucketErr != nil {
-				return nonDefaultBuckets, fmt.Errorf("failed to open bucket for output artifact %q with uri %q: %w", name, artifact.GetUri(), bucketErr)
-			}
-			nonDefaultBuckets[nonDefaultBucketConfig.PrefixedBucket()] = nonDefaultBucket
-		}
-
+	if mode != "upload" && mode != "download" {
+		return fmt.Errorf("mode must be either 'upload' or 'download'")
 	}
-	return nonDefaultBuckets, nil
 
+	bucketConfig, err := objectstore.ParseBucketPathToConfig(artifactUri)
+	if err != nil {
+		return fmt.Errorf("failed to get base URI path for input artifact %q: %w", artifactKey, err)
+	}
+	key := bucketConfig.Hash()
+	var openedBucket *blob.Bucket
+	if cachedBucket, exists := l.openedBucketCache[key]; exists {
+		openedBucket = cachedBucket
+	} else {
+		// Create new opened bucket and store in cache
+		storeSessionInfo, err := launcherConfig.GetStoreSessionInfo(bucketConfig.PrefixedBucket())
+		if err != nil {
+			return fmt.Errorf("failed to get store session info for bucket %q: %w", bucketConfig.PrefixedBucket(), err)
+		}
+		newOpenBucket, err := objectstore.OpenBucket(ctx, l.clientManager.K8sClient(), l.options.Namespace, bucketConfig, &storeSessionInfo)
+		l.openedBucketCache[bucketConfig.Hash()] = newOpenBucket
+		openedBucket = newOpenBucket
+	}
+	blobKey, err := bucketConfig.KeyFromURI(artifactUri)
+	if err != nil {
+		return fmt.Errorf("failed to convert artifact uri to blobkey %q: %w", artifactUri, err)
+	}
+	if mode == "upload" {
+		uploadErr := objectstore.UploadBlob(ctx, openedBucket, localPath, blobKey)
+		if uploadErr != nil {
+			return fmt.Errorf("failed to upload output artifact %q: %w", artifactKey, uploadErr)
+		}
+		return nil
+	}
+	// if not Upload, then download
+	if err = objectstore.DownloadBlob(ctx, openedBucket, localPath, blobKey); err != nil {
+		return fmt.Errorf("failed to download input artifact %q from remote storage URI %q: %w", artifactKey, artifactUri, err)
+	}
+	return nil
 }
 
 func compileCmdAndArgs(executorInput *pipelinespec.ExecutorInput, cmd string, args []string) (string, []string, error) {

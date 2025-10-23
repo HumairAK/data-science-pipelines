@@ -16,6 +16,8 @@
 package objectstore
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"path"
@@ -33,7 +35,6 @@ type Config struct {
 	BucketName  string
 	Prefix      string
 	QueryString string
-	SessionInfo *SessionInfo
 }
 
 type SessionInfo struct {
@@ -97,17 +98,16 @@ func (b *Config) UriFromKey(blobKey string) string {
 	return b.Scheme + path.Join(b.BucketName, b.Prefix, blobKey)
 }
 
-var bucketPattern = regexp.MustCompile(`(^[a-z][a-z0-9]+:///?)([^/?]+)(/[^?]*)?(\?.+)?$`)
-
-func ParseBucketConfig(path string, sess *SessionInfo) (*Config, error) {
-	config, err := ParseBucketPathToConfig(path)
-	if err != nil {
-		return nil, err
-	}
-	config.SessionInfo = sess
-
-	return config, nil
+func (b *Config) Hash() string {
+	h := sha256.New()
+	h.Write([]byte(b.Scheme))
+	h.Write([]byte(b.BucketName))
+	h.Write([]byte(b.Prefix))
+	h.Write([]byte(b.QueryString))
+	return hex.EncodeToString(h.Sum(nil))
 }
+
+var bucketPattern = regexp.MustCompile(`(^[a-z][a-z0-9]+:///?)([^/?]+)(/[^?]*)?(\?.+)?$`)
 
 func ParseBucketPathToConfig(path string) (*Config, error) {
 	ms := bucketPattern.FindStringSubmatch(path)

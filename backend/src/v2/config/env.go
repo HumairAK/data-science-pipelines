@@ -58,8 +58,8 @@ type Config struct {
 	data map[string]string
 }
 
-// FromConfigMap loads config from a kfp-launcher Kubernetes config map.
-func FromConfigMap(ctx context.Context, clientSet kubernetes.Interface, namespace string) (*Config, error) {
+// FetchLauncherConfig loads config from a kfp-launcher Kubernetes config map.
+func FetchLauncherConfig(ctx context.Context, clientSet kubernetes.Interface, namespace string) (*Config, error) {
 	config, err := clientSet.CoreV1().ConfigMaps(namespace).Get(ctx, configMapName, metav1.GetOptions{})
 	if err != nil {
 		if k8errors.IsNotFound(err) {

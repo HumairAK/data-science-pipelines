@@ -37,15 +37,21 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func OpenBucket(ctx context.Context, k8sClient kubernetes.Interface, namespace string, config *Config) (bucket *blob.Bucket, err error) {
+func OpenBucket(
+	ctx context.Context,
+	k8sClient kubernetes.Interface,
+	namespace string,
+	config *Config,
+	sessionInfo *SessionInfo,
+) (bucket *blob.Bucket, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("Failed to open bucket %q: %w", config.BucketName, err)
 		}
 	}()
-	if config.SessionInfo != nil {
-		if config.SessionInfo.Provider == "minio" || config.SessionInfo.Provider == "s3" {
-			sess, err1 := createS3BucketSession(ctx, namespace, config.SessionInfo, k8sClient)
+	if sessionInfo != nil {
+		if sessionInfo.Provider == "minio" || sessionInfo.Provider == "s3" {
+			sess, err1 := createS3BucketSession(ctx, namespace, sessionInfo, k8sClient)
 			if err1 != nil {
 				return nil, fmt.Errorf("Failed to retrieve credentials for bucket %s: %w", config.BucketName, err1)
 			}
@@ -58,8 +64,8 @@ func OpenBucket(ctx context.Context, k8sClient kubernetes.Interface, namespace s
 				// Therefore, we need to explicitly configure the prefixed bucket.
 				return blob.PrefixedBucket(openedBucket, config.Prefix), nil
 			}
-		} else if config.SessionInfo.Provider == "gs" {
-			client, err1 := getGCSTokenClient(ctx, namespace, config.SessionInfo, k8sClient)
+		} else if sessionInfo.Provider == "gs" {
+			client, err1 := getGCSTokenClient(ctx, namespace, sessionInfo, k8sClient)
 			if err1 != nil {
 				return nil, err1
 			}
