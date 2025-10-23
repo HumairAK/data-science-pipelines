@@ -141,13 +141,121 @@ func stopWaitingArtifacts(artifacts map[string]*pipelinespec.ArtifactList) {
 	}
 }
 
-func updateStatuses(pipelineTask *apiV2beta1.PipelineTaskDetail) error {
-	// traverse up the dag until we find a parent task that still has other children with "RUNNING" status
-	// for each parent task, examine all it's other children tasks, if:
-	//   * they are all in SUCCEEDED, SKIPPED, or CACHED state then the parent task should be updated to be "SUCCEEDED"
-	//   * if all the child tasks were CACHED, then the parent task should be updated to be "CACHED"
-	// 	 * if any of the child tasks were FAILED, then the parent task should be updated to be "FAILED"
-	//   * if all of the child tasks were SKIPPED, then the parent task should be updated to be "SKIPPED"
+// updateStatuses Traverse up the dag until we find a parent task that still has other children with "RUNNING" status
+// or when we have reached Root. If the parent task has other children in running that means this parent is also in running.
+// However, suppose the currentTask is a parent task we are evaluating - then:
+//   - if the other children all in SUCCEEDED, SKIPPED, or CACHED state then the currentTask should be updated to be "SUCCEEDED"
+//   - if all the child tasks were CACHED, then the currentTask should be updated to be "CACHED"
+//   - if any of the child tasks were FAILED, then the currentTask should be updated to be "FAILED"
+//   - if all the child tasks were SKIPPED, then the currentTask should be updated to be "SKIPPED"
+func updateStatuses(ctx context.Context, kfpAPIClient *apiclient.Client, run *apiV2beta1.Run, currentTask *apiV2beta1.PipelineTaskDetail) error {
+	// Create a map of task IDs to tasks for quick lookup
+	taskMap := make(map[string]*apiV2beta1.PipelineTaskDetail)
+	for _, task := range run.GetTasks() {
+		taskMap[task.GetTaskId()] = task
+	}
+
+	// Start with the current task and traverse up
+	for {
+		// If current task has no parent, we've reached the root
+		if currentTask.ParentTaskId == nil || *currentTask.ParentTaskId == "" {
+			// Evaluate the root task's status based on its children
+			if err := evaluateAndUpdateParentStatus(ctx, kfpAPIClient, run, currentTask, taskMap); err != nil {
+				return err
+			}
+			break
+		}
+
+		// Get the parent task
+		parentTask, exists := taskMap[*currentTask.ParentTaskId]
+		if !exists {
+			return fmt.Errorf("parent task %s not found for task %s", *currentTask.ParentTaskId, currentTask.GetTaskId())
+		}
+
+		// Check if parent has any children still running
+		for _, task := range run.GetTasks() {
+			if task.ParentTaskId != nil && *task.ParentTaskId == parentTask.GetTaskId() {
+				if task.GetStatus() == apiV2beta1.PipelineTaskDetail_RUNNING {
+					return nil
+				}
+			}
+		}
+
+		// Evaluate and update parent's status based on its children
+		if err := evaluateAndUpdateParentStatus(ctx, kfpAPIClient, run, parentTask, taskMap); err != nil {
+			return err
+		}
+
+		// Move to the parent for next iteration
+		currentTask = parentTask
+	}
+
+	return nil
+}
+
+// evaluateAndUpdateParentStatus evaluates a parent task's status based on its direct children and updates it accordingly
+func evaluateAndUpdateParentStatus(ctx context.Context, kfpAPIClient *apiclient.Client, run *apiV2beta1.Run, parentTask *apiV2beta1.PipelineTaskDetail, taskMap map[string]*apiV2beta1.PipelineTaskDetail) error {
+	// Collect all direct children of this parent
+	var children []*apiV2beta1.PipelineTaskDetail
+	for _, task := range run.GetTasks() {
+		if task.ParentTaskId != nil && *task.ParentTaskId == parentTask.GetTaskId() {
+			children = append(children, task)
+		}
+	}
+
+	// If no children, nothing to evaluate
+	if len(children) == 0 {
+		return nil
+	}
+
+	// Count statuses
+	allCached := true
+	allSkipped := true
+	anyFailed := false
+
+	for _, child := range children {
+		status := child.GetStatus()
+
+		// Check for FAILED
+		if status == apiV2beta1.PipelineTaskDetail_FAILED {
+			anyFailed = true
+		}
+
+		// Check if all are CACHED
+		if status != apiV2beta1.PipelineTaskDetail_CACHED {
+			allCached = false
+		}
+
+		// Check if all are SKIPPED
+		if status != apiV2beta1.PipelineTaskDetail_SKIPPED {
+			allSkipped = false
+		}
+	}
+
+	// Determine the new status for the parent
+	var newStatus apiV2beta1.PipelineTaskDetail_TaskState
+	if anyFailed {
+		newStatus = apiV2beta1.PipelineTaskDetail_FAILED
+	} else if allCached {
+		newStatus = apiV2beta1.PipelineTaskDetail_CACHED
+	} else if allSkipped {
+		newStatus = apiV2beta1.PipelineTaskDetail_SKIPPED
+	} else {
+		newStatus = apiV2beta1.PipelineTaskDetail_SUCCEEDED
+	}
+
+	// Update the parent task status
+	_, err := kfpAPIClient.Run.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+		Task: &apiV2beta1.PipelineTaskDetail{
+			TaskId:  parentTask.GetTaskId(),
+			RunId:   run.GetRunId(),
+			Status:  newStatus,
+			EndTime: timestamppb.New(time.Now()),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update parent task %s status to %s: %w", parentTask.GetTaskId(), newStatus, err)
+	}
 
 	return nil
 }
@@ -231,7 +339,27 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		}
 	}
 
-	err = updateStatuses(l.options.Task)
+	// Update current task status to SUCCEEDED before calling updateStatuses
+	// This is important because if we don't have this task updated, we will always stop at its direct immediate parent during traversal.
+	_, updateErr := kfpAPIClient.Run.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{Task: &apiV2beta1.PipelineTaskDetail{
+		TaskId:  l.options.Task.GetTaskId(),
+		RunId:   l.options.Run.GetRunId(),
+		Status:  apiV2beta1.PipelineTaskDetail_SUCCEEDED,
+		EndTime: timestamppb.New(time.Now()),
+	}})
+	if updateErr != nil {
+		return fmt.Errorf("failed to update task status to SUCCEEDED: %w", updateErr)
+	}
+
+	// Refresh run before updating statuses
+	refreshedRun, err := kfpAPIClient.Run.GetRun(ctx, &apiV2beta1.GetRunRequest{RunId: l.options.Run.GetRunId()})
+	if err != nil {
+		return fmt.Errorf("failed to refresh run: %w", err)
+	}
+	l.options.Run = refreshedRun
+
+	// TODO(HumairAK): Let's have API Server handle this call instead of doing it here.
+	err = updateStatuses(ctx, kfpAPIClient, l.options.Run, l.options.Task)
 	if err != nil {
 		return fmt.Errorf("failed to update statuses: %w", err)
 	}

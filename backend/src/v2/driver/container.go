@@ -122,7 +122,6 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 		ScopePath:    opts.ScopePath.StringPath(),
 		StartTime:    timestamppb.Now(),
 		CreateTime:   timestamppb.Now(),
-		EndTime:      timestamppb.Now(),
 		Pods: []*apiV2beta1.PipelineTaskDetail_TaskPod{
 			{
 				Name: opts.PodName,

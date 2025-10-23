@@ -87,7 +87,6 @@ func DAG(ctx context.Context, opts common.Options, driverAPI common.DriverAPI) (
 		ScopePath:  opts.ScopePath.StringPath(),
 		StartTime:  timestamppb.Now(),
 		CreateTime: timestamppb.Now(),
-		EndTime:    timestamppb.Now(),
 		Pods: []*gc.PipelineTaskDetail_TaskPod{
 			{
 				Name: opts.PodName,
