@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/v2/apiclient/kfpapi"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -137,8 +138,7 @@ func drive() (err error) {
 		return fmt.Errorf("failed to init KFP API client: %w", apiErr)
 	}
 	defer kfpAPIClient.Close()
-	var driverAPI common.DriverAPI
-	driverAPI = common.NewDriverAPI(kfpAPIClient)
+	kfpAPI := kfpapi.New(kfpAPIClient)
 
 	glog.Infof("Initialized KFP API client at %s", kfpAPIClient.Endpoint)
 
@@ -192,17 +192,17 @@ func drive() (err error) {
 	if runID == nil {
 		return fmt.Errorf("argument --%s must be specified", runID)
 	}
-	run, err := driverAPI.GetRun(ctx, &go_client.GetRunRequest{RunId: *runID})
+	run, err := kfpAPI.GetRun(ctx, &go_client.GetRunRequest{RunId: *runID})
 	if err != nil {
 		return err
 	}
 
-	parentTask, err := driverAPI.GetTask(ctx, &go_client.GetTaskRequest{TaskId: *parentTaskID})
+	parentTask, err := kfpAPI.GetTask(ctx, &go_client.GetTaskRequest{TaskId: *parentTaskID})
 	if err != nil {
 		return err
 	}
 
-	scopePath, err := buildScopePath(ctx, run, parentTask, *taskName, driverAPI)
+	scopePath, err := buildScopePath(ctx, run, parentTask, *taskName, kfpAPI)
 	if err != nil || scopePath == nil {
 		return fmt.Errorf("failed to build scope path: %w", err)
 	}
@@ -369,8 +369,8 @@ func buildScopePath(
 	run *go_client.Run,
 	parentTask *go_client.PipelineTaskDetail,
 	taskName string,
-	driverAPI common.DriverAPI) (*util.ScopePath, error) {
-	pipelineSpecStruct, err := driverAPI.FetchPipelineSpecFromRun(ctx, run.GetPipelineSpec(), run)
+	kfpAPI kfpapi.API) (*util.ScopePath, error) {
+	pipelineSpecStruct, err := kfpAPI.FetchPipelineSpecFromRun(ctx, run.GetPipelineSpec(), run)
 	if err != nil {
 		return nil, err
 	}

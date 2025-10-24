@@ -4,14 +4,14 @@ import (
 	"fmt"
 
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient"
-	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
+	"github.com/kubeflow/pipelines/backend/src/v2/apiclient/kfpapi"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 type ClientManagerInterface interface {
 	K8sClient() kubernetes.Interface
-	DriverAPI() common.DriverAPI
+	DriverAPI() kfpapi.API
 }
 
 // Ensure ClientManager implements ClientManagerInterface
@@ -20,7 +20,7 @@ var _ ClientManagerInterface = (*ClientManager)(nil)
 // ClientManager is a container for various service clients.
 type ClientManager struct {
 	k8sClient kubernetes.Interface
-	driverAPI common.DriverAPI
+	driverAPI kfpapi.API
 }
 
 // NewClientManager creates and Init a new instance of ClientManager.
@@ -38,7 +38,7 @@ func (cm *ClientManager) K8sClient() kubernetes.Interface {
 	return cm.k8sClient
 }
 
-func (cm *ClientManager) DriverAPI() common.DriverAPI {
+func (cm *ClientManager) DriverAPI() kfpapi.API {
 	return cm.driverAPI
 }
 
@@ -56,8 +56,8 @@ func (cm *ClientManager) init() error {
 		return fmt.Errorf("failed to init KFP API client: %w", apiErr)
 	}
 	defer kfpAPIClient.Close()
-	var driverAPI common.DriverAPI
-	driverAPI = common.NewDriverAPI(kfpAPIClient)
+	var driverAPI kfpapi.API
+	driverAPI = kfpapi.New(kfpAPIClient)
 	cm.driverAPI = driverAPI
 
 	return nil
