@@ -12,6 +12,7 @@ import (
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	clientmanager "github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"github.com/kubeflow/pipelines/kubernetes_platform/go/kubernetesplatform"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +21,6 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -47,7 +47,7 @@ func NewMockDriverAPI() *MockDriverAPI {
 	}
 }
 
-func (m *MockDriverAPI) GetRun(ctx context.Context, req *apiv2beta1.GetRunRequest) (*apiv2beta1.Run, error) {
+func (m *MockDriverAPI) GetRun(_ context.Context, req *apiv2beta1.GetRunRequest) (*apiv2beta1.Run, error) {
 	if run, exists := m.runs[req.RunId]; exists {
 		// Create a copy of the run to populate with tasks
 		populatedRun := &apiv2beta1.Run{
@@ -126,7 +126,7 @@ func (m *MockDriverAPI) hydrateTask(task *apiv2beta1.PipelineTaskDetail) *apiv2b
 	return populatedTask
 }
 
-func (m *MockDriverAPI) CreateTask(ctx context.Context, req *apiv2beta1.CreateTaskRequest) (*apiv2beta1.PipelineTaskDetail, error) {
+func (m *MockDriverAPI) CreateTask(_ context.Context, req *apiv2beta1.CreateTaskRequest) (*apiv2beta1.PipelineTaskDetail, error) {
 	task := req.Task
 	if task.TaskId == "" {
 		uuid, _ := uuid.NewRandom()
@@ -136,7 +136,7 @@ func (m *MockDriverAPI) CreateTask(ctx context.Context, req *apiv2beta1.CreateTa
 	return task, nil
 }
 
-func (m *MockDriverAPI) UpdateTask(ctx context.Context, req *apiv2beta1.UpdateTaskRequest) (*apiv2beta1.PipelineTaskDetail, error) {
+func (m *MockDriverAPI) UpdateTask(_ context.Context, req *apiv2beta1.UpdateTaskRequest) (*apiv2beta1.PipelineTaskDetail, error) {
 	if _, exists := m.tasks[req.TaskId]; !exists {
 		return nil, fmt.Errorf("task not found: %s", req.TaskId)
 	}
@@ -300,6 +300,25 @@ func (m *MockDriverAPI) GetPipelineVersion(ctx context.Context, req *apiv2beta1.
 	return nil, fmt.Errorf("pipeline version not found: %s", key)
 }
 
+func (m *MockDriverAPI) FetchPipelineSpecFromRun(ctx context.Context, pipelineSpecStruct *structpb.Struct, run *apiv2beta1.Run) (*structpb.Struct, error) {
+	if run.GetPipelineSpec() != nil {
+		pipelineSpecStruct = run.GetPipelineSpec()
+	} else if run.GetPipelineVersionReference() != nil {
+		pvr := run.GetPipelineVersionReference()
+		pipeline, err := m.GetPipelineVersion(ctx, &apiv2beta1.GetPipelineVersionRequest{
+			PipelineId:        pvr.GetPipelineId(),
+			PipelineVersionId: pvr.GetPipelineVersionId(),
+		})
+		if err != nil {
+			return nil, err
+		}
+		pipelineSpecStruct = pipeline.GetPipelineSpec()
+	} else {
+		return nil, fmt.Errorf("pipeline spec is not set")
+	}
+	return pipelineSpecStruct, nil
+}
+
 // AddRun adds a run to the mock for testing
 func (m *MockDriverAPI) AddRun(run *apiv2beta1.Run) {
 	if run.RunId == "" {
@@ -309,15 +328,21 @@ func (m *MockDriverAPI) AddRun(run *apiv2beta1.Run) {
 	m.runs[run.RunId] = run
 }
 
+// AddPipelineVersion adds a pipeline version to the mock for testing
+func (m *MockDriverAPI) AddPipelineVersion(pipelineID, versionID string, version *apiv2beta1.PipelineVersion) {
+	key := pipelineID + ":" + versionID
+	m.pipelineVersions[key] = version
+}
+
 type TestContext struct {
 	Run *apiv2beta1.Run
 	util.ScopePath
-	T                 *testing.T
-	DriverAPI         *MockDriverAPI
-	PipelineSpec      *pipelinespec.PipelineSpec
-	RootTask          *apiv2beta1.PipelineTaskDetail
-	PlatformSpec      *pipelinespec.PlatformSpec
-	K8sClientOverride kubernetes.Interface
+	T             *testing.T
+	PipelineSpec  *pipelinespec.PipelineSpec
+	RootTask      *apiv2beta1.PipelineTaskDetail
+	PlatformSpec  *pipelinespec.PlatformSpec
+	ClientManager clientmanager.ClientManagerInterface
+	MockDriverAPI *MockDriverAPI
 }
 
 // NewTestContextWithRootExecuted creates a new test context with basic configuration
@@ -338,9 +363,10 @@ type TestContext struct {
 func NewTestContextWithRootExecuted(t *testing.T, runtimeConfig *pipelinespec.PipelineJob_RuntimeConfig, pipelinePath string) *TestContext {
 	t.Helper()
 	proxy.InitializeConfigWithEmptyForTests()
-
+	mockDriverAPI := NewMockDriverAPI()
 	tc := &TestContext{
-		DriverAPI: NewMockDriverAPI(),
+		ClientManager: clientmanager.NewFakeClientManager(fake.NewClientset(), mockDriverAPI),
+		MockDriverAPI: mockDriverAPI,
 	}
 
 	// Create a test run
@@ -358,8 +384,6 @@ func NewTestContextWithRootExecuted(t *testing.T, runtimeConfig *pipelinespec.Pi
 	tc.PipelineSpec = pipelineSpec
 	tc.PlatformSpec = platformSpec
 	tc.T = t
-
-	tc.K8sClientOverride = fake.NewClientset()
 
 	// Create a root DAG execution using basic inputs
 	_, rootTask := tc.RunRootDag(tc, run, runtimeConfig)
@@ -417,7 +441,7 @@ func (tc *TestContext) CreateTestRun(t *testing.T, pipelineName string) *apiv2be
 		State:          apiv2beta1.RuntimeState_RUNNING,
 	}
 
-	tc.DriverAPI.AddRun(run)
+	tc.MockDriverAPI.AddRun(run)
 	return run
 }
 
@@ -453,7 +477,7 @@ func (tc *TestContext) CreateTestTask(
 		},
 	}
 
-	createdTask, err := tc.DriverAPI.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+	createdTask, err := tc.ClientManager.DriverAPI().CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
 		Task: task,
 	})
 	require.NoError(t, err)
@@ -477,7 +501,7 @@ func (tc *TestContext) CreateTestArtifact(t *testing.T, name, artifactType strin
 		artifact.Type = apiv2beta1.Artifact_Metric
 	}
 
-	createdArtifact, err := tc.DriverAPI.CreateArtifact(context.Background(), &apiv2beta1.CreateArtifactRequest{
+	createdArtifact, err := tc.ClientManager.DriverAPI().CreateArtifact(context.Background(), &apiv2beta1.CreateArtifactRequest{
 		Artifact: artifact,
 	})
 	require.NoError(t, err)
@@ -498,7 +522,7 @@ func (tc *TestContext) CreateTestArtifactTask(t *testing.T, artifactID, taskID, 
 		Key:        key,
 	}
 
-	createdArtifactTask, err := tc.DriverAPI.CreateArtifactTask(context.Background(), &apiv2beta1.CreateArtifactTaskRequest{
+	createdArtifactTask, err := tc.ClientManager.DriverAPI().CreateArtifactTask(context.Background(), &apiv2beta1.CreateArtifactTaskRequest{
 		ArtifactTask: artifactTask,
 	})
 	require.NoError(t, err)
@@ -602,7 +626,7 @@ func TestTestContext(t *testing.T) {
 	)
 
 	// Test getting run with populated tasks and artifacts
-	populatedRun, err := testSetup.DriverAPI.GetRun(context.Background(), &apiv2beta1.GetRunRequest{RunId: run.RunId})
+	populatedRun, err := testSetup.ClientManager.DriverAPI().GetRun(context.Background(), &apiv2beta1.GetRunRequest{RunId: run.RunId})
 	require.NoError(t, err)
 	assert.NotNil(t, populatedRun)
 	assert.Len(t, populatedRun.Tasks, 2)
@@ -648,7 +672,6 @@ func (tc *TestContext) RunRootDag(testSetup *TestContext, run *apiv2beta1.Run, r
 		Run:                      run,
 		Component:                tc.ScopePath.GetLast().GetComponentSpec(),
 		ParentTask:               nil,
-		DriverAPI:                testSetup.DriverAPI,
 		IterationIndex:           -1,
 		RuntimeConfig:            runtimeConfig,
 		Namespace:                TestNamespace,
@@ -665,11 +688,11 @@ func (tc *TestContext) RunRootDag(testSetup *TestContext, run *apiv2beta1.Run, r
 		ScopePath:                tc.ScopePath,
 	}
 	// Execute RootDAG
-	execution, err := RootDAG(context.Background(), opts, testSetup.DriverAPI)
+	execution, err := RootDAG(context.Background(), opts, testSetup.ClientManager)
 	require.NoError(tc.T, err)
 	require.NotNil(tc.T, execution)
 
-	task, err := tc.DriverAPI.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: execution.TaskID})
+	task, err := tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: execution.TaskID})
 	require.NoError(tc.T, err)
 	require.NotNil(tc.T, task)
 	require.Equal(tc.T, execution.TaskID, task.TaskId)
@@ -690,11 +713,11 @@ func (tc *TestContext) RunDag(
 
 	opts := tc.setupDagOptions(parentTask, taskSpec, nil)
 
-	execution, err := DAG(context.Background(), opts, tc.DriverAPI)
+	execution, err := DAG(context.Background(), opts, tc.ClientManager)
 	require.NoError(t, err)
 	require.NotNil(t, execution)
 
-	task, err := tc.DriverAPI.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: execution.TaskID})
+	task, err := tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: execution.TaskID})
 	require.NoError(t, err)
 	require.NotNil(t, task)
 	require.Equal(t, execution.TaskID, task.TaskId)
@@ -736,11 +759,11 @@ func (tc *TestContext) RunContainer(
 		opts.IterationIndex = int(*iterationIndex)
 	}
 
-	execution, err := Container(context.Background(), opts, tc.DriverAPI)
+	execution, err := Container(context.Background(), opts, tc.ClientManager)
 	require.NoError(tc.T, err)
 	require.NotNil(tc.T, execution)
 
-	task, err := tc.DriverAPI.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: execution.TaskID})
+	task, err := tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: execution.TaskID})
 	require.NoError(tc.T, err)
 	require.NotNil(tc.T, task)
 	require.Equal(tc.T, execution.TaskID, task.TaskId)
@@ -768,12 +791,12 @@ func (tc *TestContext) RunContainer(
 }
 
 func (tc *TestContext) setContainerToComplete(taskID string) *apiv2beta1.PipelineTaskDetail {
-	getTask, err := tc.DriverAPI.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: taskID})
+	getTask, err := tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: taskID})
 	require.NoError(tc.T, err)
 	require.NotNil(tc.T, getTask)
 
 	getTask.Status = apiv2beta1.PipelineTaskDetail_SUCCEEDED
-	task, err := tc.DriverAPI.UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
+	task, err := tc.ClientManager.DriverAPI().UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
 		TaskId: taskID,
 		Task:   getTask,
 	})
@@ -783,7 +806,7 @@ func (tc *TestContext) setContainerToComplete(taskID string) *apiv2beta1.Pipelin
 
 func (tc *TestContext) RefreshRun() {
 	t := tc.T
-	run, err := tc.DriverAPI.GetRun(context.Background(), &apiv2beta1.GetRunRequest{RunId: tc.Run.RunId})
+	run, err := tc.ClientManager.DriverAPI().GetRun(context.Background(), &apiv2beta1.GetRunRequest{RunId: tc.Run.RunId})
 	require.NoError(t, err)
 	tc.Run = run
 }
@@ -802,7 +825,7 @@ func (tc *TestContext) MockLauncherOutputParameterCreate(
 	producerIteration *int64,
 ) {
 	// Get Task
-	task, err := tc.DriverAPI.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: TaskId})
+	task, err := tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: TaskId})
 	require.NoError(tc.T, err)
 	require.NotNil(tc.T, task)
 
@@ -821,7 +844,7 @@ func (tc *TestContext) MockLauncherOutputParameterCreate(
 	parameters = append(parameters, newParameter)
 	task.Outputs.Parameters = parameters
 	// Update Task via driverapi UpdateTask
-	task, err = tc.DriverAPI.UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
+	task, err = tc.ClientManager.DriverAPI().UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
 		TaskId: TaskId,
 		Task:   task,
 	})
@@ -840,7 +863,7 @@ func (tc *TestContext) MockLauncherDefaultInputParametersUpdate(
 	defer func() { tc.RefreshRun() }()
 
 	// Get Task
-	task, err := tc.DriverAPI.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: TaskId})
+	task, err := tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: TaskId})
 	require.NoError(tc.T, err)
 	require.NotNil(tc.T, task)
 
@@ -866,7 +889,7 @@ func (tc *TestContext) MockLauncherDefaultInputParametersUpdate(
 		}
 	}
 	task.Inputs.Parameters = taskInputParameters
-	task, err = tc.DriverAPI.UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
+	task, err = tc.ClientManager.DriverAPI().UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
 		TaskId: TaskId,
 		Task:   task,
 	})
@@ -906,7 +929,7 @@ func (tc *TestContext) MockLauncherOutputArtifactCreate(
 			"producer_task": structpb.NewStringValue(producerTask),
 		},
 	}
-	createArtifact, err := tc.DriverAPI.CreateArtifact(
+	createArtifact, err := tc.ClientManager.DriverAPI().CreateArtifact(
 		context.Background(),
 		&apiv2beta1.CreateArtifactRequest{
 			Artifact: outputArtifact,
@@ -925,7 +948,7 @@ func (tc *TestContext) MockLauncherOutputArtifactCreate(
 	if producerIteration != nil {
 		artifactTask.Producer.Iteration = producerIteration
 	}
-	at, err := tc.DriverAPI.CreateArtifactTask(
+	at, err := tc.ClientManager.DriverAPI().CreateArtifactTask(
 		context.Background(),
 		&apiv2beta1.CreateArtifactTaskRequest{
 			ArtifactTask: artifactTask,
@@ -952,7 +975,7 @@ func (tc *TestContext) MockLauncherArtifactTaskCreate(
 	if producerIteration != nil {
 		at.Producer.Iteration = producerIteration
 	}
-	result, err := tc.DriverAPI.CreateArtifactTask(
+	result, err := tc.ClientManager.DriverAPI().CreateArtifactTask(
 		context.Background(),
 		&apiv2beta1.CreateArtifactTaskRequest{ArtifactTask: at})
 	require.NoError(t, err)
@@ -989,7 +1012,6 @@ func (tc *TestContext) setupDagOptions(
 		Run:                      tc.Run,
 		Component:                componentSpec,
 		ParentTask:               parentTask,
-		DriverAPI:                tc.DriverAPI,
 		IterationIndex:           -1,
 		RuntimeConfig:            nil,
 		Namespace:                TestNamespace,
@@ -1006,7 +1028,6 @@ func (tc *TestContext) setupDagOptions(
 		PodName:                  "system-dag-driver",
 		PodUID:                   "some-uid",
 		ScopePath:                tc.ScopePath,
-		K8sClient:                tc.K8sClientOverride,
 	}
 }
 
@@ -1039,7 +1060,6 @@ func (tc *TestContext) setupContainerOptions(
 		Run:                      tc.Run,
 		Component:                componentSpec,
 		ParentTask:               parentTask,
-		DriverAPI:                tc.DriverAPI,
 		IterationIndex:           -1,
 		RuntimeConfig:            nil,
 		Namespace:                TestNamespace,
@@ -1054,7 +1074,6 @@ func (tc *TestContext) setupContainerOptions(
 		PodName:                  "system-container-impl",
 		PodUID:                   "some-uid",
 		ScopePath:                tc.ScopePath,
-		K8sClient:                tc.K8sClientOverride,
 	}
 }
 

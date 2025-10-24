@@ -7,13 +7,14 @@ import (
 
 	"github.com/golang/glog"
 	apiV2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // RootDAG handles initial root dag task creation
 // and runtime parameter resolution.
-func RootDAG(ctx context.Context, opts common.Options, api common.DriverAPI) (execution *Execution, err error) {
+func RootDAG(ctx context.Context, opts common.Options, clientManager client_manager.ClientManagerInterface) (execution *Execution, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("driver.RootDAG(%s) failed: %w", opts.Info(), err)
@@ -28,7 +29,7 @@ func RootDAG(ctx context.Context, opts common.Options, api common.DriverAPI) (ex
 	if err = validateRootDAG(opts); err != nil {
 		return nil, err
 	}
-	if api == nil {
+	if clientManager == nil {
 		return nil, fmt.Errorf("api client is nil")
 	}
 
@@ -65,7 +66,7 @@ func RootDAG(ctx context.Context, opts common.Options, api common.DriverAPI) (ex
 			},
 		},
 	}
-	task, err := api.CreateTask(ctx, &apiV2beta1.CreateTaskRequest{Task: pd})
+	task, err := clientManager.DriverAPI().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{Task: pd})
 	if err != nil {
 		return nil, err
 	}

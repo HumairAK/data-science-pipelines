@@ -11,6 +11,7 @@ import (
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	apiV2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/resolver"
@@ -23,7 +24,7 @@ import (
 // Container mirrors Container but uses KFP RunService/ArtifactService instead of MLMD.
 // Initial version wires inputs and creates a runtime task; output recording via
 // ArtifactService will be added in subsequent steps.
-func Container(ctx context.Context, opts common.Options, driverAPI common.DriverAPI) (execution *Execution, err error) {
+func Container(ctx context.Context, opts common.Options, clientManager client_manager.ClientManagerInterface) (execution *Execution, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("driver.Container(%s) failed: %w", opts.Info(), err)
@@ -35,7 +36,7 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 	}
 	glog.V(4).Info("Container opts: ", string(b))
 
-	if driverAPI == nil {
+	if clientManager == nil {
 		return nil, fmt.Errorf("driverAPI client is nil")
 	}
 	if opts.TaskName == "" {
@@ -56,7 +57,7 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 		return nil, err
 	}
 
-	parentTask, err := driverAPI.GetTask(ctx, &apiV2beta1.GetTaskRequest{TaskId: opts.ParentTask.GetTaskId()})
+	parentTask, err := clientManager.DriverAPI().GetTask(ctx, &apiV2beta1.GetTaskRequest{TaskId: opts.ParentTask.GetTaskId()})
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +140,7 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 	// ### HANDLE K8S OP ###
 	// ######################################
 	if isKubernetesPlatformOp {
-		return execution, kubernetesPlatformOps(ctx, driverAPI, execution, taskToCreate, &opts)
+		return execution, kubernetesPlatformOps(ctx, clientManager, execution, taskToCreate, &opts)
 	}
 
 	var inputParams []*apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter
@@ -180,7 +181,7 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 			pvcNames = append(pvcNames, GetWorkspacePVCName(opts.RunName))
 		}
 
-		fingerPrint, cachedTask, err = getFingerPrintsAndID(ctx, execution, driverAPI, &opts, pvcNames)
+		fingerPrint, cachedTask, err = getFingerPrintsAndID(ctx, execution, clientManager.DriverAPI(), &opts, pvcNames)
 		if err != nil {
 			return execution, err
 		}
@@ -200,13 +201,13 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 		taskToCreate.Status = apiV2beta1.PipelineTaskDetail_SKIPPED
 	}
 
-	createdTask, err := driverAPI.CreateTask(ctx, &apiV2beta1.CreateTaskRequest{Task: taskToCreate})
+	createdTask, err := clientManager.DriverAPI().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{Task: taskToCreate})
 	if err != nil {
 		return execution, err
 	}
 	execution.TaskID = createdTask.TaskId
 
-	err = handleInputTaskArtifactsCreation(ctx, opts, inputs.Artifacts, createdTask, driverAPI)
+	err = handleInputTaskArtifactsCreation(ctx, opts, inputs.Artifacts, createdTask, clientManager.DriverAPI())
 	if err != nil {
 		return execution, err
 	}
@@ -229,7 +230,7 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 			taskToCreate.Status = apiV2beta1.PipelineTaskDetail_CACHED
 			taskToCreate.Outputs = cachedTask.Outputs
 			*execution.Cached = true
-			_, createErr := driverAPI.CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
+			_, createErr := clientManager.DriverAPI().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
 				Task: taskToCreate,
 			})
 			if createErr != nil {
@@ -253,7 +254,7 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 		pipelineRoot = opts.Run.GetRuntimeConfig().PipelineRoot
 		glog.Infof("PipelineRoot=%q from runtime config will be used.", pipelineRoot)
 	} else {
-		cfg, err := config.FetchLauncherConfigMap(ctx, opts.K8sClient, opts.Namespace)
+		cfg, err := config.FetchLauncherConfigMap(ctx, clientManager.K8sClient(), opts.Namespace)
 		if err != nil {
 			return nil, err
 		}

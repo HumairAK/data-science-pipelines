@@ -9,6 +9,7 @@ import (
 	"github.com/golang/glog"
 	gc "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/resolver"
 	"github.com/kubeflow/pipelines/backend/src/v2/expression"
@@ -18,7 +19,7 @@ import (
 // DAG mirrors DAG but uses KFP RunService/ArtifactService instead of MLMD.
 // This initial version focuses on wiring and inputs; parent/iteration linkage
 // and full upstream resolution will be added incrementally.
-func DAG(ctx context.Context, opts common.Options, driverAPI common.DriverAPI) (execution *Execution, err error) {
+func DAG(ctx context.Context, opts common.Options, clientManager client_manager.ClientManagerInterface) (execution *Execution, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("driver.DAG(%s) failed: %w", opts.Info(), err)
@@ -35,7 +36,7 @@ func DAG(ctx context.Context, opts common.Options, driverAPI common.DriverAPI) (
 		return nil, err
 	}
 
-	if driverAPI == nil {
+	if clientManager == nil {
 		return nil, fmt.Errorf("driverAPI client is nil")
 	}
 
@@ -123,14 +124,14 @@ func DAG(ctx context.Context, opts common.Options, driverAPI common.DriverAPI) (
 		return execution, err
 	}
 	glog.Infof("Creating task: %+v", taskToCreate)
-	createdTask, err := driverAPI.CreateTask(ctx, &gc.CreateTaskRequest{Task: taskToCreate})
+	createdTask, err := clientManager.DriverAPI().CreateTask(ctx, &gc.CreateTaskRequest{Task: taskToCreate})
 	if err != nil {
 		return execution, err
 	}
 	glog.Infof("Created task: %+v", createdTask)
 	execution.TaskID = createdTask.TaskId
 
-	err = handleInputTaskArtifactsCreation(ctx, opts, inputs.Artifacts, createdTask, driverAPI)
+	err = handleInputTaskArtifactsCreation(ctx, opts, inputs.Artifacts, createdTask, clientManager.DriverAPI())
 	if err != nil {
 		return execution, err
 	}

@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -206,9 +207,9 @@ func drive() (err error) {
 		return fmt.Errorf("failed to build scope path: %w", err)
 	}
 
-	k8sClient, err := createK8sClient()
+	clientManager, err := client_manager.NewClientManager()
 	if err != nil {
-		return fmt.Errorf("cannot generate k8s clientset: %w", err)
+		return err
 	}
 
 	options := common.Options{
@@ -228,21 +229,19 @@ func drive() (err error) {
 		ParentTask:       parentTask,
 		PodName:          podName,
 		PodUID:           podUID,
-		DriverAPI:        driverAPI,
 		ScopePath:        *scopePath,
-		K8sClient:        k8sClient,
 	}
 	var execution *driver.Execution
 	switch *driverType {
 	case ROOT_DAG:
 		options.RuntimeConfig = runtimeConfig
-		execution, err = driver.RootDAG(ctx, options, driverAPI)
+		execution, err = driver.RootDAG(ctx, options, clientManager)
 	case DAG:
-		execution, err = driver.DAG(ctx, options, driverAPI)
+		execution, err = driver.DAG(ctx, options, clientManager)
 	case CONTAINER:
 		options.Container = containerSpec
 		options.KubernetesExecutorConfig = k8sExecCfg
-		execution, err = driver.Container(ctx, options, driverAPI)
+		execution, err = driver.Container(ctx, options, clientManager)
 	default:
 		err = fmt.Errorf("unknown driverType %s", *driverType)
 	}

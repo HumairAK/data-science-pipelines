@@ -23,14 +23,10 @@ type ClientManager struct {
 	driverAPI common.DriverAPI
 }
 
-type Options struct {
-	CacheDisabled bool
-}
-
 // NewClientManager creates and Init a new instance of ClientManager.
-func NewClientManager(options *Options) (*ClientManager, error) {
+func NewClientManager() (*ClientManager, error) {
 	clientManager := &ClientManager{}
-	err := clientManager.init(options)
+	err := clientManager.init()
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +42,7 @@ func (cm *ClientManager) DriverAPI() common.DriverAPI {
 	return cm.driverAPI
 }
 
-func (cm *ClientManager) init(opts *Options) error {
+func (cm *ClientManager) init() error {
 	k8sClient, err := initK8sClient()
 	if err != nil {
 		return err

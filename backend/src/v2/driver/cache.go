@@ -24,31 +24,7 @@ import (
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
 )
-
-func collectOutputArtifactMetadataFromCache(ctx context.Context, executorInput *pipelinespec.ExecutorInput, cachedMLMDExecutionID int64, mlmd *metadata.Client) ([]*metadata.OutputArtifact, error) {
-	outputArtifacts, err := mlmd.GetOutputArtifactsByExecutionId(ctx, cachedMLMDExecutionID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get MLMDOutputArtifactsByName by executionId %v: %w", cachedMLMDExecutionID, err)
-	}
-
-	// Register artifacts with MLMD.
-	registeredMLMDArtifacts := make([]*metadata.OutputArtifact, 0, len(executorInput.GetOutputs().GetArtifacts()))
-	for name, artifactList := range executorInput.GetOutputs().GetArtifacts() {
-		if len(artifactList.Artifacts) == 0 {
-			continue
-		}
-		artifact := artifactList.Artifacts[0]
-		outputArtifact, ok := outputArtifacts[name]
-		if !ok {
-			return nil, fmt.Errorf("unable to find artifact with name %v in mlmd output artifacts", name)
-		}
-		outputArtifact.Schema = artifact.GetType().GetInstanceSchema()
-		registeredMLMDArtifacts = append(registeredMLMDArtifacts, outputArtifact)
-	}
-	return registeredMLMDArtifacts, nil
-}
 
 // getFingerPrint generates a fingerprint for caching. The PVC names are included in the fingerprint since it's assumed
 // PVCs have side effects (e.g. files written for tasks later on in the run) on the execution. If the PVC names are

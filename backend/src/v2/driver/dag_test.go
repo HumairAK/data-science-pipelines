@@ -82,7 +82,12 @@ func TestLoopArtifactPassing(t *testing.T) {
 
 	// Run the Downstream Task that will use the output artifact
 	createDataSetExecution, _ := tc.RunContainer("create-dataset", parentTask, nil, true)
-	require.Nil(t, createDataSetExecution.ExecutorInput.Outputs)
+	// Expect the output artifact to be created
+	require.NotNil(t, createDataSetExecution.ExecutorInput.Outputs)
+	require.NotNil(t, createDataSetExecution.ExecutorInput.Outputs.Artifacts)
+	require.Equal(t, 1, len(createDataSetExecution.ExecutorInput.Outputs.Artifacts))
+	require.Contains(t, createDataSetExecution.ExecutorInput.Outputs.Artifacts, "output_dataset")
+	require.Equal(t, "output_dataset", createDataSetExecution.ExecutorInput.Outputs.Artifacts["output_dataset"].GetArtifacts()[0].Name)
 
 	// Mock a Launcher run by updating the task with output data
 	createDataSetOutputArtifactID := tc.MockLauncherOutputArtifactCreate(
@@ -111,7 +116,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 
 		// Run the "process-dataset" Container Task with iteration index
 		processExecution, _ := tc.RunContainer("process-dataset", parentTask, util.Int64Pointer(int64(index)), true)
-		require.Nil(t, processExecution.ExecutorInput.Outputs)
+		require.NotNil(t, processExecution.ExecutorInput.Outputs)
 		require.NotNil(t, processExecution.ExecutorInput.Inputs.Artifacts["input_dataset"])
 		require.Equal(t, 1, len(processExecution.ExecutorInput.Inputs.Artifacts["input_dataset"].GetArtifacts()))
 		require.Equal(t, processExecution.ExecutorInput.Inputs.Artifacts["input_dataset"].GetArtifacts()[0].ArtifactId, createDataSetOutputArtifactID)
@@ -145,7 +150,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 			util.Int64Pointer(int64(index)),
 			apiv2beta1.IOType_ITERATOR_OUTPUT,
 		)
-		loopTask, err := tc.DriverAPI.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: loopExecution.TaskID})
+		loopTask, err := tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: loopExecution.TaskID})
 		require.NoError(t, err)
 		require.NotNil(t, loopTask.Outputs)
 		require.Equal(t, len(loopTask.Outputs.Artifacts), index+1)
@@ -168,15 +173,15 @@ func TestLoopArtifactPassing(t *testing.T) {
 			util.Int64Pointer(int64(index)),
 			apiv2beta1.IOType_ITERATOR_OUTPUT,
 		)
-		secondaryPipelineTask, err = tc.DriverAPI.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: secondaryPipelineExecution.TaskID})
+		secondaryPipelineTask, err = tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: secondaryPipelineExecution.TaskID})
 		require.NoError(t, err)
 		require.NotNil(t, secondaryPipelineTask.Outputs)
 		require.Equal(t, len(secondaryPipelineTask.Outputs.Artifacts), index+1)
 
 		// Run next iteration component
 		analyzeExecution, _ := tc.RunContainer("analyze-artifact", parentTask, util.Int64Pointer(int64(index)), true)
-		require.Nil(t, createDataSetExecution.ExecutorInput.Outputs)
-		require.Nil(t, analyzeExecution.ExecutorInput.Outputs)
+		require.NotNil(t, createDataSetExecution.ExecutorInput.Outputs)
+		require.NotNil(t, analyzeExecution.ExecutorInput.Outputs)
 		require.NotNil(t, analyzeExecution.ExecutorInput.Inputs.Artifacts["analyze_artifact_input"])
 		require.Equal(t, 1, len(analyzeExecution.ExecutorInput.Inputs.Artifacts["analyze_artifact_input"].GetArtifacts()))
 		require.Equal(t, analyzeExecution.ExecutorInput.Inputs.Artifacts["analyze_artifact_input"].GetArtifacts()[0].ArtifactId, processDataSetArtifactID)
@@ -192,7 +197,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 		)
 	}
 
-	tasks, err := tc.DriverAPI.ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
+	tasks, err := tc.ClientManager.DriverAPI().ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
 		ParentFilter: &apiv2beta1.ListTasksRequest_ParentId{ParentId: loopExecution.TaskID},
 	})
 	require.NoError(t, err)
@@ -201,7 +206,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 	require.Equal(t, 6, len(tasks.Tasks))
 
 	// Expect the 3 artifacts from process-task to have been collected by the for-loop-2 task
-	forLoopTask, err := tc.DriverAPI.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: loopExecution.TaskID})
+	forLoopTask, err := tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: loopExecution.TaskID})
 	require.NoError(t, err)
 	require.Equal(t, 3, len(forLoopTask.Outputs.Artifacts))
 
@@ -212,14 +217,14 @@ func TestLoopArtifactPassing(t *testing.T) {
 	tc.ExitDag()
 
 	analyzeArtifactListExecution, _ := tc.RunContainer("analyze-artifact-list", parentTask, nil, true)
-	require.Nil(t, analyzeArtifactListExecution.ExecutorInput.Outputs)
+	require.NotNil(t, analyzeArtifactListExecution.ExecutorInput.Outputs)
 	require.NotNil(t, analyzeArtifactListExecution.ExecutorInput.Inputs.Artifacts["artifact_list_input"])
 	require.Equal(t, 3, len(analyzeArtifactListExecution.ExecutorInput.Inputs.Artifacts["artifact_list_input"].GetArtifacts()))
 
 	// Primary Pipeline tests
 
 	// Expect the 3 artifacts from process-task to have been collected by the secondary-pipeline task
-	secondaryPipelineTask, err = tc.DriverAPI.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: secondaryPipelineExecution.TaskID})
+	secondaryPipelineTask, err = tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: secondaryPipelineExecution.TaskID})
 	require.NoError(t, err)
 	require.Equal(t, 3, len(secondaryPipelineTask.Outputs.Artifacts))
 
@@ -230,8 +235,8 @@ func TestLoopArtifactPassing(t *testing.T) {
 	// Not to be confused with the "analyze-artifact-list" task in secondary pipeline,
 	// this is the "analyze-artifact-list" task in the primary pipeline
 	analyzeArtifactListOuterExecution, _ := tc.RunContainer("analyze-artifact-list", parentTask, nil, true)
-	require.Nil(t, analyzeArtifactListExecution.ExecutorInput.Outputs)
-	require.Nil(t, analyzeArtifactListOuterExecution.ExecutorInput.Outputs)
+	require.NotNil(t, analyzeArtifactListExecution.ExecutorInput.Outputs)
+	require.NotNil(t, analyzeArtifactListOuterExecution.ExecutorInput.Outputs)
 	require.NotNil(t, analyzeArtifactListOuterExecution.ExecutorInput.Inputs.Artifacts["artifact_list_input"])
 	require.Equal(t, 3, len(analyzeArtifactListOuterExecution.ExecutorInput.Inputs.Artifacts["artifact_list_input"].GetArtifacts()))
 
@@ -369,7 +374,7 @@ func TestParameterInputIterator(t *testing.T) {
 		nil,
 	)
 
-	task, err := tc.DriverAPI.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: secondaryPipelineTask.GetTaskId()})
+	task, err := tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: secondaryPipelineTask.GetTaskId()})
 	require.NoError(t, err)
 	require.NotNil(t, task.Outputs)
 	require.Equal(t, 3, len(task.Outputs.Parameters))
@@ -466,7 +471,7 @@ func TestNestedDag(t *testing.T) {
 	var err error
 
 	// Confirm that the artifact passed to "verify" task came from task_c
-	pipelineBTask, err = tc.DriverAPI.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: pipelineBTask.GetTaskId()})
+	pipelineBTask, err = tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: pipelineBTask.GetTaskId()})
 	require.NoError(t, err)
 	require.NotNil(t, pipelineBTask.Outputs)
 	require.Equal(t, 1, len(pipelineBTask.Outputs.Artifacts))
@@ -474,7 +479,7 @@ func TestNestedDag(t *testing.T) {
 
 	// Confirm that the artifact passed to cTask came from the nestedNestedBtask
 	// I.e the b() task that ran in pipeline-c and not in pipeline-b
-	cTask, err = tc.DriverAPI.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: cTask.GetTaskId()})
+	cTask, err = tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: cTask.GetTaskId()})
 	require.NoError(t, err)
 	require.NotNil(t, cTask.Outputs)
 	require.Equal(t, 1, len(cTask.Outputs.Artifacts))
@@ -1128,7 +1133,7 @@ func TestContainerComponentInputsAndRuntimeConstants(t *testing.T) {
 
 	// Run Container on the First Task
 	processInputsExecution, processInputsTask := tc.RunContainer("process-inputs", tc.RootTask, nil, true)
-	require.Nil(t, processInputsExecution.ExecutorInput.Outputs)
+	require.NotNil(t, processInputsExecution.ExecutorInput.Outputs)
 
 	// Fetch the task created by the Container() call
 	params := processInputsTask.Inputs.GetParameters()
@@ -1160,8 +1165,7 @@ func TestContainerComponentInputsAndRuntimeConstants(t *testing.T) {
 	)
 
 	analyzeInputsExecution, _ := tc.RunContainer("analyze-inputs", tc.RootTask, nil, true)
-	require.Nil(t, analyzeInputsExecution.ExecutorInput.Outputs)
-	require.Nil(t, analyzeInputsExecution.ExecutorInput.Outputs)
+	require.NotNil(t, analyzeInputsExecution.ExecutorInput.Outputs)
 	require.Equal(t, 1, len(analyzeInputsExecution.ExecutorInput.Inputs.Artifacts["input_text"].Artifacts))
 
 	// Verify Executor Input has the correct artifact

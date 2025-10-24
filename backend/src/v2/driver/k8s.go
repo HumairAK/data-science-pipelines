@@ -25,6 +25,7 @@ import (
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	apiV2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/component"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/resolver"
@@ -33,7 +34,6 @@ import (
 	k8score "k8s.io/api/core/v1"
 	k8sres "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 var accessModeMap = map[string]k8score.PersistentVolumeAccessMode{
@@ -51,15 +51,15 @@ var dummyImages = map[string]string{
 // kubernetesPlatformOps() carries out the Kubernetes-specific operations, such as create PVC,
 // delete PVC, etc. In these operations we skip the launcher due to there being no user container.
 // It also prepublishes and publishes the execution, which are usually done in the launcher.
-func kubernetesPlatformOps(ctx context.Context, driverAPI common.DriverAPI, execution *Execution, taskToCreate *apiV2beta1.PipelineTaskDetail, opts *common.Options) (err error) {
+func kubernetesPlatformOps(ctx context.Context, clientManager client_manager.ClientManagerInterface, execution *Execution, taskToCreate *apiV2beta1.PipelineTaskDetail, opts *common.Options) (err error) {
 	switch opts.Container.Image {
 	case "argostub/createpvc":
-		err = createPVCTask(ctx, opts.K8sClient, execution, opts, driverAPI, taskToCreate)
+		err = createPVCTask(ctx, clientManager, execution, opts, taskToCreate)
 		if err != nil {
 			return err
 		}
 	case "argostub/deletepvc":
-		if err = deletePVCTask(ctx, opts.K8sClient, execution, opts, driverAPI, taskToCreate); err != nil {
+		if err = deletePVCTask(ctx, clientManager, execution, opts, taskToCreate); err != nil {
 			return err
 		}
 	default:
@@ -632,10 +632,9 @@ func extendPodSpecPatch(
 // execution is passed by pointer so we can update TaskID for the defer function
 func createPVCTask(
 	ctx context.Context,
-	k8sClient kubernetes.Interface,
+	clientManager client_manager.ClientManagerInterface,
 	execution *Execution,
 	opts *common.Options,
-	driverAPI common.DriverAPI,
 	taskToCreate *apiV2beta1.PipelineTaskDetail,
 ) (err error) {
 	taskCreated := false
@@ -649,7 +648,7 @@ func createPVCTask(
 			}
 		}
 		if taskCreated {
-			_, updateErr := driverAPI.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+			_, updateErr := clientManager.DriverAPI().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
 				TaskId: execution.TaskID,
 				Task:   taskToCreate,
 			})
@@ -657,7 +656,7 @@ func createPVCTask(
 				err = errors.Join(err, fmt.Errorf("failed to update task: %w", updateErr))
 			}
 		} else {
-			_, createErr := driverAPI.CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
+			_, createErr := clientManager.DriverAPI().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
 				Task: taskToCreate,
 			})
 			if createErr != nil {
@@ -753,7 +752,7 @@ func createPVCTask(
 	// Create Initial Task. We will update the status later if
 	// anything fails, or the task successfully completes.
 	taskToCreate.Status = apiV2beta1.PipelineTaskDetail_RUNNING
-	task, err := driverAPI.CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
+	task, err := clientManager.DriverAPI().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
 		Task: taskToCreate,
 	})
 	if err != nil {
@@ -773,7 +772,7 @@ func createPVCTask(
 	// (1) Cache is enabled globally
 	// (2) Cache is enabled for the task
 	// (3) We had a cache hit for this Task
-	fingerPrint, cachedTask, err := getFingerPrintsAndID(ctx, execution, driverAPI, opts, nil)
+	fingerPrint, cachedTask, err := getFingerPrintsAndID(ctx, execution, clientManager.DriverAPI(), opts, nil)
 	if err != nil {
 		return err
 	}
@@ -805,7 +804,7 @@ func createPVCTask(
 	}
 
 	// Create the PVC in the cluster
-	createdPVC, err := k8sClient.CoreV1().PersistentVolumeClaims(opts.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+	createdPVC, err := clientManager.K8sClient().CoreV1().PersistentVolumeClaims(opts.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if err != nil {
 		err = fmt.Errorf("failed to create pvc: %w", err)
 		return err
@@ -817,10 +816,9 @@ func createPVCTask(
 
 func deletePVCTask(
 	ctx context.Context,
-	k8sClient kubernetes.Interface,
+	clientManager client_manager.ClientManagerInterface,
 	execution *Execution,
 	opts *common.Options,
-	driverAPI common.DriverAPI,
 	taskToCreate *apiV2beta1.PipelineTaskDetail,
 ) (err error) {
 	taskCreated := false
@@ -834,7 +832,7 @@ func deletePVCTask(
 			}
 		}
 		if taskCreated {
-			_, updateErr := driverAPI.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+			_, updateErr := clientManager.DriverAPI().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
 				TaskId: execution.TaskID,
 				Task:   taskToCreate,
 			})
@@ -842,7 +840,7 @@ func deletePVCTask(
 				err = errors.Join(err, fmt.Errorf("failed to update task: %w", updateErr))
 			}
 		} else {
-			_, createErr := driverAPI.CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
+			_, createErr := clientManager.DriverAPI().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
 				Task: taskToCreate,
 			})
 			if createErr != nil {
@@ -865,7 +863,7 @@ func deletePVCTask(
 	// Create Initial Task. We will update the status later if
 	// anything fails, or the task successfully completes.
 	taskToCreate.Status = apiV2beta1.PipelineTaskDetail_RUNNING
-	task, err := driverAPI.CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
+	task, err := clientManager.DriverAPI().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
 		Task: taskToCreate,
 	})
 	if err != nil {
@@ -885,7 +883,7 @@ func deletePVCTask(
 	// (1) Cache is enabled globally
 	// (2) Cache is enabled for the task
 	// (3) We had a cache hit for this Task
-	fingerPrint, cachedTask, err := getFingerPrintsAndID(ctx, execution, driverAPI, opts, nil)
+	fingerPrint, cachedTask, err := getFingerPrintsAndID(ctx, execution, clientManager.DriverAPI(), opts, nil)
 	if err != nil {
 		return err
 	}
@@ -899,14 +897,14 @@ func deletePVCTask(
 	}
 
 	// Get the PVC you want to delete, verify that it exists.
-	_, err = k8sClient.CoreV1().PersistentVolumeClaims(opts.Namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
+	_, err = clientManager.K8sClient().CoreV1().PersistentVolumeClaims(opts.Namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
 	if err != nil {
 		err = fmt.Errorf("failed to delete pvc %s: cannot find pvc: %v", pvcName, err)
 		return err
 	}
 
 	// Delete the PVC.
-	err = k8sClient.CoreV1().PersistentVolumeClaims(opts.Namespace).Delete(context.TODO(), pvcName, metav1.DeleteOptions{})
+	err = clientManager.K8sClient().CoreV1().PersistentVolumeClaims(opts.Namespace).Delete(context.TODO(), pvcName, metav1.DeleteOptions{})
 	if err != nil {
 		err = fmt.Errorf("failed to delete pvc %s: %v", pvcName, err)
 		return err

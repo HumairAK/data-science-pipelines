@@ -16,16 +16,17 @@ package driver
 
 import (
 	"fmt"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
 
+	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/resolver"
 
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	"github.com/kubeflow/pipelines/backend/src/v2/component"
-	"github.com/kubeflow/pipelines/backend/src/v2/metadata"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 	k8score "k8s.io/api/core/v1"
@@ -582,7 +583,7 @@ func provisionOutputs(
 	// artifacts (dsl.get_uri) by allowing the SDK to infer the task root from
 	// the executor output file's directory (set below) and convert it back to
 	// a remote URI at runtime.
-	taskRootRemote := metadata.GenerateOutputURI(pipelineRoot, []string{taskName, outputURISalt}, false)
+	taskRootRemote := generateOutputURI(pipelineRoot, []string{taskName, outputURISalt}, false)
 
 	// Set per-artifact output URIs under the task root.
 	for name, artifact := range artifacts {
@@ -593,7 +594,7 @@ func provisionOutputs(
 					Name: name,
 					// Do not preserve the query string for output artifacts, as otherwise
 					// they'd appear in file and artifact names.
-					Uri:      metadata.GenerateOutputURI(taskRootRemote, []string{name}, false),
+					Uri:      generateOutputURI(taskRootRemote, []string{name}, false),
 					Type:     artifact.GetArtifactType(),
 					Metadata: artifact.GetMetadata(),
 				},
@@ -634,4 +635,24 @@ func validateVolumeMounts(podSpec *k8score.PodSpec) error {
 	}
 
 	return nil
+}
+
+// generateOutputURI appends the specified paths to the pipeline root.
+// It may be configured to preserve the query part of the pipeline root
+// by splitting it off and appending it back to the full URI.
+func generateOutputURI(pipelineRoot string, paths []string, preserveQueryString bool) string {
+	querySplit := strings.Split(pipelineRoot, "?")
+	query := ""
+	if len(querySplit) == 2 {
+		pipelineRoot = querySplit[0]
+		if preserveQueryString {
+			query = "?" + querySplit[1]
+		}
+	} else if len(querySplit) > 2 {
+		// this should never happen, but just in case.
+		glog.Warningf("Unexpected pipeline root: %v", pipelineRoot)
+	}
+	// we cannot path.Join(root, taskName, artifactName), because root
+	// contains scheme like gs:// and path.Join cleans up scheme to gs:/
+	return fmt.Sprintf("%s/%s%s", strings.TrimRight(pipelineRoot, "/"), path.Join(paths...), query)
 }

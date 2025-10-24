@@ -90,10 +90,7 @@ func run() error {
 	}
 
 	// Create client manager
-	clientOptions := &client_manager.Options{
-		CacheDisabled: *cacheDisabledFlag,
-	}
-	clientManager, err := client_manager.NewClientManager(clientOptions)
+	clientManager, err := client_manager.NewClientManager()
 	if err != nil {
 		return err
 	}
