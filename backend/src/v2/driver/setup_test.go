@@ -547,10 +547,7 @@ func (tc *TestContext) MockLauncherOutputParameterCreate(
 
 // This helper will update a Runtime Tasks inputs with optional values if
 // no upstream input was provided.
-func (tc *TestContext) MockLauncherDefaultInputParametersUpdate(
-	TaskId string,
-	componentSpec *pipelinespec.ComponentSpec,
-) *apiv2beta1.PipelineTaskDetail {
+func (tc *TestContext) MockLauncherDefaultInputParametersUpdate(TaskId string, componentSpec *pipelinespec.ComponentSpec) *apiv2beta1.PipelineTaskDetail {
 	defer func() { tc.RefreshRun() }()
 
 	// Get Task

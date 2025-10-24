@@ -7,7 +7,7 @@ import (
 
 type FakeClientManager struct {
 	k8sClient kubernetes.Interface
-	driverAPI kfpapi.API
+	kfpAPI    kfpapi.API
 }
 
 // Ensure FakeClientManager implements ClientManagerInterface
@@ -18,12 +18,12 @@ func (f *FakeClientManager) K8sClient() kubernetes.Interface {
 }
 
 func (f *FakeClientManager) KFPAPIClient() kfpapi.API {
-	return f.driverAPI
+	return f.kfpAPI
 }
 
-func NewFakeClientManager(k8sClient kubernetes.Interface, driverAPI kfpapi.API) *FakeClientManager {
+func NewFakeClientManager(k8sClient kubernetes.Interface, kfpAPI kfpapi.API) *FakeClientManager {
 	return &FakeClientManager{
 		k8sClient: k8sClient,
-		driverAPI: driverAPI,
+		kfpAPI:    kfpAPI,
 	}
 }

@@ -45,9 +45,9 @@ func (l *ImportLauncher) Execute(ctx context.Context) (err error) {
 			err = fmt.Errorf("failed to execute importer component: %w", err)
 		}
 	}()
-	driverAPI := l.clientManager.KFPAPIClient()
+	kfpAPI := l.clientManager.KFPAPIClient()
 	parentTaskID := l.opts.ParentTask.GetTaskId()
-	createdTask, err := driverAPI.CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
+	createdTask, err := kfpAPI.CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
 		Task: &apiV2beta1.PipelineTaskDetail{
 			Name:         l.opts.TaskSpec.GetTaskInfo().GetName(),
 			DisplayName:  l.opts.TaskSpec.GetTaskInfo().GetName(),
@@ -101,7 +101,7 @@ func (l *ImportLauncher) Execute(ctx context.Context) (err error) {
 	})
 	createdTask.Status = apiV2beta1.PipelineTaskDetail_SUCCEEDED
 	createdTask.EndTime = timestamppb.Now()
-	_, err = driverAPI.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+	_, err = kfpAPI.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
 		TaskId: createdTask.TaskId,
 		Task:   createdTask,
 	})

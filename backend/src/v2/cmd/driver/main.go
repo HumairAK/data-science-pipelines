@@ -400,12 +400,12 @@ func buildScopePath(
 	return &scopePath, nil
 }
 
-func fetchPipelineSpec(pipelineSpecStruct *structpb.Struct, run *go_client.Run, driverAPI common.DriverAPI, ctx context.Context) (*structpb.Struct, error) {
+func fetchPipelineSpec(pipelineSpecStruct *structpb.Struct, run *go_client.Run, kfpAPI kfpapi.API, ctx context.Context) (*structpb.Struct, error) {
 	if run.GetPipelineSpec() != nil {
 		pipelineSpecStruct = run.GetPipelineSpec()
 	} else if run.GetPipelineVersionReference() != nil {
 		pvr := run.GetPipelineVersionReference()
-		pipeline, err := driverAPI.GetPipelineVersion(ctx, &go_client.GetPipelineVersionRequest{
+		pipeline, err := kfpAPI.GetPipelineVersion(ctx, &go_client.GetPipelineVersionRequest{
 			PipelineId:        pvr.GetPipelineId(),
 			PipelineVersionId: pvr.GetPipelineVersionId(),
 		})

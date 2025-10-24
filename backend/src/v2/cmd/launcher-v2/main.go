@@ -96,20 +96,20 @@ func run() error {
 	}
 
 	// Fetch Run
-	driverAPI := clientManager.KFPAPIClient()
-	pipelineRun, err := driverAPI.GetRun(ctx, &go_client.GetRunRequest{RunId: *runID})
+	kfpAPI := clientManager.KFPAPIClient()
+	pipelineRun, err := kfpAPI.GetRun(ctx, &go_client.GetRunRequest{RunId: *runID})
 	if err != nil {
 		return err
 	}
 
 	// Fetch Parent Task
-	parentTask, err := driverAPI.GetTask(ctx, &go_client.GetTaskRequest{TaskId: *parentTaskID})
+	parentTask, err := kfpAPI.GetTask(ctx, &go_client.GetTaskRequest{TaskId: *parentTaskID})
 	if err != nil {
 		return err
 	}
 
 	// Build scope path
-	pipelineSpecStruct, err := driverAPI.FetchPipelineSpecFromRun(ctx, pipelineRun.GetPipelineSpec(), pipelineRun)
+	pipelineSpecStruct, err := kfpAPI.FetchPipelineSpecFromRun(ctx, pipelineRun.GetPipelineSpec(), pipelineRun)
 	if err != nil {
 		return err
 	}
@@ -167,7 +167,7 @@ func run() error {
 	case "container":
 		// Container task should have a pre-existing task created by the Driver
 		if taskID != nil && *taskID != "" {
-			task, err := driverAPI.GetTask(ctx, &go_client.GetTaskRequest{TaskId: *taskID})
+			task, err := kfpAPI.GetTask(ctx, &go_client.GetTaskRequest{TaskId: *taskID})
 			if err != nil {
 				return err
 			}
