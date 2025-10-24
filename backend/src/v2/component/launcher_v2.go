@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -34,7 +33,6 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
-	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 	"gocloud.dev/blob"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -70,6 +68,11 @@ type LauncherV2 struct {
 	// the number of calls to the object store, and api server
 	openedBucketCache map[string]*blob.Bucket
 	launcherConfig    *config.Config
+
+	// Dependency interfaces for testing
+	fileSystem  FileSystem
+	cmdExecutor CommandExecutor
+	objectStore ObjectStoreClient
 }
 
 // NewLauncherV2 is a factory function that returns an instance of LauncherV2.
@@ -97,13 +100,37 @@ func NewLauncherV2(
 	if err != nil {
 		return nil, err
 	}
-	return &LauncherV2{
+	launcher := &LauncherV2{
 		executorInput: executorInput,
 		command:       cmdArgs[0],
 		args:          cmdArgs[1:],
 		options:       *opts,
 		clientManager: clientManager,
-	}, nil
+		// Initialize with production implementations
+		fileSystem:  &OSFileSystem{},
+		cmdExecutor: &RealCommandExecutor{},
+	}
+	// Object store is initialized after launcher creation
+	launcher.objectStore = NewRealObjectStoreClient(launcher)
+	return launcher, nil
+}
+
+// WithFileSystem allows overriding the file system (for testing)
+func (l *LauncherV2) WithFileSystem(fs FileSystem) *LauncherV2 {
+	l.fileSystem = fs
+	return l
+}
+
+// WithCommandExecutor allows overriding the command executor (for testing)
+func (l *LauncherV2) WithCommandExecutor(executor CommandExecutor) *LauncherV2 {
+	l.cmdExecutor = executor
+	return l
+}
+
+// WithObjectStore allows overriding the object store client (for testing)
+func (l *LauncherV2) WithObjectStore(store ObjectStoreClient) *LauncherV2 {
+	l.objectStore = store
+	return l
 }
 
 // stopWaitingArtifacts will create empty files to tell Modelcar sidecar containers to stop. Any errors encountered are
@@ -331,7 +358,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		glog.Infof("Initialized KFP API client at %s", kfpAPIClient.Endpoint)
 	}
 
-	if err = prepareOutputFolders(l.executorInput); err != nil {
+	if err = l.prepareOutputFolders(l.executorInput); err != nil {
 		return err
 	}
 	var executorOutput *pipelinespec.ExecutorOutput
@@ -483,7 +510,7 @@ func (l *LauncherV2) collectOutputParameters(executorOutput *pipelinespec.Execut
 		msg := func(err error) error {
 			return fmt.Errorf("failed to read output parameter name=%q type=%q path=%q: %w", name, paramSpec.GetParameterType(), param.GetOutputFile(), err)
 		}
-		b, err := os.ReadFile(param.GetOutputFile())
+		b, err := l.fileSystem.ReadFile(param.GetOutputFile())
 		if err != nil {
 			return msg(err)
 		}
@@ -548,7 +575,7 @@ func (l *LauncherV2) execute(
 		return nil, err
 	}
 
-	if err := prepareOutputFolders(l.executorInput); err != nil {
+	if err := l.prepareOutputFolders(l.executorInput); err != nil {
 		return nil, err
 	}
 
@@ -559,20 +586,14 @@ func (l *LauncherV2) execute(
 		writer = os.Stdout
 	}
 
-	// Prepare command that will execute end user code.
-	command := exec.Command(cmd, args...)
-	command.Stdin = os.Stdin
-	// Pipe stdout/stderr to the aforementioned multiWriter.
-	command.Stdout = writer
-	command.Stderr = writer
 	defer glog.Flush()
 
-	// Execute end user code.
-	if err := command.Run(); err != nil {
+	// Execute end user code using the command executor interface.
+	if err := l.cmdExecutor.Run(ctx, cmd, args, os.Stdin, writer, writer); err != nil {
 		return nil, err
 	}
 
-	return getExecutorOutputFile(l.executorInput.GetOutputs().GetOutputFile())
+	return l.getExecutorOutputFile(l.executorInput.GetOutputs().GetOutputFile())
 }
 
 // uploadOutputArtifacts iterates over all the Artifacts retrieved from the
@@ -653,9 +674,9 @@ func (l *LauncherV2) uploadOutputArtifacts(
 						glog.Warningf("Output Artifact %q does not have a recognized storage URI %q. Skipping uploading to remote storage.",
 							artifactKey, outputArtifact.Uri)
 					}
-					err = l.artifactUploadOrDownload(ctx, artifactKey, outputArtifact.Uri, localPath, l.launcherConfig, "upload")
+					err = l.objectStore.UploadArtifact(ctx, localPath, outputArtifact.Uri, artifactKey)
 					if err != nil {
-						return fmt.Errorf("failed to download input artifact %q from remote storage URI %q: %w", artifactKey, outputArtifact.Uri, err)
+						return fmt.Errorf("failed to upload output artifact %q to remote storage URI %q: %w", artifactKey, outputArtifact.Uri, err)
 					}
 					artifact.Uri = util.StringPointer(outputArtifact.Uri)
 				}
@@ -730,60 +751,11 @@ func (l *LauncherV2) downloadArtifacts(ctx context.Context) error {
 				}
 				continue
 			}
-			err = l.artifactUploadOrDownload(ctx, artifactKey, artifact.Uri, localPath, l.launcherConfig, "download")
+			err = l.objectStore.DownloadArtifact(ctx, artifact.Uri, localPath, artifactKey)
 			if err != nil {
 				return fmt.Errorf("failed to download input artifact %q from remote storage URI %q: %w", artifactKey, artifact.Uri, err)
 			}
 		}
-	}
-	return nil
-}
-
-func (l *LauncherV2) artifactUploadOrDownload(
-	ctx context.Context,
-	artifactKey,
-	artifactUri,
-	localPath string,
-	launcherConfig *config.Config,
-	mode string,
-) error {
-
-	if mode != "upload" && mode != "download" {
-		return fmt.Errorf("mode must be either 'upload' or 'download'")
-	}
-
-	bucketConfig, err := objectstore.ParseBucketPathToConfig(artifactUri)
-	if err != nil {
-		return fmt.Errorf("failed to get base URI path for input artifact %q: %w", artifactKey, err)
-	}
-	key := bucketConfig.Hash()
-	var openedBucket *blob.Bucket
-	if cachedBucket, exists := l.openedBucketCache[key]; exists {
-		openedBucket = cachedBucket
-	} else {
-		// Create new opened bucket and store in cache
-		storeSessionInfo, err := launcherConfig.GetStoreSessionInfo(bucketConfig.PrefixedBucket())
-		if err != nil {
-			return fmt.Errorf("failed to get store session info for bucket %q: %w", bucketConfig.PrefixedBucket(), err)
-		}
-		newOpenBucket, err := objectstore.OpenBucket(ctx, l.clientManager.K8sClient(), l.options.Namespace, bucketConfig, &storeSessionInfo)
-		l.openedBucketCache[bucketConfig.Hash()] = newOpenBucket
-		openedBucket = newOpenBucket
-	}
-	blobKey, err := bucketConfig.KeyFromURI(artifactUri)
-	if err != nil {
-		return fmt.Errorf("failed to convert artifact uri to blobkey %q: %w", artifactUri, err)
-	}
-	if mode == "upload" {
-		uploadErr := objectstore.UploadBlob(ctx, openedBucket, localPath, blobKey)
-		if uploadErr != nil {
-			return fmt.Errorf("failed to upload output artifact %q: %w", artifactKey, uploadErr)
-		}
-		return nil
-	}
-	// if not Upload, then download
-	if err = objectstore.DownloadBlob(ctx, openedBucket, localPath, blobKey); err != nil {
-		return fmt.Errorf("failed to download input artifact %q from remote storage URI %q: %w", artifactKey, artifactUri, err)
 	}
 	return nil
 }
@@ -927,14 +899,14 @@ func mergeRuntimeArtifacts(src, dst *pipelinespec.RuntimeArtifact) {
 	}
 }
 
-func getExecutorOutputFile(path string) (*pipelinespec.ExecutorOutput, error) {
+func (l *LauncherV2) getExecutorOutputFile(path string) (*pipelinespec.ExecutorOutput, error) {
 	// collect user executor output file
 	executorOutput := &pipelinespec.ExecutorOutput{
 		ParameterValues: map[string]*structpb.Value{},
 		Artifacts:       map[string]*pipelinespec.ArtifactList{},
 	}
 
-	_, err := os.Stat(path)
+	_, err := l.fileSystem.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			glog.Infof("output metadata file does not exist in %s", path)
@@ -945,7 +917,7 @@ func getExecutorOutputFile(path string) (*pipelinespec.ExecutorOutput, error) {
 		}
 	}
 
-	b, err := os.ReadFile(path)
+	b, err := l.fileSystem.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read output metadata file %q: %w", path, err)
 	}
@@ -974,10 +946,10 @@ func LocalPathForURI(uri string) (string, error) {
 	return "", fmt.Errorf("failed to generate local path for URI %s: unsupported storage scheme", uri)
 }
 
-func prepareOutputFolders(executorInput *pipelinespec.ExecutorInput) error {
+func (l *LauncherV2) prepareOutputFolders(executorInput *pipelinespec.ExecutorInput) error {
 	for name, parameter := range executorInput.GetOutputs().GetParameters() {
 		dir := filepath.Dir(parameter.OutputFile)
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := l.fileSystem.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("failed to create directory %q for output parameter %q: %w", dir, name, err)
 		}
 	}
@@ -994,7 +966,7 @@ func prepareOutputFolders(executorInput *pipelinespec.ExecutorInput) error {
 				return fmt.Errorf("failed to generate local storage path for output artifact %q: %w", name, err)
 			}
 
-			if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
+			if err := l.fileSystem.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
 				return fmt.Errorf("unable to create directory %q for output artifact %q: %w", filepath.Dir(localPath), name, err)
 			}
 		}
