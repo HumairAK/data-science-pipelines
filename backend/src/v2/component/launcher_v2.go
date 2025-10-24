@@ -680,7 +680,7 @@ func (l *LauncherV2) uploadOutputArtifacts(
 				request.IterationIndex = l.options.IterationIndex
 				request.Type = apiV2beta1.IOType_ITERATOR_OUTPUT
 			}
-			_, err := l.clientManager.DriverAPI().CreateArtifact(ctx, request)
+			_, err := l.clientManager.KFPAPIClient().CreateArtifact(ctx, request)
 			if err != nil {
 				return fmt.Errorf("failed to create artifact: %w", err)
 			}

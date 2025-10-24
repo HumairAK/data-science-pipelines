@@ -96,7 +96,7 @@ func run() error {
 	}
 
 	// Fetch Run
-	driverAPI := clientManager.DriverAPI()
+	driverAPI := clientManager.KFPAPIClient()
 	pipelineRun, err := driverAPI.GetRun(ctx, &go_client.GetRunRequest{RunId: *runID})
 	if err != nil {
 		return err

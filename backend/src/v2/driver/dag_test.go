@@ -150,7 +150,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 			util.Int64Pointer(int64(index)),
 			apiv2beta1.IOType_ITERATOR_OUTPUT,
 		)
-		loopTask, err := tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: loopExecution.TaskID})
+		loopTask, err := tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: loopExecution.TaskID})
 		require.NoError(t, err)
 		require.NotNil(t, loopTask.Outputs)
 		require.Equal(t, len(loopTask.Outputs.Artifacts), index+1)
@@ -173,7 +173,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 			util.Int64Pointer(int64(index)),
 			apiv2beta1.IOType_ITERATOR_OUTPUT,
 		)
-		secondaryPipelineTask, err = tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: secondaryPipelineExecution.TaskID})
+		secondaryPipelineTask, err = tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: secondaryPipelineExecution.TaskID})
 		require.NoError(t, err)
 		require.NotNil(t, secondaryPipelineTask.Outputs)
 		require.Equal(t, len(secondaryPipelineTask.Outputs.Artifacts), index+1)
@@ -197,7 +197,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 		)
 	}
 
-	tasks, err := tc.ClientManager.DriverAPI().ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
+	tasks, err := tc.ClientManager.KFPAPIClient().ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
 		ParentFilter: &apiv2beta1.ListTasksRequest_ParentId{ParentId: loopExecution.TaskID},
 	})
 	require.NoError(t, err)
@@ -206,7 +206,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 	require.Equal(t, 6, len(tasks.Tasks))
 
 	// Expect the 3 artifacts from process-task to have been collected by the for-loop-2 task
-	forLoopTask, err := tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: loopExecution.TaskID})
+	forLoopTask, err := tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: loopExecution.TaskID})
 	require.NoError(t, err)
 	require.Equal(t, 3, len(forLoopTask.Outputs.Artifacts))
 
@@ -224,7 +224,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 	// Primary Pipeline tests
 
 	// Expect the 3 artifacts from process-task to have been collected by the secondary-pipeline task
-	secondaryPipelineTask, err = tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: secondaryPipelineExecution.TaskID})
+	secondaryPipelineTask, err = tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: secondaryPipelineExecution.TaskID})
 	require.NoError(t, err)
 	require.Equal(t, 3, len(secondaryPipelineTask.Outputs.Artifacts))
 
@@ -374,7 +374,7 @@ func TestParameterInputIterator(t *testing.T) {
 		nil,
 	)
 
-	task, err := tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: secondaryPipelineTask.GetTaskId()})
+	task, err := tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: secondaryPipelineTask.GetTaskId()})
 	require.NoError(t, err)
 	require.NotNil(t, task.Outputs)
 	require.Equal(t, 3, len(task.Outputs.Parameters))
@@ -471,7 +471,7 @@ func TestNestedDag(t *testing.T) {
 	var err error
 
 	// Confirm that the artifact passed to "verify" task came from task_c
-	pipelineBTask, err = tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: pipelineBTask.GetTaskId()})
+	pipelineBTask, err = tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: pipelineBTask.GetTaskId()})
 	require.NoError(t, err)
 	require.NotNil(t, pipelineBTask.Outputs)
 	require.Equal(t, 1, len(pipelineBTask.Outputs.Artifacts))
@@ -479,7 +479,7 @@ func TestNestedDag(t *testing.T) {
 
 	// Confirm that the artifact passed to cTask came from the nestedNestedBtask
 	// I.e the b() task that ran in pipeline-c and not in pipeline-b
-	cTask, err = tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: cTask.GetTaskId()})
+	cTask, err = tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: cTask.GetTaskId()})
 	require.NoError(t, err)
 	require.NotNil(t, cTask.Outputs)
 	require.Equal(t, 1, len(cTask.Outputs.Artifacts))

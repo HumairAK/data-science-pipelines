@@ -168,7 +168,7 @@ func (tc *TestContext) CreateTestTask(
 		},
 	}
 
-	createdTask, err := tc.ClientManager.DriverAPI().CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+	createdTask, err := tc.ClientManager.KFPAPIClient().CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
 		Task: task,
 	})
 	require.NoError(t, err)
@@ -192,7 +192,7 @@ func (tc *TestContext) CreateTestArtifact(t *testing.T, name, artifactType strin
 		artifact.Type = apiv2beta1.Artifact_Metric
 	}
 
-	createdArtifact, err := tc.ClientManager.DriverAPI().CreateArtifact(context.Background(), &apiv2beta1.CreateArtifactRequest{
+	createdArtifact, err := tc.ClientManager.KFPAPIClient().CreateArtifact(context.Background(), &apiv2beta1.CreateArtifactRequest{
 		Artifact: artifact,
 	})
 	require.NoError(t, err)
@@ -213,7 +213,7 @@ func (tc *TestContext) CreateTestArtifactTask(t *testing.T, artifactID, taskID, 
 		Key:        key,
 	}
 
-	createdArtifactTask, err := tc.ClientManager.DriverAPI().CreateArtifactTask(context.Background(), &apiv2beta1.CreateArtifactTaskRequest{
+	createdArtifactTask, err := tc.ClientManager.KFPAPIClient().CreateArtifactTask(context.Background(), &apiv2beta1.CreateArtifactTaskRequest{
 		ArtifactTask: artifactTask,
 	})
 	require.NoError(t, err)
@@ -317,7 +317,7 @@ func TestTestContext(t *testing.T) {
 	)
 
 	// Test getting run with populated tasks and artifacts
-	populatedRun, err := testSetup.ClientManager.DriverAPI().GetRun(context.Background(), &apiv2beta1.GetRunRequest{RunId: run.RunId})
+	populatedRun, err := testSetup.ClientManager.KFPAPIClient().GetRun(context.Background(), &apiv2beta1.GetRunRequest{RunId: run.RunId})
 	require.NoError(t, err)
 	assert.NotNil(t, populatedRun)
 	assert.Len(t, populatedRun.Tasks, 2)
@@ -383,7 +383,7 @@ func (tc *TestContext) RunRootDag(testSetup *TestContext, run *apiv2beta1.Run, r
 	require.NoError(tc.T, err)
 	require.NotNil(tc.T, execution)
 
-	task, err := tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: execution.TaskID})
+	task, err := tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: execution.TaskID})
 	require.NoError(tc.T, err)
 	require.NotNil(tc.T, task)
 	require.Equal(tc.T, execution.TaskID, task.TaskId)
@@ -408,7 +408,7 @@ func (tc *TestContext) RunDag(
 	require.NoError(t, err)
 	require.NotNil(t, execution)
 
-	task, err := tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: execution.TaskID})
+	task, err := tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: execution.TaskID})
 	require.NoError(t, err)
 	require.NotNil(t, task)
 	require.Equal(t, execution.TaskID, task.TaskId)
@@ -454,7 +454,7 @@ func (tc *TestContext) RunContainer(
 	require.NoError(tc.T, err)
 	require.NotNil(tc.T, execution)
 
-	task, err := tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: execution.TaskID})
+	task, err := tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: execution.TaskID})
 	require.NoError(tc.T, err)
 	require.NotNil(tc.T, task)
 	require.Equal(tc.T, execution.TaskID, task.TaskId)
@@ -482,12 +482,12 @@ func (tc *TestContext) RunContainer(
 }
 
 func (tc *TestContext) setContainerToComplete(taskID string) *apiv2beta1.PipelineTaskDetail {
-	getTask, err := tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: taskID})
+	getTask, err := tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: taskID})
 	require.NoError(tc.T, err)
 	require.NotNil(tc.T, getTask)
 
 	getTask.Status = apiv2beta1.PipelineTaskDetail_SUCCEEDED
-	task, err := tc.ClientManager.DriverAPI().UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
+	task, err := tc.ClientManager.KFPAPIClient().UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
 		TaskId: taskID,
 		Task:   getTask,
 	})
@@ -497,7 +497,7 @@ func (tc *TestContext) setContainerToComplete(taskID string) *apiv2beta1.Pipelin
 
 func (tc *TestContext) RefreshRun() {
 	t := tc.T
-	run, err := tc.ClientManager.DriverAPI().GetRun(context.Background(), &apiv2beta1.GetRunRequest{RunId: tc.Run.RunId})
+	run, err := tc.ClientManager.KFPAPIClient().GetRun(context.Background(), &apiv2beta1.GetRunRequest{RunId: tc.Run.RunId})
 	require.NoError(t, err)
 	tc.Run = run
 }
@@ -516,7 +516,7 @@ func (tc *TestContext) MockLauncherOutputParameterCreate(
 	producerIteration *int64,
 ) {
 	// Get Task
-	task, err := tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: TaskId})
+	task, err := tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: TaskId})
 	require.NoError(tc.T, err)
 	require.NotNil(tc.T, task)
 
@@ -535,7 +535,7 @@ func (tc *TestContext) MockLauncherOutputParameterCreate(
 	parameters = append(parameters, newParameter)
 	task.Outputs.Parameters = parameters
 	// Update Task via driverapi UpdateTask
-	task, err = tc.ClientManager.DriverAPI().UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
+	task, err = tc.ClientManager.KFPAPIClient().UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
 		TaskId: TaskId,
 		Task:   task,
 	})
@@ -554,7 +554,7 @@ func (tc *TestContext) MockLauncherDefaultInputParametersUpdate(
 	defer func() { tc.RefreshRun() }()
 
 	// Get Task
-	task, err := tc.ClientManager.DriverAPI().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: TaskId})
+	task, err := tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: TaskId})
 	require.NoError(tc.T, err)
 	require.NotNil(tc.T, task)
 
@@ -580,7 +580,7 @@ func (tc *TestContext) MockLauncherDefaultInputParametersUpdate(
 		}
 	}
 	task.Inputs.Parameters = taskInputParameters
-	task, err = tc.ClientManager.DriverAPI().UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
+	task, err = tc.ClientManager.KFPAPIClient().UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
 		TaskId: TaskId,
 		Task:   task,
 	})
@@ -620,7 +620,7 @@ func (tc *TestContext) MockLauncherOutputArtifactCreate(
 			"producer_task": structpb.NewStringValue(producerTask),
 		},
 	}
-	createArtifact, err := tc.ClientManager.DriverAPI().CreateArtifact(
+	createArtifact, err := tc.ClientManager.KFPAPIClient().CreateArtifact(
 		context.Background(),
 		&apiv2beta1.CreateArtifactRequest{
 			Artifact: outputArtifact,
@@ -639,7 +639,7 @@ func (tc *TestContext) MockLauncherOutputArtifactCreate(
 	if producerIteration != nil {
 		artifactTask.Producer.Iteration = producerIteration
 	}
-	at, err := tc.ClientManager.DriverAPI().CreateArtifactTask(
+	at, err := tc.ClientManager.KFPAPIClient().CreateArtifactTask(
 		context.Background(),
 		&apiv2beta1.CreateArtifactTaskRequest{
 			ArtifactTask: artifactTask,
@@ -666,7 +666,7 @@ func (tc *TestContext) MockLauncherArtifactTaskCreate(
 	if producerIteration != nil {
 		at.Producer.Iteration = producerIteration
 	}
-	result, err := tc.ClientManager.DriverAPI().CreateArtifactTask(
+	result, err := tc.ClientManager.KFPAPIClient().CreateArtifactTask(
 		context.Background(),
 		&apiv2beta1.CreateArtifactTaskRequest{ArtifactTask: at})
 	require.NoError(t, err)

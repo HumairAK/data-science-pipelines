@@ -57,7 +57,7 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 		return nil, err
 	}
 
-	parentTask, err := clientManager.DriverAPI().GetTask(ctx, &apiV2beta1.GetTaskRequest{TaskId: opts.ParentTask.GetTaskId()})
+	parentTask, err := clientManager.KFPAPIClient().GetTask(ctx, &apiV2beta1.GetTaskRequest{TaskId: opts.ParentTask.GetTaskId()})
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +181,7 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 			pvcNames = append(pvcNames, GetWorkspacePVCName(opts.RunName))
 		}
 
-		fingerPrint, cachedTask, err = getFingerPrintsAndID(ctx, execution, clientManager.DriverAPI(), &opts, pvcNames)
+		fingerPrint, cachedTask, err = getFingerPrintsAndID(ctx, execution, clientManager.KFPAPIClient(), &opts, pvcNames)
 		if err != nil {
 			return execution, err
 		}
@@ -201,13 +201,13 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 		taskToCreate.Status = apiV2beta1.PipelineTaskDetail_SKIPPED
 	}
 
-	createdTask, err := clientManager.DriverAPI().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{Task: taskToCreate})
+	createdTask, err := clientManager.KFPAPIClient().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{Task: taskToCreate})
 	if err != nil {
 		return execution, err
 	}
 	execution.TaskID = createdTask.TaskId
 
-	err = handleInputTaskArtifactsCreation(ctx, opts, inputs.Artifacts, createdTask, clientManager.DriverAPI())
+	err = handleInputTaskArtifactsCreation(ctx, opts, inputs.Artifacts, createdTask, clientManager.KFPAPIClient())
 	if err != nil {
 		return execution, err
 	}
@@ -230,7 +230,7 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 			taskToCreate.Status = apiV2beta1.PipelineTaskDetail_CACHED
 			taskToCreate.Outputs = cachedTask.Outputs
 			*execution.Cached = true
-			_, createErr := clientManager.DriverAPI().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
+			_, createErr := clientManager.KFPAPIClient().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
 				Task: taskToCreate,
 			})
 			if createErr != nil {

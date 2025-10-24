@@ -17,7 +17,7 @@ func (f *FakeClientManager) K8sClient() kubernetes.Interface {
 	return f.k8sClient
 }
 
-func (f *FakeClientManager) DriverAPI() kfpapi.API {
+func (f *FakeClientManager) KFPAPIClient() kfpapi.API {
 	return f.driverAPI
 }
 

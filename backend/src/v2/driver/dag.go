@@ -124,14 +124,14 @@ func DAG(ctx context.Context, opts common.Options, clientManager client_manager.
 		return execution, err
 	}
 	glog.Infof("Creating task: %+v", taskToCreate)
-	createdTask, err := clientManager.DriverAPI().CreateTask(ctx, &gc.CreateTaskRequest{Task: taskToCreate})
+	createdTask, err := clientManager.KFPAPIClient().CreateTask(ctx, &gc.CreateTaskRequest{Task: taskToCreate})
 	if err != nil {
 		return execution, err
 	}
 	glog.Infof("Created task: %+v", createdTask)
 	execution.TaskID = createdTask.TaskId
 
-	err = handleInputTaskArtifactsCreation(ctx, opts, inputs.Artifacts, createdTask, clientManager.DriverAPI())
+	err = handleInputTaskArtifactsCreation(ctx, opts, inputs.Artifacts, createdTask, clientManager.KFPAPIClient())
 	if err != nil {
 		return execution, err
 	}

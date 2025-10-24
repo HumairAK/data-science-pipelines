@@ -648,7 +648,7 @@ func createPVCTask(
 			}
 		}
 		if taskCreated {
-			_, updateErr := clientManager.DriverAPI().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+			_, updateErr := clientManager.KFPAPIClient().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
 				TaskId: execution.TaskID,
 				Task:   taskToCreate,
 			})
@@ -656,7 +656,7 @@ func createPVCTask(
 				err = errors.Join(err, fmt.Errorf("failed to update task: %w", updateErr))
 			}
 		} else {
-			_, createErr := clientManager.DriverAPI().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
+			_, createErr := clientManager.KFPAPIClient().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
 				Task: taskToCreate,
 			})
 			if createErr != nil {
@@ -752,7 +752,7 @@ func createPVCTask(
 	// Create Initial Task. We will update the status later if
 	// anything fails, or the task successfully completes.
 	taskToCreate.Status = apiV2beta1.PipelineTaskDetail_RUNNING
-	task, err := clientManager.DriverAPI().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
+	task, err := clientManager.KFPAPIClient().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
 		Task: taskToCreate,
 	})
 	if err != nil {
@@ -772,7 +772,7 @@ func createPVCTask(
 	// (1) Cache is enabled globally
 	// (2) Cache is enabled for the task
 	// (3) We had a cache hit for this Task
-	fingerPrint, cachedTask, err := getFingerPrintsAndID(ctx, execution, clientManager.DriverAPI(), opts, nil)
+	fingerPrint, cachedTask, err := getFingerPrintsAndID(ctx, execution, clientManager.KFPAPIClient(), opts, nil)
 	if err != nil {
 		return err
 	}
@@ -832,7 +832,7 @@ func deletePVCTask(
 			}
 		}
 		if taskCreated {
-			_, updateErr := clientManager.DriverAPI().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+			_, updateErr := clientManager.KFPAPIClient().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
 				TaskId: execution.TaskID,
 				Task:   taskToCreate,
 			})
@@ -840,7 +840,7 @@ func deletePVCTask(
 				err = errors.Join(err, fmt.Errorf("failed to update task: %w", updateErr))
 			}
 		} else {
-			_, createErr := clientManager.DriverAPI().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
+			_, createErr := clientManager.KFPAPIClient().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
 				Task: taskToCreate,
 			})
 			if createErr != nil {
@@ -863,7 +863,7 @@ func deletePVCTask(
 	// Create Initial Task. We will update the status later if
 	// anything fails, or the task successfully completes.
 	taskToCreate.Status = apiV2beta1.PipelineTaskDetail_RUNNING
-	task, err := clientManager.DriverAPI().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
+	task, err := clientManager.KFPAPIClient().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
 		Task: taskToCreate,
 	})
 	if err != nil {
@@ -883,7 +883,7 @@ func deletePVCTask(
 	// (1) Cache is enabled globally
 	// (2) Cache is enabled for the task
 	// (3) We had a cache hit for this Task
-	fingerPrint, cachedTask, err := getFingerPrintsAndID(ctx, execution, clientManager.DriverAPI(), opts, nil)
+	fingerPrint, cachedTask, err := getFingerPrintsAndID(ctx, execution, clientManager.KFPAPIClient(), opts, nil)
 	if err != nil {
 		return err
 	}

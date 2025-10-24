@@ -45,7 +45,7 @@ func (l *ImportLauncher) Execute(ctx context.Context) (err error) {
 			err = fmt.Errorf("failed to execute importer component: %w", err)
 		}
 	}()
-	driverAPI := l.clientManager.DriverAPI()
+	driverAPI := l.clientManager.KFPAPIClient()
 	parentTaskID := l.opts.ParentTask.GetTaskId()
 	createdTask, err := driverAPI.CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
 		Task: &apiV2beta1.PipelineTaskDetail{
@@ -132,7 +132,7 @@ func (l *ImportLauncher) findOrNewArtifactToImport(ctx context.Context) (artifac
 }
 
 func (l *ImportLauncher) findMatchedArtifact(ctx context.Context, artifactToMatch *apiV2beta1.Artifact) (matchedArtifact *apiV2beta1.Artifact, err error) {
-	artifacts, err := l.clientManager.DriverAPI().ListArtifactsByURI(ctx, artifactToMatch.GetUri(), l.opts.Namespace)
+	artifacts, err := l.clientManager.KFPAPIClient().ListArtifactsByURI(ctx, artifactToMatch.GetUri(), l.opts.Namespace)
 	if err != nil {
 		return nil, err
 	}
