@@ -538,7 +538,16 @@ func addModelcarsToPodSpec(
 	}
 }
 
-// provisionOutputs prepares output references that will get saved to MLMD.
+// provisionOutputs prepares the executorInputs.Outputs field for the executor.
+// This is done by computing the executor output file path and setting the
+// executorInputs.Outputs fields to point to it.
+//
+// The executor output file is a JSON file that contains the executor output
+// parameters and artifacts.
+//
+// The executor output file is written to the executor output directory, which
+// is a directory under the task root. The executor output directory is
+// determined by the executor output file path.
 func provisionOutputs(
 	pipelineRoot,
 	taskName string,

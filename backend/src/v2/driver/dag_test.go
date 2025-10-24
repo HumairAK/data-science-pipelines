@@ -1173,3 +1173,10 @@ func TestContainerComponentInputsAndRuntimeConstants(t *testing.T) {
 	require.Equal(t, apiv2beta1.Artifact_Dataset.String(), artifact.Type.GetSchemaTitle())
 	require.Equal(t, "output_text", artifact.Name)
 }
+
+// Add a test that will ensure a task is skipped when a task condition is not met
+func TestSkippedTask(t *testing.T) {}
+
+// Ensure we are testing executor outputs are provisioned (and also test artifact URIs)
+// Can also include these tests in some of the other tests above
+func TestExecutorOutput(t *testing.T) {}

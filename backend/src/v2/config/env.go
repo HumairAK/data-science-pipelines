@@ -34,7 +34,7 @@ import (
 
 const (
 	configMapName                = "kfp-launcher"
-	defaultPipelineRoot          = "minio://mlpipeline/v2/artifacts"
+	defaultPipelineRoot          = "s3://mlpipeline/v2/artifacts"
 	configKeyDefaultPipelineRoot = "defaultPipelineRoot"
 	configBucketProviders        = "providers"
 	minioArtifactSecretName      = "mlpipeline-minio-artifact"
@@ -58,48 +58,17 @@ type Config struct {
 	data map[string]string
 }
 
-// FetchLauncherConfig loads config from a kfp-launcher Kubernetes config map.
-func FetchLauncherConfig(ctx context.Context, clientSet kubernetes.Interface, namespace string) (*Config, error) {
-	config, err := clientSet.CoreV1().ConfigMaps(namespace).Get(ctx, configMapName, metav1.GetOptions{})
-	if err != nil {
-		if k8errors.IsNotFound(err) {
-			glog.Infof("cannot find launcher configmap: name=%q namespace=%q, will use default config", configMapName, namespace)
-			// LauncherConfig is optional, so ignore not found error.
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &Config{data: config.Data}, nil
-}
-
 // DefaultPipelineRoot gets the configured default pipeline root.
 func (c *Config) DefaultPipelineRoot() string {
 	// The key defaultPipelineRoot is optional in launcher config.
-	if c == nil || c.data[configKeyDefaultPipelineRoot] == "" {
+	if c == nil || c.data == nil {
+		return defaultPipelineRoot
+	}
+	// Check if key exists and has non-empty value
+	if val, exists := c.data[configKeyDefaultPipelineRoot]; !exists || val == "" {
 		return defaultPipelineRoot
 	}
 	return c.data[configKeyDefaultPipelineRoot]
-}
-
-// InPodNamespace gets current namespace from inside a Kubernetes Pod.
-func InPodNamespace() (string, error) {
-	// The path is available in Pods.
-	// https://kubernetes.io/docs/tasks/run-application/access-api-from-pod/#directly-accessing-the-rest-api
-	ns, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-	if err != nil {
-		return "", fmt.Errorf("failed to get namespace in Pod: %w", err)
-	}
-	return string(ns), nil
-}
-
-// InPodName gets the pod name from inside a Kubernetes Pod.
-func InPodName() (string, error) {
-	podName, err := os.ReadFile("/etc/hostname")
-	if err != nil {
-		return "", fmt.Errorf("failed to get pod name in Pod: %w", err)
-	}
-	name := string(podName)
-	return strings.TrimSuffix(name, "\n"), nil
 }
 
 func (c *Config) GetStoreSessionInfo(path string) (objectstore.SessionInfo, error) {
@@ -159,6 +128,41 @@ func (c *Config) getBucketProviders() (*BucketProviders, error) {
 		return nil, fmt.Errorf("failed to unmarshall kfp bucket providers, ensure that providers config is well formed: %w", err)
 	}
 	return bucketProviders, nil
+}
+
+// FetchLauncherConfigMap loads config from a kfp-launcher Kubernetes config map.
+func FetchLauncherConfigMap(ctx context.Context, clientSet kubernetes.Interface, namespace string) (*Config, error) {
+	config, err := clientSet.CoreV1().ConfigMaps(namespace).Get(ctx, configMapName, metav1.GetOptions{})
+	if err != nil {
+		if k8errors.IsNotFound(err) {
+			glog.Infof("cannot find launcher configmap: name=%q namespace=%q, will use default config", configMapName, namespace)
+			// LauncherConfig is optional, so ignore not found error.
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &Config{data: config.Data}, nil
+}
+
+// InPodNamespace gets current namespace from inside a Kubernetes Pod.
+func InPodNamespace() (string, error) {
+	// The path is available in Pods.
+	// https://kubernetes.io/docs/tasks/run-application/access-api-from-pod/#directly-accessing-the-rest-api
+	ns, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	if err != nil {
+		return "", fmt.Errorf("failed to get namespace in Pod: %w", err)
+	}
+	return string(ns), nil
+}
+
+// InPodName gets the pod name from inside a Kubernetes Pod.
+func InPodName() (string, error) {
+	podName, err := os.ReadFile("/etc/hostname")
+	if err != nil {
+		return "", fmt.Errorf("failed to get pod name in Pod: %w", err)
+	}
+	name := string(podName)
+	return strings.TrimSuffix(name, "\n"), nil
 }
 
 func getDefaultMinioSessionInfo() (objectstore.SessionInfo, error) {

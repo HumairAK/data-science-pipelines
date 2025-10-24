@@ -51,25 +51,15 @@ var dummyImages = map[string]string{
 // kubernetesPlatformOps() carries out the Kubernetes-specific operations, such as create PVC,
 // delete PVC, etc. In these operations we skip the launcher due to there being no user container.
 // It also prepublishes and publishes the execution, which are usually done in the launcher.
-func kubernetesPlatformOps(ctx context.Context, driverAPI common.DriverAPI, execution *Execution, taskToCreate *apiV2beta1.PipelineTaskDetail, opts *common.Options, k8sClientOverride kubernetes.Interface) (err error) {
-	var k8sClient kubernetes.Interface
-	if k8sClientOverride != nil {
-		k8sClient = k8sClientOverride
-	} else {
-		k8sClient, err = createK8sClient()
-		if err != nil {
-			return fmt.Errorf("cannot generate k8s clientset: %w", err)
-		}
-	}
-
+func kubernetesPlatformOps(ctx context.Context, driverAPI common.DriverAPI, execution *Execution, taskToCreate *apiV2beta1.PipelineTaskDetail, opts *common.Options) (err error) {
 	switch opts.Container.Image {
 	case "argostub/createpvc":
-		err = createPVCTask(ctx, k8sClient, execution, opts, driverAPI, taskToCreate)
+		err = createPVCTask(ctx, opts.K8sClient, execution, opts, driverAPI, taskToCreate)
 		if err != nil {
 			return err
 		}
 	case "argostub/deletepvc":
-		if err = deletePVCTask(ctx, k8sClient, execution, opts, driverAPI, taskToCreate); err != nil {
+		if err = deletePVCTask(ctx, opts.K8sClient, execution, opts, driverAPI, taskToCreate); err != nil {
 			return err
 		}
 	default:
@@ -978,17 +968,4 @@ func makeVolumeMountPatch(
 		volumes = append(volumes, volume)
 	}
 	return volumeMounts, volumes, nil
-}
-
-func createK8sClient() (*kubernetes.Clientset, error) {
-	// Initialize Kubernetes client set
-	restConfig, err := util.GetKubernetesConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize kubernetes client: %w", err)
-	}
-	k8sClient, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize kubernetes client set: %w", err)
-	}
-	return k8sClient, nil
 }

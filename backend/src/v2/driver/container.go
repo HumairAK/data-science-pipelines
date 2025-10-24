@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/golang/glog"
+	"github.com/google/uuid"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	apiV2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
@@ -17,13 +18,12 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"k8s.io/client-go/kubernetes"
 )
 
 // Container mirrors Container but uses KFP RunService/ArtifactService instead of MLMD.
 // Initial version wires inputs and creates a runtime task; output recording via
 // ArtifactService will be added in subsequent steps.
-func Container(ctx context.Context, opts common.Options, driverAPI common.DriverAPI, k8sClientOverride kubernetes.Interface) (execution *Execution, err error) {
+func Container(ctx context.Context, opts common.Options, driverAPI common.DriverAPI) (execution *Execution, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("driver.Container(%s) failed: %w", opts.Info(), err)
@@ -139,7 +139,7 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 	// ### HANDLE K8S OP ###
 	// ######################################
 	if isKubernetesPlatformOp {
-		return execution, kubernetesPlatformOps(ctx, driverAPI, execution, taskToCreate, &opts, k8sClientOverride)
+		return execution, kubernetesPlatformOps(ctx, driverAPI, execution, taskToCreate, &opts)
 	}
 
 	var inputParams []*apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter
@@ -191,19 +191,28 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 	// ### CREATE TASK ###
 	// ######################################
 
-	taskToCreate, err = handleTaskParametersCreation(inputs.Parameters, taskToCreate)
+	taskToCreate, err = handleInputTaskParametersCreation(inputs.Parameters, taskToCreate)
 	if err != nil {
 		return execution, err
 	}
+
+	if !execution.WillTrigger() {
+		taskToCreate.Status = apiV2beta1.PipelineTaskDetail_SKIPPED
+	}
+
 	createdTask, err := driverAPI.CreateTask(ctx, &apiV2beta1.CreateTaskRequest{Task: taskToCreate})
 	if err != nil {
 		return execution, err
 	}
 	execution.TaskID = createdTask.TaskId
 
-	err = handleTaskArtifactsCreation(ctx, opts, inputs.Artifacts, createdTask, driverAPI)
+	err = handleInputTaskArtifactsCreation(ctx, opts, inputs.Artifacts, createdTask, driverAPI)
 	if err != nil {
 		return execution, err
+	}
+
+	if !execution.WillTrigger() {
+		return execution, nil
 	}
 
 	// ######################################
@@ -230,6 +239,36 @@ func Container(ctx context.Context, opts common.Options, driverAPI common.Driver
 		}
 	} else {
 		glog.Info("Cache disabled globally at the server level.")
+	}
+
+	// Determine the pipeline root
+	// If a user sets a pipeline root at the runtime config, use that.
+	// Otherwise, we use the default pipeline root from the launcher config map.
+	// If none is set, we use the hardcoded default.
+	// TODO(Humair): We really only need to do this once per Run - consider having
+	// the apiserver do this instead during Run creation. This will avoid having to
+	// fetch the configmap for every task in driver.
+	var pipelineRoot string
+	if opts.Run.GetRuntimeConfig().PipelineRoot != "" {
+		pipelineRoot = opts.Run.GetRuntimeConfig().PipelineRoot
+		glog.Infof("PipelineRoot=%q from runtime config will be used.", pipelineRoot)
+	} else {
+		cfg, err := config.FetchLauncherConfigMap(ctx, opts.K8sClient, opts.Namespace)
+		if err != nil {
+			return nil, err
+		}
+		pipelineRoot = cfg.DefaultPipelineRoot()
+		glog.Infof("PipelineRoot=%q from default config", pipelineRoot)
+	}
+	// Provision Outputs in ExecutorInput
+	if execution.WillTrigger() {
+		executorInput.Outputs = provisionOutputs(
+			pipelineRoot,
+			opts.TaskName,
+			opts.Component.GetOutputDefinitions(),
+			uuid.NewString(),
+			opts.PublishLogs,
+		)
 	}
 
 	// ######################################

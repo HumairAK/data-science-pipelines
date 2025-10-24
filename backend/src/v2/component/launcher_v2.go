@@ -316,7 +316,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	}()
 
 	// Fetch Launcher config, this will be required for object store initialization
-	launcherConfig, err := config.FetchLauncherConfig(ctx, l.clientManager.K8sClient(), l.options.Namespace)
+	launcherConfig, err := config.FetchLauncherConfigMap(ctx, l.clientManager.K8sClient(), l.options.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to get launcher configmap: %w", err)
 	}

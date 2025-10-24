@@ -10,6 +10,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/kubernetes_platform/go/kubernetesplatform"
 	"google.golang.org/protobuf/types/known/structpb"
+	"k8s.io/client-go/kubernetes"
 )
 
 // Options contain driver options
@@ -54,6 +55,7 @@ type Options struct {
 	TaskName         string // the original name of the task, used for input resolution
 	PodName          string
 	PodUID           string
+	K8sClient        kubernetes.Interface
 }
 
 // Info provides information used for debugging

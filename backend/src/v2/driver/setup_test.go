@@ -736,7 +736,7 @@ func (tc *TestContext) RunContainer(
 		opts.IterationIndex = int(*iterationIndex)
 	}
 
-	execution, err := Container(context.Background(), opts, tc.DriverAPI, tc.K8sClientOverride)
+	execution, err := Container(context.Background(), opts, tc.DriverAPI)
 	require.NoError(tc.T, err)
 	require.NotNil(tc.T, execution)
 
@@ -1006,6 +1006,7 @@ func (tc *TestContext) setupDagOptions(
 		PodName:                  "system-dag-driver",
 		PodUID:                   "some-uid",
 		ScopePath:                tc.ScopePath,
+		K8sClient:                tc.K8sClientOverride,
 	}
 }
 
@@ -1053,6 +1054,7 @@ func (tc *TestContext) setupContainerOptions(
 		PodName:                  "system-container-impl",
 		PodUID:                   "some-uid",
 		ScopePath:                tc.ScopePath,
+		K8sClient:                tc.K8sClientOverride,
 	}
 }
 

@@ -98,9 +98,9 @@ func validateNonRoot(opts common.Options) error {
 	return nil
 }
 
-// handleTaskParametersCreation creates a new PipelineTaskDetail_InputOutputs_IOParameter
+// handleInputTaskParametersCreation creates a new PipelineTaskDetail_InputOutputs_IOParameter
 // for each parameter in the executor input.
-func handleTaskParametersCreation(
+func handleInputTaskParametersCreation(
 	parameterMetadata []resolver.ParameterMetadata,
 	task *apiV2beta1.PipelineTaskDetail,
 ) (*apiV2beta1.PipelineTaskDetail, error) {
@@ -122,7 +122,11 @@ func handleTaskParametersCreation(
 	return task, nil
 }
 
-func handleTaskArtifactsCreation(
+// handleInputTaskArtifactsCreation creates a new ArtifactTask for each input artifact.
+// The artifactsTasks are created as input artifacts. This allows KFP backend to
+// list input artifacts for this task. Parameters do not require this additional overhead
+// because parameters are stored in the task itself.
+func handleInputTaskArtifactsCreation(
 	ctx context.Context,
 	opts common.Options,
 	artifactMetadata []resolver.ArtifactMetadata,

@@ -114,6 +114,10 @@ func (s *ScopePath) GetSize() int {
 	return s.size
 }
 
+func (s *ScopePath) GetPipelineSpec() *pipelinespec.PipelineSpec {
+	return s.pipelineSpec
+}
+
 func (s *ScopePath) StringPath() []string {
 	var path []string
 	if s.list == nil {

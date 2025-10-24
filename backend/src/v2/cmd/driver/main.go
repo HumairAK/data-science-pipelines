@@ -24,6 +24,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
@@ -128,7 +129,7 @@ func validate() error {
 func drive() (err error) {
 	ctx := context.Background()
 
-	// Initialize connection to new KFP v2beta1 API server (Tasks/Artifacts)
+	// Initialize connection to the KFP API server
 	apiCfg := apiclient.FromEnv()
 	kfpAPIClient, apiErr := apiclient.New(apiCfg)
 	if apiErr != nil {
@@ -205,6 +206,11 @@ func drive() (err error) {
 		return fmt.Errorf("failed to build scope path: %w", err)
 	}
 
+	k8sClient, err := createK8sClient()
+	if err != nil {
+		return fmt.Errorf("cannot generate k8s clientset: %w", err)
+	}
+
 	options := common.Options{
 		PipelineName:     *pipelineName,
 		Run:              run,
@@ -224,6 +230,7 @@ func drive() (err error) {
 		PodUID:           podUID,
 		DriverAPI:        driverAPI,
 		ScopePath:        *scopePath,
+		K8sClient:        k8sClient,
 	}
 	var execution *driver.Execution
 	switch *driverType {
@@ -235,7 +242,7 @@ func drive() (err error) {
 	case CONTAINER:
 		options.Container = containerSpec
 		options.KubernetesExecutorConfig = k8sExecCfg
-		execution, err = driver.Container(ctx, options, driverAPI, nil)
+		execution, err = driver.Container(ctx, options, driverAPI)
 	default:
 		err = fmt.Errorf("unknown driverType %s", *driverType)
 	}
@@ -411,4 +418,17 @@ func fetchPipelineSpec(pipelineSpecStruct *structpb.Struct, run *go_client.Run, 
 		return nil, fmt.Errorf("pipeline spec is not set")
 	}
 	return pipelineSpecStruct, nil
+}
+
+func createK8sClient() (*kubernetes.Clientset, error) {
+	// Initialize Kubernetes client set
+	restConfig, err := util.GetKubernetesConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize kubernetes client: %w", err)
+	}
+	k8sClient, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize kubernetes client set: %w", err)
+	}
+	return k8sClient, nil
 }

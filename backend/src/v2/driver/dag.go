@@ -118,7 +118,7 @@ func DAG(ctx context.Context, opts common.Options, driverAPI common.DriverAPI) (
 	if opts.ParentTask.GetTaskId() != "" {
 		taskToCreate.ParentTaskId = util.StringPointer(opts.ParentTask.GetTaskId())
 	}
-	taskToCreate, err = handleTaskParametersCreation(inputs.Parameters, taskToCreate)
+	taskToCreate, err = handleInputTaskParametersCreation(inputs.Parameters, taskToCreate)
 	if err != nil {
 		return execution, err
 	}
@@ -130,7 +130,7 @@ func DAG(ctx context.Context, opts common.Options, driverAPI common.DriverAPI) (
 	glog.Infof("Created task: %+v", createdTask)
 	execution.TaskID = createdTask.TaskId
 
-	err = handleTaskArtifactsCreation(ctx, opts, inputs.Artifacts, createdTask, driverAPI)
+	err = handleInputTaskArtifactsCreation(ctx, opts, inputs.Artifacts, createdTask, driverAPI)
 	if err != nil {
 		return execution, err
 	}
