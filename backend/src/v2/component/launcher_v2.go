@@ -43,14 +43,14 @@ import (
 )
 
 type LauncherV2Options struct {
-	Namespace    string
-	PodName      string
-	PodUID       string
-	PipelineName string
-
+	Namespace         string
+	PodName           string
+	PodUID            string
+	PipelineName      string
 	PublishLogs       string
-	CacheDisabled     bool
 	CachedFingerprint string
+	CacheDisabled     bool
+	IterationIndex    *int64
 	ComponentSpec     *pipelinespec.ComponentSpec
 	ImporterSpec      *pipelinespec.PipelineDeploymentConfig_ImporterSpec
 	TaskSpec          *pipelinespec.PipelineTaskSpec
@@ -58,7 +58,6 @@ type LauncherV2Options struct {
 	Run               *apiV2beta1.Run
 	ParentTask        *apiV2beta1.PipelineTaskDetail
 	Task              *apiV2beta1.PipelineTaskDetail
-	IterationIndex    *int64
 }
 
 type LauncherV2 struct {
@@ -146,12 +145,12 @@ func stopWaitingArtifacts(artifacts map[string]*pipelinespec.ArtifactList) {
 }
 
 // updateStatuses Traverse up the dag until we find a parent task that still has other children with "RUNNING" status
-// or when we have reached Root. If the parent task has other children in running that means this parent is also in running.
-// However, suppose the currentTask is a parent task we are evaluating - then:
-//   - if the other children all in SUCCEEDED, SKIPPED, or CACHED state then the currentTask should be updated to be "SUCCEEDED"
-//   - if all the child tasks were CACHED, then the currentTask should be updated to be "CACHED"
-//   - if any of the child tasks were FAILED, then the currentTask should be updated to be "FAILED"
-//   - if all the child tasks were SKIPPED, then the currentTask should be updated to be "SKIPPED"
+// or when we have reached Root. If the parent task has other children in running that means this parent is also running.
+// However, if the currentTask is a parent task, and all children tasks have been created (though not necessarily completed):
+//   - if all children in this DAG are all CACHED, then the currentTask should be updated to be "CACHED"
+//   - if any of the children in this DAG are FAILED, then the currentTask should be updated to be "FAILED"
+//   - if all children in this DAG were SKIPPED, then the currentTask should be updated to be "SKIPPED"
+//   - In any other case the state is SUCCEEDED
 func updateStatuses(ctx context.Context, kfpAPIClient *apiclient.Client, run *apiV2beta1.Run, currentTask *apiV2beta1.PipelineTaskDetail) error {
 	// Create a map of task IDs to tasks for quick lookup
 	taskMap := make(map[string]*apiV2beta1.PipelineTaskDetail)
@@ -656,7 +655,7 @@ func (l *LauncherV2) uploadOutputArtifacts(
 					}
 					err = l.artifactUploadOrDownload(ctx, artifactKey, outputArtifact.Uri, localPath, l.launcherConfig, "upload")
 					if err != nil {
-						return fmt.Errorf("failed to download input artifact %q from remote storage URI %q: %w", artifactKey, artifact.Uri, err)
+						return fmt.Errorf("failed to download input artifact %q from remote storage URI %q: %w", artifactKey, outputArtifact.Uri, err)
 					}
 					artifact.Uri = util.StringPointer(outputArtifact.Uri)
 				}

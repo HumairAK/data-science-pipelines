@@ -144,8 +144,3 @@ func (k *kfpAPI) FetchPipelineSpecFromRun(ctx context.Context, pipelineSpecStruc
 	}
 	return pipelineSpecStruct, nil
 }
-
-func (k *kfpAPI) FindMatchedArtifact(artifact *gc.Artifact) (*gc.Artifact, error) {
-
-	return nil, nil
-}
