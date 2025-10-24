@@ -37,7 +37,7 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 	glog.V(4).Info("Container opts: ", string(b))
 
 	if clientManager == nil {
-		return nil, fmt.Errorf("driverAPI client is nil")
+		return nil, fmt.Errorf("kfpAPI client is nil")
 	}
 	if opts.TaskName == "" {
 		return nil, fmt.Errorf("task name flag is required for Container")

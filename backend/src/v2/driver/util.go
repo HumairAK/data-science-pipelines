@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	apiV2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/v2/apiclient/kfpapi"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/resolver"
 )
@@ -131,7 +132,7 @@ func handleInputTaskArtifactsCreation(
 	opts common.Options,
 	artifactMetadata []resolver.ArtifactMetadata,
 	task *apiV2beta1.PipelineTaskDetail,
-	driverAPI common.DriverAPI,
+	kfpAPI kfpapi.API,
 ) error {
 	var artifactTasks []*apiV2beta1.ArtifactTask
 	for _, am := range artifactMetadata {
@@ -152,7 +153,7 @@ func handleInputTaskArtifactsCreation(
 	}
 	if len(artifactTasks) > 0 {
 		request := apiV2beta1.CreateArtifactTasksBulkRequest{ArtifactTasks: artifactTasks}
-		_, err := driverAPI.CreateArtifactTasks(ctx, &request)
+		_, err := kfpAPI.CreateArtifactTasks(ctx, &request)
 		if err != nil {
 			return err
 		}

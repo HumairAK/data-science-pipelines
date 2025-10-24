@@ -37,7 +37,7 @@ func DAG(ctx context.Context, opts common.Options, clientManager client_manager.
 	}
 
 	if clientManager == nil {
-		return nil, fmt.Errorf("driverAPI client is nil")
+		return nil, fmt.Errorf("ClientManager is nil")
 	}
 
 	expr, err := expression.New()

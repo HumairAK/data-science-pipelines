@@ -534,7 +534,7 @@ func (tc *TestContext) MockLauncherOutputParameterCreate(
 	parameters := task.Outputs.Parameters
 	parameters = append(parameters, newParameter)
 	task.Outputs.Parameters = parameters
-	// Update Task via driverapi UpdateTask
+	// Update Task via kfpAPI UpdateTask
 	task, err = tc.ClientManager.KFPAPIClient().UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
 		TaskId: TaskId,
 		Task:   task,

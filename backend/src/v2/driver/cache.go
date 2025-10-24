@@ -22,6 +22,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/v2/apiclient/kfpapi"
 	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 )
@@ -68,7 +69,7 @@ func getFingerPrint(opts common.Options, executorInput *pipelinespec.ExecutorInp
 func getFingerPrintsAndID(
 	ctx context.Context,
 	execution *Execution,
-	driverAPI common.DriverAPI,
+	kfpAPI kfpapi.API,
 	opts *common.Options,
 	pvcNames []string) (fingerprint string, task *apiv2beta1.PipelineTaskDetail, err error) {
 
@@ -96,7 +97,7 @@ func getFingerPrintsAndID(
 			},
 		},
 	}
-	tasks, err := driverAPI.ListTasks(ctx, &apiv2beta1.ListTasksRequest{
+	tasks, err := kfpAPI.ListTasks(ctx, &apiv2beta1.ListTasksRequest{
 		ParentFilter: &apiv2beta1.ListTasksRequest_RunId{RunId: opts.Run.GetRunId()},
 		Filter:       filter.String(),
 	})
