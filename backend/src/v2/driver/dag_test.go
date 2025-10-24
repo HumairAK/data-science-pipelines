@@ -89,15 +89,17 @@ func TestLoopArtifactPassing(t *testing.T) {
 	require.Contains(t, createDataSetExecution.ExecutorInput.Outputs.Artifacts, "output_dataset")
 	require.Equal(t, "output_dataset", createDataSetExecution.ExecutorInput.Outputs.Artifacts["output_dataset"].GetArtifacts()[0].Name)
 
-	// Mock a Launcher run by updating the task with output data
-	createDataSetOutputArtifactID := tc.MockLauncherOutputArtifactCreate(
-		createDataSetExecution.TaskID,
-		"output_dataset",
-		apiv2beta1.Artifact_Dataset,
-		apiv2beta1.IOType_OUTPUT,
-		"create-dataset",
-		nil,
-	)
+	// Run the actual launcher with mocks to simulate component execution
+	launcherExec := tc.RunLauncher(createDataSetExecution, map[string][]byte{
+		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+	})
+
+	// Verify the launcher executed correctly
+	require.Equal(t, 1, launcherExec.MockCmd.CallCount())
+
+	// Get the artifact ID that was created
+	require.Len(t, launcherExec.Task.Outputs.Artifacts, 1)
+	createDataSetOutputArtifactID := launcherExec.Task.Outputs.Artifacts[0].Artifacts[0].ArtifactId
 
 	// Run the Loop Task - note that parentTask for for-loop-2 remains as secondary-pipeline
 	loopExecution, loopTask := tc.RunDag("for-loop-2", parentTask)
@@ -123,25 +125,18 @@ func TestLoopArtifactPassing(t *testing.T) {
 		require.NotNil(t, processExecution.ExecutorInput.Inputs.ParameterValues["model_id_in"])
 		require.Equal(t, processExecution.ExecutorInput.Inputs.ParameterValues["model_id_in"].GetStringValue(), paramID)
 
-		// Mock the Launcher run
-		processDataSetArtifactID := tc.MockLauncherOutputArtifactCreate(
-			processExecution.TaskID,
-			"output_artifact",
-			apiv2beta1.Artifact_Artifact,
-			apiv2beta1.IOType_OUTPUT,
-			"process-dataset",
-			util.Int64Pointer(int64(index)),
-		)
+		// Run the actual launcher for process-dataset
+		processLauncherExec := tc.RunLauncher(processExecution, map[string][]byte{
+			"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+		})
+		require.Equal(t, 1, processLauncherExec.MockCmd.CallCount())
 
-		// Mock: Also expect Launcher->API Server to upload the output artifact to the for-loop-2 task's outputs (by first checking if this artifact is an output artifact)
-		//   comp-for-loop-2:
-		//    dag:
-		//      outputs:
-		//        artifacts:
-		//          pipelinechannel--process-dataset-output_artifact:
-		//            artifactSelectors:
-		//            - outputArtifactKey: output_artifact
-		//              producerSubtask: process-dataset
+		// Get the artifact ID that was created
+		require.Len(t, processLauncherExec.Task.Outputs.Artifacts, 1)
+		processDataSetArtifactID := processLauncherExec.Task.Outputs.Artifacts[0].Artifacts[0].ArtifactId
+
+		// Mock: Launcher->API Server should also upload the output artifact to the for-loop-2 task's outputs
+		// (DAG artifact collection logic - will be added to launcher later)
 		tc.MockLauncherArtifactTaskCreate(
 			"process-dataset",
 			loopExecution.TaskID,
@@ -155,16 +150,8 @@ func TestLoopArtifactPassing(t *testing.T) {
 		require.NotNil(t, loopTask.Outputs)
 		require.Equal(t, len(loopTask.Outputs.Artifacts), index+1)
 
-		// Mock: Launcher->API Server should also traverse the dag up, to log any output artifacts that are being sourced from the current loop task
-		// In this case, secondary-pipeline requires dsl.Collected() sourced from "process-dataset" outputs that are output from for-loop-2
-		//   comp-secondary-pipeline:
-		//    dag:
-		//      outputs:
-		//        artifacts:
-		//          Output:
-		//            artifactSelectors:
-		//            - outputArtifactKey: pipelinechannel--process-dataset-output_artifact
-		//              producerSubtask: for-loop-2
+		// Mock: Launcher->API Server should also traverse the dag up, to log any output artifacts
+		// (DAG artifact collection logic - will be added to launcher later)
 		tc.MockLauncherArtifactTaskCreate(
 			"process-dataset",
 			secondaryPipelineExecution.TaskID,
@@ -178,7 +165,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 		require.NotNil(t, secondaryPipelineTask.Outputs)
 		require.Equal(t, len(secondaryPipelineTask.Outputs.Artifacts), index+1)
 
-		// Run next iteration component
+		// Run the next iteration component
 		analyzeExecution, _ := tc.RunContainer("analyze-artifact", parentTask, util.Int64Pointer(int64(index)), true)
 		require.NotNil(t, createDataSetExecution.ExecutorInput.Outputs)
 		require.NotNil(t, analyzeExecution.ExecutorInput.Outputs)
@@ -186,15 +173,11 @@ func TestLoopArtifactPassing(t *testing.T) {
 		require.Equal(t, 1, len(analyzeExecution.ExecutorInput.Inputs.Artifacts["analyze_artifact_input"].GetArtifacts()))
 		require.Equal(t, analyzeExecution.ExecutorInput.Inputs.Artifacts["analyze_artifact_input"].GetArtifacts()[0].ArtifactId, processDataSetArtifactID)
 
-		// Mock the Launcher run
-		_ = tc.MockLauncherOutputArtifactCreate(
-			processExecution.TaskID,
-			"analyze_output_artifact",
-			apiv2beta1.Artifact_Artifact,
-			apiv2beta1.IOType_OUTPUT,
-			"analyze-artifact",
-			util.Int64Pointer(int64(index)),
-		)
+		// Run the actual launcher for analyze-artifact
+		analyzeLauncherExec := tc.RunLauncher(analyzeExecution, map[string][]byte{
+			"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+		})
+		require.Equal(t, 1, analyzeLauncherExec.MockCmd.CallCount())
 	}
 
 	tasks, err := tc.ClientManager.KFPAPIClient().ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{

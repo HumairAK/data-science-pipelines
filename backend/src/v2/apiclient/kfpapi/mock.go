@@ -229,6 +229,28 @@ func (m *MockAPI) CreateArtifact(_ context.Context, req *apiv2beta1.CreateArtifa
 		artifact.ArtifactId = uuid.String()
 	}
 	m.artifacts[artifact.ArtifactId] = artifact
+
+	// Also create the artifact-task relationship
+	// This mimics what the real API server does
+	artifactTask := &apiv2beta1.ArtifactTask{
+		ArtifactId: artifact.ArtifactId,
+		TaskId:     req.TaskId,
+		RunId:      req.RunId,
+		Key:        req.ProducerKey,
+		Type:       req.Type,
+		Producer: &apiv2beta1.IOProducer{
+			TaskName: "", // The task name will be populated from the task if needed
+		},
+	}
+	if req.IterationIndex != nil {
+		artifactTask.Producer.Iteration = req.IterationIndex
+	}
+
+	// Generate ID for artifact task
+	atUuid, _ := uuid.NewRandom()
+	artifactTask.Id = atUuid.String()
+	m.artifactTasks[artifactTask.Id] = artifactTask
+
 	return artifact, nil
 }
 

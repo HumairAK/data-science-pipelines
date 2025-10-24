@@ -13,6 +13,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient/kfpapi"
 	clientmanager "github.com/kubeflow/pipelines/backend/src/v2/client_manager"
+	"github.com/kubeflow/pipelines/backend/src/v2/component"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"github.com/kubeflow/pipelines/kubernetes_platform/go/kubernetesplatform"
 	"github.com/stretchr/testify/assert"
@@ -669,6 +670,152 @@ func (tc *TestContext) MockLauncherArtifactTaskCreate(
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	tc.RefreshRun()
+}
+
+// LauncherExecution holds the result of a launcher execution
+type LauncherExecution struct {
+	// The launcher instance (with mocks still attached)
+	Launcher *component.LauncherV2
+	// Mock instances for verification
+	MockFS       *component.MockFileSystem
+	MockCmd      *component.MockCommandExecutor
+	MockObjStore *component.MockObjectStoreClient
+	// The task that was executed
+	Task *apiv2beta1.PipelineTaskDetail
+}
+
+// RunLauncher executes a launcher for the given execution with mocked dependencies.
+// This simulates what the launcher would do when executing user code.
+// It uses the ExecutorInput that was already prepared by the driver.
+//
+// Usage:
+//
+//	execution, _ := tc.RunContainer("task-name", parentTask, nil, true)
+//	launcherExec := tc.RunLauncher(execution, map[string][]byte{
+//	    "/tmp/outputs/metric": []byte("0.95"),
+//	})
+//
+//	// Verify command was executed
+//	assert.Equal(t, 1, launcherExec.MockCmd.CallCount())
+//
+//	// Verify artifacts were uploaded
+//	uploads := launcherExec.MockObjStore.GetUploadCallsForKey("model")
+//	assert.Len(t, uploads, 1)
+func (tc *TestContext) RunLauncher(execution *Execution, outputFiles map[string][]byte) *LauncherExecution {
+	t := tc.T
+	ctx := context.Background()
+
+	// Get the task that was created by the driver
+	task, err := tc.ClientManager.KFPAPIClient().GetTask(ctx, &apiv2beta1.GetTaskRequest{TaskId: execution.TaskID})
+	require.NoError(t, err)
+	require.NotNil(t, task)
+
+	// Use the ExecutorInput that was already prepared by the driver
+	executorInput := execution.ExecutorInput
+	require.NotNil(t, executorInput, "ExecutorInput should be set by driver")
+
+	// Get componentSpec and taskSpec from the current scope path
+	// The TestContext's ScopePath should already be at the right location after RunContainer
+	componentSpec := tc.GetLast().GetComponentSpec()
+	taskSpec := tc.GetLast().GetTaskSpec()
+	require.NotNil(t, componentSpec, "Component spec not found")
+	require.NotNil(t, taskSpec, "Task spec not found")
+
+	// Marshal executor input
+	executorInputJSON, err := protojson.Marshal(executorInput)
+	require.NoError(t, err)
+
+	// Create launcher options
+	var iterPtr *int64
+	if task.ParentTaskId != nil {
+		// Check if parent is a loop task to determine if we need iteration index
+		parentTask, err := tc.ClientManager.KFPAPIClient().GetTask(ctx, &apiv2beta1.GetTaskRequest{TaskId: *task.ParentTaskId})
+		if err == nil && parentTask.GetType() == apiv2beta1.PipelineTaskDetail_LOOP {
+			// Extract iteration index from the task scope path if it's a loop iteration
+			// For now, we'll leave it nil as the driver test framework doesn't track this
+			// in the same way the real system does
+			iterPtr = nil
+		}
+	}
+
+	opts := &component.LauncherV2Options{
+		Namespace:      TestNamespace,
+		PodName:        fmt.Sprintf("%s-pod", task.GetName()),
+		PodUID:         uuid.New().String(),
+		PipelineName:   TestPipelineName,
+		PublishLogs:    "false",
+		ComponentSpec:  componentSpec,
+		TaskSpec:       taskSpec,
+		ScopePath:      tc.ScopePath,
+		Run:            tc.Run,
+		ParentTask:     nil, // TODO: populate if needed
+		Task:           task,
+		IterationIndex: iterPtr,
+	}
+
+	// Create launcher with a dummy command (will be mocked anyway)
+	launcher, err := component.NewLauncherV2(
+		string(executorInputJSON),
+		[]string{"python", "component.py"}, // Default command, will be mocked
+		opts,
+		tc.ClientManager,
+	)
+	require.NoError(t, err)
+
+	// Setup mocks
+	mockFS := component.NewMockFileSystem()
+	mockCmd := component.NewMockCommandExecutor()
+	mockObjStore := component.NewMockObjectStoreClient()
+
+	// Configure output files
+	for path, content := range outputFiles {
+		mockFS.SetFileContent(path, content)
+	}
+
+	// Set output metadata file if not provided
+	if _, exists := outputFiles["/tmp/kfp_outputs/output_metadata.json"]; !exists {
+		mockFS.SetFileContent("/tmp/kfp_outputs/output_metadata.json", []byte("{}"))
+	}
+
+	// Configure command to succeed by default
+	mockCmd.RunError = nil
+
+	// Pre-populate input artifacts in mock object store
+	for _, ioArtifact := range task.GetInputs().GetArtifacts() {
+		for _, artifact := range ioArtifact.Artifacts {
+			if artifact.GetUri() != "" {
+				// Simulate artifact already exists in object store
+				mockObjStore.SetArtifact(artifact.GetUri(), []byte("input data"))
+			}
+		}
+	}
+
+	// Inject mocks
+	launcher.WithFileSystem(mockFS).
+		WithCommandExecutor(mockCmd).
+		WithObjectStore(mockObjStore)
+
+	// Execute the launcher using the testing method
+	// Note: We don't call Execute() because it requires launcher config and does status updates
+	// ExecuteForTesting runs the full execution flow (execute + collectOutputParameters + uploadOutputArtifacts)
+	// using mocked dependencies
+	_, err = launcher.ExecuteForTesting(ctx)
+	require.NoError(t, err, "Launcher execution failed for task %s", task.GetName())
+
+	// Refresh the run to get updated task data
+	tc.RefreshRun()
+
+	// Get updated task
+	updatedTask, err := tc.ClientManager.KFPAPIClient().GetTask(ctx, &apiv2beta1.GetTaskRequest{TaskId: execution.TaskID})
+	require.NoError(t, err)
+
+	return &LauncherExecution{
+		Launcher:     launcher,
+		MockFS:       mockFS,
+		MockCmd:      mockCmd,
+		MockObjStore: mockObjStore,
+		Task:         updatedTask,
+	}
 }
 
 func (tc *TestContext) setupDagOptions(

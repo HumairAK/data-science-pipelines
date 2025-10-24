@@ -564,6 +564,13 @@ func getLogWriter(artifacts map[string]*pipelinespec.ArtifactList) (writer io.Wr
 	return io.MultiWriter(os.Stdout, logFile)
 }
 
+// ExecuteForTesting is a test-only method that executes the launcher with mocked dependencies.
+// It runs the full execution flow including artifact uploads but uses the provided mock dependencies.
+// This method should only be used in tests.
+func (l *LauncherV2) ExecuteForTesting(ctx context.Context) (*pipelinespec.ExecutorOutput, error) {
+	return l.executeV2(ctx)
+}
+
 // execute downloads input artifacts, prepares the execution environment,
 // executes the end user code, and returns the outputs.
 func (l *LauncherV2) execute(
