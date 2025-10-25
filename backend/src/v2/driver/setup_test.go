@@ -780,6 +780,8 @@ func (tc *TestContext) RunLauncher(execution *Execution, outputFiles map[string]
 	err = launcher.Execute(ctx)
 	require.NoError(t, err, "Launcher execution failed for task %s", task.GetName())
 
+	require.Equal(t, 1, mockCmd.CallCount())
+
 	// Refresh the run to get updated task data
 	tc.RefreshRun()
 

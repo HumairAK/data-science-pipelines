@@ -90,13 +90,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 	require.Equal(t, "output_dataset", createDataSetExecution.ExecutorInput.Outputs.Artifacts["output_dataset"].GetArtifacts()[0].Name)
 
 	// Run the actual launcher with mocks to simulate component execution
-	launcherExec := tc.RunLauncher(createDataSetExecution, map[string][]byte{
-		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
-	}, true)
-
-	// Verify the launcher executed correctly
-	require.Equal(t, 1, launcherExec.MockCmd.CallCount())
-
+	launcherExec := tc.RunLauncher(createDataSetExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
 	// Get the artifact ID that was created
 	require.Len(t, launcherExec.Task.Outputs.Artifacts, 1)
 	createDataSetOutputArtifactID := launcherExec.Task.Outputs.Artifacts[0].Artifacts[0].ArtifactId
@@ -115,7 +109,6 @@ func TestLoopArtifactPassing(t *testing.T) {
 
 	// Perform the iteration calls, mock any launcher calls
 	for index, paramID := range []string{"1", "2", "3"} {
-
 		// Run the "process-dataset" Container Task with iteration index
 		processExecution, _ := tc.RunContainer("process-dataset", parentTask, util.Int64Pointer(int64(index)), false)
 		require.NotNil(t, processExecution.ExecutorInput.Outputs)
@@ -126,11 +119,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 		require.Equal(t, processExecution.ExecutorInput.Inputs.ParameterValues["model_id_in"].GetStringValue(), paramID)
 
 		// Run the actual launcher for process-dataset
-		processLauncherExec := tc.RunLauncher(processExecution, map[string][]byte{
-			"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
-		}, true)
-		require.Equal(t, 1, processLauncherExec.MockCmd.CallCount())
-
+		processLauncherExec := tc.RunLauncher(processExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
 		// Get the artifact ID that was created
 		require.Len(t, processLauncherExec.Task.Outputs.Artifacts, 1)
 		processDataSetArtifactID := processLauncherExec.Task.Outputs.Artifacts[0].Artifacts[0].ArtifactId
@@ -174,10 +163,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 		require.Equal(t, analyzeExecution.ExecutorInput.Inputs.Artifacts["analyze_artifact_input"].GetArtifacts()[0].ArtifactId, processDataSetArtifactID)
 
 		// Run the actual launcher for analyze-artifact
-		analyzeLauncherExec := tc.RunLauncher(analyzeExecution, map[string][]byte{
-			"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
-		}, true)
-		require.Equal(t, 1, analyzeLauncherExec.MockCmd.CallCount())
+		_ = tc.RunLauncher(analyzeExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
 	}
 
 	tasks, err := tc.ClientManager.KFPAPIClient().ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
@@ -199,10 +185,12 @@ func TestLoopArtifactPassing(t *testing.T) {
 	parentTask = secondaryPipelineTask
 	tc.ExitDag()
 
-	analyzeArtifactListExecution, _ := tc.RunContainer("analyze-artifact-list", parentTask, nil, true)
+	analyzeArtifactListExecution, _ := tc.RunContainer("analyze-artifact-list", parentTask, nil, false)
 	require.NotNil(t, analyzeArtifactListExecution.ExecutorInput.Outputs)
 	require.NotNil(t, analyzeArtifactListExecution.ExecutorInput.Inputs.Artifacts["artifact_list_input"])
 	require.Equal(t, 3, len(analyzeArtifactListExecution.ExecutorInput.Inputs.Artifacts["artifact_list_input"].GetArtifacts()))
+
+	_ = tc.RunLauncher(analyzeArtifactListExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
 
 	// Primary Pipeline tests
 
@@ -222,6 +210,8 @@ func TestLoopArtifactPassing(t *testing.T) {
 	require.NotNil(t, analyzeArtifactListOuterExecution.ExecutorInput.Outputs)
 	require.NotNil(t, analyzeArtifactListOuterExecution.ExecutorInput.Inputs.Artifacts["artifact_list_input"])
 	require.Equal(t, 3, len(analyzeArtifactListOuterExecution.ExecutorInput.Inputs.Artifacts["artifact_list_input"].GetArtifacts()))
+
+	_ = tc.RunLauncher(analyzeArtifactListOuterExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
 
 	// Refresh Run so it has the new tasks
 	tc.RefreshRun()
@@ -1094,9 +1084,7 @@ func TestK8SPlatform(t *testing.T) {
 
 }
 
-func TestArtifactIterator(t *testing.T) {
-
-}
+func TestArtifactIterator(t *testing.T) {}
 
 // This test creates a DAG with a single task that uses a component with inputs
 // and runtime constants. The test verifies that the inputs are correctly passed
