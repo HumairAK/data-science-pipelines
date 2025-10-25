@@ -348,6 +348,12 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	}
 	l.launcherConfig = launcherConfig
 
+	// Add default parameter values to task inputs if they're not already present
+	// This makes the full set of input parameters visible in the task for inspection
+	if err = l.addDefaultParametersToTask(ctx); err != nil {
+		return err
+	}
+
 	if err = l.prepareOutputFolders(l.executorInput); err != nil {
 		return err
 	}
@@ -1475,4 +1481,65 @@ func addDefaultParams(
 		}
 	}
 	return executorInputWithDefault, nil
+}
+
+// addDefaultParametersToTask adds default parameter values to the task's inputs
+// if they're not already present. This makes the full set of input parameters
+// visible in the task for inspection and testing.
+func (l *LauncherV2) addDefaultParametersToTask(ctx context.Context) error {
+	// Check if we have default parameters to add
+	if l.options.ComponentSpec == nil || l.options.ComponentSpec.GetInputDefinitions() == nil {
+		return nil
+	}
+
+	// Get the current task to check what parameters it already has
+	currentTask, err := l.clientManager.KFPAPIClient().GetTask(ctx, &apiV2beta1.GetTaskRequest{
+		TaskId: l.options.Task.GetTaskId(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get task for adding default parameters: %w", err)
+	}
+
+	// Build a map of existing parameter keys
+	existingParams := make(map[string]bool)
+	if currentTask.Inputs != nil {
+		for _, param := range currentTask.Inputs.GetParameters() {
+			existingParams[param.ParameterKey] = true
+		}
+	}
+
+	// Find default parameters that aren't already in the task
+	var defaultParams []*apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter
+	for name, paramSpec := range l.options.ComponentSpec.GetInputDefinitions().GetParameters() {
+		// Only add if it has a default value and isn't already present
+		if paramSpec.GetDefaultValue() != nil && !existingParams[name] {
+			defaultParam := &apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+				ParameterKey: name,
+				Value:        paramSpec.GetDefaultValue(),
+				Type:         apiV2beta1.IOType_COMPONENT_DEFAULT_INPUT,
+			}
+			defaultParams = append(defaultParams, defaultParam)
+		}
+	}
+
+	// If we have default parameters to add, update the task
+	if len(defaultParams) > 0 {
+		if currentTask.Inputs == nil {
+			currentTask.Inputs = &apiV2beta1.PipelineTaskDetail_InputOutputs{}
+		}
+		currentTask.Inputs.Parameters = append(currentTask.Inputs.Parameters, defaultParams...)
+
+		_, err = l.clientManager.KFPAPIClient().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+			TaskId: currentTask.GetTaskId(),
+			Task:   currentTask,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to update task with default parameters: %w", err)
+		}
+
+		// Update our local copy of the task
+		l.options.Task = currentTask
+	}
+
+	return nil
 }

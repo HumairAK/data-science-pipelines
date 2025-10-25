@@ -561,9 +561,12 @@ func TestOptionalFields(t *testing.T) {
 	require.NotNil(t, task)
 	require.NotNil(t, execution)
 
-	// This test is checking default parameter handling which is done internally by the launcher
-	// via addDefaultParams, but that doesn't persist to the task. The mock function simulates
-	// what default parameters would be available to the component during execution.
+	// This test validates that the launcher can access default parameter values during execution
+	// via addDefaultParams(). The mock simulates what parameters would be available to the
+	// component, including those with defaults that weren't explicitly provided.
+	// Note: In production, the API server populates default values in the runtime config,
+	// so the driver receives them as RUNTIME_VALUE_INPUT. The launcher's addDefaultParams()
+	// is a fallback for when defaults aren't pre-populated.
 	task = tc.MockLauncherDefaultInputParametersUpdate(task.TaskId, tc.GetLast().GetComponentSpec())
 
 	params := task.Inputs.GetParameters()
