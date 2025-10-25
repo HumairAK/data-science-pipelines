@@ -237,33 +237,18 @@ func TestParameterInputIterator(t *testing.T) {
 
 	for index, _ := range []string{"1", "2", "3"} {
 		index64 := util.Int64Pointer(int64(index))
-		createFileExecution, _ := tc.RunContainerDriver(
-			"create-file",
-			parentTask,
-			index64,
-			false,
-		)
-
+		createFileExecution, _ := tc.RunContainerDriver("create-file", parentTask, index64, false)
 		_ = tc.RunLauncher(createFileExecution, map[string][]byte{
 			"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
 		}, true)
 
 		// Run next task
-		readSingleFileExecution, _ := tc.RunContainerDriver(
-			"read-single-file",
-			parentTask,
-			index64,
-			false,
-		)
-
-		// Get the output parameter file path
+		readSingleFileExecution, _ := tc.RunContainerDriver("read-single-file", parentTask, index64, false)
 		readSingleFileOutputPath := readSingleFileExecution.ExecutorInput.Outputs.Parameters["Output"].OutputFile
-
 		_ = tc.RunLauncher(readSingleFileExecution, map[string][]byte{
 			"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
 			readSingleFileOutputPath:                []byte(fmt.Sprintf("file-%d", index)),
 		}, true)
-
 		_ = splitIDsLauncher
 	}
 
