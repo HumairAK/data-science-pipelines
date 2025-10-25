@@ -269,20 +269,6 @@ func TestExample_LoopIteration(t *testing.T) {
 		// Verify launcher executed
 		require.Equal(t, 1, iterLauncherExec.MockCmd.CallCount())
 
-		// Get output artifact from this iteration
-		iterArtifactID := iterLauncherExec.Task.Outputs.Artifacts[0].Artifacts[0].ArtifactId
-
-		// Mock DAG artifact collection (will be added to launcher later)
-		// The launcher should propagate iteration outputs to the parent loop task
-		tc.MockLauncherArtifactTaskCreate(
-			"process-dataset",
-			loopExecution.TaskID,
-			"pipelinechannel--process-dataset-output_artifact",
-			iterArtifactID,
-			&[]int64{int64(index)}[0],
-			apiv2beta1.IOType_ITERATOR_OUTPUT,
-		)
-
 		// Clean up iteration scope
 		_, ok = tc.ScopePath.Pop()
 		require.True(t, ok)

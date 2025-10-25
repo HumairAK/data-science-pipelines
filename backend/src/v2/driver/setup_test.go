@@ -696,14 +696,18 @@ func (tc *TestContext) RunLauncher(execution *Execution, outputFiles map[string]
 
 	// Create launcher options
 	var iterPtr *int64
-	if task.ParentTaskId != nil {
-		// Check if parent is a loop task to determine if we need iteration index
+	var parentTaskForLauncher *apiv2beta1.PipelineTaskDetail
+	if task.ParentTaskId != nil && *task.ParentTaskId != "" {
+		// Get the parent task
 		parentTask, err := tc.ClientManager.KFPAPIClient().GetTask(ctx, &apiv2beta1.GetTaskRequest{TaskId: *task.ParentTaskId})
-		if err == nil && parentTask.GetType() == apiv2beta1.PipelineTaskDetail_LOOP {
-			// Extract iteration index from the task scope path if it's a loop iteration
-			// For now, we'll leave it nil as the driver test framework doesn't track this
-			// in the same way the real system does
-			iterPtr = nil
+		if err == nil {
+			parentTaskForLauncher = parentTask
+			if parentTask.GetType() == apiv2beta1.PipelineTaskDetail_LOOP {
+				// Extract iteration index from the task scope path if it's a loop iteration
+				// For now, we'll leave it nil as the driver test framework doesn't track this
+				// in the same way the real system does
+				iterPtr = nil
+			}
 		}
 	}
 
@@ -717,7 +721,7 @@ func (tc *TestContext) RunLauncher(execution *Execution, outputFiles map[string]
 		TaskSpec:       taskSpec,
 		ScopePath:      tc.ScopePath,
 		Run:            tc.Run,
-		ParentTask:     nil, // TODO: populate if needed
+		ParentTask:     parentTaskForLauncher,
 		Task:           task,
 		IterationIndex: iterPtr,
 	}

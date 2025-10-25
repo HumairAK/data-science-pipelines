@@ -119,40 +119,23 @@ func TestLoopArtifactPassing(t *testing.T) {
 		require.Equal(t, processExecution.ExecutorInput.Inputs.ParameterValues["model_id_in"].GetStringValue(), paramID)
 
 		// Run the actual launcher for process-dataset
+		// The launcher will automatically propagate outputs up the DAG hierarchy
 		processLauncherExec := tc.RunLauncher(processExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
 		// Get the artifact ID that was created
 		require.Len(t, processLauncherExec.Task.Outputs.Artifacts, 1)
 		processDataSetArtifactID := processLauncherExec.Task.Outputs.Artifacts[0].Artifacts[0].ArtifactId
 
-		// Mock: Launcher->API Server should also upload the output artifact to the for-loop-2 task's outputs
-		// (DAG artifact collection logic - will be added to launcher later)
-		tc.MockLauncherArtifactTaskCreate(
-			"process-dataset",
-			loopExecution.TaskID,
-			"pipelinechannel--process-dataset-output_artifact",
-			processDataSetArtifactID,
-			util.Int64Pointer(int64(index)),
-			apiv2beta1.IOType_ITERATOR_OUTPUT,
-		)
+		// Verify that the launcher automatically propagated the output artifact to the for-loop-2 task
 		loopTask, err := tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: loopExecution.TaskID})
 		require.NoError(t, err)
 		require.NotNil(t, loopTask.Outputs)
-		require.Equal(t, len(loopTask.Outputs.Artifacts), index+1)
+		require.Equal(t, len(loopTask.Outputs.Artifacts), index+1, "Loop task should have %d artifacts after iteration %d", index+1, index)
 
-		// Mock: Launcher->API Server should also traverse the dag up, to log any output artifacts
-		// (DAG artifact collection logic - will be added to launcher later)
-		tc.MockLauncherArtifactTaskCreate(
-			"process-dataset",
-			secondaryPipelineExecution.TaskID,
-			"Output",
-			processDataSetArtifactID,
-			util.Int64Pointer(int64(index)),
-			apiv2beta1.IOType_ITERATOR_OUTPUT,
-		)
+		// Verify that the launcher also propagated the output artifact up to the secondary-pipeline task
 		secondaryPipelineTask, err = tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: secondaryPipelineExecution.TaskID})
 		require.NoError(t, err)
 		require.NotNil(t, secondaryPipelineTask.Outputs)
-		require.Equal(t, len(secondaryPipelineTask.Outputs.Artifacts), index+1)
+		require.Equal(t, index+1, len(secondaryPipelineTask.Outputs.Artifacts), "Secondary pipeline task should have %d artifacts after iteration %d", index+1, index)
 
 		// Run the next iteration component
 		analyzeExecution, _ := tc.RunContainer("analyze-artifact", parentTask, util.Int64Pointer(int64(index)), false)
@@ -363,75 +346,37 @@ func TestNestedDag(t *testing.T) {
 	tc := NewTestContextWithRootExecuted(t, &pipelinespec.PipelineJob_RuntimeConfig{}, "test_data/nested_naming_conflicts.py.yaml")
 	parentTask := tc.RootTask
 
-	_, aTask := tc.RunContainer("a", parentTask, nil, true)
-	tc.MockLauncherOutputArtifactCreate(
-		aTask.GetTaskId(),
-		"output_dataset",
-		apiv2beta1.Artifact_Dataset,
-		apiv2beta1.IOType_OUTPUT,
-		"a",
-		nil)
+	aExecution, _ := tc.RunContainer("a", parentTask, nil, false)
+	aLauncher := tc.RunLauncher(aExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
+	_ = aLauncher.Task
 
 	_, pipelineBTask := tc.RunDag("pipeline-b", parentTask)
 	parentTask = pipelineBTask
 
-	_, nestedATask := tc.RunContainer("a", parentTask, nil, true)
-	tc.MockLauncherOutputArtifactCreate(
-		nestedATask.GetTaskId(),
-		"output_dataset",
-		apiv2beta1.Artifact_Dataset,
-		apiv2beta1.IOType_OUTPUT,
-		"a",
-		nil)
+	nestedAExecution, _ := tc.RunContainer("a", parentTask, nil, false)
+	nestedALauncher := tc.RunLauncher(nestedAExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
+	_ = nestedALauncher.Task
 
-	_, nestedBTask := tc.RunContainer("b", parentTask, nil, true)
-	tc.MockLauncherOutputArtifactCreate(
-		nestedBTask.GetTaskId(),
-		"output_artifact_b",
-		apiv2beta1.Artifact_Artifact,
-		apiv2beta1.IOType_OUTPUT,
-		"b",
-		nil)
+	nestedBExecution, _ := tc.RunContainer("b", parentTask, nil, false)
+	nestedBLauncher := tc.RunLauncher(nestedBExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
+	_ = nestedBLauncher.Task
 
 	_, pipelineCTask := tc.RunDag("pipeline-c", parentTask)
 	parentTask = pipelineCTask
 
-	_, nestedNestedATask := tc.RunContainer("a", parentTask, nil, true)
-	tc.MockLauncherOutputArtifactCreate(
-		nestedNestedATask.GetTaskId(),
-		"output_dataset",
-		apiv2beta1.Artifact_Dataset,
-		apiv2beta1.IOType_OUTPUT,
-		"a",
-		nil)
+	nestedNestedAExecution, _ := tc.RunContainer("a", parentTask, nil, false)
+	nestedNestedALauncher := tc.RunLauncher(nestedNestedAExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
+	_ = nestedNestedALauncher.Task
 
-	_, nestedNestedBTask := tc.RunContainer("b", parentTask, nil, true)
-	tc.MockLauncherOutputArtifactCreate(
-		nestedNestedBTask.GetTaskId(),
-		"output_artifact_b",
-		apiv2beta1.Artifact_Artifact,
-		apiv2beta1.IOType_OUTPUT,
-		"b",
-		nil)
+	nestedNestedBExecution, _ := tc.RunContainer("b", parentTask, nil, false)
+	nestedNestedBLauncher := tc.RunLauncher(nestedNestedBExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
+	nestedNestedBTask := nestedNestedBLauncher.Task
 
-	_, cTask := tc.RunContainer("c", parentTask, nil, true)
-	cTaskArtifactID := tc.MockLauncherOutputArtifactCreate(
-		cTask.GetTaskId(),
-		"output_artifact_c",
-		apiv2beta1.Artifact_Artifact,
-		apiv2beta1.IOType_OUTPUT,
-		"c",
-		nil)
+	cExecution, _ := tc.RunContainer("c", parentTask, nil, false)
 
-	// Dag output for pipeline_b
-	tc.MockLauncherArtifactTaskCreate(
-		cTask.GetName(),
-		pipelineBTask.GetTaskId(),
-		"Output",
-		cTaskArtifactID,
-		nil,
-		apiv2beta1.IOType_OUTPUT,
-	)
+	// Run the launcher for task c which will create outputs and propagate them up
+	cLauncherExec := tc.RunLauncher(cExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
+	cTask := cLauncherExec.Task
 
 	tc.ExitDag()
 	parentTask = pipelineBTask
@@ -443,20 +388,33 @@ func TestNestedDag(t *testing.T) {
 
 	var err error
 
+	// Get the artifact ID from cTask's output
+	require.NotNil(t, cTask.Outputs)
+	require.Equal(t, 1, len(cTask.Outputs.Artifacts))
+	cTaskArtifactID := cTask.Outputs.Artifacts[0].GetArtifacts()[0].GetArtifactId()
+
 	// Confirm that the artifact passed to "verify" task came from task_c
+	// by checking that pipeline-b has the same artifact ID in its outputs (propagated from c)
 	pipelineBTask, err = tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: pipelineBTask.GetTaskId()})
 	require.NoError(t, err)
 	require.NotNil(t, pipelineBTask.Outputs)
 	require.Equal(t, 1, len(pipelineBTask.Outputs.Artifacts))
-	require.Equal(t, cTask.GetTaskId(), pipelineBTask.Outputs.Artifacts[0].GetArtifacts()[0].GetMetadata()["task_id"].GetStringValue())
+	require.Equal(t, cTaskArtifactID, pipelineBTask.Outputs.Artifacts[0].GetArtifacts()[0].GetArtifactId(),
+		"pipeline-b's output artifact should be the same artifact produced by task c")
+
+	// Get the artifact ID from nestedNestedBTask's output
+	require.NotNil(t, nestedNestedBTask.Outputs)
+	require.Equal(t, 1, len(nestedNestedBTask.Outputs.Artifacts))
+	nestedNestedBArtifactID := nestedNestedBTask.Outputs.Artifacts[0].GetArtifacts()[0].GetArtifactId()
 
 	// Confirm that the artifact passed to cTask came from the nestedNestedBtask
 	// I.e the b() task that ran in pipeline-c and not in pipeline-b
 	cTask, err = tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: cTask.GetTaskId()})
 	require.NoError(t, err)
-	require.NotNil(t, cTask.Outputs)
-	require.Equal(t, 1, len(cTask.Outputs.Artifacts))
-	require.Equal(t, nestedNestedBTask.GetTaskId(), cTask.Inputs.Artifacts[0].GetArtifacts()[0].GetMetadata()["task_id"].GetStringValue())
+	require.NotNil(t, cTask.Inputs)
+	require.Equal(t, 1, len(cTask.Inputs.Artifacts))
+	require.Equal(t, nestedNestedBArtifactID, cTask.Inputs.Artifacts[0].GetArtifacts()[0].GetArtifactId(),
+		"cTask's input artifact should be from nested-nested-b, not nested-b")
 }
 
 func TestParameterTaskOutput(t *testing.T) {
@@ -503,23 +461,15 @@ func TestOneOf(t *testing.T) {
 	parentTask = secondaryPipelineTask
 
 	// Run create_dataset()
-	_, createDatasetTask := tc.RunContainer("create-dataset", parentTask, nil, true)
-	tc.MockLauncherOutputArtifactCreate(
-		createDatasetTask.GetTaskId(),
-		"output_dataset",
-		apiv2beta1.Artifact_Dataset,
-		apiv2beta1.IOType_OUTPUT,
-		createDatasetTask.GetName(),
-		nil,
-	)
-	tc.MockLauncherOutputParameterCreate(
-		createDatasetTask.GetTaskId(),
-		"condition_out",
-		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "second"}},
-		apiv2beta1.IOType_OUTPUT,
-		createDatasetTask.GetName(),
-		nil,
-	)
+	createDatasetExecution, _ := tc.RunContainer("create-dataset", parentTask, nil, false)
+
+	// Get the output parameter file path
+	conditionOutPath := createDatasetExecution.ExecutorInput.Outputs.Parameters["condition_out"].OutputFile
+
+	_ = tc.RunLauncher(createDatasetExecution, map[string][]byte{
+		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+		conditionOutPath:                        []byte("second"),
+	}, true)
 
 	// Run ConditionBranch
 	_, conditionBranch1Task := tc.RunDag("condition-branches-1", parentTask)
@@ -546,49 +496,15 @@ func TestOneOf(t *testing.T) {
 	require.True(t, *condition3Execution.Condition)
 
 	parentTask = condition3Task
-	_, giveAnimal1Task := tc.RunContainer("give-animal-2", parentTask, nil, true)
-	tc.MockLauncherOutputArtifactCreate(
-		giveAnimal1Task.GetTaskId(),
-		"output_animal",
-		apiv2beta1.Artifact_Artifact,
-		apiv2beta1.IOType_OUTPUT,
-		giveAnimal1Task.GetName(),
-		nil,
-	)
-	_, analyzeAnimal1Task := tc.RunContainer("analyze-animal", parentTask, nil, true)
-	analyzeAnimal1TaskArtifactID := tc.MockLauncherOutputArtifactCreate(
-		analyzeAnimal1Task.GetTaskId(),
-		"analysis_output",
-		apiv2beta1.Artifact_Artifact,
-		apiv2beta1.IOType_OUTPUT,
-		analyzeAnimal1Task.GetName(),
-		nil,
-	)
+	giveAnimal1Execution, _ := tc.RunContainer("give-animal-2", parentTask, nil, false)
+	_ = tc.RunLauncher(giveAnimal1Execution, map[string][]byte{
+		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+	}, true)
 
-	// Expect launcher to create artifact task to
-	// analyzeAnimal1TaskArtifactID. Launcher should
-	// search through the artifactSelectors for the
-	// parentTask, findthe matching outputArtifactKey
-	// the outputArtifactKey in the selector should match
-	// the outputDefinition key of comp-condition-3.
-	tc.MockLauncherArtifactTaskCreate(
-		analyzeAnimal1Task.GetName(),
-		conditionBranch1Task.GetTaskId(),
-		"pipelinechannel--condition-branches-1-oneof-2",
-		analyzeAnimal1TaskArtifactID,
-		nil,
-		apiv2beta1.IOType_ONE_OF_OUTPUT,
-	)
+	analyzeAnimal1Execution, _ := tc.RunContainer("analyze-animal", parentTask, nil, false)
 
-	// It is also an output of the secondary pipeline
-	tc.MockLauncherArtifactTaskCreate(
-		analyzeAnimal1Task.GetName(),
-		secondaryPipelineTask.GetTaskId(),
-		"Output",
-		analyzeAnimal1TaskArtifactID,
-		nil,
-		apiv2beta1.IOType_ONE_OF_OUTPUT,
-	)
+	// Run the launcher for analyze-animal which will create outputs and propagate them up the DAG hierarchy
+	tc.RunLauncher(analyzeAnimal1Execution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
 
 	tc.ExitDag()
 	parentTask = conditionBranch1Task
