@@ -702,11 +702,9 @@ func (tc *TestContext) RunLauncher(execution *Execution, outputFiles map[string]
 		parentTask, err := tc.ClientManager.KFPAPIClient().GetTask(ctx, &apiv2beta1.GetTaskRequest{TaskId: *task.ParentTaskId})
 		if err == nil {
 			parentTaskForLauncher = parentTask
-			if parentTask.GetType() == apiv2beta1.PipelineTaskDetail_LOOP {
-				// Extract iteration index from the task scope path if it's a loop iteration
-				// For now, we'll leave it nil as the driver test framework doesn't track this
-				// in the same way the real system does
-				iterPtr = nil
+			// Extract iteration index from the task's type attributes if this is an iteration
+			if task.GetTypeAttributes() != nil && task.GetTypeAttributes().IterationIndex != nil {
+				iterPtr = task.GetTypeAttributes().IterationIndex
 			}
 		}
 	}

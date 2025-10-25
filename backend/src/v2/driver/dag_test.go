@@ -259,42 +259,27 @@ func TestParameterInputIterator(t *testing.T) {
 		// Get the output parameter file path
 		readSingleFileOutputPath := readSingleFileExecution.ExecutorInput.Outputs.Parameters["Output"].OutputFile
 
-		readSingleFileLauncher := tc.RunLauncher(readSingleFileExecution, map[string][]byte{
+		_ = tc.RunLauncher(readSingleFileExecution, map[string][]byte{
 			"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
 			readSingleFileOutputPath:                []byte(fmt.Sprintf("file-%d", index)),
 		}, true)
 
-		mockSingleFileTaskOutputParameterValue := &structpb.Value{
-			Kind: &structpb.Value_StringValue{
-				StringValue: fmt.Sprintf("file-%d", index),
-			},
-		}
-
-		// Parameter propagation is not yet automatic in launcher, so we still need to manually propagate
-		// TODO: Remove these once parameter propagation is implemented in launcher
-		tc.MockLauncherOutputParameterCreate(
-			loopTask.GetTaskId(),
-			"pipelinechannel--read-single-file-Output",
-			mockSingleFileTaskOutputParameterValue,
-			apiv2beta1.IOType_ITERATOR_OUTPUT,
-			"read-single-file",
-			index64,
-		)
-		tc.MockLauncherOutputParameterCreate(
-			secondaryPipelineTask.GetTaskId(),
-			"Output",
-			mockSingleFileTaskOutputParameterValue,
-			apiv2beta1.IOType_ITERATOR_OUTPUT,
-			"read-single-file",
-			index64,
-		)
-
-		_ = readSingleFileLauncher
 		_ = splitIDsLauncher
 	}
 
 	tc.ExitDag()
 	parentTask = secondaryPipelineTask
+
+	// Debug: Check what parameters the for-loop-1 task has after all iterations
+	refreshedLoopTask, err := tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: loopTask.TaskId})
+	require.NoError(t, err)
+	t.Logf("for-loop-1 task outputs after all iterations:")
+	if refreshedLoopTask.Outputs != nil {
+		t.Logf("  Parameters: %d", len(refreshedLoopTask.Outputs.Parameters))
+		for _, param := range refreshedLoopTask.Outputs.Parameters {
+			t.Logf("    - Key: %s, Type: %s, Value: %v", param.ParameterKey, param.Type, param.Value)
+		}
+	}
 
 	readValuesExecution, _ := tc.RunContainerDriver("read-values", parentTask, nil, false)
 	readValuesOutputPath := readValuesExecution.ExecutorInput.Outputs.Parameters["Output"].OutputFile

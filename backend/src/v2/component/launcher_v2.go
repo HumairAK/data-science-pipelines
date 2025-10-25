@@ -351,37 +351,9 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	if err = l.prepareOutputFolders(l.executorInput); err != nil {
 		return err
 	}
-	var executorOutput *pipelinespec.ExecutorOutput
-	executorOutput, err = l.executeV2(ctx)
+	_, err = l.executeV2(ctx)
 	if err != nil {
 		return err
-	}
-
-	// Update task outputs for parameters
-	if executorOutput != nil && len(executorOutput.GetParameterValues()) > 0 {
-		params := make([]*apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter, 0, len(executorOutput.GetParameterValues()))
-		for key, val := range executorOutput.GetParameterValues() {
-			param := &apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
-				ParameterKey: key,
-				Type:         apiV2beta1.IOType_OUTPUT,
-				Value:        val,
-				Producer: &apiV2beta1.IOProducer{
-					TaskName: l.options.TaskSpec.GetTaskInfo().GetName(),
-				}}
-			if l.options.IterationIndex != nil {
-				param.Producer.Iteration = l.options.IterationIndex
-				param.Type = apiV2beta1.IOType_ITERATOR_OUTPUT
-			}
-			params = append(params, param)
-		}
-
-		l.options.Task.Outputs = &apiV2beta1.PipelineTaskDetail_InputOutputs{Parameters: params}
-		_, updateErr := l.clientManager.KFPAPIClient().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
-			TaskId: l.options.Task.GetTaskId(),
-			Task:   l.options.Task})
-		if updateErr != nil {
-			return fmt.Errorf("failed to update task outputs: %w", updateErr)
-		}
 	}
 
 	l.options.Task.Status = apiV2beta1.PipelineTaskDetail_SUCCEEDED
@@ -474,6 +446,33 @@ func (l *LauncherV2) executeV2(ctx context.Context) (*pipelinespec.ExecutorOutpu
 	err = l.uploadOutputArtifacts(ctx, executorOutput)
 	if err != nil {
 		return nil, err
+	}
+
+	// Update task outputs for parameters before propagation
+	if executorOutput != nil && len(executorOutput.GetParameterValues()) > 0 {
+		params := make([]*apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter, 0, len(executorOutput.GetParameterValues()))
+		for key, val := range executorOutput.GetParameterValues() {
+			param := &apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+				ParameterKey: key,
+				Type:         apiV2beta1.IOType_OUTPUT,
+				Value:        val,
+				Producer: &apiV2beta1.IOProducer{
+					TaskName: l.options.TaskSpec.GetTaskInfo().GetName(),
+				}}
+			if l.options.IterationIndex != nil {
+				param.Producer.Iteration = l.options.IterationIndex
+				param.Type = apiV2beta1.IOType_ITERATOR_OUTPUT
+			}
+			params = append(params, param)
+		}
+
+		l.options.Task.Outputs = &apiV2beta1.PipelineTaskDetail_InputOutputs{Parameters: params}
+		_, updateErr := l.clientManager.KFPAPIClient().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+			TaskId: l.options.Task.GetTaskId(),
+			Task:   l.options.Task})
+		if updateErr != nil {
+			return nil, fmt.Errorf("failed to update task outputs: %w", updateErr)
+		}
 	}
 
 	// Propagate outputs up the DAG hierarchy for parents that declare these outputs
@@ -714,7 +713,52 @@ func (l *LauncherV2) uploadOutputArtifacts(
 	return nil
 }
 
-// propagateOutputsUpDAG traverses up the DAG hierarchy and creates artifact-task entries
+// determineIOType determines the appropriate IOType for a propagated output based on the parent task type
+// and output definition.
+func determineIOType(
+	isFirstLevel bool,
+	currentIOType apiV2beta1.IOType,
+	parentTask *apiV2beta1.PipelineTaskDetail,
+	parentOutputKey string,
+	parentOutputDefs *pipelinespec.ComponentOutputsSpec,
+	isParameter bool,
+) apiV2beta1.IOType {
+	// For multi-level propagation, inherit the type from the previous level
+	if !isFirstLevel {
+		return currentIOType
+	}
+
+	// First level: determine type based on parent context
+	if parentTask.GetType() == apiV2beta1.PipelineTaskDetail_LOOP {
+		// For loop iterations, use ITERATOR_OUTPUT
+		return apiV2beta1.IOType_ITERATOR_OUTPUT
+	}
+
+	// Check if this is a ONE_OF output for condition branches
+	if parentTask.GetType() == apiV2beta1.PipelineTaskDetail_CONDITION_BRANCH {
+		if isParameter {
+			// For parameters, check if it's in output definitions and not a list
+			if paramDef, exists := parentOutputDefs.GetParameters()[parentOutputKey]; exists {
+				// If it's not marked as a list type, it's a ONE_OF output
+				if paramDef.GetParameterType() != pipelinespec.ParameterType_LIST {
+					return apiV2beta1.IOType_ONE_OF_OUTPUT
+				}
+			}
+		} else {
+			// For artifacts, check if it's in output definitions and not a list
+			if artifactDef, exists := parentOutputDefs.GetArtifacts()[parentOutputKey]; exists {
+				if !artifactDef.GetIsArtifactList() {
+					return apiV2beta1.IOType_ONE_OF_OUTPUT
+				}
+			}
+		}
+	}
+
+	// Default to OUTPUT for regular DAG outputs
+	return apiV2beta1.IOType_OUTPUT
+}
+
+// propagateOutputsUpDAG traverses up the DAG hierarchy and creates artifact-task entries and parameter outputs
 // for parent DAGs that declare the current task's outputs in their outputDefinitions.
 // This enables output collection from child tasks (e.g., loop iterations) to parent DAGs.
 func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
@@ -723,17 +767,22 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 		return nil
 	}
 
-	// Refresh the current task to get the latest outputs (artifacts were just uploaded)
-	currentTask, err := l.clientManager.KFPAPIClient().GetTask(ctx, &apiV2beta1.GetTaskRequest{
-		TaskId: l.options.Task.GetTaskId(),
-	})
+	// Refresh the current task to get the latest outputs (artifacts and parameters were just uploaded)
+	currentTask, err := l.clientManager.KFPAPIClient().GetTask(ctx, &apiV2beta1.GetTaskRequest{TaskId: l.options.Task.GetTaskId()})
 	if err != nil {
 		return fmt.Errorf("failed to refresh task before propagation: %w", err)
 	}
 
 	currentTaskOutputs := currentTask.GetOutputs()
-	if currentTaskOutputs == nil || len(currentTaskOutputs.GetArtifacts()) == 0 {
-		// No artifacts to propagate
+	if currentTaskOutputs == nil {
+		// No outputs to propagate
+		return nil
+	}
+
+	hasArtifacts := len(currentTaskOutputs.GetArtifacts()) > 0
+	hasParameters := len(currentTaskOutputs.GetParameters()) > 0
+	if !hasArtifacts && !hasParameters {
+		// No outputs to propagate
 		return nil
 	}
 
@@ -742,10 +791,14 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 	currentScopePath := l.options.ScopePath
 	isFirstLevel := true // Track if this is first-level propagation (from producing task to immediate parent)
 
-	for parentTask != nil {
+	// Track propagated outputs (artifacts and parameters) for next level
+	type propagatedInfo struct {
+		key    string
+		ioType apiV2beta1.IOType
+	}
 
+	for parentTask != nil {
 		// Get the parent's component spec to check outputDefinitions
-		// We need to get the scope path for the parent task
 		parentScopePath, err := util.ScopePathFromStringPath(l.options.Run.GetPipelineSpec(), parentTask.GetScopePath())
 		if err != nil {
 			return fmt.Errorf("failed to get scope path for parent task %s: %w", parentTask.GetTaskId(), err)
@@ -757,28 +810,29 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 		}
 
 		parentOutputDefs := parentComponentSpec.GetOutputDefinitions()
-		if parentOutputDefs == nil || len(parentOutputDefs.GetArtifacts()) == 0 {
+		if parentOutputDefs == nil {
 			// Parent has no output definitions, stop propagating
 			break
 		}
 
-		// Track artifacts propagated to this parent (for next level)
-		// Map from artifact ID to struct containing key and IOType
-		type propagatedInfo struct {
-			key    string
-			ioType apiV2beta1.IOType
-		}
-		newPropagatedArtifacts := make(map[string]propagatedInfo)
+		hasParentArtifactOutputs := len(parentOutputDefs.GetArtifacts()) > 0
+		hasParentParameterOutputs := len(parentOutputDefs.GetParameters()) > 0
 
-		// For each artifact output from the current task, check if the parent declares it
+		if !hasParentArtifactOutputs && !hasParentParameterOutputs {
+			// Parent has no output definitions, stop propagating
+			break
+		}
+
+		// Get child task name for matching outputs
+		childTaskName := currentScopePath.GetLast().GetTaskSpec().GetTaskInfo().GetName()
+
+		newPropagatedArtifacts := make(map[string]propagatedInfo)
+		newPropagatedParameters := make(map[string]propagatedInfo)
+
+		// Propagate artifacts
 		for _, artifactIO := range currentTaskOutputs.GetArtifacts() {
 			for _, artifact := range artifactIO.GetArtifacts() {
 				// Find the matching output key in parent's output definitions
-				// We need to use the immediate child task name (from the parent's perspective)
-				// which is the last task in currentScopePath
-				childTaskName := currentScopePath.GetLast().GetTaskSpec().GetTaskInfo().GetName()
-
-				// We need to find which parent output key corresponds to this artifact
 				matchingParentKey := findMatchingParentOutputKeyForChild(
 					childTaskName,
 					parentComponentSpec,
@@ -792,36 +846,14 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 				}
 
 				// Determine the correct IOType
-				// For the first level (immediate parent), we determine based on context
-				// For subsequent levels, we inherit the type from the previous level
-				var ioType apiV2beta1.IOType
-
-				// Use isFirstLevel flag instead of checking artifactIO type,
-				// because artifacts from the producing task already have Type=OUTPUT set by uploadOutputArtifacts
-				if isFirstLevel {
-					// First level: determine type based on parent context
-					if parentTask.GetType() == apiV2beta1.PipelineTaskDetail_LOOP {
-						// For loop iterations, use ITERATOR_OUTPUT
-						ioType = apiV2beta1.IOType_ITERATOR_OUTPUT
-					} else {
-						// Check if this is a ONE_OF output by looking at the parent's output definitions
-						isOneOf := false
-						if parentOutputDef, exists := parentOutputDefs.GetArtifacts()[matchingParentKey]; exists {
-							isOneOf = parentOutputDef.GetIsArtifactList() == false &&
-								parentTask.GetType() == apiV2beta1.PipelineTaskDetail_CONDITION_BRANCH
-						}
-
-						if isOneOf {
-							ioType = apiV2beta1.IOType_ONE_OF_OUTPUT
-						} else {
-							// Default to OUTPUT for regular DAG outputs
-							ioType = apiV2beta1.IOType_OUTPUT
-						}
-					}
-				} else {
-					// Multi-level propagation: inherit the type from the previous level
-					ioType = artifactIO.GetType()
-				}
+				ioType := determineIOType(
+					isFirstLevel,
+					artifactIO.GetType(),
+					parentTask,
+					matchingParentKey,
+					parentOutputDefs,
+					false, // isParameter = false
+				)
 
 				// Create artifact-task entry for the parent
 				artifactTask := &apiV2beta1.ArtifactTask{
@@ -854,6 +886,78 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 			}
 		}
 
+		// Propagate parameters
+		for _, paramIO := range currentTaskOutputs.GetParameters() {
+			// Find the matching output key in parent's output definitions
+			matchingParentKey := findMatchingParentOutputKeyForChildParameter(
+				childTaskName,
+				parentComponentSpec,
+				paramIO.GetParameterKey(),
+				parentOutputDefs,
+			)
+
+			if matchingParentKey == "" {
+				// This output is not declared in parent's outputDefinitions
+				continue
+			}
+
+			// Determine the correct IOType
+			ioType := determineIOType(
+				isFirstLevel,
+				paramIO.GetType(),
+				parentTask,
+				matchingParentKey,
+				parentOutputDefs,
+				true, // isParameter = true
+			)
+
+			// Update parent task's outputs with this parameter
+			// We need to get the current parent task to update its outputs
+			currentParentTask, err := l.clientManager.KFPAPIClient().GetTask(ctx, &apiV2beta1.GetTaskRequest{
+				TaskId: parentTask.GetTaskId(),
+			})
+			if err != nil {
+				return fmt.Errorf("failed to get parent task %s for parameter propagation: %w", parentTask.GetTaskId(), err)
+			}
+
+			// Create parameter entry for the parent
+			newParam := &apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+				ParameterKey: matchingParentKey,
+				Value:        paramIO.GetValue(),
+				Type:         ioType,
+				Producer: &apiV2beta1.IOProducer{
+					TaskName: l.options.TaskSpec.GetTaskInfo().GetName(),
+				},
+			}
+
+			if l.options.IterationIndex != nil {
+				newParam.Producer.Iteration = l.options.IterationIndex
+			}
+
+			// Add to parent's output parameters
+			if currentParentTask.Outputs == nil {
+				currentParentTask.Outputs = &apiV2beta1.PipelineTaskDetail_InputOutputs{}
+			}
+			currentParentTask.Outputs.Parameters = append(currentParentTask.Outputs.Parameters, newParam)
+
+			// Update the parent task
+			_, err = l.clientManager.KFPAPIClient().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+				TaskId: parentTask.GetTaskId(),
+				Task:   currentParentTask,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to update parent task %s with parameter output: %w", parentTask.GetTaskId(), err)
+			}
+
+			// Track this parameter for next level propagation with its IOType
+			// Use parameter key as the identifier since parameters don't have IDs like artifacts
+			paramIdentifier := fmt.Sprintf("%s:%s", paramIO.GetParameterKey(), paramIO.GetValue().String())
+			newPropagatedParameters[paramIdentifier] = propagatedInfo{
+				key:    matchingParentKey,
+				ioType: ioType,
+			}
+		}
+
 		// Move up to the next parent
 		if parentTask.ParentTaskId == nil || *parentTask.ParentTaskId == "" {
 			break
@@ -867,12 +971,14 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 			return fmt.Errorf("failed to get parent task %s: %w", *parentTask.ParentTaskId, err)
 		}
 
-		// For the next level, we only want to propagate the artifacts we just added to this parent
-		// Build a new currentTaskOutputs with only the newly propagated artifacts
+		// For the next level, we only want to propagate the outputs we just added to this parent
+		// Build a new currentTaskOutputs with only the newly propagated outputs
 		newTaskOutputs := &apiV2beta1.PipelineTaskDetail_InputOutputs{
-			Artifacts: []*apiV2beta1.PipelineTaskDetail_InputOutputs_IOArtifact{},
+			Artifacts:  []*apiV2beta1.PipelineTaskDetail_InputOutputs_IOArtifact{},
+			Parameters: []*apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter{},
 		}
 
+		// Build artifact outputs for next level
 		for artifactID, info := range newPropagatedArtifacts {
 			// Find the artifact object
 			var foundArtifact *apiV2beta1.Artifact
@@ -897,8 +1003,30 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 			}
 		}
 
-		if len(newTaskOutputs.GetArtifacts()) == 0 {
-			// No more artifacts to propagate
+		// Build parameter outputs for next level
+		for paramIdentifier, info := range newPropagatedParameters {
+			// Find the parameter object by matching key and value
+			var foundParam *apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter
+			for _, paramIO := range currentTaskOutputs.GetParameters() {
+				identifier := fmt.Sprintf("%s:%s", paramIO.GetParameterKey(), paramIO.GetValue().String())
+				if identifier == paramIdentifier {
+					foundParam = paramIO
+					break
+				}
+			}
+
+			if foundParam != nil {
+				newTaskOutputs.Parameters = append(newTaskOutputs.Parameters, &apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+					ParameterKey: info.key,
+					Value:        foundParam.GetValue(),
+					Type:         info.ioType,
+					Producer:     foundParam.GetProducer(),
+				})
+			}
+		}
+
+		if len(newTaskOutputs.GetArtifacts()) == 0 && len(newTaskOutputs.GetParameters()) == 0 {
+			// No more outputs to propagate
 			break
 		}
 
@@ -930,7 +1058,6 @@ func findMatchingParentOutputKeyForChild(
 		if dagTask.GetTaskInfo().GetName() != childTaskName {
 			continue
 		}
-
 		// Found the child task in parent's DAG
 		// Check the task's output selectors
 		if dagTask.GetComponentRef() != nil {
@@ -946,6 +1073,85 @@ func findMatchingParentOutputKeyForChild(
 	}
 
 	return ""
+}
+
+// findMatchingParentOutputKeyForChildParameter finds the parent output key that corresponds to the child's parameter output.
+func findMatchingParentOutputKeyForChildParameter(
+	childTaskName string,
+	parentComponentSpec *pipelinespec.ComponentSpec,
+	childOutputKey string,
+	parentOutputDefs *pipelinespec.ComponentOutputsSpec,
+) string {
+	// Get the task spec from the parent's perspective
+	if parentComponentSpec == nil || parentComponentSpec.GetDag() == nil {
+		return ""
+	}
+
+	// Look through parent's DAG tasks to find the child task
+	for _, dagTask := range parentComponentSpec.GetDag().GetTasks() {
+		if dagTask.GetTaskInfo().GetName() != childTaskName {
+			continue
+		}
+
+		// Found the child task in parent's DAG
+		// Check the task's output selectors
+		if dagTask.GetComponentRef() != nil {
+			// Look at the parent's output definitions to find which one uses this task's parameter output
+			for parentOutputKey := range parentOutputDefs.GetParameters() {
+				// Check if this parent output is sourced from the child task
+				if parameterSelectorMatches(parentComponentSpec, parentOutputKey, childTaskName, childOutputKey) {
+					return parentOutputKey
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
+// parameterSelectorMatches checks if a parent output parameter selector matches the child task output
+func parameterSelectorMatches(
+	parentComponentSpec *pipelinespec.ComponentSpec,
+	parentOutputKey string,
+	childTaskName string,
+	childOutputKey string,
+) bool {
+	// Check parameter selectors
+	dag := parentComponentSpec.GetDag()
+	if dag == nil || dag.GetOutputs() == nil {
+		return false
+	}
+
+	parameterSelectors := dag.GetOutputs().GetParameters()
+	if parameterSelectors == nil {
+		return false
+	}
+
+	selector, exists := parameterSelectors[parentOutputKey]
+	if !exists {
+		return false
+	}
+
+	// Check if the selector references the child task
+	// Check value_from_parameter (single parameter selector)
+	if paramSelector := selector.GetValueFromParameter(); paramSelector != nil {
+		if paramSelector.GetProducerSubtask() == childTaskName &&
+			paramSelector.GetOutputParameterKey() == childOutputKey {
+			return true
+		}
+	}
+
+	// Check value_from_oneof (list of parameter selectors for condition branches)
+	if oneofSelector := selector.GetValueFromOneof(); oneofSelector != nil {
+		for _, paramSelector := range oneofSelector.GetParameterSelectors() {
+			if paramSelector.GetProducerSubtask() == childTaskName &&
+				paramSelector.GetOutputParameterKey() == childOutputKey {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // artifactSelectorMatches checks if a parent output artifact selector matches the child task output
