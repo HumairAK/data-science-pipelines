@@ -8,7 +8,6 @@ import (
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // TestExample_SingleTask demonstrates the basic pattern for testing
@@ -172,27 +171,13 @@ func TestExample_ParameterPassing(t *testing.T) {
 	// Verify launcher executed
 	require.Equal(t, 1, producerLauncherExec.MockCmd.CallCount())
 
-	// In a real scenario, the launcher would upload output parameters to the API.
-	// For testing, we simulate this using the mock helper:
-	tc.MockLauncherOutputParameterCreate(
-		producerLauncherExec.Task.TaskId,
-		"output_parameter_path",
-		structpb.NewNumberValue(10.0),
-		apiv2beta1.IOType_OUTPUT,
-		"create-dataset",
-		nil,
-	)
-
-	// Verify the output parameter was created
-	producerTask, err := tc.ClientManager.KFPAPIClient().GetTask(
-		context.Background(),
-		&apiv2beta1.GetTaskRequest{TaskId: producerLauncherExec.Task.TaskId},
-	)
-	require.NoError(t, err)
-	require.Len(t, producerTask.Outputs.Parameters, 1)
-	outputParam := producerTask.Outputs.Parameters[0]
+	// Execute() now automatically collects output parameters from files and uploads to API.
+	// Verify the output parameter was created by the launcher
+	require.Len(t, producerLauncherExec.Task.Outputs.Parameters, 1)
+	outputParam := producerLauncherExec.Task.Outputs.Parameters[0]
 	require.Equal(t, "output_parameter_path", outputParam.ParameterKey)
-	require.Equal(t, 10.0, outputParam.Value.GetNumberValue())
+	// The parameter type is STRING in the component spec, so it's parsed as a string
+	require.Equal(t, "10.0", outputParam.Value.GetStringValue())
 
 	// Clean up producer scope
 	_, ok := tc.ScopePath.Pop()
@@ -206,11 +191,11 @@ func TestExample_ParameterPassing(t *testing.T) {
 
 	// Verify driver resolved input parameter from producer
 	require.Contains(t, consumerExecution.ExecutorInput.Inputs.ParameterValues, "input_dataset")
-	// The parameter value is passed as a number from the producer
+	// The parameter value is passed as a string from the producer
 	inputValue := consumerExecution.ExecutorInput.Inputs.ParameterValues["input_dataset"]
 	require.NotNil(t, inputValue)
-	// It should be a number value
-	require.Equal(t, 10.0, inputValue.GetNumberValue())
+	// It should be a string value "10.0"
+	require.Equal(t, "10.0", inputValue.GetStringValue())
 
 	// Step 4: Run launcher for consumer
 	// The consumer also has output parameters we need to provide

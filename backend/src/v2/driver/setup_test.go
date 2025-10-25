@@ -29,12 +29,13 @@ const TestNamespace = "test-namespace"
 type TestContext struct {
 	Run *apiv2beta1.Run
 	util.ScopePath
-	T             *testing.T
-	PipelineSpec  *pipelinespec.PipelineSpec
-	RootTask      *apiv2beta1.PipelineTaskDetail
-	PlatformSpec  *pipelinespec.PlatformSpec
-	ClientManager clientmanager.ClientManagerInterface
-	MockAPI       *kfpapi.MockAPI
+	T                *testing.T
+	PipelineSpec     *pipelinespec.PipelineSpec
+	RootTask         *apiv2beta1.PipelineTaskDetail
+	PlatformSpec     *pipelinespec.PlatformSpec
+	ClientManager    clientmanager.ClientManagerInterface
+	MockAPI          *kfpapi.MockAPI
+	MockObjStore     *component.MockObjectStoreClient // Shared across all launchers in this test context
 }
 
 // NewTestContextWithRootExecuted creates a new test context with basic configuration
@@ -59,6 +60,7 @@ func NewTestContextWithRootExecuted(t *testing.T, runtimeConfig *pipelinespec.Pi
 	tc := &TestContext{
 		ClientManager: clientmanager.NewFakeClientManager(fake.NewClientset(), mockAPI),
 		MockAPI:       mockAPI,
+		MockObjStore:  component.NewMockObjectStoreClient(), // Shared object store
 	}
 
 	// Load pipeline spec
@@ -217,7 +219,7 @@ func TestTestContext(t *testing.T) {
 	run := testSetup.CreateTestRun(t, "test-pipeline")
 	assert.NotNil(t, run)
 	assert.NotEmpty(t, run.RunId)
-	assert.Equal(t, "test-pipeline", run.GetPipelineSpec().Fields["pipelineInfo"].GetStructValue().Fields["name"].GetStringValue())
+	assert.Equal(t, "primary-pipeline", run.GetPipelineSpec().Fields["pipelineInfo"].GetStructValue().Fields["name"].GetStringValue())
 
 	// Create test tasks
 	task1 := testSetup.CreateTestTask(t,
@@ -672,13 +674,6 @@ func (tc *TestContext) RunLauncher(execution *Execution, outputFiles map[string]
 	t := tc.T
 	ctx := context.Background()
 
-	if autoUpdateScope {
-		defer func() {
-			_, ok := tc.ScopePath.Pop()
-			require.True(tc.T, ok)
-		}()
-	}
-
 	// Get the task that was created by the driver
 	task, err := tc.ClientManager.KFPAPIClient().GetTask(ctx, &apiv2beta1.GetTaskRequest{TaskId: execution.TaskID})
 	require.NoError(t, err)
@@ -739,7 +734,8 @@ func (tc *TestContext) RunLauncher(execution *Execution, outputFiles map[string]
 	// Setup mocks
 	mockFS := component.NewMockFileSystem()
 	mockCmd := component.NewMockCommandExecutor()
-	mockObjStore := component.NewMockObjectStoreClient()
+	// Use the shared mock object store from TestContext
+	mockObjStore := tc.MockObjStore
 
 	// Configure output files
 	for path, content := range outputFiles {
@@ -764,10 +760,8 @@ func (tc *TestContext) RunLauncher(execution *Execution, outputFiles map[string]
 		}
 	}
 
-	// Create a test KFP API client that wraps our MockAPI
-	// This adapts the MockAPI to implement the KFPAPIClient interface
-
-	// Inject mocks (including the KFP API client)
+	// Inject mocks (file system, command executor, object store)
+	// Note: KFP API client comes from clientManager which already has MockAPI
 	launcher.WithFileSystem(mockFS).
 		WithCommandExecutor(mockCmd).
 		WithObjectStore(mockObjStore)
@@ -788,6 +782,12 @@ func (tc *TestContext) RunLauncher(execution *Execution, outputFiles map[string]
 	// Get updated task
 	updatedTask, err := tc.ClientManager.KFPAPIClient().GetTask(ctx, &apiv2beta1.GetTaskRequest{TaskId: execution.TaskID})
 	require.NoError(t, err)
+
+	// Pop scope if autoUpdateScope is true
+	if autoUpdateScope {
+		_, ok := tc.ScopePath.Pop()
+		require.True(t, ok, "Failed to pop scope path")
+	}
 
 	return &LauncherExecution{
 		Launcher:     launcher,

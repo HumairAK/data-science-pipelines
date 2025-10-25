@@ -636,33 +636,25 @@ func TestWithCaching(t *testing.T) {
 	parentTask := tc.RootTask
 	require.NotNil(t, parentTask)
 
-	_, createDatasetTask := tc.RunContainer("create-dataset", parentTask, nil, true)
-	tc.MockLauncherOutputArtifactCreate(
-		createDatasetTask.GetTaskId(),
-		"output_dataset",
-		apiv2beta1.Artifact_Dataset,
-		apiv2beta1.IOType_OUTPUT,
-		createDatasetTask.GetName(),
-		nil)
+	// Run create-dataset driver and launcher
+	createDatasetExecution, _ := tc.RunContainer("create-dataset", parentTask, nil, false)
+	createDatasetLauncher := tc.RunLauncher(createDatasetExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
+	require.Len(t, createDatasetLauncher.Task.Outputs.Artifacts, 1)
 
-	processDatasetExecution, processDatasetTask := tc.RunContainer("process-dataset", parentTask, nil, true)
-	tc.MockLauncherOutputArtifactCreate(
-		processDatasetTask.GetTaskId(),
-		"output_artifact",
-		apiv2beta1.Artifact_Artifact,
-		apiv2beta1.IOType_OUTPUT,
-		processDatasetTask.GetName(),
-		nil)
+	// First run of process-dataset - should not be cached
+	processDatasetExecution, _ := tc.RunContainer("process-dataset", parentTask, nil, false)
+	processDatasetLauncher := tc.RunLauncher(processDatasetExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
 	require.NotNil(t, processDatasetExecution.Cached)
 	require.False(t, *processDatasetExecution.Cached)
-	require.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, processDatasetTask.GetStatus())
+	require.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, processDatasetLauncher.Task.GetStatus())
 	require.NotEmpty(t, processDatasetExecution.PodSpecPatch)
 
-	processDatasetExecution, processDatasetTask = tc.RunContainer("process-dataset", parentTask, nil, true)
-	require.NotNil(t, processDatasetExecution.Cached)
-	require.True(t, *processDatasetExecution.Cached)
-	require.Equal(t, apiv2beta1.PipelineTaskDetail_CACHED, processDatasetTask.GetStatus())
-	require.Empty(t, processDatasetExecution.PodSpecPatch)
+	// Second run of process-dataset - should be cached
+	processDatasetExecution2, processDatasetTask2 := tc.RunContainer("process-dataset", parentTask, nil, true)
+	require.NotNil(t, processDatasetExecution2.Cached)
+	require.True(t, *processDatasetExecution2.Cached)
+	require.Equal(t, apiv2beta1.PipelineTaskDetail_CACHED, processDatasetTask2.GetStatus())
+	require.Empty(t, processDatasetExecution2.PodSpecPatch)
 }
 
 func TestOptionalFields(t *testing.T) {
