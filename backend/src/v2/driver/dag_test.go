@@ -391,34 +391,29 @@ func TestParameterTaskOutput(t *testing.T) {
 	tc := NewTestContextWithRootExecuted(t, &pipelinespec.PipelineJob_RuntimeConfig{}, "test_data/taskOutputParameter_test.py.yaml")
 	parentTask := tc.RootTask
 
-	// Run Dag on the First Task
-	cdExecution, _ := tc.RunContainerDriver("create-dataset", parentTask, nil, true)
-	tc.MockLauncherOutputParameterCreate(
-		cdExecution.TaskID,
-		"output_parameter_path",
-		&structpb.Value{Kind: &structpb.Value_NumberValue{NumberValue: 10.0}},
-		apiv2beta1.IOType_OUTPUT,
-		"create-dataset",
-		nil,
-	)
-	pdExecution, _ := tc.RunContainerDriver("process-dataset", parentTask, nil, true)
-	tc.MockLauncherOutputParameterCreate(
-		pdExecution.TaskID,
-		"output_int",
-		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "output_int_value"}},
-		apiv2beta1.IOType_OUTPUT,
-		"process-dataset",
-		nil,
-	)
-	analyzeArtifactExecution, _ := tc.RunContainerDriver("analyze-artifact", parentTask, nil, true)
-	tc.MockLauncherOutputParameterCreate(
-		analyzeArtifactExecution.TaskID,
-		"output_opinion",
-		&structpb.Value{Kind: &structpb.Value_BoolValue{BoolValue: true}},
-		apiv2beta1.IOType_OUTPUT,
-		"analyze-artifact",
-		nil,
-	)
+	// Run driver and launcher for create-dataset
+	cdExecution, _ := tc.RunContainerDriver("create-dataset", parentTask, nil, false)
+	cdOutputPath := cdExecution.ExecutorInput.Outputs.Parameters["output_parameter_path"].OutputFile
+	_ = tc.RunLauncher(cdExecution, map[string][]byte{
+		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+		cdOutputPath:                            []byte("10.0"),
+	}, true)
+
+	// Run driver and launcher for process-dataset
+	pdExecution, _ := tc.RunContainerDriver("process-dataset", parentTask, nil, false)
+	pdOutputPath := pdExecution.ExecutorInput.Outputs.Parameters["output_int"].OutputFile
+	_ = tc.RunLauncher(pdExecution, map[string][]byte{
+		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+		pdOutputPath:                            []byte("100"),
+	}, true)
+
+	// Run driver and launcher for analyze-artifact
+	analyzeArtifactExecution, _ := tc.RunContainerDriver("analyze-artifact", parentTask, nil, false)
+	analyzeOutputPath := analyzeArtifactExecution.ExecutorInput.Outputs.Parameters["output_opinion"].OutputFile
+	_ = tc.RunLauncher(analyzeArtifactExecution, map[string][]byte{
+		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+		analyzeOutputPath:                       []byte("true"),
+	}, true)
 }
 
 func TestOneOf(t *testing.T) {
@@ -565,6 +560,10 @@ func TestOptionalFields(t *testing.T) {
 	execution, task := tc.RunContainerDriver("component-op", parentTask, nil, false)
 	require.NotNil(t, task)
 	require.NotNil(t, execution)
+
+	// This test is checking default parameter handling which is done internally by the launcher
+	// via addDefaultParams, but that doesn't persist to the task. The mock function simulates
+	// what default parameters would be available to the component during execution.
 	task = tc.MockLauncherDefaultInputParametersUpdate(task.TaskId, tc.GetLast().GetComponentSpec())
 
 	params := task.Inputs.GetParameters()
@@ -698,60 +697,51 @@ func TestK8SPlatform(t *testing.T) {
 
 	// Execute all the preliminary tasks that will feed Task Output Parameters to the
 	// Assert tasks (and secondary pipeline)
-	_, cfgNameGeneratorTask := tc.RunContainerDriver("cfg-name-generator", parentTask, nil, true)
-	tc.MockLauncherOutputParameterCreate(
-		cfgNameGeneratorTask.TaskId,
-		"some_output",
-		structpb.NewStringValue("cfg-3"),
-		apiv2beta1.IOType_OUTPUT,
-		cfgNameGeneratorTask.GetName(),
-		nil,
-	)
-	_, getAccessModeTask := tc.RunContainerDriver("get-access-mode", parentTask, nil, true)
-	tc.MockLauncherOutputParameterCreate(
-		getAccessModeTask.TaskId,
-		"access_mode",
-		structpb.NewListValue(&structpb.ListValue{Values: []*structpb.Value{structpb.NewStringValue("ReadWriteOnce")}}),
-		apiv2beta1.IOType_OUTPUT,
-		getAccessModeTask.GetName(),
-		nil,
-	)
-	_, getNodeAffinityTask := tc.RunContainerDriver("get-node-affinity", parentTask, nil, true)
-	tc.MockLauncherOutputParameterCreate(
-		getNodeAffinityTask.TaskId,
-		"node_affinity",
-		nodeAffinity,
-		apiv2beta1.IOType_OUTPUT,
-		getNodeAffinityTask.GetName(),
-		nil,
-	)
-	_, secretNameGeneratorTask := tc.RunContainerDriver("secret-name-generator", parentTask, nil, true)
-	tc.MockLauncherOutputParameterCreate(
-		secretNameGeneratorTask.TaskId,
-		"some_output",
-		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "secret-3"}},
-		apiv2beta1.IOType_OUTPUT,
-		secretNameGeneratorTask.GetName(),
-		nil,
-	)
 
-	_, generateRequestTask := tc.RunContainerDriver("generate-requests-resources", parentTask, nil, true)
-	tc.MockLauncherOutputParameterCreate(
-		generateRequestTask.TaskId,
-		"cpu_request_out",
-		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "100m"}},
-		apiv2beta1.IOType_OUTPUT,
-		generateRequestTask.GetName(),
-		nil,
-	)
-	tc.MockLauncherOutputParameterCreate(
-		generateRequestTask.TaskId,
-		"memory_request_out",
-		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "50Mi"}},
-		apiv2beta1.IOType_OUTPUT,
-		generateRequestTask.GetName(),
-		nil,
-	)
+	// Run cfg-name-generator
+	cfgNameGenExecution, _ := tc.RunContainerDriver("cfg-name-generator", parentTask, nil, false)
+	cfgNameGenOutputPath := cfgNameGenExecution.ExecutorInput.Outputs.Parameters["some_output"].OutputFile
+	_ = tc.RunLauncher(cfgNameGenExecution, map[string][]byte{
+		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+		cfgNameGenOutputPath:                    []byte("cfg-3"),
+	}, true)
+
+	// Run get-access-mode
+	getAccessModeExecution, _ := tc.RunContainerDriver("get-access-mode", parentTask, nil, false)
+	accessModeOutputPath := getAccessModeExecution.ExecutorInput.Outputs.Parameters["access_mode"].OutputFile
+	_ = tc.RunLauncher(getAccessModeExecution, map[string][]byte{
+		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+		accessModeOutputPath:                    []byte("[\"ReadWriteOnce\"]"),
+	}, true)
+
+	// Run get-node-affinity
+	getNodeAffinityExecution, _ := tc.RunContainerDriver("get-node-affinity", parentTask, nil, false)
+	nodeAffinityOutputPath := getNodeAffinityExecution.ExecutorInput.Outputs.Parameters["node_affinity"].OutputFile
+	// Serialize nodeAffinity to JSON
+	nodeAffinityJSON, err := json.Marshal(nodeAffinity.GetStructValue())
+	require.NoError(t, err)
+	_ = tc.RunLauncher(getNodeAffinityExecution, map[string][]byte{
+		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+		nodeAffinityOutputPath:                  nodeAffinityJSON,
+	}, true)
+
+	// Run secret-name-generator
+	secretNameGenExecution, _ := tc.RunContainerDriver("secret-name-generator", parentTask, nil, false)
+	secretNameGenOutputPath := secretNameGenExecution.ExecutorInput.Outputs.Parameters["some_output"].OutputFile
+	_ = tc.RunLauncher(secretNameGenExecution, map[string][]byte{
+		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+		secretNameGenOutputPath:                 []byte("secret-3"),
+	}, true)
+
+	// Run generate-requests-resources
+	generateRequestExecution, _ := tc.RunContainerDriver("generate-requests-resources", parentTask, nil, false)
+	cpuRequestOutputPath := generateRequestExecution.ExecutorInput.Outputs.Parameters["cpu_request_out"].OutputFile
+	memoryRequestOutputPath := generateRequestExecution.ExecutorInput.Outputs.Parameters["memory_request_out"].OutputFile
+	_ = tc.RunLauncher(generateRequestExecution, map[string][]byte{
+		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+		cpuRequestOutputPath:                    []byte("100m"),
+		memoryRequestOutputPath:                 []byte("50Mi"),
+	}, true)
 
 	// Run create-pvc task since it depended on get-access-mode
 	// There is no launcher for this task, we expect the output
@@ -775,7 +765,7 @@ func TestK8SPlatform(t *testing.T) {
 	require.NotEmpty(t, podSpecString)
 
 	podSpec := &v1.PodSpec{}
-	err := json.Unmarshal([]byte(podSpecString), podSpec)
+	err = json.Unmarshal([]byte(podSpecString), podSpec)
 	require.NoError(t, err)
 
 	// Check that pod spec values were correctly set
@@ -980,11 +970,11 @@ func TestContainerComponentInputsAndRuntimeConstants(t *testing.T) {
 
 	tc := NewTestContextWithRootExecuted(t, runtimeInputs, "test_data/componentInput_level_1_test.py.yaml")
 
-	// Run Container on the First Task
+	// Run driver for process-inputs
 	processInputsExecution, processInputsTask := tc.RunContainerDriver("process-inputs", tc.RootTask, nil, true)
 	require.NotNil(t, processInputsExecution.ExecutorInput.Outputs)
 
-	// Fetch the task created by the Container() call
+	// Verify input parameters from driver
 	params := processInputsTask.Inputs.GetParameters()
 	require.Equal(t, apiv2beta1.IOType_COMPONENT_INPUT, tc.fetchParameter("name", params).GetType())
 	require.Equal(t, apiv2beta1.IOType_COMPONENT_INPUT, tc.fetchParameter("number", params).GetType())
@@ -1004,6 +994,7 @@ func TestContainerComponentInputsAndRuntimeConstants(t *testing.T) {
 	require.Equal(t, processInputsExecution.ExecutorInput.Inputs.ParameterValues["a_runtime_bool"].GetBoolValue(), true)
 
 	// Mock a Launcher run by updating the task with output data
+	// This test is checking artifact metadata which the mock sets explicitly
 	tc.MockLauncherOutputArtifactCreate(
 		processInputsTask.TaskId,
 		"output_text",
@@ -1013,6 +1004,7 @@ func TestContainerComponentInputsAndRuntimeConstants(t *testing.T) {
 		nil,
 	)
 
+	// Run driver for analyze-inputs
 	analyzeInputsExecution, _ := tc.RunContainerDriver("analyze-inputs", tc.RootTask, nil, true)
 	require.NotNil(t, analyzeInputsExecution.ExecutorInput.Outputs)
 	require.Equal(t, 1, len(analyzeInputsExecution.ExecutorInput.Inputs.Artifacts["input_text"].Artifacts))
