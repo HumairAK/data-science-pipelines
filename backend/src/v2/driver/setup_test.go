@@ -11,7 +11,6 @@ import (
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
-	"github.com/kubeflow/pipelines/backend/src/v2/apiclient"
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient/kfpapi"
 	clientmanager "github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/component"
@@ -802,11 +801,9 @@ func (tc *TestContext) RunLauncher(execution *Execution, outputFiles map[string]
 		}
 	}
 
-	// Create a wrapped KFP API client for testing
-	// This adapts our MockAPI to provide the same interface as the real gRPC client
-	testAPIClient := &apiclient.Client{
-		Run: kfpapi.NewTestRunServiceAdapter(tc.ClientManager.KFPAPIClient()),
-	}
+	// Create a test KFP API client that wraps our MockAPI
+	// This adapts the MockAPI to implement the KFPAPIClient interface
+	testAPIClient := kfpapi.NewTestKFPAPIClientAdapter(tc.ClientManager.KFPAPIClient())
 
 	// Inject mocks (including the KFP API client)
 	launcher.WithFileSystem(mockFS).

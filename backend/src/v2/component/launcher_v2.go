@@ -40,6 +40,25 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// KFPAPIClient defines the interface for KFP API operations needed by the launcher
+type KFPAPIClient interface {
+	UpdateTask(ctx context.Context, req *apiV2beta1.UpdateTaskRequest) (*apiV2beta1.PipelineTaskDetail, error)
+	GetRun(ctx context.Context, req *apiV2beta1.GetRunRequest) (*apiV2beta1.Run, error)
+}
+
+// RealKFPAPIClient wraps apiclient.Client to implement KFPAPIClient interface
+type RealKFPAPIClient struct {
+	client *apiclient.Client
+}
+
+func (r *RealKFPAPIClient) UpdateTask(ctx context.Context, req *apiV2beta1.UpdateTaskRequest) (*apiV2beta1.PipelineTaskDetail, error) {
+	return r.client.Run.UpdateTask(ctx, req)
+}
+
+func (r *RealKFPAPIClient) GetRun(ctx context.Context, req *apiV2beta1.GetRunRequest) (*apiV2beta1.Run, error) {
+	return r.client.Run.GetRun(ctx, req)
+}
+
 type LauncherV2Options struct {
 	Namespace         string
 	PodName           string
@@ -70,12 +89,10 @@ type LauncherV2 struct {
 	launcherConfig    *config.Config
 
 	// Dependency interfaces for testing
-	fileSystem  FileSystem
-	cmdExecutor CommandExecutor
-	objectStore ObjectStoreClient
-
-	// For testing: if set, Execute will use this instead of creating a new client
-	testKFPAPIClient *apiclient.Client
+	fileSystem   FileSystem
+	cmdExecutor  CommandExecutor
+	objectStore  ObjectStoreClient
+	kfpAPIClient KFPAPIClient
 }
 
 // NewLauncherV2 is a factory function that returns an instance of LauncherV2.
@@ -137,8 +154,8 @@ func (l *LauncherV2) WithObjectStore(store ObjectStoreClient) *LauncherV2 {
 }
 
 // WithKFPAPIClient allows overriding the KFP API client (for testing)
-func (l *LauncherV2) WithKFPAPIClient(client *apiclient.Client) *LauncherV2 {
-	l.testKFPAPIClient = client
+func (l *LauncherV2) WithKFPAPIClient(client KFPAPIClient) *LauncherV2 {
+	l.kfpAPIClient = client
 	return l
 }
 
@@ -187,7 +204,7 @@ func stopWaitingArtifacts(artifacts map[string]*pipelinespec.ArtifactList) {
 //   - if any of the children in this DAG are FAILED, then the currentTask should be updated to be "FAILED"
 //   - if all children in this DAG were SKIPPED, then the currentTask should be updated to be "SKIPPED"
 //   - In any other case the state is SUCCEEDED
-func updateStatuses(ctx context.Context, kfpAPIClient *apiclient.Client, run *apiV2beta1.Run, currentTask *apiV2beta1.PipelineTaskDetail) error {
+func updateStatuses(ctx context.Context, kfpAPIClient KFPAPIClient, run *apiV2beta1.Run, currentTask *apiV2beta1.PipelineTaskDetail) error {
 	// Create a map of task IDs to tasks for quick lookup
 	taskMap := make(map[string]*apiV2beta1.PipelineTaskDetail)
 	for _, task := range run.GetTasks() {
@@ -265,7 +282,7 @@ func updateStatuses(ctx context.Context, kfpAPIClient *apiclient.Client, run *ap
 // evaluateAndUpdateParentStatus evaluates a parent task's status based on its direct children and updates it accordingly
 func evaluateAndUpdateParentStatus(
 	ctx context.Context,
-	kfpAPIClient *apiclient.Client,
+	kfpAPIClient KFPAPIClient,
 	run *apiV2beta1.Run,
 	parentTask *apiV2beta1.PipelineTaskDetail,
 ) error {
@@ -319,7 +336,8 @@ func evaluateAndUpdateParentStatus(
 	}
 
 	// Update the parent task status
-	_, err := kfpAPIClient.Run.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+	_, err := kfpAPIClient.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+		TaskId: parentTask.GetTaskId(),
 		Task: &apiV2beta1.PipelineTaskDetail{
 			TaskId:  parentTask.GetTaskId(),
 			RunId:   run.GetRunId(),
@@ -351,12 +369,11 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		}
 	}()
 
-	// Fetch Launcher config, this will be required for object store initialization
-	// Skip in testing mode when using test client
-	var kfpAPIClient *apiclient.Client
-	if l.testKFPAPIClient != nil {
-		// Use test client (for testing)
-		kfpAPIClient = l.testKFPAPIClient
+	// Fetch Launcher config and initialize KFP API client if not already set (testing mode)
+	var kfpAPIClient KFPAPIClient
+	if l.kfpAPIClient != nil {
+		// Use injected client (for testing)
+		kfpAPIClient = l.kfpAPIClient
 		// Set a minimal launcher config for testing
 		if l.launcherConfig == nil {
 			l.launcherConfig = &config.Config{}
@@ -372,12 +389,13 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		// Initialize connection to new KFP v2beta1 API server (Tasks/Artifacts)
 		apiCfg := apiclient.FromEnv()
 		var apiErr error
-		kfpAPIClient, apiErr = apiclient.New(apiCfg)
+		realClient, apiErr := apiclient.New(apiCfg)
 		if apiErr != nil {
 			glog.Warningf("Failed to init KFP API client at %s: %v", apiCfg.Endpoint, apiErr)
 		} else {
-			defer kfpAPIClient.Close()
-			glog.Infof("Initialized KFP API client at %s", kfpAPIClient.Endpoint)
+			defer realClient.Close()
+			glog.Infof("Initialized KFP API client at %s", realClient.Endpoint)
+			kfpAPIClient = &RealKFPAPIClient{client: realClient}
 		}
 	}
 
@@ -407,7 +425,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 			}
 			params = append(params, param)
 		}
-		_, updateErr := kfpAPIClient.Run.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+		_, updateErr := kfpAPIClient.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
 			TaskId: l.options.Task.GetTaskId(),
 			Task: &apiV2beta1.PipelineTaskDetail{
 				TaskId:  l.options.Task.GetTaskId(),
@@ -421,7 +439,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 
 	// Update current task status to SUCCEEDED before calling updateStatuses
 	// This is important because if we don't have this task updated, we will always stop at its direct immediate parent during traversal.
-	_, updateErr := kfpAPIClient.Run.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+	_, updateErr := kfpAPIClient.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
 		TaskId: l.options.Task.GetTaskId(),
 		Task: &apiV2beta1.PipelineTaskDetail{
 			TaskId:  l.options.Task.GetTaskId(),
@@ -434,7 +452,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	}
 
 	// Refresh run before updating statuses
-	refreshedRun, err := kfpAPIClient.Run.GetRun(ctx, &apiV2beta1.GetRunRequest{RunId: l.options.Run.GetRunId()})
+	refreshedRun, err := kfpAPIClient.GetRun(ctx, &apiV2beta1.GetRunRequest{RunId: l.options.Run.GetRunId()})
 	if err != nil {
 		return fmt.Errorf("failed to refresh run: %w", err)
 	}

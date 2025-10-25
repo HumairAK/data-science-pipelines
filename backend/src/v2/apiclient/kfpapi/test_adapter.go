@@ -89,3 +89,22 @@ type unimplementedErr struct {
 func (e *unimplementedErr) Error() string {
 	return e.message
 }
+
+// TestKFPAPIClientAdapter adapts MockAPI to implement the component.KFPAPIClient interface
+// This is used for launcher testing where we only need UpdateTask and GetRun
+type TestKFPAPIClientAdapter struct {
+	api API
+}
+
+// NewTestKFPAPIClientAdapter creates an adapter for launcher testing
+func NewTestKFPAPIClientAdapter(api API) *TestKFPAPIClientAdapter {
+	return &TestKFPAPIClientAdapter{api: api}
+}
+
+func (a *TestKFPAPIClientAdapter) UpdateTask(ctx context.Context, req *apiv2beta1.UpdateTaskRequest) (*apiv2beta1.PipelineTaskDetail, error) {
+	return a.api.UpdateTask(ctx, req)
+}
+
+func (a *TestKFPAPIClientAdapter) GetRun(ctx context.Context, req *apiv2beta1.GetRunRequest) (*apiv2beta1.Run, error) {
+	return a.api.GetRun(ctx, req)
+}
