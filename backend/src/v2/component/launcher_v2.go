@@ -762,8 +762,6 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 			break
 		}
 
-
-
 		// Track artifacts propagated to this parent (for next level)
 		// Map from artifact ID to struct containing key and IOType
 		type propagatedInfo struct {
@@ -792,8 +790,6 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 					// This output is not declared in parent's outputDefinitions
 					continue
 				}
-
-
 
 				// Determine the correct IOType
 				// For the first level (immediate parent), we determine based on context
@@ -826,7 +822,6 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 					// Multi-level propagation: inherit the type from the previous level
 					ioType = artifactIO.GetType()
 				}
-
 
 				// Create artifact-task entry for the parent
 				artifactTask := &apiV2beta1.ArtifactTask{
@@ -915,46 +910,6 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// findMatchingParentOutputKey finds the parent output key that corresponds to the child's output.
-// This handles the mapping between child task outputs and parent DAG outputs.
-func findMatchingParentOutputKey(
-	childScopePath util.ScopePath,
-	parentScopePath util.ScopePath,
-	childOutputKey string,
-	parentOutputDefs *pipelinespec.ComponentOutputsSpec,
-) string {
-	// Get the task spec from the parent's perspective
-	parentComponentSpec := parentScopePath.GetLast().GetComponentSpec()
-	if parentComponentSpec == nil || parentComponentSpec.GetDag() == nil {
-		return ""
-	}
-
-	// Get the child task name (last element in child scope path)
-	childTaskName := childScopePath.GetLast().GetTaskSpec().GetTaskInfo().GetName()
-
-	// Look through parent's DAG tasks to find the child task
-	for _, dagTask := range parentComponentSpec.GetDag().GetTasks() {
-		if dagTask.GetTaskInfo().GetName() != childTaskName {
-			continue
-		}
-
-		// Found the child task in parent's DAG
-		// Check the task's output selectors
-		if dagTask.GetComponentRef() != nil {
-			// Look at the parent's output definitions to find which one uses this task's output
-			for parentOutputKey := range parentOutputDefs.GetArtifacts() {
-				// Check if this parent output is sourced from the child task
-				// The parent output may be directly from task output or from an artifact selector
-				if artifactSelectorMatches(parentComponentSpec, parentOutputKey, childTaskName, childOutputKey) {
-					return parentOutputKey
-				}
-			}
-		}
-	}
-
-	return ""
 }
 
 // findMatchingParentOutputKeyForChild finds the parent output key that corresponds to the child's output.

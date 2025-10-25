@@ -221,69 +221,57 @@ func TestParameterInputIterator(t *testing.T) {
 	parentTask := tc.RootTask
 	_, secondaryPipelineTask := tc.RunDagDriver("secondary-pipeline", parentTask)
 	parentTask = secondaryPipelineTask
-	_, splitIDsTask := tc.RunContainerDriver("split-ids", parentTask, nil, true)
 
-	tc.MockLauncherOutputParameterCreate(
-		splitIDsTask.GetTaskId(),
-		"Output",
-		&structpb.Value{
-			Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{
-				Values: []*structpb.Value{
-					structpb.NewStringValue("1"),
-					structpb.NewStringValue("2"),
-					structpb.NewStringValue("3"),
-				},
-			},
-			},
-		},
-		apiv2beta1.IOType_OUTPUT,
-		"split-ids",
-		nil,
-	)
+	splitIDsExecution, _ := tc.RunContainerDriver("split-ids", parentTask, nil, false)
+
+	// Get the output parameter file path
+	outputParamPath := splitIDsExecution.ExecutorInput.Outputs.Parameters["Output"].OutputFile
+
+	splitIDsLauncher := tc.RunLauncher(splitIDsExecution, map[string][]byte{
+		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+		outputParamPath: []byte(`["1", "2", "3"]`),
+	}, true)
 
 	_, loopTask := tc.RunDagDriver("for-loop-1", parentTask)
 	parentTask = loopTask
 
 	for index, _ := range []string{"1", "2", "3"} {
 		index64 := util.Int64Pointer(int64(index))
-		_, createFileTask := tc.RunContainerDriver(
+		createFileExecution, _ := tc.RunContainerDriver(
 			"create-file",
 			parentTask,
 			index64,
-			true,
+			false,
 		)
 
-		tc.MockLauncherOutputArtifactCreate(
-			createFileTask.GetTaskId(),
-			"file",
-			apiv2beta1.Artifact_Artifact,
-			apiv2beta1.IOType_OUTPUT,
-			"create-file",
-			index64,
-		)
+		_ = tc.RunLauncher(createFileExecution, map[string][]byte{
+			"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+		}, true)
 
 		// Run next task
-		_, readSingleFileTask := tc.RunContainerDriver(
+		readSingleFileExecution, _ := tc.RunContainerDriver(
 			"read-single-file",
 			parentTask,
 			index64,
-			true,
+			false,
 		)
+
+		// Get the output parameter file path
+		readSingleFileOutputPath := readSingleFileExecution.ExecutorInput.Outputs.Parameters["Output"].OutputFile
+
+		readSingleFileLauncher := tc.RunLauncher(readSingleFileExecution, map[string][]byte{
+			"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+			readSingleFileOutputPath:                []byte(fmt.Sprintf("file-%d", index)),
+		}, true)
+
 		mockSingleFileTaskOutputParameterValue := &structpb.Value{
 			Kind: &structpb.Value_StringValue{
 				StringValue: fmt.Sprintf("file-%d", index),
 			},
 		}
-		tc.MockLauncherOutputParameterCreate(
-			readSingleFileTask.GetTaskId(),
-			"Output",
-			mockSingleFileTaskOutputParameterValue,
-			apiv2beta1.IOType_ITERATOR_OUTPUT,
-			"read-single-file",
-			index64,
-		)
 
-		// Parameter should be also sent upstream for collection
+		// Parameter propagation is not yet automatic in launcher, so we still need to manually propagate
+		// TODO: Remove these once parameter propagation is implemented in launcher
 		tc.MockLauncherOutputParameterCreate(
 			loopTask.GetTaskId(),
 			"pipelinechannel--read-single-file-Output",
@@ -301,33 +289,31 @@ func TestParameterInputIterator(t *testing.T) {
 			index64,
 		)
 
+		_ = readSingleFileLauncher
+		_ = splitIDsLauncher
 	}
 
 	tc.ExitDag()
 	parentTask = secondaryPipelineTask
 
-	_, readValuesTask := tc.RunContainerDriver("read-values", parentTask, nil, true)
-	tc.MockLauncherOutputParameterCreate(
-		readValuesTask.GetTaskId(),
-		"Output",
-		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "files read"}},
-		apiv2beta1.IOType_OUTPUT,
-		"read-values",
-		nil,
-	)
+	readValuesExecution, _ := tc.RunContainerDriver("read-values", parentTask, nil, false)
+	readValuesOutputPath := readValuesExecution.ExecutorInput.Outputs.Parameters["Output"].OutputFile
+
+	_ = tc.RunLauncher(readValuesExecution, map[string][]byte{
+		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+		readValuesOutputPath:                    []byte("files read"),
+	}, true)
 
 	tc.ExitDag()
 	parentTask = tc.RootTask
 
-	_, readValuesTask2 := tc.RunContainerDriver("read-values", parentTask, nil, true)
-	tc.MockLauncherOutputParameterCreate(
-		readValuesTask2.GetTaskId(),
-		"Output",
-		&structpb.Value{Kind: &structpb.Value_StringValue{StringValue: "files read"}},
-		apiv2beta1.IOType_OUTPUT,
-		"read-values",
-		nil,
-	)
+	readValuesExecution2, _ := tc.RunContainerDriver("read-values", parentTask, nil, false)
+	readValuesOutputPath2 := readValuesExecution2.ExecutorInput.Outputs.Parameters["Output"].OutputFile
+
+	_ = tc.RunLauncher(readValuesExecution2, map[string][]byte{
+		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+		readValuesOutputPath2:                   []byte("files read"),
+	}, true)
 
 	task, err := tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: secondaryPipelineTask.GetTaskId()})
 	require.NoError(t, err)
