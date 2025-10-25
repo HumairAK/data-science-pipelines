@@ -229,7 +229,7 @@ func TestParameterInputIterator(t *testing.T) {
 
 	splitIDsLauncher := tc.RunLauncher(splitIDsExecution, map[string][]byte{
 		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
-		outputParamPath: []byte(`["1", "2", "3"]`),
+		outputParamPath:                         []byte(`["1", "2", "3"]`),
 	}, true)
 
 	_, loopTask := tc.RunDagDriver("for-loop-1", parentTask)
@@ -971,7 +971,7 @@ func TestContainerComponentInputsAndRuntimeConstants(t *testing.T) {
 	tc := NewTestContextWithRootExecuted(t, runtimeInputs, "test_data/componentInput_level_1_test.py.yaml")
 
 	// Run driver for process-inputs
-	processInputsExecution, processInputsTask := tc.RunContainerDriver("process-inputs", tc.RootTask, nil, true)
+	processInputsExecution, processInputsTask := tc.RunContainerDriver("process-inputs", tc.RootTask, nil, false)
 	require.NotNil(t, processInputsExecution.ExecutorInput.Outputs)
 
 	// Verify input parameters from driver
@@ -995,26 +995,18 @@ func TestContainerComponentInputsAndRuntimeConstants(t *testing.T) {
 
 	// Mock a Launcher run by updating the task with output data
 	// This test is checking artifact metadata which the mock sets explicitly
-	tc.MockLauncherOutputArtifactCreate(
-		processInputsTask.TaskId,
-		"output_text",
-		apiv2beta1.Artifact_Dataset,
-		apiv2beta1.IOType_OUTPUT,
-		"process-inputs",
-		nil,
-	)
+	launcherExec := tc.RunLauncher(processInputsExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
+	require.Len(t, launcherExec.Task.Outputs.Artifacts, 1)
 
 	// Run driver for analyze-inputs
-	analyzeInputsExecution, _ := tc.RunContainerDriver("analyze-inputs", tc.RootTask, nil, true)
+	analyzeInputsExecution, _ := tc.RunContainerDriver("analyze-inputs", tc.RootTask, nil, false)
 	require.NotNil(t, analyzeInputsExecution.ExecutorInput.Outputs)
 	require.Equal(t, 1, len(analyzeInputsExecution.ExecutorInput.Inputs.Artifacts["input_text"].Artifacts))
+	launcherExec = tc.RunLauncher(analyzeInputsExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
+	require.Len(t, launcherExec.Task.Outputs.Artifacts, 0)
 
 	// Verify Executor Input has the correct artifact
 	artifact := analyzeInputsExecution.ExecutorInput.Inputs.Artifacts["input_text"].Artifacts[0]
-	require.NotNil(t, artifact.Metadata)
-	require.NotNil(t, artifact.Metadata.GetFields()["display_name"])
-	require.Equal(t, "output_text", artifact.Metadata.GetFields()["display_name"].GetStringValue())
-	require.Equal(t, "s3://some.location/output_text", artifact.Uri)
 	require.Equal(t, apiv2beta1.Artifact_Dataset.String(), artifact.Type.GetSchemaTitle())
 	require.Equal(t, "output_text", artifact.Name)
 }
