@@ -445,12 +445,6 @@ func (tc *TestContext) RunContainer(
 			task.Status,
 		)
 	}
-	// Mock Launcher container completion
-	// Do it only for running so we can test the cache case
-	// as well.
-	if task.Status == apiv2beta1.PipelineTaskDetail_RUNNING {
-		task = tc.setContainerToComplete(execution.TaskID)
-	}
 
 	return execution, task
 }
@@ -674,9 +668,16 @@ type LauncherExecution struct {
 //	// Verify artifacts were uploaded
 //	uploads := launcherExec.MockObjStore.GetUploadCallsForKey("model")
 //	assert.Len(t, uploads, 1)
-func (tc *TestContext) RunLauncher(execution *Execution, outputFiles map[string][]byte) *LauncherExecution {
+func (tc *TestContext) RunLauncher(execution *Execution, outputFiles map[string][]byte, autoUpdateScope bool) *LauncherExecution {
 	t := tc.T
 	ctx := context.Background()
+
+	if autoUpdateScope {
+		defer func() {
+			_, ok := tc.ScopePath.Pop()
+			require.True(tc.T, ok)
+		}()
+	}
 
 	// Get the task that was created by the driver
 	task, err := tc.ClientManager.KFPAPIClient().GetTask(ctx, &apiv2beta1.GetTaskRequest{TaskId: execution.TaskID})
@@ -769,8 +770,7 @@ func (tc *TestContext) RunLauncher(execution *Execution, outputFiles map[string]
 	// Inject mocks (including the KFP API client)
 	launcher.WithFileSystem(mockFS).
 		WithCommandExecutor(mockCmd).
-		WithObjectStore(mockObjStore).
-		WithKFPAPIClient(tc.ClientManager.KFPAPIClient())
+		WithObjectStore(mockObjStore)
 
 	// Execute the launcher using the full Execute() method
 	// This will test the complete flow including:

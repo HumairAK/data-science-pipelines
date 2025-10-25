@@ -81,7 +81,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 	// Now we'll run the subtasks in the secondary pipeline, one of which is a loop of 3 iterations
 
 	// Run the Downstream Task that will use the output artifact
-	createDataSetExecution, _ := tc.RunContainer("create-dataset", parentTask, nil, true)
+	createDataSetExecution, _ := tc.RunContainer("create-dataset", parentTask, nil, false)
 	// Expect the output artifact to be created
 	require.NotNil(t, createDataSetExecution.ExecutorInput.Outputs)
 	require.NotNil(t, createDataSetExecution.ExecutorInput.Outputs.Artifacts)
@@ -92,7 +92,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 	// Run the actual launcher with mocks to simulate component execution
 	launcherExec := tc.RunLauncher(createDataSetExecution, map[string][]byte{
 		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
-	})
+	}, true)
 
 	// Verify the launcher executed correctly
 	require.Equal(t, 1, launcherExec.MockCmd.CallCount())
@@ -117,7 +117,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 	for index, paramID := range []string{"1", "2", "3"} {
 
 		// Run the "process-dataset" Container Task with iteration index
-		processExecution, _ := tc.RunContainer("process-dataset", parentTask, util.Int64Pointer(int64(index)), true)
+		processExecution, _ := tc.RunContainer("process-dataset", parentTask, util.Int64Pointer(int64(index)), false)
 		require.NotNil(t, processExecution.ExecutorInput.Outputs)
 		require.NotNil(t, processExecution.ExecutorInput.Inputs.Artifacts["input_dataset"])
 		require.Equal(t, 1, len(processExecution.ExecutorInput.Inputs.Artifacts["input_dataset"].GetArtifacts()))
@@ -128,7 +128,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 		// Run the actual launcher for process-dataset
 		processLauncherExec := tc.RunLauncher(processExecution, map[string][]byte{
 			"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
-		})
+		}, true)
 		require.Equal(t, 1, processLauncherExec.MockCmd.CallCount())
 
 		// Get the artifact ID that was created
@@ -166,7 +166,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 		require.Equal(t, len(secondaryPipelineTask.Outputs.Artifacts), index+1)
 
 		// Run the next iteration component
-		analyzeExecution, _ := tc.RunContainer("analyze-artifact", parentTask, util.Int64Pointer(int64(index)), true)
+		analyzeExecution, _ := tc.RunContainer("analyze-artifact", parentTask, util.Int64Pointer(int64(index)), false)
 		require.NotNil(t, createDataSetExecution.ExecutorInput.Outputs)
 		require.NotNil(t, analyzeExecution.ExecutorInput.Outputs)
 		require.NotNil(t, analyzeExecution.ExecutorInput.Inputs.Artifacts["analyze_artifact_input"])
@@ -176,7 +176,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 		// Run the actual launcher for analyze-artifact
 		analyzeLauncherExec := tc.RunLauncher(analyzeExecution, map[string][]byte{
 			"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
-		})
+		}, true)
 		require.Equal(t, 1, analyzeLauncherExec.MockCmd.CallCount())
 	}
 
@@ -217,7 +217,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 
 	// Not to be confused with the "analyze-artifact-list" task in secondary pipeline,
 	// this is the "analyze-artifact-list" task in the primary pipeline
-	analyzeArtifactListOuterExecution, _ := tc.RunContainer("analyze-artifact-list", parentTask, nil, true)
+	analyzeArtifactListOuterExecution, _ := tc.RunContainer("analyze-artifact-list", parentTask, nil, false)
 	require.NotNil(t, analyzeArtifactListExecution.ExecutorInput.Outputs)
 	require.NotNil(t, analyzeArtifactListOuterExecution.ExecutorInput.Outputs)
 	require.NotNil(t, analyzeArtifactListOuterExecution.ExecutorInput.Inputs.Artifacts["artifact_list_input"])

@@ -30,7 +30,6 @@ import (
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	apiV2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
-	"github.com/kubeflow/pipelines/backend/src/v2/apiclient"
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient/kfpapi"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
@@ -71,10 +70,9 @@ type LauncherV2 struct {
 	launcherConfig    *config.Config
 
 	// Dependency interfaces for testing
-	fileSystem   FileSystem
-	cmdExecutor  CommandExecutor
-	objectStore  ObjectStoreClient
-	kfpAPIClient kfpapi.API
+	fileSystem  FileSystem
+	cmdExecutor CommandExecutor
+	objectStore ObjectStoreClient
 }
 
 // NewLauncherV2 is a factory function that returns an instance of LauncherV2.
@@ -132,12 +130,6 @@ func (l *LauncherV2) WithCommandExecutor(executor CommandExecutor) *LauncherV2 {
 // WithObjectStore allows overriding the object store client (for testing)
 func (l *LauncherV2) WithObjectStore(store ObjectStoreClient) *LauncherV2 {
 	l.objectStore = store
-	return l
-}
-
-// WithKFPAPIClient allows overriding the KFP API client (for testing)
-func (l *LauncherV2) WithKFPAPIClient(client kfpapi.API) *LauncherV2 {
-	l.kfpAPIClient = client
 	return l
 }
 
@@ -318,14 +310,11 @@ func evaluateAndUpdateParentStatus(
 	}
 
 	// Update the parent task status
+	parentTask.Status = newStatus
+	parentTask.EndTime = timestamppb.New(time.Now())
 	_, err := kfpAPIClient.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
 		TaskId: parentTask.GetTaskId(),
-		Task: &apiV2beta1.PipelineTaskDetail{
-			TaskId:  parentTask.GetTaskId(),
-			RunId:   run.GetRunId(),
-			Status:  newStatus,
-			EndTime: timestamppb.New(time.Now()),
-		},
+		Task:   parentTask,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update parent task %s status to %s: %w", parentTask.GetTaskId(), newStatus, err)
@@ -359,17 +348,6 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	}
 	l.launcherConfig = launcherConfig
 
-	// Initialize connection to new KFP v2beta1 API server (Tasks/Artifacts)
-	apiCfg := apiclient.FromEnv()
-	var apiErr error
-	apiClient, apiErr := apiclient.New(apiCfg)
-	if apiErr != nil {
-		glog.Warningf("Failed to init KFP API client at %s: %v", apiCfg.Endpoint, apiErr)
-	}
-	defer apiClient.Close()
-	glog.Infof("Initialized KFP API client at %s", apiClient.Endpoint)
-	kfpAPIClient := kfpapi.New(apiClient)
-
 	if err = l.prepareOutputFolders(l.executorInput); err != nil {
 		return err
 	}
@@ -396,41 +374,37 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 			}
 			params = append(params, param)
 		}
-		_, updateErr := kfpAPIClient.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+
+		l.options.Task.Outputs = &apiV2beta1.PipelineTaskDetail_InputOutputs{Parameters: params}
+		_, updateErr := l.clientManager.KFPAPIClient().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
 			TaskId: l.options.Task.GetTaskId(),
-			Task: &apiV2beta1.PipelineTaskDetail{
-				TaskId:  l.options.Task.GetTaskId(),
-				RunId:   l.options.Run.GetRunId(),
-				Outputs: &apiV2beta1.PipelineTaskDetail_InputOutputs{Parameters: params},
-			}})
+			Task:   l.options.Task})
 		if updateErr != nil {
 			return fmt.Errorf("failed to update task outputs: %w", updateErr)
 		}
 	}
 
+	l.options.Task.Status = apiV2beta1.PipelineTaskDetail_SUCCEEDED
+	l.options.Task.EndTime = timestamppb.New(time.Now())
+
 	// Update current task status to SUCCEEDED before calling updateStatuses
 	// This is important because if we don't have this task updated, we will always stop at its direct immediate parent during traversal.
-	_, updateErr := kfpAPIClient.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+	_, updateErr := l.clientManager.KFPAPIClient().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
 		TaskId: l.options.Task.GetTaskId(),
-		Task: &apiV2beta1.PipelineTaskDetail{
-			TaskId:  l.options.Task.GetTaskId(),
-			RunId:   l.options.Run.GetRunId(),
-			Status:  apiV2beta1.PipelineTaskDetail_SUCCEEDED,
-			EndTime: timestamppb.New(time.Now()),
-		}})
+		Task:   l.options.Task})
 	if updateErr != nil {
 		return fmt.Errorf("failed to update task status to SUCCEEDED: %w", updateErr)
 	}
 
 	// Refresh run before updating statuses
-	refreshedRun, err := kfpAPIClient.GetRun(ctx, &apiV2beta1.GetRunRequest{RunId: l.options.Run.GetRunId()})
+	refreshedRun, err := l.clientManager.KFPAPIClient().GetRun(ctx, &apiV2beta1.GetRunRequest{RunId: l.options.Run.GetRunId()})
 	if err != nil {
 		return fmt.Errorf("failed to refresh run: %w", err)
 	}
 	l.options.Run = refreshedRun
 
 	// TODO(HumairAK): Let's have API Server handle this call instead of doing it here.
-	err = updateStatuses(ctx, kfpAPIClient, l.options.Run, l.options.Task)
+	err = updateStatuses(ctx, l.clientManager.KFPAPIClient(), l.options.Run, l.options.Task)
 	if err != nil {
 		return fmt.Errorf("failed to update statuses: %w", err)
 	}

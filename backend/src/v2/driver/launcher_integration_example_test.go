@@ -39,7 +39,7 @@ func TestExample_SingleTask(t *testing.T) {
 	// - Status propagation up the DAG hierarchy
 	launcherExec := tc.RunLauncher(execution, map[string][]byte{
 		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
-	})
+	}, false)
 
 	// Verify launcher executed successfully
 	require.Equal(t, 1, launcherExec.MockCmd.CallCount(),
@@ -87,7 +87,7 @@ func TestExample_SimpleArtifactPassing(t *testing.T) {
 	producerLauncherExec := tc.RunLauncher(producerExecution, map[string][]byte{
 		// Provide the output metadata file that the component would write
 		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
-	})
+	}, false)
 
 	// Verify launcher executed successfully
 	require.Equal(t, 1, producerLauncherExec.MockCmd.CallCount(),
@@ -128,7 +128,7 @@ func TestExample_SimpleArtifactPassing(t *testing.T) {
 	// Step 5: Run launcher for consumer task
 	consumerLauncherExec := tc.RunLauncher(consumerExecution, map[string][]byte{
 		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
-	})
+	}, false)
 
 	// Verify launcher downloaded the input artifact
 	require.Len(t, consumerLauncherExec.MockObjStore.DownloadCalls, 1,
@@ -167,7 +167,7 @@ func TestExample_ParameterPassing(t *testing.T) {
 		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
 		// Simulate the component writing output parameter to file
 		outputParamPath: []byte("10.0"),
-	})
+	}, false)
 
 	// Verify launcher executed
 	require.Equal(t, 1, producerLauncherExec.MockCmd.CallCount())
@@ -218,7 +218,7 @@ func TestExample_ParameterPassing(t *testing.T) {
 	consumerLauncherExec := tc.RunLauncher(consumerExecution, map[string][]byte{
 		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
 		consumerOutputPath:                      []byte("42"),
-	})
+	}, false)
 
 	// Verify launcher executed with resolved parameter
 	require.Equal(t, 1, consumerLauncherExec.MockCmd.CallCount())
@@ -245,7 +245,7 @@ func TestExample_LoopIteration(t *testing.T) {
 	// Run launcher for producer
 	producerLauncherExec := tc.RunLauncher(producerExecution, map[string][]byte{
 		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
-	})
+	}, false)
 	require.Equal(t, 1, producerLauncherExec.MockCmd.CallCount())
 
 	// Get producer's output artifact ID
@@ -268,7 +268,7 @@ func TestExample_LoopIteration(t *testing.T) {
 			"process-dataset",
 			loopTask,
 			&[]int64{int64(index)}[0], // iteration index
-			false,                      // don't auto-update scope
+			false,                     // don't auto-update scope
 		)
 
 		// Verify driver resolved input artifact (same for all iterations)
@@ -279,7 +279,7 @@ func TestExample_LoopIteration(t *testing.T) {
 		// Run launcher for iteration
 		iterLauncherExec := tc.RunLauncher(iterExecution, map[string][]byte{
 			"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
-		})
+		}, false)
 
 		// Verify launcher executed
 		require.Equal(t, 1, iterLauncherExec.MockCmd.CallCount())
@@ -330,7 +330,7 @@ func TestExample_CustomCommandOutput(t *testing.T) {
 	// Run launcher
 	launcherExec := tc.RunLauncher(execution, map[string][]byte{
 		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
-	})
+	}, false)
 
 	// Verify the command that was executed
 	require.Equal(t, 1, launcherExec.MockCmd.CallCount())
