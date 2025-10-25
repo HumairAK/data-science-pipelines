@@ -803,13 +803,12 @@ func (tc *TestContext) RunLauncher(execution *Execution, outputFiles map[string]
 
 	// Create a test KFP API client that wraps our MockAPI
 	// This adapts the MockAPI to implement the KFPAPIClient interface
-	testAPIClient := kfpapi.NewTestKFPAPIClientAdapter(tc.ClientManager.KFPAPIClient())
 
 	// Inject mocks (including the KFP API client)
 	launcher.WithFileSystem(mockFS).
 		WithCommandExecutor(mockCmd).
 		WithObjectStore(mockObjStore).
-		WithKFPAPIClient(testAPIClient)
+		WithKFPAPIClient(tc.ClientManager.KFPAPIClient())
 
 	// Execute the launcher using the full Execute() method
 	// This will test the complete flow including:

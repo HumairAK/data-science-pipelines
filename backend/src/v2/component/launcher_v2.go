@@ -31,6 +31,7 @@ import (
 	apiV2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient"
+	"github.com/kubeflow/pipelines/backend/src/v2/apiclient/kfpapi"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	"gocloud.dev/blob"
@@ -39,25 +40,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
-
-// KFPAPIClient defines the interface for KFP API operations needed by the launcher
-type KFPAPIClient interface {
-	UpdateTask(ctx context.Context, req *apiV2beta1.UpdateTaskRequest) (*apiV2beta1.PipelineTaskDetail, error)
-	GetRun(ctx context.Context, req *apiV2beta1.GetRunRequest) (*apiV2beta1.Run, error)
-}
-
-// RealKFPAPIClient wraps apiclient.Client to implement KFPAPIClient interface
-type RealKFPAPIClient struct {
-	client *apiclient.Client
-}
-
-func (r *RealKFPAPIClient) UpdateTask(ctx context.Context, req *apiV2beta1.UpdateTaskRequest) (*apiV2beta1.PipelineTaskDetail, error) {
-	return r.client.Run.UpdateTask(ctx, req)
-}
-
-func (r *RealKFPAPIClient) GetRun(ctx context.Context, req *apiV2beta1.GetRunRequest) (*apiV2beta1.Run, error) {
-	return r.client.Run.GetRun(ctx, req)
-}
 
 type LauncherV2Options struct {
 	Namespace         string
@@ -92,7 +74,7 @@ type LauncherV2 struct {
 	fileSystem   FileSystem
 	cmdExecutor  CommandExecutor
 	objectStore  ObjectStoreClient
-	kfpAPIClient KFPAPIClient
+	kfpAPIClient kfpapi.API
 }
 
 // NewLauncherV2 is a factory function that returns an instance of LauncherV2.
@@ -154,7 +136,7 @@ func (l *LauncherV2) WithObjectStore(store ObjectStoreClient) *LauncherV2 {
 }
 
 // WithKFPAPIClient allows overriding the KFP API client (for testing)
-func (l *LauncherV2) WithKFPAPIClient(client KFPAPIClient) *LauncherV2 {
+func (l *LauncherV2) WithKFPAPIClient(client kfpapi.API) *LauncherV2 {
 	l.kfpAPIClient = client
 	return l
 }
@@ -204,7 +186,7 @@ func stopWaitingArtifacts(artifacts map[string]*pipelinespec.ArtifactList) {
 //   - if any of the children in this DAG are FAILED, then the currentTask should be updated to be "FAILED"
 //   - if all children in this DAG were SKIPPED, then the currentTask should be updated to be "SKIPPED"
 //   - In any other case the state is SUCCEEDED
-func updateStatuses(ctx context.Context, kfpAPIClient KFPAPIClient, run *apiV2beta1.Run, currentTask *apiV2beta1.PipelineTaskDetail) error {
+func updateStatuses(ctx context.Context, kfpAPIClient kfpapi.API, run *apiV2beta1.Run, currentTask *apiV2beta1.PipelineTaskDetail) error {
 	// Create a map of task IDs to tasks for quick lookup
 	taskMap := make(map[string]*apiV2beta1.PipelineTaskDetail)
 	for _, task := range run.GetTasks() {
@@ -282,7 +264,7 @@ func updateStatuses(ctx context.Context, kfpAPIClient KFPAPIClient, run *apiV2be
 // evaluateAndUpdateParentStatus evaluates a parent task's status based on its direct children and updates it accordingly
 func evaluateAndUpdateParentStatus(
 	ctx context.Context,
-	kfpAPIClient KFPAPIClient,
+	kfpAPIClient kfpapi.API,
 	run *apiV2beta1.Run,
 	parentTask *apiV2beta1.PipelineTaskDetail,
 ) error {
@@ -370,34 +352,23 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	}()
 
 	// Fetch Launcher config and initialize KFP API client if not already set (testing mode)
-	var kfpAPIClient KFPAPIClient
-	if l.kfpAPIClient != nil {
-		// Use injected client (for testing)
-		kfpAPIClient = l.kfpAPIClient
-		// Set a minimal launcher config for testing
-		if l.launcherConfig == nil {
-			l.launcherConfig = &config.Config{}
-		}
-	} else {
-		// Production path: fetch real config and create real client
-		launcherConfig, err := config.FetchLauncherConfigMap(ctx, l.clientManager.K8sClient(), l.options.Namespace)
-		if err != nil {
-			return fmt.Errorf("failed to get launcher configmap: %w", err)
-		}
-		l.launcherConfig = launcherConfig
-
-		// Initialize connection to new KFP v2beta1 API server (Tasks/Artifacts)
-		apiCfg := apiclient.FromEnv()
-		var apiErr error
-		realClient, apiErr := apiclient.New(apiCfg)
-		if apiErr != nil {
-			glog.Warningf("Failed to init KFP API client at %s: %v", apiCfg.Endpoint, apiErr)
-		} else {
-			defer realClient.Close()
-			glog.Infof("Initialized KFP API client at %s", realClient.Endpoint)
-			kfpAPIClient = &RealKFPAPIClient{client: realClient}
-		}
+	// Production path: fetch real config and create real client
+	launcherConfig, err := config.FetchLauncherConfigMap(ctx, l.clientManager.K8sClient(), l.options.Namespace)
+	if err != nil {
+		return fmt.Errorf("failed to get launcher configmap: %w", err)
 	}
+	l.launcherConfig = launcherConfig
+
+	// Initialize connection to new KFP v2beta1 API server (Tasks/Artifacts)
+	apiCfg := apiclient.FromEnv()
+	var apiErr error
+	apiClient, apiErr := apiclient.New(apiCfg)
+	if apiErr != nil {
+		glog.Warningf("Failed to init KFP API client at %s: %v", apiCfg.Endpoint, apiErr)
+	}
+	defer apiClient.Close()
+	glog.Infof("Initialized KFP API client at %s", apiClient.Endpoint)
+	kfpAPIClient := kfpapi.New(apiClient)
 
 	if err = l.prepareOutputFolders(l.executorInput); err != nil {
 		return err
