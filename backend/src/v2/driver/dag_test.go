@@ -557,19 +557,17 @@ func TestOptionalFields(t *testing.T) {
 	parentTask := tc.RootTask
 	require.NotNil(t, parentTask)
 
-	execution, task := tc.RunContainerDriver("component-op", parentTask, nil, false)
-	require.NotNil(t, task)
+	execution, _ := tc.RunContainerDriver("component-op", parentTask, nil, false)
 	require.NotNil(t, execution)
 
-	// This test validates that the launcher can access default parameter values during execution
-	// via addDefaultParams(). The mock simulates what parameters would be available to the
-	// component, including those with defaults that weren't explicitly provided.
-	// Note: In production, the API server populates default values in the runtime config,
-	// so the driver receives them as RUNTIME_VALUE_INPUT. The launcher's addDefaultParams()
-	// is a fallback for when defaults aren't pre-populated.
-	task = tc.MockLauncherDefaultInputParametersUpdate(task.TaskId, tc.GetLast().GetComponentSpec())
+	// Run launcher which will automatically add default parameters to the task
+	// via addDefaultParametersToTask() for any parameters that have defaults
+	// but weren't explicitly provided
+	launcherExec := tc.RunLauncher(execution, map[string][]byte{
+		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+	}, true)
 
-	params := task.Inputs.GetParameters()
+	params := launcherExec.Task.Inputs.GetParameters()
 	require.GreaterOrEqual(t, len(params), 0)
 
 	p := tc.fetchParameter("input_str1", params)
