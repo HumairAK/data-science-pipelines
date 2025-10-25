@@ -61,31 +61,22 @@ func NewTestContextWithRootExecuted(t *testing.T, runtimeConfig *pipelinespec.Pi
 		MockAPI:       mockAPI,
 	}
 
-	// Create a test run
-	run := tc.CreateTestRun(t, "test-pipeline")
-	require.NotNil(t, run)
-
 	// Load pipeline spec
 	pipelineSpec, platformSpec, err := util.LoadPipelineAndPlatformSpec(pipelinePath)
 	require.NoError(t, err)
 	require.NotNil(t, platformSpec)
 	require.NotNil(t, pipelineSpec)
 
-	// Convert the loaded pipeline spec to structpb.Struct for the run
-	// Marshal to JSON and then unmarshal into structpb
-	pipelineSpecJSON, err := protojson.Marshal(pipelineSpec)
-	require.NoError(t, err)
-	pipelineSpecStruct := &structpb.Struct{}
-	err = protojson.Unmarshal(pipelineSpecJSON, pipelineSpecStruct)
-	require.NoError(t, err)
-
-	// Update the run's pipeline spec with the actual loaded spec
-	run.PipelineSource = &apiv2beta1.Run_PipelineSpec{PipelineSpec: pipelineSpecStruct}
-
-	tc.Run = run
+	// Set up scope path
 	tc.ScopePath = util.NewScopePath(pipelineSpec)
 	tc.PipelineSpec = pipelineSpec
 	tc.PlatformSpec = platformSpec
+
+	// Create a test run
+	run := tc.CreateTestRun(t, "test-pipeline")
+	require.NotNil(t, run)
+
+	tc.Run = run
 	tc.T = t
 
 	// Create a root DAG execution using basic inputs
@@ -98,48 +89,19 @@ func NewTestContextWithRootExecuted(t *testing.T, runtimeConfig *pipelinespec.Pi
 func (tc *TestContext) CreateTestRun(t *testing.T, pipelineName string) *apiv2beta1.Run {
 	t.Helper()
 
-	pipelineSpec := &structpb.Struct{
-		Fields: map[string]*structpb.Value{
-			"pipelineInfo": {
-				Kind: &structpb.Value_StructValue{
-					StructValue: &structpb.Struct{
-						Fields: map[string]*structpb.Value{
-							"name": {
-								Kind: &structpb.Value_StringValue{StringValue: pipelineName},
-							},
-						},
-					},
-				},
-			},
-			"root": {
-				Kind: &structpb.Value_StructValue{
-					StructValue: &structpb.Struct{
-						Fields: map[string]*structpb.Value{
-							"dag": {
-								Kind: &structpb.Value_StructValue{
-									StructValue: &structpb.Struct{
-										Fields: map[string]*structpb.Value{
-											"tasks": {
-												Kind: &structpb.Value_StructValue{
-													StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{}},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
+	// Convert the loaded pipeline spec to structpb.Struct for the run
+	// Marshal to JSON and then unmarshal into structpb
+	pipelineSpecJSON, err := protojson.Marshal(tc.PipelineSpec)
+	require.NoError(t, err)
+	pipelineSpecStruct := &structpb.Struct{}
+	err = protojson.Unmarshal(pipelineSpecJSON, pipelineSpecStruct)
+	require.NoError(t, err)
 
 	uuid, _ := uuid.NewRandom()
 	run := &apiv2beta1.Run{
 		RunId:          uuid.String(),
 		DisplayName:    fmt.Sprintf("test-run-%s-%d", pipelineName, time.Now().Unix()),
-		PipelineSource: &apiv2beta1.Run_PipelineSpec{PipelineSpec: pipelineSpec},
+		PipelineSource: &apiv2beta1.Run_PipelineSpec{PipelineSpec: pipelineSpecStruct},
 		RuntimeConfig:  &apiv2beta1.RuntimeConfig{},
 		State:          apiv2beta1.RuntimeState_RUNNING,
 	}
