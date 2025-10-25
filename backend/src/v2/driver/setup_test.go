@@ -11,6 +11,7 @@ import (
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	"github.com/kubeflow/pipelines/backend/src/v2/apiclient"
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient/kfpapi"
 	clientmanager "github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/component"
@@ -70,6 +71,17 @@ func NewTestContextWithRootExecuted(t *testing.T, runtimeConfig *pipelinespec.Pi
 	require.NoError(t, err)
 	require.NotNil(t, platformSpec)
 	require.NotNil(t, pipelineSpec)
+
+	// Convert the loaded pipeline spec to structpb.Struct for the run
+	// Marshal to JSON and then unmarshal into structpb
+	pipelineSpecJSON, err := protojson.Marshal(pipelineSpec)
+	require.NoError(t, err)
+	pipelineSpecStruct := &structpb.Struct{}
+	err = protojson.Unmarshal(pipelineSpecJSON, pipelineSpecStruct)
+	require.NoError(t, err)
+
+	// Update the run's pipeline spec with the actual loaded spec
+	run.PipelineSource = &apiv2beta1.Run_PipelineSpec{PipelineSpec: pipelineSpecStruct}
 
 	tc.Run = run
 	tc.ScopePath = util.NewScopePath(pipelineSpec)
@@ -236,7 +248,7 @@ func CreateParameter(value, key string,
 // Example test demonstrating the usage including artifact population
 func TestTestContext(t *testing.T) {
 	// Setup test environment
-	testSetup := NewTestContextWithRootExecuted(t, nil, "testdata/taskOutputArtifact_test.py.yaml")
+	testSetup := NewTestContextWithRootExecuted(t, &pipelinespec.PipelineJob_RuntimeConfig{}, "test_data/taskOutputArtifact_test.py.yaml")
 	require.NotNil(t, testSetup)
 	assert.NotEmpty(t, testSetup.Run.RunId)
 
@@ -790,16 +802,24 @@ func (tc *TestContext) RunLauncher(execution *Execution, outputFiles map[string]
 		}
 	}
 
-	// Inject mocks
+	// Create a wrapped KFP API client for testing
+	// This adapts our MockAPI to provide the same interface as the real gRPC client
+	testAPIClient := &apiclient.Client{
+		Run: kfpapi.NewTestRunServiceAdapter(tc.ClientManager.KFPAPIClient()),
+	}
+
+	// Inject mocks (including the KFP API client)
 	launcher.WithFileSystem(mockFS).
 		WithCommandExecutor(mockCmd).
-		WithObjectStore(mockObjStore)
+		WithObjectStore(mockObjStore).
+		WithKFPAPIClient(testAPIClient)
 
-	// Execute the launcher using the testing method
-	// Note: We don't call Execute() because it requires launcher config and does status updates
-	// ExecuteForTesting runs the full execution flow (execute + collectOutputParameters + uploadOutputArtifacts)
-	// using mocked dependencies
-	_, err = launcher.ExecuteForTesting(ctx)
+	// Execute the launcher using the full Execute() method
+	// This will test the complete flow including:
+	// - Task output parameter updates
+	// - Task status updates to SUCCEEDED
+	// - Status propagation up the DAG hierarchy
+	err = launcher.Execute(ctx)
 	require.NoError(t, err, "Launcher execution failed for task %s", task.GetName())
 
 	// Refresh the run to get updated task data

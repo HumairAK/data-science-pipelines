@@ -73,6 +73,9 @@ type LauncherV2 struct {
 	fileSystem  FileSystem
 	cmdExecutor CommandExecutor
 	objectStore ObjectStoreClient
+
+	// For testing: if set, Execute will use this instead of creating a new client
+	testKFPAPIClient *apiclient.Client
 }
 
 // NewLauncherV2 is a factory function that returns an instance of LauncherV2.
@@ -130,6 +133,12 @@ func (l *LauncherV2) WithCommandExecutor(executor CommandExecutor) *LauncherV2 {
 // WithObjectStore allows overriding the object store client (for testing)
 func (l *LauncherV2) WithObjectStore(store ObjectStoreClient) *LauncherV2 {
 	l.objectStore = store
+	return l
+}
+
+// WithKFPAPIClient allows overriding the KFP API client (for testing)
+func (l *LauncherV2) WithKFPAPIClient(client *apiclient.Client) *LauncherV2 {
+	l.testKFPAPIClient = client
 	return l
 }
 
@@ -214,12 +223,13 @@ func updateStatuses(ctx context.Context, kfpAPIClient *apiclient.Client, run *ap
 		} else {
 			// In a non-loop case we can determine the total number of child tasks by inspecting the parent dag's
 			// task count within it's component spec.
-			getScopePath, err := util.ScopePathFromStringPath(run.GetPipelineSpec(), currentTask.GetScopePath())
+			// We need to use the parent task's scope path, not the current task's scope path
+			getScopePath, err := util.ScopePathFromStringPath(run.GetPipelineSpec(), parentTask.GetScopePath())
 			if err != nil {
-				return fmt.Errorf("failed to get scope path for task %s: %w", currentTask.GetTaskId(), err)
+				return fmt.Errorf("failed to get scope path for parent task %s: %w", parentTask.GetTaskId(), err)
 			}
 			if getScopePath.GetLast() == nil || getScopePath.GetLast().GetComponentSpec() == nil || getScopePath.GetLast().GetComponentSpec().GetDag() == nil {
-				return fmt.Errorf("failed to get dag for task %s: %w", currentTask.GetTaskId(), err)
+				return fmt.Errorf("failed to get dag for parent task %s (scope: %s): component spec or dag is nil", parentTask.GetTaskId(), parentTask.GetScopePath())
 			}
 			getScopePath.GetLast().GetComponentSpec().GetDag().GetTasks()
 			expectedTotalChildTasks = len(getScopePath.GetLast().GetComponentSpec().GetDag().GetTasks())
@@ -342,20 +352,33 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	}()
 
 	// Fetch Launcher config, this will be required for object store initialization
-	launcherConfig, err := config.FetchLauncherConfigMap(ctx, l.clientManager.K8sClient(), l.options.Namespace)
-	if err != nil {
-		return fmt.Errorf("failed to get launcher configmap: %w", err)
-	}
-	l.launcherConfig = launcherConfig
-
-	// Initialize connection to new KFP v2beta1 API server (Tasks/Artifacts)
-	apiCfg := apiclient.FromEnv()
-	kfpAPIClient, apiErr := apiclient.New(apiCfg)
-	if apiErr != nil {
-		glog.Warningf("Failed to init KFP API client at %s: %v", apiCfg.Endpoint, apiErr)
+	// Skip in testing mode when using test client
+	var kfpAPIClient *apiclient.Client
+	if l.testKFPAPIClient != nil {
+		// Use test client (for testing)
+		kfpAPIClient = l.testKFPAPIClient
+		// Set a minimal launcher config for testing
+		if l.launcherConfig == nil {
+			l.launcherConfig = &config.Config{}
+		}
 	} else {
-		defer kfpAPIClient.Close()
-		glog.Infof("Initialized KFP API client at %s", kfpAPIClient.Endpoint)
+		// Production path: fetch real config and create real client
+		launcherConfig, err := config.FetchLauncherConfigMap(ctx, l.clientManager.K8sClient(), l.options.Namespace)
+		if err != nil {
+			return fmt.Errorf("failed to get launcher configmap: %w", err)
+		}
+		l.launcherConfig = launcherConfig
+
+		// Initialize connection to new KFP v2beta1 API server (Tasks/Artifacts)
+		apiCfg := apiclient.FromEnv()
+		var apiErr error
+		kfpAPIClient, apiErr = apiclient.New(apiCfg)
+		if apiErr != nil {
+			glog.Warningf("Failed to init KFP API client at %s: %v", apiCfg.Endpoint, apiErr)
+		} else {
+			defer kfpAPIClient.Close()
+			glog.Infof("Initialized KFP API client at %s", kfpAPIClient.Endpoint)
+		}
 	}
 
 	if err = l.prepareOutputFolders(l.executorInput); err != nil {
@@ -384,11 +407,13 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 			}
 			params = append(params, param)
 		}
-		_, updateErr := kfpAPIClient.Run.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{Task: &apiV2beta1.PipelineTaskDetail{
-			TaskId:  l.options.Task.GetTaskId(),
-			RunId:   l.options.Task.GetTaskId(),
-			Outputs: &apiV2beta1.PipelineTaskDetail_InputOutputs{Parameters: params},
-		}})
+		_, updateErr := kfpAPIClient.Run.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+			TaskId: l.options.Task.GetTaskId(),
+			Task: &apiV2beta1.PipelineTaskDetail{
+				TaskId:  l.options.Task.GetTaskId(),
+				RunId:   l.options.Run.GetRunId(),
+				Outputs: &apiV2beta1.PipelineTaskDetail_InputOutputs{Parameters: params},
+			}})
 		if updateErr != nil {
 			return fmt.Errorf("failed to update task outputs: %w", updateErr)
 		}
@@ -396,12 +421,14 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 
 	// Update current task status to SUCCEEDED before calling updateStatuses
 	// This is important because if we don't have this task updated, we will always stop at its direct immediate parent during traversal.
-	_, updateErr := kfpAPIClient.Run.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{Task: &apiV2beta1.PipelineTaskDetail{
-		TaskId:  l.options.Task.GetTaskId(),
-		RunId:   l.options.Run.GetRunId(),
-		Status:  apiV2beta1.PipelineTaskDetail_SUCCEEDED,
-		EndTime: timestamppb.New(time.Now()),
-	}})
+	_, updateErr := kfpAPIClient.Run.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+		TaskId: l.options.Task.GetTaskId(),
+		Task: &apiV2beta1.PipelineTaskDetail{
+			TaskId:  l.options.Task.GetTaskId(),
+			RunId:   l.options.Run.GetRunId(),
+			Status:  apiV2beta1.PipelineTaskDetail_SUCCEEDED,
+			EndTime: timestamppb.New(time.Now()),
+		}})
 	if updateErr != nil {
 		return fmt.Errorf("failed to update task status to SUCCEEDED: %w", updateErr)
 	}

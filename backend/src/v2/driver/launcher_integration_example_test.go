@@ -11,6 +11,49 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
+// TestExample_SingleTask demonstrates the basic pattern for testing
+// driver and launcher together for a single task using Execute().
+func TestExample_SingleTask(t *testing.T) {
+	// Step 1: Create test context with root DAG already executed
+	tc := NewTestContextWithRootExecuted(
+		t,
+		&pipelinespec.PipelineJob_RuntimeConfig{},
+		"test_data/taskOutputArtifact_test.py.yaml",
+	)
+
+	// Step 2: Run driver for a task
+	execution, _ := tc.RunContainer(
+		"create-dataset",
+		tc.RootTask,
+		nil,   // not in a loop
+		false, // don't auto-update scope yet
+	)
+
+	// Verify driver created proper ExecutorInput
+	require.NotNil(t, execution.ExecutorInput)
+	require.NotNil(t, execution.ExecutorInput.Outputs)
+
+	// Step 3: Run launcher using Execute() which tests the full flow including:
+	// - Task output parameter updates via KFP API
+	// - Task status updates to SUCCEEDED
+	// - Status propagation up the DAG hierarchy
+	launcherExec := tc.RunLauncher(execution, map[string][]byte{
+		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
+	})
+
+	// Verify launcher executed successfully
+	require.Equal(t, 1, launcherExec.MockCmd.CallCount(),
+		"Launcher should have executed the component command once")
+
+	// Verify task status was updated to SUCCEEDED
+	require.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, launcherExec.Task.Status,
+		"Task should be marked as SUCCEEDED")
+
+	// Clean up scope
+	_, ok := tc.ScopePath.Pop()
+	require.True(t, ok)
+}
+
 // TestExample_SimpleArtifactPassing demonstrates the basic pattern for testing
 // driver and launcher together with artifact passing between tasks.
 func TestExample_SimpleArtifactPassing(t *testing.T) {
