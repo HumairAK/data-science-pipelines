@@ -21,7 +21,7 @@ func TestExample_SingleTask(t *testing.T) {
 	)
 
 	// Step 2: Run driver for a task
-	execution, _ := tc.RunContainer(
+	execution, _ := tc.RunContainerDriver(
 		"create-dataset",
 		tc.RootTask,
 		nil,   // not in a loop
@@ -65,7 +65,7 @@ func TestExample_SimpleArtifactPassing(t *testing.T) {
 
 	// Step 2: Run driver for producer task
 	// The driver will create a task and prepare ExecutorInput with output artifact specification
-	producerExecution, _ := tc.RunContainer(
+	producerExecution, _ := tc.RunContainerDriver(
 		"create-dataset",
 		tc.RootTask,
 		nil,   // not in a loop
@@ -110,7 +110,7 @@ func TestExample_SimpleArtifactPassing(t *testing.T) {
 
 	// Step 4: Run driver for consumer task
 	// The driver should resolve the input artifact from the producer task
-	consumerExecution, _ := tc.RunContainer(
+	consumerExecution, _ := tc.RunContainerDriver(
 		"process-dataset",
 		tc.RootTask,
 		nil,
@@ -153,7 +153,7 @@ func TestExample_ParameterPassing(t *testing.T) {
 	)
 
 	// Step 1: Run driver for producer task
-	producerExecution, _ := tc.RunContainer("create-dataset", tc.RootTask, nil, false)
+	producerExecution, _ := tc.RunContainerDriver("create-dataset", tc.RootTask, nil, false)
 
 	// Verify driver prepared output parameter specification
 	require.Contains(t, producerExecution.ExecutorInput.Outputs.Parameters, "output_parameter_path")
@@ -187,7 +187,7 @@ func TestExample_ParameterPassing(t *testing.T) {
 	tc.RefreshRun()
 
 	// Step 3: Run driver for consumer task
-	consumerExecution, _ := tc.RunContainer("process-dataset", tc.RootTask, nil, false)
+	consumerExecution, _ := tc.RunContainerDriver("process-dataset", tc.RootTask, nil, false)
 
 	// Verify driver resolved input parameter from producer
 	require.Contains(t, consumerExecution.ExecutorInput.Inputs.ParameterValues, "input_dataset")
@@ -222,10 +222,10 @@ func TestExample_LoopIteration(t *testing.T) {
 	)
 
 	// Step 1: Enter the secondary pipeline
-	_, secondaryPipelineTask := tc.RunDag("secondary-pipeline", tc.RootTask)
+	_, secondaryPipelineTask := tc.RunDagDriver("secondary-pipeline", tc.RootTask)
 
 	// Step 2: Run the task that produces input for the loop
-	producerExecution, _ := tc.RunContainer("create-dataset", secondaryPipelineTask, nil, false)
+	producerExecution, _ := tc.RunContainerDriver("create-dataset", secondaryPipelineTask, nil, false)
 
 	// Run launcher for producer
 	producerLauncherExec := tc.RunLauncher(producerExecution, map[string][]byte{
@@ -241,7 +241,7 @@ func TestExample_LoopIteration(t *testing.T) {
 	require.True(t, ok)
 
 	// Step 3: Run loop DAG driver
-	loopExecution, loopTask := tc.RunDag("for-loop-2", secondaryPipelineTask)
+	loopExecution, loopTask := tc.RunDagDriver("for-loop-2", secondaryPipelineTask)
 
 	// Verify loop received input artifact from producer
 	require.Len(t, loopTask.Inputs.Artifacts, 1)
@@ -249,7 +249,7 @@ func TestExample_LoopIteration(t *testing.T) {
 	// Step 4: Run loop iterations
 	for index := 0; index < 3; index++ {
 		// Run driver for this iteration
-		iterExecution, _ := tc.RunContainer(
+		iterExecution, _ := tc.RunContainerDriver(
 			"process-dataset",
 			loopTask,
 			&[]int64{int64(index)}[0], // iteration index
@@ -296,7 +296,7 @@ func TestExample_CustomCommandOutput(t *testing.T) {
 	)
 
 	// Run driver
-	execution, _ := tc.RunContainer("create-dataset", tc.RootTask, nil, false)
+	execution, _ := tc.RunContainerDriver("create-dataset", tc.RootTask, nil, false)
 
 	// Run launcher
 	launcherExec := tc.RunLauncher(execution, map[string][]byte{

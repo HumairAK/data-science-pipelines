@@ -29,13 +29,13 @@ const TestNamespace = "test-namespace"
 type TestContext struct {
 	Run *apiv2beta1.Run
 	util.ScopePath
-	T                *testing.T
-	PipelineSpec     *pipelinespec.PipelineSpec
-	RootTask         *apiv2beta1.PipelineTaskDetail
-	PlatformSpec     *pipelinespec.PlatformSpec
-	ClientManager    clientmanager.ClientManagerInterface
-	MockAPI          *kfpapi.MockAPI
-	MockObjStore     *component.MockObjectStoreClient // Shared across all launchers in this test context
+	T             *testing.T
+	PipelineSpec  *pipelinespec.PipelineSpec
+	RootTask      *apiv2beta1.PipelineTaskDetail
+	PlatformSpec  *pipelinespec.PlatformSpec
+	ClientManager clientmanager.ClientManagerInterface
+	MockAPI       *kfpapi.MockAPI
+	MockObjStore  *component.MockObjectStoreClient // Shared across all launchers in this test context
 }
 
 // NewTestContextWithRootExecuted creates a new test context with basic configuration
@@ -367,7 +367,7 @@ func (tc *TestContext) RunRootDag(testSetup *TestContext, run *apiv2beta1.Run, r
 	return execution, task
 }
 
-func (tc *TestContext) RunDag(
+func (tc *TestContext) RunDagDriver(
 	taskName string,
 	parentTask *apiv2beta1.PipelineTaskDetail) (*Execution, *apiv2beta1.PipelineTaskDetail) {
 	t := tc.T
@@ -393,10 +393,10 @@ func (tc *TestContext) RunDag(
 	return execution, task
 }
 
-// RunContainer runs a container for the given task.
+// RunContainerDriver runs a container for the given task.
 // If autoUpdateScope is true, the scope path will
 // be popped after the container is completed.
-func (tc *TestContext) RunContainer(
+func (tc *TestContext) RunContainerDriver(
 	taskName string,
 	parentTask *apiv2beta1.PipelineTaskDetail,
 	iterationIndex *int64,
@@ -659,7 +659,7 @@ type LauncherExecution struct {
 //
 // Usage:
 //
-//	execution, _ := tc.RunContainer("task-name", parentTask, nil, true)
+//	execution, _ := tc.RunContainerDriver("task-name", parentTask, nil, true)
 //	launcherExec := tc.RunLauncher(execution, map[string][]byte{
 //	    "/tmp/outputs/metric": []byte("0.95"),
 //	})
@@ -684,7 +684,7 @@ func (tc *TestContext) RunLauncher(execution *Execution, outputFiles map[string]
 	require.NotNil(t, executorInput, "ExecutorInput should be set by driver")
 
 	// Get componentSpec and taskSpec from the current scope path
-	// The TestContext's ScopePath should already be at the right location after RunContainer
+	// The TestContext's ScopePath should already be at the right location after RunContainerDriver
 	componentSpec := tc.GetLast().GetComponentSpec()
 	taskSpec := tc.GetLast().GetTaskSpec()
 	require.NotNil(t, componentSpec, "Component spec not found")
