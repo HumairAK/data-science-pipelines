@@ -69,6 +69,10 @@ type LauncherV2 struct {
 	openedBucketCache map[string]*blob.Bucket
 	launcherConfig    *config.Config
 
+	// BatchUpdater collects API updates and flushes them in batches
+	// to reduce database round-trips
+	batchUpdater *BatchUpdater
+
 	// Dependency interfaces for testing
 	fileSystem  FileSystem
 	cmdExecutor CommandExecutor
@@ -106,6 +110,7 @@ func NewLauncherV2(
 		args:          cmdArgs[1:],
 		options:       *opts,
 		clientManager: clientManager,
+		batchUpdater:  NewBatchUpdater(),
 		// Initialize with production implementations
 		fileSystem:  &OSFileSystem{},
 		cmdExecutor: &RealCommandExecutor{},
@@ -365,13 +370,17 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	l.options.Task.Status = apiV2beta1.PipelineTaskDetail_SUCCEEDED
 	l.options.Task.EndTime = timestamppb.New(time.Now())
 
-	// Update current task status to SUCCEEDED before calling updateStatuses
-	// This is important because if we don't have this task updated, we will always stop at its direct immediate parent during traversal.
-	_, updateErr := l.clientManager.KFPAPIClient().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
-		TaskId: l.options.Task.GetTaskId(),
-		Task:   l.options.Task})
-	if updateErr != nil {
-		return fmt.Errorf("failed to update task status to SUCCEEDED: %w", updateErr)
+	// Queue the final task status update
+	l.batchUpdater.QueueTaskUpdate(l.options.Task)
+
+	// Flush all batched updates (artifacts, artifact-tasks, task updates)
+	// This executes all queued operations that were accumulated during:
+	// - uploadOutputArtifacts (artifact creation)
+	// - executeV2 (task output parameter update)
+	// - propagateOutputsUpDAG (artifact-task creation, parent task parameter updates)
+	// - this final SUCCEEDED status update
+	if err = l.batchUpdater.Flush(ctx, l.clientManager.KFPAPIClient()); err != nil {
+		return fmt.Errorf("failed to flush batch updates: %w", err)
 	}
 
 	// Refresh run before updating statuses
@@ -473,18 +482,27 @@ func (l *LauncherV2) executeV2(ctx context.Context) (*pipelinespec.ExecutorOutpu
 		}
 
 		l.options.Task.Outputs = &apiV2beta1.PipelineTaskDetail_InputOutputs{Parameters: params}
-		_, updateErr := l.clientManager.KFPAPIClient().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
-			TaskId: l.options.Task.GetTaskId(),
-			Task:   l.options.Task})
-		if updateErr != nil {
-			return nil, fmt.Errorf("failed to update task outputs: %w", updateErr)
-		}
+		// Queue task update instead of executing immediately
+		l.batchUpdater.QueueTaskUpdate(l.options.Task)
+	}
+
+	// Flush artifacts and task parameter updates BEFORE propagation
+	// This ensures that when propagateOutputsUpDAG refreshes the task,
+	// the artifacts will exist in the API and can be propagated up the DAG
+	if err = l.batchUpdater.Flush(ctx, l.clientManager.KFPAPIClient()); err != nil {
+		return nil, fmt.Errorf("failed to flush artifacts before propagation: %w", err)
 	}
 
 	// Propagate outputs up the DAG hierarchy for parents that declare these outputs
 	err = l.propagateOutputsUpDAG(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	// Flush propagation updates (artifact-tasks and parent task parameter updates)
+	// so that propagated outputs are visible to subsequent driver calls
+	if err = l.batchUpdater.Flush(ctx, l.clientManager.KFPAPIClient()); err != nil {
+		return nil, fmt.Errorf("failed to flush propagation updates: %w", err)
 	}
 
 	return executorOutput, nil
@@ -695,8 +713,7 @@ func (l *LauncherV2) uploadOutputArtifacts(
 		}
 	}
 
-	// Register the Artifacts with the KFP database
-	//  TODO(HumairAK): This should be done in a single API call.
+	// Queue artifact creation requests (will be flushed in batch)
 	for artifactKey, artifacts := range artifactsMap {
 		for _, artifact := range artifacts {
 			request := &apiV2beta1.CreateArtifactRequest{
@@ -710,10 +727,7 @@ func (l *LauncherV2) uploadOutputArtifacts(
 				request.IterationIndex = l.options.IterationIndex
 				request.Type = apiV2beta1.IOType_ITERATOR_OUTPUT
 			}
-			_, err := l.clientManager.KFPAPIClient().CreateArtifact(ctx, request)
-			if err != nil {
-				return fmt.Errorf("failed to create artifact: %w", err)
-			}
+			l.batchUpdater.QueueArtifact(request)
 		}
 	}
 	return nil
@@ -835,6 +849,11 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 		newPropagatedArtifacts := make(map[string]propagatedInfo)
 		newPropagatedParameters := make(map[string]propagatedInfo)
 
+		// Fetch parent task once for parameter accumulation
+		// We'll add all parameters to this task and queue one update at the end
+		var currentParentTask *apiV2beta1.PipelineTaskDetail
+		needsParentTaskFetch := len(currentTaskOutputs.GetParameters()) > 0
+
 		// Propagate artifacts
 		for _, artifactIO := range currentTaskOutputs.GetArtifacts() {
 			for _, artifact := range artifactIO.GetArtifacts() {
@@ -877,12 +896,8 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 					artifactTask.Producer.Iteration = l.options.IterationIndex
 				}
 
-				_, err := l.clientManager.KFPAPIClient().CreateArtifactTask(ctx, &apiV2beta1.CreateArtifactTaskRequest{
-					ArtifactTask: artifactTask,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to create artifact-task for parent %s: %w", parentTask.GetTaskId(), err)
-				}
+				// Queue artifact-task creation instead of creating immediately
+				l.batchUpdater.QueueArtifactTask(artifactTask)
 
 				// Track this artifact for next level propagation with its IOType
 				newPropagatedArtifacts[artifact.GetArtifactId()] = propagatedInfo{
@@ -893,6 +908,22 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 		}
 
 		// Propagate parameters
+		// Fetch the parent task once if we have parameters to propagate
+		if needsParentTaskFetch {
+			var err error
+			currentParentTask, err = l.clientManager.KFPAPIClient().GetTask(ctx, &apiV2beta1.GetTaskRequest{
+				TaskId: parentTask.GetTaskId(),
+			})
+			if err != nil {
+				return fmt.Errorf("failed to get parent task %s for parameter propagation: %w", parentTask.GetTaskId(), err)
+			}
+
+			// Initialize outputs if needed
+			if currentParentTask.Outputs == nil {
+				currentParentTask.Outputs = &apiV2beta1.PipelineTaskDetail_InputOutputs{}
+			}
+		}
+
 		for _, paramIO := range currentTaskOutputs.GetParameters() {
 			// Find the matching output key in parent's output definitions
 			matchingParentKey := findMatchingParentOutputKeyForChildParameter(
@@ -917,15 +948,6 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 				true, // isParameter = true
 			)
 
-			// Update parent task's outputs with this parameter
-			// We need to get the current parent task to update its outputs
-			currentParentTask, err := l.clientManager.KFPAPIClient().GetTask(ctx, &apiV2beta1.GetTaskRequest{
-				TaskId: parentTask.GetTaskId(),
-			})
-			if err != nil {
-				return fmt.Errorf("failed to get parent task %s for parameter propagation: %w", parentTask.GetTaskId(), err)
-			}
-
 			// Create parameter entry for the parent
 			newParam := &apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 				ParameterKey: matchingParentKey,
@@ -940,20 +962,8 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 				newParam.Producer.Iteration = l.options.IterationIndex
 			}
 
-			// Add to parent's output parameters
-			if currentParentTask.Outputs == nil {
-				currentParentTask.Outputs = &apiV2beta1.PipelineTaskDetail_InputOutputs{}
-			}
+			// Accumulate parameter to parent task (will queue update later)
 			currentParentTask.Outputs.Parameters = append(currentParentTask.Outputs.Parameters, newParam)
-
-			// Update the parent task
-			_, err = l.clientManager.KFPAPIClient().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
-				TaskId: parentTask.GetTaskId(),
-				Task:   currentParentTask,
-			})
-			if err != nil {
-				return fmt.Errorf("failed to update parent task %s with parameter output: %w", parentTask.GetTaskId(), err)
-			}
 
 			// Track this parameter for next level propagation with its IOType
 			// Use parameter key as the identifier since parameters don't have IDs like artifacts
@@ -962,6 +972,11 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 				key:    matchingParentKey,
 				ioType: ioType,
 			}
+		}
+
+		// Queue parent task update if we modified it with parameters
+		if currentParentTask != nil {
+			l.batchUpdater.QueueTaskUpdate(currentParentTask)
 		}
 
 		// Move up to the next parent
