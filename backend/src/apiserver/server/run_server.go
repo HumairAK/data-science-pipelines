@@ -758,6 +758,76 @@ func (s *RunServer) UpdateTask(ctx context.Context, request *apiv2beta1.UpdateTa
 	return toApiTask(updatedTask, taskChildren)
 }
 
+// UpdateTasksBulk updates multiple tasks in bulk.
+func (s *RunServer) UpdateTasksBulk(ctx context.Context, request *apiv2beta1.UpdateTasksBulkRequest) (*apiv2beta1.UpdateTasksBulkResponse, error) {
+	if request == nil || len(request.GetTasks()) == 0 {
+		return nil, util.NewInvalidInputError("UpdateTasksBulkRequest must contain at least one task")
+	}
+
+	response := &apiv2beta1.UpdateTasksBulkResponse{
+		Tasks: make(map[string]*apiv2beta1.PipelineTaskDetail),
+	}
+
+	// Validate and update each task
+	for taskID, task := range request.GetTasks() {
+		if taskID == "" {
+			return nil, util.NewInvalidInputError("Task ID is required")
+		}
+		if task == nil {
+			return nil, util.NewInvalidInputError("Task is required for task ID %s", taskID)
+		}
+
+		// Ensure task IDs match - prefer the map key for authorization
+		if task.GetTaskId() != "" && task.GetTaskId() != taskID {
+			return nil, util.NewInvalidInputError("Task ID in map key does not match task ID in task detail for task %s", taskID)
+		}
+
+		// Validate that input/output artifacts are not being updated
+		if task.GetInputs() != nil && len(task.GetInputs().GetArtifacts()) > 0 {
+			return nil, util.NewInvalidInputError("Cannot update task input artifacts for task %s - use artifact tasks API instead", taskID)
+		}
+		if task.GetOutputs() != nil && len(task.GetOutputs().GetArtifacts()) > 0 {
+			return nil, util.NewInvalidInputError("Cannot update task output artifacts for task %s - use artifact tasks API instead", taskID)
+		}
+
+		// First get the existing task to find the run UUID for authorization
+		existingTask, err := s.resourceManager.GetTask(taskID)
+		if err != nil {
+			return nil, util.Wrapf(err, "Failed to get existing task %s for authorization", taskID)
+		}
+
+		// Check authorization using the existing task's run UUID
+		err = s.canAccessRun(ctx, existingTask.RunUUID, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbUpdate})
+		if err != nil {
+			return nil, util.Wrapf(err, "Failed to authorize task update for task %s", taskID)
+		}
+
+		modelTask, err := toModelTask(task)
+		if err != nil {
+			return nil, util.Wrapf(err, "Failed to convert task to model for task %s", taskID)
+		}
+		modelTask.UUID = taskID // Always use the map key task ID
+
+		updatedTask, err := s.resourceManager.UpdateTask(modelTask)
+		if err != nil {
+			return nil, util.Wrapf(err, "Failed to update task %s", taskID)
+		}
+
+		taskChildren, err := s.resourceManager.GetTaskChildren(updatedTask.UUID)
+		if err != nil {
+			return nil, util.Wrapf(err, "Failed to get task children for task %s", taskID)
+		}
+
+		apiTask, err := toApiTask(updatedTask, taskChildren)
+		if err != nil {
+			return nil, util.Wrapf(err, "Failed to convert task to API for task %s", taskID)
+		}
+		response.Tasks[taskID] = apiTask
+	}
+
+	return response, nil
+}
+
 // GetTask retrieves the details of a specific task based on its ID and performs authorization checks.
 func (s *RunServer) GetTask(ctx context.Context, request *apiv2beta1.GetTaskRequest) (*apiv2beta1.PipelineTaskDetail, error) {
 	taskId := request.GetTaskId()

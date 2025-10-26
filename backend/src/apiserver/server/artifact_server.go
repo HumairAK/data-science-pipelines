@@ -107,6 +107,95 @@ func (s *ArtifactServer) CreateArtifact(ctx context.Context, request *apiv2beta1
 	return toApiArtifact(artifact)
 }
 
+// CreateArtifactsBulk creates multiple artifacts in bulk.
+func (s *ArtifactServer) CreateArtifactsBulk(ctx context.Context, request *apiv2beta1.CreateArtifactsBulkRequest) (*apiv2beta1.CreateArtifactsBulkResponse, error) {
+	if request == nil || len(request.GetArtifacts()) == 0 {
+		return nil, util.NewInvalidInputError("CreateArtifactsBulkRequest must contain at least one artifact")
+	}
+
+	response := &apiv2beta1.CreateArtifactsBulkResponse{
+		Artifacts: make([]*apiv2beta1.Artifact, 0, len(request.GetArtifacts())),
+	}
+
+	// Validate and create each artifact
+	for i, artifactReq := range request.GetArtifacts() {
+		err := s.validateCreateArtifactRequest(artifactReq)
+		if err != nil {
+			return nil, util.Wrapf(err, "Failed to create artifact %d due to validation error", i)
+		}
+
+		// Extract namespace for authorization
+		namespace := s.resourceManager.ReplaceNamespace(artifactReq.GetArtifact().GetNamespace())
+
+		// Check authorization - artifacts are accessible if user can access runs in the namespace
+		resourceAttributes := &authorizationv1.ResourceAttributes{
+			Namespace: namespace,
+			Verb:      common.RbacResourceVerbCreate,
+		}
+		if err = s.canAccessArtifacts(ctx, "", resourceAttributes); err != nil {
+			return nil, util.Wrapf(err, "Failed to authorize artifact %d creation", i)
+		}
+
+		task, err := s.resourceManager.GetTask(artifactReq.GetTaskId())
+		if err != nil {
+			return nil, util.Wrapf(err, "Failed to get task for artifact %d", i)
+		}
+		if task.RunUUID != artifactReq.GetRunId() {
+			return nil, util.NewInvalidInputError("Task ID does not belong to this Run ID for artifact %d", i)
+		}
+
+		modelArtifact, err := toModelArtifact(artifactReq.GetArtifact())
+		if err != nil {
+			return nil, util.Wrapf(err, "Failed to create artifact %d due to conversion error", i)
+		}
+
+		// Set the validated namespace
+		modelArtifact.Namespace = namespace
+
+		artifact, err := s.resourceManager.CreateArtifact(modelArtifact)
+		if err != nil {
+			return nil, util.Wrapf(err, "Failed to create artifact %d", i)
+		}
+
+		// Build the IOProducer with task name
+		producer := &apiv2beta1.IOProducer{
+			TaskName: task.Name,
+		}
+		// Add iteration index if provided
+		if artifactReq.IterationIndex != nil {
+			producer.Iteration = artifactReq.IterationIndex
+		}
+
+		artifactTask := &apiv2beta1.ArtifactTask{
+			ArtifactId: artifact.UUID,
+			TaskId:     task.UUID,
+			RunId:      artifactReq.GetRunId(),
+			// An artifact at creation is an output of the associated task.
+			Type:     apiv2beta1.IOType_OUTPUT,
+			Producer: producer,
+			Key:      artifactReq.GetProducerKey(),
+		}
+
+		modelAT, err := toModelArtifactTask(artifactTask)
+		if err != nil {
+			return nil, util.Wrapf(err, "Failed to convert artifact_task for artifact %d", i)
+		}
+
+		_, err = s.resourceManager.CreateArtifactTask(modelAT)
+		if err != nil {
+			return nil, util.Wrapf(err, "Failed to create artifact-task for artifact %d", i)
+		}
+
+		apiArtifact, err := toApiArtifact(artifact)
+		if err != nil {
+			return nil, util.Wrapf(err, "Failed to convert artifact %d to API", i)
+		}
+		response.Artifacts = append(response.Artifacts, apiArtifact)
+	}
+
+	return response, nil
+}
+
 // GetArtifact finds a specific artifact by ID.
 func (s *ArtifactServer) GetArtifact(ctx context.Context, request *apiv2beta1.GetArtifactRequest) (*apiv2beta1.Artifact, error) {
 	artifactID := request.GetArtifactId()
