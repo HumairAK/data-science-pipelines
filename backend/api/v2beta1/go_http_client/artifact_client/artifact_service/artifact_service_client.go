@@ -56,6 +56,8 @@ type ClientOption func(*runtime.ClientOperation)
 type ClientService interface {
 	BatchCreateArtifactTasks(params *BatchCreateArtifactTasksParams, opts ...ClientOption) (*BatchCreateArtifactTasksOK, error)
 
+	BatchCreateArtifacts(params *BatchCreateArtifactsParams, opts ...ClientOption) (*BatchCreateArtifactsOK, error)
+
 	CreateArtifact(params *CreateArtifactParams, opts ...ClientOption) (*CreateArtifactOK, error)
 
 	CreateArtifactTask(params *CreateArtifactTaskParams, opts ...ClientOption) (*CreateArtifactTaskOK, error)
@@ -103,6 +105,43 @@ func (a *Client) BatchCreateArtifactTasks(params *BatchCreateArtifactTasksParams
 	}
 	// unexpected success response
 	unexpectedSuccess := result.(*BatchCreateArtifactTasksDefault)
+	return nil, runtime.NewAPIError("unexpected success response: content available as default response in error", unexpectedSuccess, unexpectedSuccess.Code())
+}
+
+/*
+BatchCreateArtifacts creates multiple artifacts in bulk
+*/
+func (a *Client) BatchCreateArtifacts(params *BatchCreateArtifactsParams, opts ...ClientOption) (*BatchCreateArtifactsOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewBatchCreateArtifactsParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "batch_create_artifacts",
+		Method:             "POST",
+		PathPattern:        "/apis/v2beta1/artifacts:batchCreate",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http", "https"},
+		Params:             params,
+		Reader:             &BatchCreateArtifactsReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+	success, ok := result.(*BatchCreateArtifactsOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	unexpectedSuccess := result.(*BatchCreateArtifactsDefault)
 	return nil, runtime.NewAPIError("unexpected success response: content available as default response in error", unexpectedSuccess, unexpectedSuccess.Code())
 }
 

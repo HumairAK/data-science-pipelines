@@ -36,6 +36,7 @@ const (
 	ArtifactService_ListArtifacts_FullMethodName           = "/kubeflow.pipelines.backend.api.v2beta1.ArtifactService/ListArtifacts"
 	ArtifactService_GetArtifact_FullMethodName             = "/kubeflow.pipelines.backend.api.v2beta1.ArtifactService/GetArtifact"
 	ArtifactService_CreateArtifact_FullMethodName          = "/kubeflow.pipelines.backend.api.v2beta1.ArtifactService/CreateArtifact"
+	ArtifactService_CreateArtifactsBulk_FullMethodName     = "/kubeflow.pipelines.backend.api.v2beta1.ArtifactService/CreateArtifactsBulk"
 	ArtifactService_ListArtifactTasks_FullMethodName       = "/kubeflow.pipelines.backend.api.v2beta1.ArtifactService/ListArtifactTasks"
 	ArtifactService_CreateArtifactTask_FullMethodName      = "/kubeflow.pipelines.backend.api.v2beta1.ArtifactService/CreateArtifactTask"
 	ArtifactService_CreateArtifactTasksBulk_FullMethodName = "/kubeflow.pipelines.backend.api.v2beta1.ArtifactService/CreateArtifactTasksBulk"
@@ -51,6 +52,7 @@ type ArtifactServiceClient interface {
 	GetArtifact(ctx context.Context, in *GetArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	// Creates a new artifact.
 	CreateArtifact(ctx context.Context, in *CreateArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
+	CreateArtifactsBulk(ctx context.Context, in *CreateArtifactsBulkRequest, opts ...grpc.CallOption) (*CreateArtifactsBulkResponse, error)
 	// List ArtifactTasks.
 	ListArtifactTasks(ctx context.Context, in *ListArtifactTasksRequest, opts ...grpc.CallOption) (*ListArtifactTasksResponse, error)
 	// Creates an artifact-task relationship.
@@ -100,6 +102,16 @@ func (c *artifactServiceClient) CreateArtifact(ctx context.Context, in *CreateAr
 	return out, nil
 }
 
+func (c *artifactServiceClient) CreateArtifactsBulk(ctx context.Context, in *CreateArtifactsBulkRequest, opts ...grpc.CallOption) (*CreateArtifactsBulkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateArtifactsBulkResponse)
+	err := c.cc.Invoke(ctx, ArtifactService_CreateArtifactsBulk_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *artifactServiceClient) ListArtifactTasks(ctx context.Context, in *ListArtifactTasksRequest, opts ...grpc.CallOption) (*ListArtifactTasksResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListArtifactTasksResponse)
@@ -140,6 +152,7 @@ type ArtifactServiceServer interface {
 	GetArtifact(context.Context, *GetArtifactRequest) (*Artifact, error)
 	// Creates a new artifact.
 	CreateArtifact(context.Context, *CreateArtifactRequest) (*Artifact, error)
+	CreateArtifactsBulk(context.Context, *CreateArtifactsBulkRequest) (*CreateArtifactsBulkResponse, error)
 	// List ArtifactTasks.
 	ListArtifactTasks(context.Context, *ListArtifactTasksRequest) (*ListArtifactTasksResponse, error)
 	// Creates an artifact-task relationship.
@@ -167,6 +180,9 @@ func (UnimplementedArtifactServiceServer) GetArtifact(context.Context, *GetArtif
 }
 func (UnimplementedArtifactServiceServer) CreateArtifact(context.Context, *CreateArtifactRequest) (*Artifact, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateArtifact not implemented")
+}
+func (UnimplementedArtifactServiceServer) CreateArtifactsBulk(context.Context, *CreateArtifactsBulkRequest) (*CreateArtifactsBulkResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateArtifactsBulk not implemented")
 }
 func (UnimplementedArtifactServiceServer) ListArtifactTasks(context.Context, *ListArtifactTasksRequest) (*ListArtifactTasksResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListArtifactTasks not implemented")
@@ -252,6 +268,24 @@ func _ArtifactService_CreateArtifact_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ArtifactService_CreateArtifactsBulk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateArtifactsBulkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ArtifactServiceServer).CreateArtifactsBulk(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ArtifactService_CreateArtifactsBulk_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ArtifactServiceServer).CreateArtifactsBulk(ctx, req.(*CreateArtifactsBulkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ArtifactService_ListArtifactTasks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListArtifactTasksRequest)
 	if err := dec(in); err != nil {
@@ -324,6 +358,10 @@ var ArtifactService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateArtifact",
 			Handler:    _ArtifactService_CreateArtifact_Handler,
+		},
+		{
+			MethodName: "CreateArtifactsBulk",
+			Handler:    _ArtifactService_CreateArtifactsBulk_Handler,
 		},
 		{
 			MethodName: "ListArtifactTasks",

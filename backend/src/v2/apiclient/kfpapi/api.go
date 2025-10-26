@@ -25,11 +25,13 @@ type API interface {
 	// Task operations
 	CreateTask(ctx context.Context, req *gc.CreateTaskRequest) (*gc.PipelineTaskDetail, error)
 	UpdateTask(ctx context.Context, req *gc.UpdateTaskRequest) (*gc.PipelineTaskDetail, error)
+	UpdateTasksBulk(ctx context.Context, req *gc.UpdateTasksBulkRequest) (*gc.UpdateTasksBulkResponse, error)
 	GetTask(ctx context.Context, req *gc.GetTaskRequest) (*gc.PipelineTaskDetail, error)
 	ListTasks(ctx context.Context, req *gc.ListTasksRequest) (*gc.ListTasksResponse, error)
 
 	// Artifact operations
 	CreateArtifact(ctx context.Context, req *gc.CreateArtifactRequest) (*gc.Artifact, error)
+	CreateArtifactsBulk(ctx context.Context, req *gc.CreateArtifactsBulkRequest) (*gc.CreateArtifactsBulkResponse, error)
 	ListArtifactsByURI(ctx context.Context, uri, namespace string) ([]*gc.Artifact, error)
 	ListArtifactTasks(ctx context.Context, req *gc.ListArtifactTasksRequest) (*gc.ListArtifactTasksResponse, error)
 	CreateArtifactTask(ctx context.Context, req *gc.CreateArtifactTaskRequest) (*gc.ArtifactTask, error)
@@ -66,6 +68,10 @@ func (k *clientAdapter) UpdateTask(ctx context.Context, req *gc.UpdateTaskReques
 	return k.c.Run.UpdateTask(ctx, req)
 }
 
+func (k *clientAdapter) UpdateTasksBulk(ctx context.Context, req *gc.UpdateTasksBulkRequest) (*gc.UpdateTasksBulkResponse, error) {
+	return k.c.Run.UpdateTasksBulk(ctx, req)
+}
+
 func (k *clientAdapter) GetTask(ctx context.Context, req *gc.GetTaskRequest) (*gc.PipelineTaskDetail, error) {
 	return k.c.Run.GetTask(ctx, req)
 }
@@ -76,6 +82,10 @@ func (k *clientAdapter) ListTasks(ctx context.Context, req *gc.ListTasksRequest)
 
 func (k *clientAdapter) CreateArtifact(ctx context.Context, req *gc.CreateArtifactRequest) (*gc.Artifact, error) {
 	return k.c.Artifact.CreateArtifact(ctx, req)
+}
+
+func (k *clientAdapter) CreateArtifactsBulk(ctx context.Context, req *gc.CreateArtifactsBulkRequest) (*gc.CreateArtifactsBulkResponse, error) {
+	return k.c.Artifact.CreateArtifactsBulk(ctx, req)
 }
 
 func (k *clientAdapter) ListArtifactsByURI(ctx context.Context, uri, namespace string) ([]*gc.Artifact, error) {

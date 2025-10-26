@@ -133,6 +133,24 @@ func (m *MockAPI) UpdateTask(_ context.Context, req *apiv2beta1.UpdateTaskReques
 	return task, nil
 }
 
+func (m *MockAPI) UpdateTasksBulk(_ context.Context, req *apiv2beta1.UpdateTasksBulkRequest) (*apiv2beta1.UpdateTasksBulkResponse, error) {
+	response := &apiv2beta1.UpdateTasksBulkResponse{
+		Tasks: make(map[string]*apiv2beta1.PipelineTaskDetail),
+	}
+
+	for taskID, task := range req.Tasks {
+		if _, exists := m.tasks[taskID]; !exists {
+			return nil, fmt.Errorf("task not found: %s", taskID)
+		}
+		task.TaskId = taskID
+		m.tasks[taskID] = task
+		hydratedTask := m.hydrateTask(task)
+		response.Tasks[taskID] = hydratedTask
+	}
+
+	return response, nil
+}
+
 func (m *MockAPI) GetTask(_ context.Context, req *apiv2beta1.GetTaskRequest) (*apiv2beta1.PipelineTaskDetail, error) {
 	if task, exists := m.tasks[req.TaskId]; exists {
 		task = m.hydrateTask(m.tasks[req.TaskId])
@@ -252,6 +270,45 @@ func (m *MockAPI) CreateArtifact(_ context.Context, req *apiv2beta1.CreateArtifa
 	m.artifactTasks[artifactTask.Id] = artifactTask
 
 	return artifact, nil
+}
+
+func (m *MockAPI) CreateArtifactsBulk(_ context.Context, req *apiv2beta1.CreateArtifactsBulkRequest) (*apiv2beta1.CreateArtifactsBulkResponse, error) {
+	response := &apiv2beta1.CreateArtifactsBulkResponse{
+		Artifacts: make([]*apiv2beta1.Artifact, 0, len(req.Artifacts)),
+	}
+
+	for _, artifactReq := range req.Artifacts {
+		artifact := artifactReq.Artifact
+		if artifact.ArtifactId == "" {
+			uuid, _ := uuid.NewRandom()
+			artifact.ArtifactId = uuid.String()
+		}
+		m.artifacts[artifact.ArtifactId] = artifact
+
+		// Also create the artifact-task relationship
+		artifactTask := &apiv2beta1.ArtifactTask{
+			ArtifactId: artifact.ArtifactId,
+			TaskId:     artifactReq.TaskId,
+			RunId:      artifactReq.RunId,
+			Key:        artifactReq.ProducerKey,
+			Type:       artifactReq.Type,
+			Producer: &apiv2beta1.IOProducer{
+				TaskName: "",
+			},
+		}
+		if artifactReq.IterationIndex != nil {
+			artifactTask.Producer.Iteration = artifactReq.IterationIndex
+		}
+
+		// Generate ID for artifact task
+		atUuid, _ := uuid.NewRandom()
+		artifactTask.Id = atUuid.String()
+		m.artifactTasks[artifactTask.Id] = artifactTask
+
+		response.Artifacts = append(response.Artifacts, artifact)
+	}
+
+	return response, nil
 }
 
 func (m *MockAPI) ListArtifactTasks(_ context.Context, _ *apiv2beta1.ListArtifactTasksRequest) (*apiv2beta1.ListArtifactTasksResponse, error) {

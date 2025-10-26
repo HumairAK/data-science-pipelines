@@ -323,6 +323,39 @@
         ]
       }
     },
+    "/apis/v2beta1/artifacts:batchCreate": {
+      "post": {
+        "summary": "Creates multiple artifacts in bulk.",
+        "operationId": "batch_create_artifacts",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v2beta1CreateArtifactsBulkResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v2beta1CreateArtifactsBulkRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ArtifactService"
+        ]
+      }
+    },
     "/apis/v2beta1/auth": {
       "get": {
         "operationId": "AuthService_Authorize",
@@ -2017,6 +2050,39 @@
         ]
       }
     },
+    "/apis/v2beta1/tasks:batchUpdate": {
+      "post": {
+        "summary": "Updates multiple tasks in bulk.",
+        "operationId": "batch_update_tasks",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v2beta1UpdateTasksBulkResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v2beta1UpdateTasksBulkRequest"
+            }
+          }
+        ],
+        "tags": [
+          "RunService"
+        ]
+      }
+    },
     "/apis/v2beta1/visualizations/{namespace}": {
       "post": {
         "operationId": "VisualizationService_CreateVisualizationV1",
@@ -2259,6 +2325,32 @@
             "$ref": "#/definitions/v2beta1ArtifactTask"
           },
           "description": "The list of created artifact-task relationships."
+        }
+      }
+    },
+    "v2beta1CreateArtifactsBulkRequest": {
+      "type": "object",
+      "properties": {
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v2beta1CreateArtifactRequest"
+          },
+          "description": "Required. The list of artifacts to create."
+        }
+      }
+    },
+    "v2beta1CreateArtifactsBulkResponse": {
+      "type": "object",
+      "properties": {
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v2beta1Artifact"
+          },
+          "description": "The list of created artifacts."
         }
       }
     },
@@ -3359,6 +3451,30 @@
         }
       },
       "description": "Timestamped representation of a runtime state with an optional error."
+    },
+    "v2beta1UpdateTasksBulkRequest": {
+      "type": "object",
+      "properties": {
+        "tasks": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/v2beta1PipelineTaskDetail"
+          },
+          "title": "Required. Map of task ID to task detail for bulk update.\nKey: task_id, Value: PipelineTaskDetail to update"
+        }
+      }
+    },
+    "v2beta1UpdateTasksBulkResponse": {
+      "type": "object",
+      "properties": {
+        "tasks": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/v2beta1PipelineTaskDetail"
+          },
+          "title": "Map of task ID to updated task detail.\nKey: task_id, Value: Updated PipelineTaskDetail"
+        }
+      }
     },
     "v2beta1Visualization": {
       "type": "object",

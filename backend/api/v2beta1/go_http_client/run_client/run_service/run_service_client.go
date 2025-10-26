@@ -72,6 +72,8 @@ type ClientService interface {
 
 	RunServiceUnarchiveRun(params *RunServiceUnarchiveRunParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*RunServiceUnarchiveRunOK, error)
 
+	BatchUpdateTasks(params *BatchUpdateTasksParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*BatchUpdateTasksOK, error)
+
 	CreateTask(params *CreateTaskParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*CreateTaskOK, error)
 
 	GetTask(params *GetTaskParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*GetTaskOK, error)
@@ -422,6 +424,44 @@ func (a *Client) RunServiceUnarchiveRun(params *RunServiceUnarchiveRunParams, au
 	}
 	// unexpected success response
 	unexpectedSuccess := result.(*RunServiceUnarchiveRunDefault)
+	return nil, runtime.NewAPIError("unexpected success response: content available as default response in error", unexpectedSuccess, unexpectedSuccess.Code())
+}
+
+/*
+BatchUpdateTasks updates multiple tasks in bulk
+*/
+func (a *Client) BatchUpdateTasks(params *BatchUpdateTasksParams, authInfo runtime.ClientAuthInfoWriter, opts ...ClientOption) (*BatchUpdateTasksOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewBatchUpdateTasksParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "batch_update_tasks",
+		Method:             "POST",
+		PathPattern:        "/apis/v2beta1/tasks:batchUpdate",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http", "https"},
+		Params:             params,
+		Reader:             &BatchUpdateTasksReader{formats: a.formats},
+		AuthInfo:           authInfo,
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+	success, ok := result.(*BatchUpdateTasksOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	unexpectedSuccess := result.(*BatchUpdateTasksDefault)
 	return nil, runtime.NewAPIError("unexpected success response: content available as default response in error", unexpectedSuccess, unexpectedSuccess.Code())
 }
 

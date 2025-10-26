@@ -34,19 +34,20 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	RunService_CreateRun_FullMethodName    = "/kubeflow.pipelines.backend.api.v2beta1.RunService/CreateRun"
-	RunService_GetRun_FullMethodName       = "/kubeflow.pipelines.backend.api.v2beta1.RunService/GetRun"
-	RunService_ListRuns_FullMethodName     = "/kubeflow.pipelines.backend.api.v2beta1.RunService/ListRuns"
-	RunService_ArchiveRun_FullMethodName   = "/kubeflow.pipelines.backend.api.v2beta1.RunService/ArchiveRun"
-	RunService_UnarchiveRun_FullMethodName = "/kubeflow.pipelines.backend.api.v2beta1.RunService/UnarchiveRun"
-	RunService_DeleteRun_FullMethodName    = "/kubeflow.pipelines.backend.api.v2beta1.RunService/DeleteRun"
-	RunService_ReadArtifact_FullMethodName = "/kubeflow.pipelines.backend.api.v2beta1.RunService/ReadArtifact"
-	RunService_TerminateRun_FullMethodName = "/kubeflow.pipelines.backend.api.v2beta1.RunService/TerminateRun"
-	RunService_RetryRun_FullMethodName     = "/kubeflow.pipelines.backend.api.v2beta1.RunService/RetryRun"
-	RunService_CreateTask_FullMethodName   = "/kubeflow.pipelines.backend.api.v2beta1.RunService/CreateTask"
-	RunService_UpdateTask_FullMethodName   = "/kubeflow.pipelines.backend.api.v2beta1.RunService/UpdateTask"
-	RunService_GetTask_FullMethodName      = "/kubeflow.pipelines.backend.api.v2beta1.RunService/GetTask"
-	RunService_ListTasks_FullMethodName    = "/kubeflow.pipelines.backend.api.v2beta1.RunService/ListTasks"
+	RunService_CreateRun_FullMethodName       = "/kubeflow.pipelines.backend.api.v2beta1.RunService/CreateRun"
+	RunService_GetRun_FullMethodName          = "/kubeflow.pipelines.backend.api.v2beta1.RunService/GetRun"
+	RunService_ListRuns_FullMethodName        = "/kubeflow.pipelines.backend.api.v2beta1.RunService/ListRuns"
+	RunService_ArchiveRun_FullMethodName      = "/kubeflow.pipelines.backend.api.v2beta1.RunService/ArchiveRun"
+	RunService_UnarchiveRun_FullMethodName    = "/kubeflow.pipelines.backend.api.v2beta1.RunService/UnarchiveRun"
+	RunService_DeleteRun_FullMethodName       = "/kubeflow.pipelines.backend.api.v2beta1.RunService/DeleteRun"
+	RunService_ReadArtifact_FullMethodName    = "/kubeflow.pipelines.backend.api.v2beta1.RunService/ReadArtifact"
+	RunService_TerminateRun_FullMethodName    = "/kubeflow.pipelines.backend.api.v2beta1.RunService/TerminateRun"
+	RunService_RetryRun_FullMethodName        = "/kubeflow.pipelines.backend.api.v2beta1.RunService/RetryRun"
+	RunService_CreateTask_FullMethodName      = "/kubeflow.pipelines.backend.api.v2beta1.RunService/CreateTask"
+	RunService_UpdateTask_FullMethodName      = "/kubeflow.pipelines.backend.api.v2beta1.RunService/UpdateTask"
+	RunService_UpdateTasksBulk_FullMethodName = "/kubeflow.pipelines.backend.api.v2beta1.RunService/UpdateTasksBulk"
+	RunService_GetTask_FullMethodName         = "/kubeflow.pipelines.backend.api.v2beta1.RunService/GetTask"
+	RunService_ListTasks_FullMethodName       = "/kubeflow.pipelines.backend.api.v2beta1.RunService/ListTasks"
 )
 
 // RunServiceClient is the client API for RunService service.
@@ -75,6 +76,7 @@ type RunServiceClient interface {
 	RetryRun(ctx context.Context, in *RetryRunRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CreateTask(ctx context.Context, in *CreateTaskRequest, opts ...grpc.CallOption) (*PipelineTaskDetail, error)
 	UpdateTask(ctx context.Context, in *UpdateTaskRequest, opts ...grpc.CallOption) (*PipelineTaskDetail, error)
+	UpdateTasksBulk(ctx context.Context, in *UpdateTasksBulkRequest, opts ...grpc.CallOption) (*UpdateTasksBulkResponse, error)
 	GetTask(ctx context.Context, in *GetTaskRequest, opts ...grpc.CallOption) (*PipelineTaskDetail, error)
 	ListTasks(ctx context.Context, in *ListTasksRequest, opts ...grpc.CallOption) (*ListTasksResponse, error)
 }
@@ -197,6 +199,16 @@ func (c *runServiceClient) UpdateTask(ctx context.Context, in *UpdateTaskRequest
 	return out, nil
 }
 
+func (c *runServiceClient) UpdateTasksBulk(ctx context.Context, in *UpdateTasksBulkRequest, opts ...grpc.CallOption) (*UpdateTasksBulkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateTasksBulkResponse)
+	err := c.cc.Invoke(ctx, RunService_UpdateTasksBulk_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *runServiceClient) GetTask(ctx context.Context, in *GetTaskRequest, opts ...grpc.CallOption) (*PipelineTaskDetail, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PipelineTaskDetail)
@@ -243,6 +255,7 @@ type RunServiceServer interface {
 	RetryRun(context.Context, *RetryRunRequest) (*emptypb.Empty, error)
 	CreateTask(context.Context, *CreateTaskRequest) (*PipelineTaskDetail, error)
 	UpdateTask(context.Context, *UpdateTaskRequest) (*PipelineTaskDetail, error)
+	UpdateTasksBulk(context.Context, *UpdateTasksBulkRequest) (*UpdateTasksBulkResponse, error)
 	GetTask(context.Context, *GetTaskRequest) (*PipelineTaskDetail, error)
 	ListTasks(context.Context, *ListTasksRequest) (*ListTasksResponse, error)
 	mustEmbedUnimplementedRunServiceServer()
@@ -287,6 +300,9 @@ func (UnimplementedRunServiceServer) CreateTask(context.Context, *CreateTaskRequ
 }
 func (UnimplementedRunServiceServer) UpdateTask(context.Context, *UpdateTaskRequest) (*PipelineTaskDetail, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateTask not implemented")
+}
+func (UnimplementedRunServiceServer) UpdateTasksBulk(context.Context, *UpdateTasksBulkRequest) (*UpdateTasksBulkResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateTasksBulk not implemented")
 }
 func (UnimplementedRunServiceServer) GetTask(context.Context, *GetTaskRequest) (*PipelineTaskDetail, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTask not implemented")
@@ -513,6 +529,24 @@ func _RunService_UpdateTask_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RunService_UpdateTasksBulk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateTasksBulkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunServiceServer).UpdateTasksBulk(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RunService_UpdateTasksBulk_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunServiceServer).UpdateTasksBulk(ctx, req.(*UpdateTasksBulkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RunService_GetTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetTaskRequest)
 	if err := dec(in); err != nil {
@@ -599,6 +633,10 @@ var RunService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateTask",
 			Handler:    _RunService_UpdateTask_Handler,
+		},
+		{
+			MethodName: "UpdateTasksBulk",
+			Handler:    _RunService_UpdateTasksBulk_Handler,
 		},
 		{
 			MethodName: "GetTask",

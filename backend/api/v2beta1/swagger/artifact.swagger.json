@@ -312,6 +312,39 @@
           "ArtifactService"
         ]
       }
+    },
+    "/apis/v2beta1/artifacts:batchCreate": {
+      "post": {
+        "summary": "Creates multiple artifacts in bulk.",
+        "operationId": "batch_create_artifacts",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v2beta1CreateArtifactsBulkResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googlerpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v2beta1CreateArtifactsBulkRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ArtifactService"
+        ]
+      }
     }
   },
   "definitions": {
@@ -508,6 +541,32 @@
             "$ref": "#/definitions/v2beta1ArtifactTask"
           },
           "description": "The list of created artifact-task relationships."
+        }
+      }
+    },
+    "v2beta1CreateArtifactsBulkRequest": {
+      "type": "object",
+      "properties": {
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v2beta1CreateArtifactRequest"
+          },
+          "description": "Required. The list of artifacts to create."
+        }
+      }
+    },
+    "v2beta1CreateArtifactsBulkResponse": {
+      "type": "object",
+      "properties": {
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v2beta1Artifact"
+          },
+          "description": "The list of created artifacts."
         }
       }
     },

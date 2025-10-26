@@ -152,6 +152,18 @@ service RunService {
     };
   }
 
+  rpc UpdateTasksBulk(UpdateTasksBulkRequest) returns (UpdateTasksBulkResponse) {
+    option (google.api.http) = {
+      post: "/apis/v2beta1/tasks:batchUpdate"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      operation_id: "batch_update_tasks"
+      summary: "Updates multiple tasks in bulk."
+      tags: "RunService"
+    };
+  }
+
   rpc GetTask(GetTaskRequest) returns (PipelineTaskDetail) {
     option (google.api.http) = {
       get: "/apis/v2beta1/tasks/{task_id}"
@@ -632,6 +644,18 @@ message CreateTaskRequest {
 message UpdateTaskRequest {
   string task_id = 1;
   PipelineTaskDetail task = 2;
+}
+
+message UpdateTasksBulkRequest {
+  // Required. Map of task ID to task detail for bulk update.
+  // Key: task_id, Value: PipelineTaskDetail to update
+  map<string, PipelineTaskDetail> tasks = 1;
+}
+
+message UpdateTasksBulkResponse {
+  // Map of task ID to updated task detail.
+  // Key: task_id, Value: Updated PipelineTaskDetail
+  map<string, PipelineTaskDetail> tasks = 1;
 }
 
 message GetTaskRequest {

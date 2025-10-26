@@ -178,27 +178,30 @@ func (b *BatchUpdater) Flush(ctx context.Context, client kfpapi.API) error {
 			i, at.ArtifactId, at.TaskId, at.Key, at.Type)
 	}
 
-	// Step 1: Create artifacts
-	// TODO: In Phase 2, add CreateArtifactsBulk API
-	for _, artifactReq := range b.artifacts {
-		_, err := client.CreateArtifact(ctx, artifactReq.request)
-		if err != nil {
-			return fmt.Errorf("failed to create artifact in batch: %w", err)
+	// Step 1: Create artifacts using bulk API
+	if len(b.artifacts) > 0 {
+		bulkReq := &apiV2beta1.CreateArtifactsBulkRequest{
+			Artifacts: make([]*apiV2beta1.CreateArtifactRequest, 0, len(b.artifacts)),
 		}
-		b.actualArtifactCalls++
+		for _, artifactReq := range b.artifacts {
+			bulkReq.Artifacts = append(bulkReq.Artifacts, artifactReq.request)
+		}
+		_, err := client.CreateArtifactsBulk(ctx, bulkReq)
+		if err != nil {
+			return fmt.Errorf("failed to create artifacts in bulk: %w", err)
+		}
+		b.actualArtifactCalls = 1 // Bulk call counts as 1
 	}
 
-	// Step 2: Update tasks
-	// TODO: In Phase 2, add UpdateTasksBulk API
-	for taskID, task := range b.taskUpdates {
-		_, err := client.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
-			TaskId: taskID,
-			Task:   task,
+	// Step 2: Update tasks using bulk API
+	if len(b.taskUpdates) > 0 {
+		_, err := client.UpdateTasksBulk(ctx, &apiV2beta1.UpdateTasksBulkRequest{
+			Tasks: b.taskUpdates,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to update task %s in batch: %w", taskID, err)
+			return fmt.Errorf("failed to update tasks in bulk: %w", err)
 		}
-		b.actualTaskUpdateCalls++
+		b.actualTaskUpdateCalls = 1 // Bulk call counts as 1
 	}
 
 	// Step 3: Create artifact-tasks using existing bulk API

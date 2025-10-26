@@ -89,6 +89,18 @@ service ArtifactService {
     };
   }
 
+  rpc CreateArtifactsBulk(CreateArtifactsBulkRequest) returns (CreateArtifactsBulkResponse) {
+    option (google.api.http) = {
+      post: "/apis/v2beta1/artifacts:batchCreate"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      operation_id: "batch_create_artifacts"
+      summary: "Creates multiple artifacts in bulk."
+      tags: "ArtifactService"
+    };
+  }
+
   // List ArtifactTasks.
   rpc ListArtifactTasks(ListArtifactTasksRequest) returns (ListArtifactTasksResponse) {
     option (google.api.http) = {
@@ -154,6 +166,16 @@ message CreateArtifactRequest {
   optional int64 iteration_index = 6;
 
   IOType type = 7;
+}
+
+message CreateArtifactsBulkRequest {
+  // Required. The list of artifacts to create.
+  repeated CreateArtifactRequest artifacts = 1;
+}
+
+message CreateArtifactsBulkResponse {
+  // The list of created artifacts.
+  repeated Artifact artifacts = 1;
 }
 
 message GetArtifactRequest {
