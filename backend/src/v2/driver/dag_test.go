@@ -162,6 +162,17 @@ func TestLoopArtifactPassing(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, len(forLoopTask.Outputs.Artifacts))
 
+	// Verify producer attribution for loop task artifacts
+	// The producer should be the immediate child task from the loop's perspective (process-dataset),
+	// not the original runtime task that created the artifact
+	for i, artifactIO := range forLoopTask.Outputs.Artifacts {
+		require.NotNil(t, artifactIO.Producer, "Loop task artifact %d should have a producer", i)
+		require.Equal(t, "process-dataset", artifactIO.Producer.TaskName,
+			"Loop task artifact %d producer should be 'process-dataset' (immediate child)", i)
+		require.NotNil(t, artifactIO.Producer.Iteration,
+			"Loop task artifact %d should have iteration index preserved", i)
+	}
+
 	// Run "analyze_artifact_list" in "secondary_pipeline"
 	// Move up a parent
 	parentTask = secondaryPipelineTask
@@ -180,6 +191,18 @@ func TestLoopArtifactPassing(t *testing.T) {
 	secondaryPipelineTask, err = tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: secondaryPipelineExecution.TaskID})
 	require.NoError(t, err)
 	require.Equal(t, 3, len(secondaryPipelineTask.Outputs.Artifacts))
+
+	// Verify producer attribution for secondary-pipeline task artifacts
+	// The producer should be the immediate child from secondary-pipeline's perspective (for-loop-2),
+	// NOT the original runtime task (process-dataset) that created the artifact
+	// This demonstrates that producer attribution "resets" at each propagation level
+	for i, artifactIO := range secondaryPipelineTask.Outputs.Artifacts {
+		require.NotNil(t, artifactIO.Producer, "Secondary pipeline artifact %d should have a producer", i)
+		require.Equal(t, "for-loop-2", artifactIO.Producer.TaskName,
+			"Secondary pipeline artifact %d producer should be 'for-loop-2' (immediate child from secondary-pipeline's perspective)", i)
+		require.NotNil(t, artifactIO.Producer.Iteration,
+			"Secondary pipeline artifact %d should have iteration index preserved from process-dataset", i)
+	}
 
 	// Move up a parent
 	parentTask = tc.RootTask
@@ -255,15 +278,21 @@ func TestParameterInputIterator(t *testing.T) {
 	tc.ExitDag()
 	parentTask = secondaryPipelineTask
 
-	// Debug: Check what parameters the for-loop-1 task has after all iterations
+	// Check what parameters the for-loop-1 task has after all iterations
 	refreshedLoopTask, err := tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: loopTask.TaskId})
 	require.NoError(t, err)
-	t.Logf("for-loop-1 task outputs after all iterations:")
-	if refreshedLoopTask.Outputs != nil {
-		t.Logf("  Parameters: %d", len(refreshedLoopTask.Outputs.Parameters))
-		for _, param := range refreshedLoopTask.Outputs.Parameters {
-			t.Logf("    - Key: %s, Type: %s, Value: %v", param.ParameterKey, param.Type, param.Value)
-		}
+	require.NotNil(t, refreshedLoopTask.Outputs)
+	require.Equal(t, 3, len(refreshedLoopTask.Outputs.Parameters))
+
+	// Verify producer attribution for loop task parameters
+	// The producer should be the immediate child task from the loop's perspective (read-single-file),
+	// not the original runtime task that created the parameter
+	for i, param := range refreshedLoopTask.Outputs.Parameters {
+		require.NotNil(t, param.Producer, "Loop task parameter %d should have a producer", i)
+		require.Equal(t, "read-single-file", param.Producer.TaskName,
+			"Loop task parameter %d producer should be 'read-single-file' (immediate child)", i)
+		require.NotNil(t, param.Producer.Iteration,
+			"Loop task parameter %d should have iteration index preserved", i)
 	}
 
 	readValuesExecution, _ := tc.RunContainerDriver("read-values", parentTask, nil, false)
@@ -289,10 +318,22 @@ func TestParameterInputIterator(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, task.Outputs)
 	require.Equal(t, 3, len(task.Outputs.Parameters))
+
+	// Verify producer attribution for secondary-pipeline task parameters
+	// The producer should be the immediate child from secondary-pipeline's perspective (for-loop-1),
+	// NOT the original runtime task (read-single-file) that created the parameter
+	// This demonstrates that producer attribution "resets" at each propagation level
 	var collectOutputs []string
-	for _, params := range task.Outputs.Parameters {
+	for i, params := range task.Outputs.Parameters {
 		collectOutputs = append(collectOutputs, params.GetValue().GetStringValue())
 		require.Equal(t, apiv2beta1.IOType_ITERATOR_OUTPUT, params.GetType())
+
+		// Verify producer is the immediate child task (for-loop-1)
+		require.NotNil(t, params.Producer, "Secondary pipeline parameter %d should have a producer", i)
+		require.Equal(t, "for-loop-1", params.Producer.TaskName,
+			"Secondary pipeline parameter %d producer should be 'for-loop-1' (immediate child from secondary-pipeline's perspective)", i)
+		require.NotNil(t, params.Producer.Iteration,
+			"Secondary pipeline parameter %d should have iteration index preserved from read-single-file", i)
 	}
 	require.Equal(t, []string{"file-0", "file-1", "file-2"}, collectOutputs)
 }
