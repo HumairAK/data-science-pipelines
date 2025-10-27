@@ -787,10 +787,23 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 		return nil
 	}
 
-	// Refresh the current task to get the latest outputs (artifacts and parameters were just uploaded)
-	currentTask, err := l.clientManager.KFPAPIClient().GetTask(ctx, &apiV2beta1.GetTaskRequest{TaskId: l.options.Task.GetTaskId()})
+	// Refresh the Run once to get all tasks with their latest state
+	// This eliminates the need for individual GetTask calls
+	refreshedRun, err := l.clientManager.KFPAPIClient().GetRun(ctx, &apiV2beta1.GetRunRequest{RunId: l.options.Run.GetRunId()})
 	if err != nil {
-		return fmt.Errorf("failed to refresh task before propagation: %w", err)
+		return fmt.Errorf("failed to refresh run before propagation: %w", err)
+	}
+
+	// Build a map of TaskID -> TaskDetail for fast lookups
+	taskMap := make(map[string]*apiV2beta1.PipelineTaskDetail)
+	for _, task := range refreshedRun.GetTasks() {
+		taskMap[task.GetTaskId()] = task
+	}
+
+	// Get the refreshed current task from the map
+	currentTask, exists := taskMap[l.options.Task.GetTaskId()]
+	if !exists {
+		return fmt.Errorf("current task %s not found in refreshed run", l.options.Task.GetTaskId())
 	}
 
 	currentTaskOutputs := currentTask.GetOutputs()
@@ -908,14 +921,12 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 		}
 
 		// Propagate parameters
-		// Fetch the parent task once if we have parameters to propagate
+		// Use the parent task from the task map if we have parameters to propagate
 		if needsParentTaskFetch {
-			var err error
-			currentParentTask, err = l.clientManager.KFPAPIClient().GetTask(ctx, &apiV2beta1.GetTaskRequest{
-				TaskId: parentTask.GetTaskId(),
-			})
-			if err != nil {
-				return fmt.Errorf("failed to get parent task %s for parameter propagation: %w", parentTask.GetTaskId(), err)
+			var exists bool
+			currentParentTask, exists = taskMap[parentTask.GetTaskId()]
+			if !exists {
+				return fmt.Errorf("parent task %s not found in task map", parentTask.GetTaskId())
 			}
 
 			// Initialize outputs if needed
@@ -984,12 +995,10 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 			break
 		}
 
-		// Get the next parent task
-		nextParent, err := l.clientManager.KFPAPIClient().GetTask(ctx, &apiV2beta1.GetTaskRequest{
-			TaskId: *parentTask.ParentTaskId,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to get parent task %s: %w", *parentTask.ParentTaskId, err)
+		// Get the next parent task from the task map
+		nextParent, exists := taskMap[*parentTask.ParentTaskId]
+		if !exists {
+			return fmt.Errorf("next parent task %s not found in task map", *parentTask.ParentTaskId)
 		}
 
 		// For the next level, we only want to propagate the outputs we just added to this parent
