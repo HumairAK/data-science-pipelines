@@ -39,12 +39,12 @@ type BatchUpdater struct {
 	artifacts []*createArtifactRequest
 
 	// Metrics for tracking improvement
-	queuedTaskUpdates      int
-	queuedArtifactTasks    int
-	queuedArtifacts        int
-	dedupedTaskUpdates     int
-	actualTaskUpdateCalls  int
-	actualArtifactCalls    int
+	queuedTaskUpdates       int
+	queuedArtifactTasks     int
+	queuedArtifacts         int
+	dedupedTaskUpdates      int
+	actualTaskUpdateCalls   int
+	actualArtifactCalls     int
 	actualArtifactTaskCalls int
 }
 
@@ -162,7 +162,7 @@ func (b *BatchUpdater) Flush(ctx context.Context, client kfpapi.API) error {
 	glog.Infof("BatchUpdater: Flushing %d task updates (deduped from %d), %d artifacts, %d artifact-tasks",
 		len(b.taskUpdates), b.queuedTaskUpdates, len(b.artifacts), len(b.artifactTasks))
 
-	// Debug: Print details about what we're flushing
+	// Print details about what we're flushing
 	for taskID, task := range b.taskUpdates {
 		glog.V(1).Infof("  Task update: %s, status=%v, outputs: %d params, %d artifacts",
 			taskID, task.Status,
