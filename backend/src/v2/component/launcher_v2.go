@@ -826,8 +826,9 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 
 	// Track propagated outputs (artifacts and parameters) for next level
 	type propagatedInfo struct {
-		key    string
-		ioType apiV2beta1.IOType
+		key      string
+		ioType   apiV2beta1.IOType
+		producer *apiV2beta1.IOProducer
 	}
 
 	for parentTask != nil {
@@ -889,19 +890,23 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 				)
 
 				// Create artifact-task entry for the parent
+				// Producer is the child task from parent's perspective, not the original producing task
+				producer := &apiV2beta1.IOProducer{
+					TaskName: childTaskName,
+				}
+
+				// Include iteration index for ITERATOR_OUTPUT type
+				if ioType == apiV2beta1.IOType_ITERATOR_OUTPUT && artifactIO.Producer.Iteration != nil {
+					producer.Iteration = artifactIO.Producer.Iteration
+				}
+
 				artifactTask := &apiV2beta1.ArtifactTask{
 					ArtifactId: artifact.GetArtifactId(),
 					TaskId:     parentTask.GetTaskId(),
 					RunId:      l.options.Run.GetRunId(),
 					Key:        matchingParentKey,
 					Type:       ioType,
-					Producer: &apiV2beta1.IOProducer{
-						TaskName: l.options.TaskSpec.GetTaskInfo().GetName(),
-					},
-				}
-
-				if l.options.IterationIndex != nil {
-					artifactTask.Producer.Iteration = l.options.IterationIndex
+					Producer:   producer,
 				}
 
 				// Queue artifact-task creation instead of creating immediately
@@ -909,8 +914,9 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 
 				// Track this artifact for next level propagation with its IOType
 				newPropagatedArtifacts[artifact.GetArtifactId()] = propagatedInfo{
-					key:    matchingParentKey,
-					ioType: ioType,
+					key:      matchingParentKey,
+					ioType:   ioType,
+					producer: producer,
 				}
 			}
 		}
@@ -952,17 +958,21 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 			)
 
 			// Create parameter entry for the parent
+			// Producer is the child task from parent's perspective, not the original producing task
+			paramProducer := &apiV2beta1.IOProducer{
+				TaskName: childTaskName,
+			}
+
+			// Include iteration index for ITERATOR_OUTPUT type
+			if ioType == apiV2beta1.IOType_ITERATOR_OUTPUT && paramIO.Producer.Iteration != nil {
+				paramProducer.Iteration = paramIO.Producer.Iteration
+			}
+
 			newParam := &apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 				ParameterKey: matchingParentKey,
 				Value:        paramIO.GetValue(),
 				Type:         ioType,
-				Producer: &apiV2beta1.IOProducer{
-					TaskName: l.options.TaskSpec.GetTaskInfo().GetName(),
-				},
-			}
-
-			if l.options.IterationIndex != nil {
-				newParam.Producer.Iteration = l.options.IterationIndex
+				Producer:     paramProducer,
 			}
 
 			// Accumulate parameter to parent task (will queue update later)
@@ -972,8 +982,9 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 			// Use parameter key as the identifier since parameters don't have IDs like artifacts
 			paramIdentifier := fmt.Sprintf("%s:%s", paramIO.GetParameterKey(), paramIO.GetValue().String())
 			newPropagatedParameters[paramIdentifier] = propagatedInfo{
-				key:    matchingParentKey,
-				ioType: ioType,
+				key:      matchingParentKey,
+				ioType:   ioType,
+				producer: paramProducer,
 			}
 		}
 
@@ -1017,11 +1028,13 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 			}
 
 			if foundArtifact != nil {
-				newTaskOutputs.Artifacts = append(newTaskOutputs.Artifacts, &apiV2beta1.PipelineTaskDetail_InputOutputs_IOArtifact{
+				IOArtifact := &apiV2beta1.PipelineTaskDetail_InputOutputs_IOArtifact{
 					ArtifactKey: info.key,
 					Artifacts:   []*apiV2beta1.Artifact{foundArtifact},
 					Type:        info.ioType,
-				})
+					Producer:    info.producer,
+				}
+				newTaskOutputs.Artifacts = append(newTaskOutputs.Artifacts, IOArtifact)
 			}
 		}
 
@@ -1054,9 +1067,10 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 
 		// Move to the next level
 		currentTaskOutputs = newTaskOutputs
+		currentTask = parentTask
 		parentTask = nextParent
 		currentScopePath = parentScopePath
-		isFirstLevel = false // After first iteration, we're doing multi-level propagation
+		isFirstLevel = false // After the first iteration, we're doing multi-level propagation
 	}
 
 	return nil
