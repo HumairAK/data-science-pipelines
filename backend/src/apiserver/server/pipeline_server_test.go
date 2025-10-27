@@ -65,7 +65,7 @@ func setupLargePipelineURL() string {
 	if branch == "" {
 		branch = "master"
 	}
-	largePipelineURL := fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/sdk/python/test_data/pipelines/xgboost_sample_pipeline.yaml", repo, branch)
+	largePipelineURL := fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/test_data/sdk_compiled_pipelines/valid/xgboost_sample_pipeline.yaml", repo, branch)
 	return largePipelineURL
 }
 func TestBuildPipelineName_QueryStringNotEmpty(t *testing.T) {

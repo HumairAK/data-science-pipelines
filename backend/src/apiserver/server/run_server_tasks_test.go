@@ -138,6 +138,7 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 			RunId:       run.UUID,
 			TaskId:      created.GetTaskId(),
 			ProducerKey: "some-parent-task-output",
+			Type:        apiv2beta1.IOType_TASK_OUTPUT_INPUT,
 			Artifact: &apiv2beta1.Artifact{
 				Namespace: run.Namespace,
 				Type:      apiv2beta1.Artifact_Model,
@@ -246,4 +247,216 @@ func TestListTasks_ByParent(t *testing.T) {
 	assert.Equal(t, int32(1), resp.GetTotalSize())
 	assert.Equal(t, 1, len(resp.GetTasks()))
 	assert.Equal(t, child.GetTaskId(), resp.GetTasks()[0].GetTaskId())
+}
+
+func TestUpdateTasksBulk_Success(t *testing.T) {
+	// Single-user mode to bypass authz
+	clients, manager, runID := seedOneRun(t)
+	defer clients.Close()
+
+	runSrv := createRunServer(manager)
+
+	// Create three tasks
+	v1, _ := structpb.NewValue("initial1")
+	v2, _ := structpb.NewValue("initial2")
+	v3, _ := structpb.NewValue("initial3")
+
+	task1, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+		Task: &apiv2beta1.PipelineTaskDetail{
+			RunId:  runID,
+			Name:   "task1",
+			Status: apiv2beta1.PipelineTaskDetail_RUNNING,
+			Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{
+				Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+					{Value: v1, ParameterKey: "out1"},
+				},
+			},
+		},
+	})
+	assert.NoError(t, err)
+
+	task2, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+		Task: &apiv2beta1.PipelineTaskDetail{
+			RunId:  runID,
+			Name:   "task2",
+			Status: apiv2beta1.PipelineTaskDetail_RUNNING,
+			Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{
+				Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+					{Value: v2, ParameterKey: "out2"},
+				},
+			},
+		},
+	})
+	assert.NoError(t, err)
+
+	task3, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+		Task: &apiv2beta1.PipelineTaskDetail{
+			RunId:  runID,
+			Name:   "task3",
+			Status: apiv2beta1.PipelineTaskDetail_RUNNING,
+			Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{
+				Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+					{Value: v3, ParameterKey: "out3"},
+				},
+			},
+		},
+	})
+	assert.NoError(t, err)
+
+	// Update all three tasks in bulk
+	updatedV1, _ := structpb.NewValue("updated1")
+	updatedV2, _ := structpb.NewValue("updated2")
+	updatedV3, _ := structpb.NewValue("updated3")
+
+	bulkReq := &apiv2beta1.UpdateTasksBulkRequest{
+		Tasks: map[string]*apiv2beta1.PipelineTaskDetail{
+			task1.GetTaskId(): {
+				TaskId: task1.GetTaskId(),
+				RunId:  runID,
+				Name:   "task1",
+				Status: apiv2beta1.PipelineTaskDetail_SUCCEEDED,
+				Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{
+					Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+						{Value: updatedV1, ParameterKey: "out1"},
+					},
+				},
+			},
+			task2.GetTaskId(): {
+				TaskId: task2.GetTaskId(),
+				RunId:  runID,
+				Name:   "task2",
+				Status: apiv2beta1.PipelineTaskDetail_FAILED,
+				Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{
+					Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+						{Value: updatedV2, ParameterKey: "out2"},
+					},
+				},
+			},
+			task3.GetTaskId(): {
+				TaskId: task3.GetTaskId(),
+				RunId:  runID,
+				Name:   "task3",
+				Status: apiv2beta1.PipelineTaskDetail_SKIPPED,
+				Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{
+					Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+						{Value: updatedV3, ParameterKey: "out3"},
+					},
+				},
+			},
+		},
+	}
+
+	resp, err := runSrv.UpdateTasksBulk(context.Background(), bulkReq)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, 3, len(resp.GetTasks()))
+
+	// Verify each task was updated correctly
+	updatedTask1 := resp.GetTasks()[task1.GetTaskId()]
+	assert.NotNil(t, updatedTask1)
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, updatedTask1.GetStatus())
+	assert.Equal(t, "updated1", updatedTask1.GetOutputs().GetParameters()[0].GetValue().AsInterface())
+
+	updatedTask2 := resp.GetTasks()[task2.GetTaskId()]
+	assert.NotNil(t, updatedTask2)
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_FAILED, updatedTask2.GetStatus())
+	assert.Equal(t, "updated2", updatedTask2.GetOutputs().GetParameters()[0].GetValue().AsInterface())
+
+	updatedTask3 := resp.GetTasks()[task3.GetTaskId()]
+	assert.NotNil(t, updatedTask3)
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SKIPPED, updatedTask3.GetStatus())
+	assert.Equal(t, "updated3", updatedTask3.GetOutputs().GetParameters()[0].GetValue().AsInterface())
+
+	// Verify updates persisted by fetching individually
+	fetched1, err := runSrv.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: task1.GetTaskId()})
+	assert.NoError(t, err)
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, fetched1.GetStatus())
+
+	fetched2, err := runSrv.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: task2.GetTaskId()})
+	assert.NoError(t, err)
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_FAILED, fetched2.GetStatus())
+
+	fetched3, err := runSrv.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: task3.GetTaskId()})
+	assert.NoError(t, err)
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SKIPPED, fetched3.GetStatus())
+}
+
+func TestUpdateTasksBulk_EmptyRequest(t *testing.T) {
+	clients, manager, _ := seedOneRun(t)
+	defer clients.Close()
+
+	runSrv := createRunServer(manager)
+
+	// Test with nil request
+	_, err := runSrv.UpdateTasksBulk(context.Background(), nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "must contain at least one task")
+
+	// Test with empty tasks map
+	_, err = runSrv.UpdateTasksBulk(context.Background(), &apiv2beta1.UpdateTasksBulkRequest{
+		Tasks: map[string]*apiv2beta1.PipelineTaskDetail{},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "must contain at least one task")
+}
+
+func TestUpdateTasksBulk_ValidationErrors(t *testing.T) {
+	clients, manager, runID := seedOneRun(t)
+	defer clients.Close()
+
+	runSrv := createRunServer(manager)
+
+	// Create a task first
+	task, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+		Task: &apiv2beta1.PipelineTaskDetail{
+			RunId:  runID,
+			Name:   "test-task",
+			Status: apiv2beta1.PipelineTaskDetail_RUNNING,
+		},
+	})
+	assert.NoError(t, err)
+
+	// Test with mismatched task IDs
+	_, err = runSrv.UpdateTasksBulk(context.Background(), &apiv2beta1.UpdateTasksBulkRequest{
+		Tasks: map[string]*apiv2beta1.PipelineTaskDetail{
+			task.GetTaskId(): {
+				TaskId: "different-id", // Mismatch!
+				RunId:  runID,
+				Status: apiv2beta1.PipelineTaskDetail_SUCCEEDED,
+			},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "does not match")
+
+	// Test with artifact updates (should fail)
+	_, err = runSrv.UpdateTasksBulk(context.Background(), &apiv2beta1.UpdateTasksBulkRequest{
+		Tasks: map[string]*apiv2beta1.PipelineTaskDetail{
+			task.GetTaskId(): {
+				TaskId: task.GetTaskId(),
+				RunId:  runID,
+				Status: apiv2beta1.PipelineTaskDetail_SUCCEEDED,
+				Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{
+					Artifacts: []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOArtifact{
+						{ArtifactKey: "should-fail"},
+					},
+				},
+			},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Cannot update task output artifacts")
+
+	// Test with non-existent task
+	_, err = runSrv.UpdateTasksBulk(context.Background(), &apiv2beta1.UpdateTasksBulkRequest{
+		Tasks: map[string]*apiv2beta1.PipelineTaskDetail{
+			"non-existent-task-id": {
+				TaskId: "non-existent-task-id",
+				RunId:  runID,
+				Status: apiv2beta1.PipelineTaskDetail_SUCCEEDED,
+			},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Failed to get existing task")
 }
