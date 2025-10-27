@@ -862,11 +862,6 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 		newPropagatedArtifacts := make(map[string]propagatedInfo)
 		newPropagatedParameters := make(map[string]propagatedInfo)
 
-		// Fetch parent task once for parameter accumulation
-		// We'll add all parameters to this task and queue one update at the end
-		var currentParentTask *apiV2beta1.PipelineTaskDetail
-		needsParentTaskFetch := len(currentTaskOutputs.GetParameters()) > 0
-
 		// Propagate artifacts
 		for _, artifactIO := range currentTaskOutputs.GetArtifacts() {
 			for _, artifact := range artifactIO.GetArtifacts() {
@@ -922,17 +917,14 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 
 		// Propagate parameters
 		// Use the parent task from the task map if we have parameters to propagate
-		if needsParentTaskFetch {
-			var exists bool
-			currentParentTask, exists = taskMap[parentTask.GetTaskId()]
-			if !exists {
-				return fmt.Errorf("parent task %s not found in task map", parentTask.GetTaskId())
-			}
+		currentParentTask, exists := taskMap[parentTask.GetTaskId()]
+		if !exists {
+			return fmt.Errorf("parent task %s not found in task map", parentTask.GetTaskId())
+		}
 
-			// Initialize outputs if needed
-			if currentParentTask.Outputs == nil {
-				currentParentTask.Outputs = &apiV2beta1.PipelineTaskDetail_InputOutputs{}
-			}
+		// Initialize outputs if needed
+		if currentParentTask.Outputs == nil {
+			currentParentTask.Outputs = &apiV2beta1.PipelineTaskDetail_InputOutputs{}
 		}
 
 		for _, paramIO := range currentTaskOutputs.GetParameters() {
@@ -986,7 +978,7 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 		}
 
 		// Queue parent task update if we modified it with parameters
-		if currentParentTask != nil {
+		if len(newPropagatedParameters) > 0 {
 			l.batchUpdater.QueueTaskUpdate(currentParentTask)
 		}
 
