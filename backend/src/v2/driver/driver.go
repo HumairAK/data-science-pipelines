@@ -313,6 +313,27 @@ func initPodSpecPatch(
 		}},
 	}
 
+	// Always add KFP_POD_NAME and KFP_POD_UID environment variables using downward API
+	// These are required for the launcher to function properly
+	kfpEnvVars := []k8score.EnvVar{
+		{
+			Name: component.EnvPodName,
+			ValueFrom: &k8score.EnvVarSource{
+				FieldRef: &k8score.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+		},
+		{
+			Name: component.EnvPodUID,
+			ValueFrom: &k8score.EnvVarSource{
+				FieldRef: &k8score.ObjectFieldSelector{
+					FieldPath: "metadata.uid",
+				},
+			},
+		},
+	}
+
 	if setOnTaskConfig[pipelinespec.TaskConfigPassthroughType_ENV] {
 		taskConfig.Env = userEnvVar
 	}
@@ -320,6 +341,9 @@ func initPodSpecPatch(
 	if setOnPod[pipelinespec.TaskConfigPassthroughType_ENV] {
 		podSpec.Containers[0].Env = userEnvVar
 	}
+
+	// Always append KFP environment variables to the pod spec
+	podSpec.Containers[0].Env = append(podSpec.Containers[0].Env, kfpEnvVars...)
 
 	if setOnTaskConfig[pipelinespec.TaskConfigPassthroughType_RESOURCES] {
 		taskConfig.Resources = res

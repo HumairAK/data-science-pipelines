@@ -838,8 +838,24 @@ func TestK8SPlatform(t *testing.T) {
 	}
 
 	// Environment variables
-	require.Len(t, podSpec.Containers[0].Env, 8)
+	require.Len(t, podSpec.Containers[0].Env, 10)
 	expectedEnvVars := []v1.EnvVar{
+		{
+			Name: "KFP_POD_NAME",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+		},
+		{
+			Name: "KFP_POD_UID",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					FieldPath: "metadata.uid",
+				},
+			},
+		},
 		{
 			Name: "SECRET_KEY_1",
 			ValueFrom: &v1.EnvVarSource{
