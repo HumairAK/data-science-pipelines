@@ -246,7 +246,7 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 	// the apiserver do this instead during Run creation. This will avoid having to
 	// fetch the configmap for every task in driver.
 	var pipelineRoot string
-	if opts.Run.GetRuntimeConfig().PipelineRoot != "" {
+	if opts.Run.GetRuntimeConfig() != nil && opts.Run.GetRuntimeConfig().PipelineRoot != "" {
 		pipelineRoot = opts.Run.GetRuntimeConfig().PipelineRoot
 		glog.Infof("PipelineRoot=%q from runtime config will be used.", pipelineRoot)
 	} else {

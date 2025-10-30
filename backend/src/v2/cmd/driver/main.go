@@ -149,6 +149,7 @@ func drive() (err error) {
 	if err := util.UnmarshalString(*componentSpecJson, componentSpec); err != nil {
 		return fmt.Errorf("failed to unmarshal component spec, error: %w\ncomponentSpec: %v", err, prettyPrint(*componentSpecJson))
 	}
+
 	var taskSpec *pipelinespec.PipelineTaskSpec
 	if *taskSpecJson != "" {
 		glog.Infof("input TaskSpec:%s\n", prettyPrint(*taskSpecJson))
@@ -157,11 +158,13 @@ func drive() (err error) {
 			return fmt.Errorf("failed to unmarshal task spec, error: %w\ntask: %v", err, taskSpecJson)
 		}
 	}
+
 	glog.Infof("input ContainerSpec:%s\n", prettyPrint(*containerSpecJson))
 	containerSpec := &pipelinespec.PipelineDeploymentConfig_PipelineContainerSpec{}
 	if err := util.UnmarshalString(*containerSpecJson, containerSpec); err != nil {
 		return fmt.Errorf("failed to unmarshal container spec, error: %w\ncontainerSpec: %v", err, containerSpecJson)
 	}
+
 	var runtimeConfig *pipelinespec.PipelineJob_RuntimeConfig
 	if *runtimeConfigJson != "" {
 		glog.Infof("input RuntimeConfig:%s\n", prettyPrint(*runtimeConfigJson))
@@ -170,10 +173,12 @@ func drive() (err error) {
 			return fmt.Errorf("failed to unmarshal runtime config, error: %w\nruntimeConfig: %v", err, runtimeConfigJson)
 		}
 	}
+
 	k8sExecCfg, err := parseExecConfigJson(k8sExecConfigJson)
 	if err != nil {
 		return err
 	}
+
 	namespace := os.Getenv("NAMESPACE")
 	if namespace == "" {
 		return fmt.Errorf("NAMESPACE environment variable must be set")
@@ -387,6 +392,9 @@ func buildScopePath(
 			return nil, err
 		}
 	} else {
+		if taskName == "" {
+			return nil, fmt.Errorf("task name must be specified for non-root drivers")
+		}
 		scopePath, err = util.ScopePathFromStringPathWithNewTask(
 			pipelineSpecStruct,
 			parentTask.GetScopePath(),

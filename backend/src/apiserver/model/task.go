@@ -21,12 +21,36 @@ import (
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// JSONData represents JSON data stored in database columns
-type JSONData map[string]interface{}
+// JSONSlice represents JSON list data stored in database columns
 type JSONSlice []interface{}
+
+func (j *JSONSlice) Value() (driver.Value, error) {
+	if j == nil {
+		return nil, nil
+	}
+	return json.Marshal(j)
+}
+
+// Scan implements sql.Scanner interface for JSONSlice
+func (j *JSONSlice) Scan(value interface{}) error {
+	if value == nil {
+		*j = nil
+		return nil
+	}
+	switch v := value.(type) {
+	case []byte:
+		return json.Unmarshal(v, j)
+	case string:
+		return json.Unmarshal([]byte(v), j)
+	default:
+		return nil
+	}
+}
+
+// JSONData represents JSON struct data stored in database columns
+type JSONData map[string]interface{}
 
 // Scan implements sql.Scanner interface for JSONData
 func (j *JSONData) Scan(value interface{}) error {
@@ -34,7 +58,6 @@ func (j *JSONData) Scan(value interface{}) error {
 		*j = nil
 		return nil
 	}
-
 	switch v := value.(type) {
 	case []byte:
 		return json.Unmarshal(v, j)
@@ -110,7 +133,7 @@ type Task struct {
 	DisplayName      string     `gorm:"column:DisplayName; type:varchar(128); default:null;"`
 	ParentTaskUUID   *string    `gorm:"column:ParentTaskUUID; type:varchar(191); default:null; index:idx_parent_task_uuid; index:idx_parent_run,priority:2;"`
 	ParentTask       *Task      `gorm:"foreignKey:ParentTaskUUID;references:UUID;constraint:fk_tasks_parent_task,OnDelete:CASCADE,OnUpdate:CASCADE;"`
-	State            TaskStatus `gorm:"column:state; not null;"`
+	State            TaskStatus `gorm:"column:State; not null;"`
 	StatusMetadata   JSONData   `gorm:"column:StatusMetadata; type:json; default:null;"`
 	StateHistory     JSONSlice  `gorm:"column:StateHistory; type:json;"`
 	InputParameters  JSONSlice  `gorm:"column:InputParameters; type:json;"`
@@ -167,7 +190,7 @@ var taskAPIToModelFieldMap = map[string]string{
 	"create_time":       "CreatedAtInSec",
 	"start_time":        "StartedInSec",
 	"end_time":          "FinishedInSec",
-	"status":            "Status",
+	"status":            "State",
 	"status_metadata":   "StatusMetadata",
 	"state_history":     "StateHistory",
 	"type":              "Type",
@@ -253,22 +276,6 @@ func ProtoSliceToJSONSlice[T proto.Message](msgs []T) (JSONSlice, error) {
 	return out, nil
 }
 
-// StructValueMapToJSONData converts map[string]*structpb.Value into model.JSONData.
-func StructValueMapToJSONData(in map[string]*structpb.Value) (JSONData, error) {
-	if in == nil {
-		return nil, nil
-	}
-	out := make(JSONData, len(in))
-	for k, v := range in {
-		if v == nil {
-			out[k] = nil
-			continue
-		}
-		out[k] = v.AsInterface()
-	}
-	return out, nil
-}
-
 // ProtoMessageToJSONData marshals a protobuf message into JSONData.
 func ProtoMessageToJSONData(msg proto.Message) (JSONData, error) {
 	if msg == nil {
@@ -308,22 +315,6 @@ func JSONSliceToProtoSlice[T proto.Message](in JSONSlice, newT func() T) ([]T, e
 			return nil, err
 		}
 		out = append(out, msg)
-	}
-	return out, nil
-}
-
-// JSONDataToStructValueMap converts model.JSONData into map[string]*structpb.Value.
-func JSONDataToStructValueMap(in JSONData) (map[string]*structpb.Value, error) {
-	if in == nil {
-		return nil, nil
-	}
-	out := make(map[string]*structpb.Value, len(in))
-	for k, v := range in {
-		val, err := structpb.NewValue(v)
-		if err != nil {
-			return nil, err
-		}
-		out[k] = val
 	}
 	return out, nil
 }

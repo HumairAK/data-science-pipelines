@@ -47,6 +47,7 @@ func RootDAG(ctx context.Context, opts common.Options, clientManager client_mana
 		}
 		inputs = &apiV2beta1.PipelineTaskDetail_InputOutputs{Parameters: params}
 	}
+	scopePath := opts.ScopePath.StringPath()
 	pd := &apiV2beta1.PipelineTaskDetail{
 		Name:           "ROOT",
 		DisplayName:    opts.RunDisplayName,
@@ -55,7 +56,7 @@ func RootDAG(ctx context.Context, opts common.Options, clientManager client_mana
 		Inputs:         inputs,
 		TypeAttributes: &apiV2beta1.PipelineTaskDetail_TypeAttributes{},
 		State:          apiV2beta1.PipelineTaskDetail_SUCCEEDED,
-		ScopePath:      opts.ScopePath.StringPath(),
+		ScopePath:      scopePath,
 		StartTime:      timestamppb.Now(),
 		CreateTime:     timestamppb.Now(),
 		Pods: []*apiV2beta1.PipelineTaskDetail_TaskPod{
