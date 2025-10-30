@@ -221,7 +221,7 @@ func (m *MockAPI) ListTasks(_ context.Context, req *apiv2beta1.ListTasksRequest)
 		status := statusPredicate.GetIntValue()
 		fingerprint := fingerprintPredicate.GetStringValue()
 		for _, t := range tasks {
-			if int32(t.GetStatus().Number()) == status && t.GetCacheFingerprint() == fingerprint {
+			if int32(t.GetState().Number()) == status && t.GetCacheFingerprint() == fingerprint {
 				filtered = append(filtered, t)
 			}
 

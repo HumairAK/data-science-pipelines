@@ -67,7 +67,7 @@ func TestArtifactServer_CreateArtifact_MultiUserCreateAndGet_Succeeds(t *testing
 		PipelineName: "test-pipeline",
 		RunUUID:      runid1,
 		Name:         "test-task",
-		Status:       1,
+		State:        1,
 	})
 	assert.NoError(t, err)
 
@@ -140,7 +140,7 @@ func TestArtifactServer_CreateArtifact_WithIterationIndex(t *testing.T) {
 		PipelineName: "iteration-pipeline",
 		RunUUID:      runid1,
 		Name:         "iteration-task",
-		Status:       1,
+		State:        1,
 	})
 	assert.NoError(t, err)
 
@@ -209,7 +209,7 @@ func TestArtifactServer_ListArtifacts_HappyPath(t *testing.T) {
 		PipelineName: "p-list",
 		RunUUID:      runid1,
 		Name:         "t-list",
-		Status:       1,
+		State:        1,
 	})
 	assert.NoError(t, err)
 	_, err = s.CreateArtifact(ctxWithUser(),
@@ -291,7 +291,7 @@ func TestArtifactServer_SingleUserNamespaceEmpty(t *testing.T) {
 		PipelineName: "p-single",
 		RunUUID:      "single-run",
 		Name:         "t-single",
-		Status:       1,
+		State:        1,
 	})
 	assert.NoError(t, err)
 	created, err := s.CreateArtifact(context.Background(), &apiv2beta1.CreateArtifactRequest{
@@ -371,7 +371,7 @@ func seedArtifactTasks(t *testing.T) (*ArtifactServer, *resource.FakeClientManag
 		PipelineName: "p1",
 		RunUUID:      serverRunID1,
 		Name:         "t1",
-		Status:       1,
+		State:        1,
 	})
 	assert.NoError(t, err)
 	t2, err := clientManager.TaskStore().CreateTask(&model.Task{
@@ -379,7 +379,7 @@ func seedArtifactTasks(t *testing.T) (*ArtifactServer, *resource.FakeClientManag
 		PipelineName: "p1",
 		RunUUID:      serverRunID2,
 		Name:         "t2",
-		Status:       1,
+		State:        1,
 	})
 	assert.NoError(t, err)
 
@@ -535,7 +535,7 @@ func TestArtifactServer_CreateArtifactTasksBulk_Success(t *testing.T) {
 		PipelineName: "p1",
 		RunUUID:      serverRunID1,
 		Name:         "task1",
-		Status:       1,
+		State:        1,
 	})
 	assert.NoError(t, err)
 
@@ -544,7 +544,7 @@ func TestArtifactServer_CreateArtifactTasksBulk_Success(t *testing.T) {
 		PipelineName: "p1",
 		RunUUID:      serverRunID1,
 		Name:         "task2",
-		Status:       1,
+		State:        1,
 	})
 	assert.NoError(t, err)
 
@@ -691,7 +691,7 @@ func TestArtifactServer_CreateArtifactsBulk_Success(t *testing.T) {
 		PipelineName: "bulk-pipeline",
 		RunUUID:      runid1,
 		Name:         "task1",
-		Status:       1,
+		State:        1,
 	})
 	assert.NoError(t, err)
 
@@ -700,7 +700,7 @@ func TestArtifactServer_CreateArtifactsBulk_Success(t *testing.T) {
 		PipelineName: "bulk-pipeline",
 		RunUUID:      runid1,
 		Name:         "task2",
-		Status:       1,
+		State:        1,
 	})
 	assert.NoError(t, err)
 
@@ -709,7 +709,7 @@ func TestArtifactServer_CreateArtifactsBulk_Success(t *testing.T) {
 		PipelineName: "bulk-pipeline",
 		RunUUID:      runid1,
 		Name:         "task3",
-		Status:       1,
+		State:        1,
 	})
 	assert.NoError(t, err)
 
@@ -840,7 +840,7 @@ func TestArtifactServer_CreateArtifactsBulk_WithIterationIndex(t *testing.T) {
 		PipelineName: "iteration-pipeline",
 		RunUUID:      runid1,
 		Name:         "iteration-task",
-		Status:       1,
+		State:        1,
 	})
 	assert.NoError(t, err)
 
@@ -966,7 +966,7 @@ func TestArtifactServer_CreateArtifactsBulk_ValidationErrors(t *testing.T) {
 		PipelineName: "validation-pipeline",
 		RunUUID:      runid1,
 		Name:         "validation-task",
-		Status:       1,
+		State:        1,
 	})
 	assert.NoError(t, err)
 
@@ -1012,7 +1012,7 @@ func TestArtifactServer_CreateArtifactsBulk_ValidationErrors(t *testing.T) {
 		PipelineName: "other-pipeline",
 		RunUUID:      "other-run-id",
 		Name:         "other-task",
-		Status:       1,
+		State:        1,
 	})
 	assert.NoError(t, err)
 

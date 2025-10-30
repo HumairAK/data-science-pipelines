@@ -42,16 +42,15 @@ var taskColumns = []string{
 	"Name",
 	"DisplayName",
 	"ParentTaskUUID",
-	"Status",
+	"State",
 	"StatusMetadata",
 	"StateHistory",
 	"InputParameters",
 	"OutputParameters",
 	"Type",
 	"TypeAttrs",
+	"ScopePath",
 }
-
-var taskColumnsWithPayload = append(taskColumns, "Payload")
 
 // Ensure TaskStore implements TaskStoreInterface
 var _ TaskStoreInterface = (*TaskStore)(nil)
@@ -91,9 +90,9 @@ func NewTaskStore(db *DB, time util.TimeInterface, uuid util.UUIDGeneratorInterf
 // scanTaskRow scans a single row into a model.Task. It expects the column order to match taskColumns.
 func scanTaskRow(rowscanner interface{ Scan(dest ...any) error }) (*model.Task, error) {
 	var uuid, namespace, pipelineName, runUUID, fingerprint string
-	var name, displayName, parentTaskId, pods, statusMetadata, stateHistory, inputParams, outputParams, typeAttrs sql.NullString
+	var name, displayName, parentTaskId, pods, statusMetadata, stateHistory, inputParams, outputParams, typeAttrs, scopePath sql.NullString
 	var createdAtInSec, startedInSec, finishedInSec sql.NullInt64
-	var taskStatus, taskType int32
+	var taskState, taskType int32
 	if err := rowscanner.Scan(
 		&uuid,
 		&namespace,
@@ -107,13 +106,14 @@ func scanTaskRow(rowscanner interface{ Scan(dest ...any) error }) (*model.Task, 
 		&name,
 		&displayName,
 		&parentTaskId,
-		&taskStatus,
+		&taskState,
 		&statusMetadata,
 		&stateHistory,
 		&inputParams,
 		&outputParams,
 		&taskType,
 		&typeAttrs,
+		&scopePath,
 	); err != nil {
 		return nil, err
 	}
@@ -153,6 +153,12 @@ func scanTaskRow(rowscanner interface{ Scan(dest ...any) error }) (*model.Task, 
 			return nil, err
 		}
 	}
+	var scopePathData model.JSONSlice
+	if scopePath.Valid {
+		if err := json.Unmarshal([]byte(scopePath.String), &scopePathData); err != nil {
+			return nil, err
+		}
+	}
 	var parentTaskIDNew *string
 	if parentTaskId.Valid {
 		parentTaskIDNew = &parentTaskId.String
@@ -170,13 +176,14 @@ func scanTaskRow(rowscanner interface{ Scan(dest ...any) error }) (*model.Task, 
 		Name:             name.String,
 		DisplayName:      displayName.String,
 		ParentTaskUUID:   parentTaskIDNew,
-		Status:           model.TaskStatus(taskStatus),
+		State:            model.TaskStatus(taskState),
 		StatusMetadata:   statusMetadataNew,
 		StateHistory:     stateHistoryNew,
 		InputParameters:  inputParameters,
 		OutputParameters: outputParameters,
 		Type:             model.TaskType(taskType),
 		TypeAttrs:        typeAttrsData,
+		ScopePath:        scopePathData,
 	}, nil
 }
 
@@ -407,7 +414,7 @@ func (s *TaskStore) CreateTask(task *model.Task) (*model.Task, error) {
 				"Fingerprint":      newTask.Fingerprint,
 				"Name":             newTask.Name,
 				"ParentTaskUUID":   newTask.ParentTaskUUID,
-				"Status":           newTask.Status,
+				"State":            newTask.State,
 				"StateHistory":     stateHistoryString,
 				"InputParameters":  inputParamsString,
 				"OutputParameters": outputParamsString,
@@ -599,9 +606,9 @@ func (s *TaskStore) UpdateTask(task *model.Task) (*model.Task, error) {
 		}
 	}
 
-	// Status and Type default to 0 which are valid enums; update only when non-zero to avoid accidental resets.
-	if task.Status != 0 {
-		setMap["Status"] = task.Status
+	// State and Type default to 0 which are valid enums; update only when non-zero to avoid accidental resets.
+	if task.State != 0 {
+		setMap["State"] = task.State
 	}
 	if task.Type != 0 {
 		setMap["Type"] = task.Type

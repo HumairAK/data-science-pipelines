@@ -234,7 +234,7 @@ func updateStatuses(ctx context.Context, kfpAPIClient kfpapi.API, run *apiV2beta
 		var childCount int
 		for _, task := range run.GetTasks() {
 			if task.ParentTaskId != nil && *task.ParentTaskId == parentTask.GetTaskId() {
-				if task.GetStatus() == apiV2beta1.PipelineTaskDetail_RUNNING {
+				if task.GetState() == apiV2beta1.PipelineTaskDetail_RUNNING {
 					return nil
 				}
 				childCount++
@@ -284,7 +284,7 @@ func evaluateAndUpdateParentStatus(
 	anyFailed := false
 
 	for _, child := range children {
-		status := child.GetStatus()
+		status := child.GetState()
 
 		// Check for FAILED
 		if status == apiV2beta1.PipelineTaskDetail_FAILED {
@@ -315,7 +315,7 @@ func evaluateAndUpdateParentStatus(
 	}
 
 	// Update the parent task status
-	parentTask.Status = newStatus
+	parentTask.State = newStatus
 	parentTask.EndTime = timestamppb.New(time.Now())
 	_, err := kfpAPIClient.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
 		TaskId: parentTask.GetTaskId(),
@@ -367,7 +367,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 		return err
 	}
 
-	l.options.Task.Status = apiV2beta1.PipelineTaskDetail_SUCCEEDED
+	l.options.Task.State = apiV2beta1.PipelineTaskDetail_SUCCEEDED
 	l.options.Task.EndTime = timestamppb.New(time.Now())
 
 	// Queue the final task status update

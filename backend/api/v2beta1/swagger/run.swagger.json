@@ -753,6 +753,22 @@
       "description": "- RUNTIME_STATE_UNSPECIFIED: Default value. This value is not used.\n - RUNNING: Entity execution is in progress.\n - SUCCEEDED: Entity completed successfully.\n - SKIPPED: Entity has been skipped. For example, due to caching.\n - FAILED: Entity execution has failed.",
       "title": "Runtime state of a Task"
     },
+    "PipelineTaskDetailTaskStatus": {
+      "type": "object",
+      "properties": {
+        "update_time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "state": {
+          "$ref": "#/definitions/PipelineTaskDetailTaskState"
+        },
+        "error": {
+          "$ref": "#/definitions/googlerpcStatus"
+        }
+      },
+      "description": "Timestamped representation of a Task state with an optional error."
+    },
     "PipelineTaskDetailTaskType": {
       "type": "string",
       "enum": [
@@ -986,7 +1002,7 @@
           "format": "date-time",
           "description": "Completion time of a task."
         },
-        "status": {
+        "state": {
           "$ref": "#/definitions/PipelineTaskDetailTaskState"
         },
         "status_metadata": {
@@ -996,7 +1012,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "$ref": "#/definitions/v2beta1RuntimeStatus"
+            "$ref": "#/definitions/PipelineTaskDetailTaskStatus"
           },
           "description": "A sequence of task statuses. This field keeps a record\nof state transitions."
         },

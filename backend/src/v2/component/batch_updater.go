@@ -109,8 +109,8 @@ func (b *BatchUpdater) QueueTaskUpdate(task *apiV2beta1.PipelineTaskDetail) {
 		}
 
 		// 5. Take the latest status and timestamps
-		if task.Status != apiV2beta1.PipelineTaskDetail_RUNTIME_STATE_UNSPECIFIED {
-			existingTask.Status = task.Status
+		if task.State != apiV2beta1.PipelineTaskDetail_RUNTIME_STATE_UNSPECIFIED {
+			existingTask.State = task.State
 		}
 		if task.EndTime != nil {
 			existingTask.EndTime = task.EndTime
@@ -165,7 +165,7 @@ func (b *BatchUpdater) Flush(ctx context.Context, client kfpapi.API) error {
 	// Print details about what we're flushing
 	for taskID, task := range b.taskUpdates {
 		glog.V(1).Infof("  Task update: %s, status=%v, outputs: %d params, %d artifacts",
-			taskID, task.Status,
+			taskID, task.State,
 			len(task.GetOutputs().GetParameters()),
 			len(task.GetOutputs().GetArtifacts()))
 	}

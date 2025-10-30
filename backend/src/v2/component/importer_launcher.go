@@ -54,7 +54,7 @@ func (l *ImportLauncher) Execute(ctx context.Context) (err error) {
 			RunId:        l.opts.Run.RunId,
 			ParentTaskId: &parentTaskID,
 			Type:         apiV2beta1.PipelineTaskDetail_IMPORTER,
-			Status:       apiV2beta1.PipelineTaskDetail_RUNNING,
+			State:        apiV2beta1.PipelineTaskDetail_RUNNING,
 			ScopePath:    l.opts.ScopePath.StringPath(),
 			StartTime:    timestamppb.Now(),
 			CreateTime:   timestamppb.Now(),
@@ -99,7 +99,7 @@ func (l *ImportLauncher) Execute(ctx context.Context) (err error) {
 			TaskName: l.opts.TaskSpec.GetTaskInfo().GetName(),
 		},
 	})
-	createdTask.Status = apiV2beta1.PipelineTaskDetail_SUCCEEDED
+	createdTask.State = apiV2beta1.PipelineTaskDetail_SUCCEEDED
 	createdTask.EndTime = timestamppb.Now()
 	_, err = kfpAPI.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
 		TaskId: createdTask.TaskId,

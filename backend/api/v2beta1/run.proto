@@ -395,7 +395,7 @@ message PipelineTaskDetail {
 
     CACHED = 5;
   }
-  TaskState status = 10;
+  TaskState state = 10;
 
   // Custom status metadata, this can be used to provide
   // additional status info for a given task during runtime
@@ -405,9 +405,16 @@ message PipelineTaskDetail {
   }
   StatusMetadata status_metadata = 11;
 
+  // Timestamped representation of a Task state with an optional error.
+  message TaskStatus {
+    google.protobuf.Timestamp update_time = 1;
+    TaskState state = 2;
+    google.rpc.Status error = 3;
+  }
+
   // A sequence of task statuses. This field keeps a record
   // of state transitions.
-  repeated RuntimeStatus state_history = 12;
+  repeated TaskStatus state_history = 12;
 
   enum TaskType {
     // Root task replaces Root Execution, it is the top ancestor task to all tasks in the pipeline run

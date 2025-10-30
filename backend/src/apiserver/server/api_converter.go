@@ -2386,7 +2386,7 @@ func toModelTask(apiTask *apiv2beta1.PipelineTaskDetail) (*model.Task, error) {
 	}
 
 	// Convert status
-	task.Status = model.TaskStatus(apiTask.GetStatus())
+	task.State = model.TaskStatus(apiTask.GetState())
 
 	// Convert task type
 	task.Type = model.TaskType(apiTask.GetType())
@@ -2446,6 +2446,19 @@ func toModelTask(apiTask *apiv2beta1.PipelineTaskDetail) (*model.Task, error) {
 		task.TypeAttrs = attrs
 	}
 
+	// Convert scope_path - validate it's not empty if provided
+	if apiTask.GetScopePath() != nil {
+		if len(apiTask.GetScopePath()) == 0 {
+			return nil, util.NewInvalidInputError("scope_path cannot be empty when provided")
+		}
+		// Convert []string to JSONSlice
+		scopePathSlice := make(model.JSONSlice, len(apiTask.GetScopePath()))
+		for i, path := range apiTask.GetScopePath() {
+			scopePathSlice[i] = path
+		}
+		task.ScopePath = scopePathSlice
+	}
+
 	return task, nil
 }
 
@@ -2481,7 +2494,7 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 	}
 
 	// Convert status
-	apiTask.Status = apiv2beta1.PipelineTaskDetail_TaskState(modelTask.Status)
+	apiTask.State = apiv2beta1.PipelineTaskDetail_TaskState(modelTask.State)
 
 	// Convert task type
 	apiTask.Type = apiv2beta1.PipelineTaskDetail_TaskType(modelTask.Type)
@@ -2516,8 +2529,8 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 	if modelTask.StateHistory != nil {
 		apiSH, err := model.JSONSliceToProtoSlice(
 			modelTask.StateHistory,
-			func() *apiv2beta1.RuntimeStatus {
-				return &apiv2beta1.RuntimeStatus{}
+			func() *apiv2beta1.PipelineTaskDetail_TaskStatus {
+				return &apiv2beta1.PipelineTaskDetail_TaskStatus{}
 			})
 		if err != nil {
 			return nil, err
@@ -2615,6 +2628,17 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 	}
 	if len(apiChildTasks) > 0 {
 		apiTask.ChildTasks = apiChildTasks
+	}
+
+	// Convert scope_path from JSONSlice to []string
+	if modelTask.ScopePath != nil {
+		scopePath := make([]string, 0, len(modelTask.ScopePath))
+		for _, path := range modelTask.ScopePath {
+			if pathStr, ok := path.(string); ok {
+				scopePath = append(scopePath, pathStr)
+			}
+		}
+		apiTask.ScopePath = scopePath
 	}
 
 	return apiTask, nil

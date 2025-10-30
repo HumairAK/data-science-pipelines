@@ -72,12 +72,12 @@ type V2beta1PipelineTaskDetail struct {
 	// Format: date-time
 	StartTime strfmt.DateTime `json:"start_time,omitempty"`
 
+	// state
+	State *PipelineTaskDetailTaskState `json:"state,omitempty"`
+
 	// A sequence of task statuses. This field keeps a record
 	// of state transitions.
-	StateHistory []*V2beta1RuntimeStatus `json:"state_history"`
-
-	// status
-	Status *PipelineTaskDetailTaskState `json:"status,omitempty"`
+	StateHistory []*PipelineTaskDetailTaskStatus `json:"state_history"`
 
 	// status metadata
 	StatusMetadata *PipelineTaskDetailStatusMetadata `json:"status_metadata,omitempty"`
@@ -128,11 +128,11 @@ func (m *V2beta1PipelineTaskDetail) Validate(formats strfmt.Registry) error {
 		res = append(res, err)
 	}
 
-	if err := m.validateStateHistory(formats); err != nil {
+	if err := m.validateState(formats); err != nil {
 		res = append(res, err)
 	}
 
-	if err := m.validateStatus(formats); err != nil {
+	if err := m.validateStateHistory(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -299,6 +299,25 @@ func (m *V2beta1PipelineTaskDetail) validateStartTime(formats strfmt.Registry) e
 	return nil
 }
 
+func (m *V2beta1PipelineTaskDetail) validateState(formats strfmt.Registry) error {
+	if swag.IsZero(m.State) { // not required
+		return nil
+	}
+
+	if m.State != nil {
+		if err := m.State.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("state")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("state")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (m *V2beta1PipelineTaskDetail) validateStateHistory(formats strfmt.Registry) error {
 	if swag.IsZero(m.StateHistory) { // not required
 		return nil
@@ -320,25 +339,6 @@ func (m *V2beta1PipelineTaskDetail) validateStateHistory(formats strfmt.Registry
 			}
 		}
 
-	}
-
-	return nil
-}
-
-func (m *V2beta1PipelineTaskDetail) validateStatus(formats strfmt.Registry) error {
-	if swag.IsZero(m.Status) { // not required
-		return nil
-	}
-
-	if m.Status != nil {
-		if err := m.Status.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("status")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
-				return ce.ValidateName("status")
-			}
-			return err
-		}
 	}
 
 	return nil
@@ -425,11 +425,11 @@ func (m *V2beta1PipelineTaskDetail) ContextValidate(ctx context.Context, formats
 		res = append(res, err)
 	}
 
-	if err := m.contextValidateStateHistory(ctx, formats); err != nil {
+	if err := m.contextValidateState(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
-	if err := m.contextValidateStatus(ctx, formats); err != nil {
+	if err := m.contextValidateStateHistory(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -564,6 +564,27 @@ func (m *V2beta1PipelineTaskDetail) contextValidatePods(ctx context.Context, for
 	return nil
 }
 
+func (m *V2beta1PipelineTaskDetail) contextValidateState(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.State != nil {
+
+		if swag.IsZero(m.State) { // not required
+			return nil
+		}
+
+		if err := m.State.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("state")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("state")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (m *V2beta1PipelineTaskDetail) contextValidateStateHistory(ctx context.Context, formats strfmt.Registry) error {
 
 	for i := 0; i < len(m.StateHistory); i++ {
@@ -584,27 +605,6 @@ func (m *V2beta1PipelineTaskDetail) contextValidateStateHistory(ctx context.Cont
 			}
 		}
 
-	}
-
-	return nil
-}
-
-func (m *V2beta1PipelineTaskDetail) contextValidateStatus(ctx context.Context, formats strfmt.Registry) error {
-
-	if m.Status != nil {
-
-		if swag.IsZero(m.Status) { // not required
-			return nil
-		}
-
-		if err := m.Status.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("status")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
-				return ce.ValidateName("status")
-			}
-			return err
-		}
 	}
 
 	return nil

@@ -45,7 +45,7 @@ func TestTask_Create_Update_Get_List(t *testing.T) {
 	createReq := &apiv2beta1.CreateTaskRequest{Task: &apiv2beta1.PipelineTaskDetail{
 		RunId:   runID,
 		Name:    "trainer",
-		Status:  apiv2beta1.PipelineTaskDetail_RUNNING,
+		State:   apiv2beta1.PipelineTaskDetail_RUNNING,
 		Type:    apiv2beta1.PipelineTaskDetail_RUNTIME,
 		Inputs:  &apiv2beta1.PipelineTaskDetail_InputOutputs{Parameters: inParams},
 		Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{Parameters: outParams},
@@ -66,7 +66,7 @@ func TestTask_Create_Update_Get_List(t *testing.T) {
 		TaskId: created.GetTaskId(),
 		RunId:  runID,
 		Name:   "trainer",
-		Status: apiv2beta1.PipelineTaskDetail_SUCCEEDED,
+		State:  apiv2beta1.PipelineTaskDetail_SUCCEEDED,
 		Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 			{
 				Value:        func() *structpb.Value { v, _ := structpb.NewValue("done"); return v }(),
@@ -76,14 +76,14 @@ func TestTask_Create_Update_Get_List(t *testing.T) {
 	}}
 	updated, err := runSrv.UpdateTask(context.Background(), updReq)
 	assert.NoError(t, err)
-	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, updated.GetStatus())
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, updated.GetState())
 	assert.Equal(t, "done", updated.GetOutputs().GetParameters()[0].GetValue().AsInterface())
 
 	// GetTask
 	got, err := runSrv.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: created.GetTaskId()})
 	assert.NoError(t, err)
 	assert.Equal(t, created.GetTaskId(), got.GetTaskId())
-	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, got.GetStatus())
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, got.GetState())
 
 	// ListTasks by run ID
 	listResp, err := runSrv.ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{ParentFilter: &apiv2beta1.ListTasksRequest_RunId{RunId: runID}, PageSize: 50})
@@ -113,9 +113,9 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 	// Create a task with IO
 	create := &apiv2beta1.CreateTaskRequest{
 		Task: &apiv2beta1.PipelineTaskDetail{
-			RunId:  run.UUID,
-			Name:   "preprocess",
-			Status: apiv2beta1.PipelineTaskDetail_RUNNING,
+			RunId: run.UUID,
+			Name:  "preprocess",
+			State: apiv2beta1.PipelineTaskDetail_RUNNING,
 			Inputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 				{
 					Value:        func() *structpb.Value { v, _ := structpb.NewValue("0.5"); return v }(),
@@ -164,7 +164,7 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 			Task: &apiv2beta1.PipelineTaskDetail{
 				TaskId:  created.GetTaskId(),
 				RunId:   run.UUID,
-				Status:  apiv2beta1.PipelineTaskDetail_SUCCEEDED,
+				State:   apiv2beta1.PipelineTaskDetail_SUCCEEDED,
 				Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{},
 			}})
 	assert.NoError(t, err)
@@ -187,7 +187,7 @@ func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 		if assert.NotNil(t, taskFound.GetInputs().GetParameters(), "parameters not present in hydrated task") {
 			assert.Equal(t, "threshold", taskFound.GetInputs().GetParameters()[0].GetParameterKey())
 			// Outputs updated and artifact reference present
-			assert.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, taskFound.GetStatus())
+			assert.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, taskFound.GetState())
 		}
 		assert.Equal(t, 1, len(taskFound.GetOutputs().GetArtifacts()))
 		if assert.NotNil(t, taskFound.GetOutputs().GetArtifacts(), "artifacts not present in hydrated task") {
@@ -263,9 +263,9 @@ func TestUpdateTasksBulk_Success(t *testing.T) {
 
 	task1, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
 		Task: &apiv2beta1.PipelineTaskDetail{
-			RunId:  runID,
-			Name:   "task1",
-			Status: apiv2beta1.PipelineTaskDetail_RUNNING,
+			RunId: runID,
+			Name:  "task1",
+			State: apiv2beta1.PipelineTaskDetail_RUNNING,
 			Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{
 				Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 					{Value: v1, ParameterKey: "out1"},
@@ -277,9 +277,9 @@ func TestUpdateTasksBulk_Success(t *testing.T) {
 
 	task2, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
 		Task: &apiv2beta1.PipelineTaskDetail{
-			RunId:  runID,
-			Name:   "task2",
-			Status: apiv2beta1.PipelineTaskDetail_RUNNING,
+			RunId: runID,
+			Name:  "task2",
+			State: apiv2beta1.PipelineTaskDetail_RUNNING,
 			Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{
 				Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 					{Value: v2, ParameterKey: "out2"},
@@ -291,9 +291,9 @@ func TestUpdateTasksBulk_Success(t *testing.T) {
 
 	task3, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
 		Task: &apiv2beta1.PipelineTaskDetail{
-			RunId:  runID,
-			Name:   "task3",
-			Status: apiv2beta1.PipelineTaskDetail_RUNNING,
+			RunId: runID,
+			Name:  "task3",
+			State: apiv2beta1.PipelineTaskDetail_RUNNING,
 			Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{
 				Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 					{Value: v3, ParameterKey: "out3"},
@@ -314,7 +314,7 @@ func TestUpdateTasksBulk_Success(t *testing.T) {
 				TaskId: task1.GetTaskId(),
 				RunId:  runID,
 				Name:   "task1",
-				Status: apiv2beta1.PipelineTaskDetail_SUCCEEDED,
+				State:  apiv2beta1.PipelineTaskDetail_SUCCEEDED,
 				Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{
 					Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 						{Value: updatedV1, ParameterKey: "out1"},
@@ -325,7 +325,7 @@ func TestUpdateTasksBulk_Success(t *testing.T) {
 				TaskId: task2.GetTaskId(),
 				RunId:  runID,
 				Name:   "task2",
-				Status: apiv2beta1.PipelineTaskDetail_FAILED,
+				State:  apiv2beta1.PipelineTaskDetail_FAILED,
 				Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{
 					Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 						{Value: updatedV2, ParameterKey: "out2"},
@@ -336,7 +336,7 @@ func TestUpdateTasksBulk_Success(t *testing.T) {
 				TaskId: task3.GetTaskId(),
 				RunId:  runID,
 				Name:   "task3",
-				Status: apiv2beta1.PipelineTaskDetail_SKIPPED,
+				State:  apiv2beta1.PipelineTaskDetail_SKIPPED,
 				Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{
 					Parameters: []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 						{Value: updatedV3, ParameterKey: "out3"},
@@ -354,31 +354,31 @@ func TestUpdateTasksBulk_Success(t *testing.T) {
 	// Verify each task was updated correctly
 	updatedTask1 := resp.GetTasks()[task1.GetTaskId()]
 	assert.NotNil(t, updatedTask1)
-	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, updatedTask1.GetStatus())
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, updatedTask1.GetState())
 	assert.Equal(t, "updated1", updatedTask1.GetOutputs().GetParameters()[0].GetValue().AsInterface())
 
 	updatedTask2 := resp.GetTasks()[task2.GetTaskId()]
 	assert.NotNil(t, updatedTask2)
-	assert.Equal(t, apiv2beta1.PipelineTaskDetail_FAILED, updatedTask2.GetStatus())
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_FAILED, updatedTask2.GetState())
 	assert.Equal(t, "updated2", updatedTask2.GetOutputs().GetParameters()[0].GetValue().AsInterface())
 
 	updatedTask3 := resp.GetTasks()[task3.GetTaskId()]
 	assert.NotNil(t, updatedTask3)
-	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SKIPPED, updatedTask3.GetStatus())
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SKIPPED, updatedTask3.GetState())
 	assert.Equal(t, "updated3", updatedTask3.GetOutputs().GetParameters()[0].GetValue().AsInterface())
 
 	// Verify updates persisted by fetching individually
 	fetched1, err := runSrv.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: task1.GetTaskId()})
 	assert.NoError(t, err)
-	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, fetched1.GetStatus())
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, fetched1.GetState())
 
 	fetched2, err := runSrv.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: task2.GetTaskId()})
 	assert.NoError(t, err)
-	assert.Equal(t, apiv2beta1.PipelineTaskDetail_FAILED, fetched2.GetStatus())
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_FAILED, fetched2.GetState())
 
 	fetched3, err := runSrv.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: task3.GetTaskId()})
 	assert.NoError(t, err)
-	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SKIPPED, fetched3.GetStatus())
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SKIPPED, fetched3.GetState())
 }
 
 func TestUpdateTasksBulk_EmptyRequest(t *testing.T) {
@@ -409,9 +409,9 @@ func TestUpdateTasksBulk_ValidationErrors(t *testing.T) {
 	// Create a task first
 	task, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
 		Task: &apiv2beta1.PipelineTaskDetail{
-			RunId:  runID,
-			Name:   "test-task",
-			Status: apiv2beta1.PipelineTaskDetail_RUNNING,
+			RunId: runID,
+			Name:  "test-task",
+			State: apiv2beta1.PipelineTaskDetail_RUNNING,
 		},
 	})
 	assert.NoError(t, err)
@@ -422,7 +422,7 @@ func TestUpdateTasksBulk_ValidationErrors(t *testing.T) {
 			task.GetTaskId(): {
 				TaskId: "different-id", // Mismatch!
 				RunId:  runID,
-				Status: apiv2beta1.PipelineTaskDetail_SUCCEEDED,
+				State:  apiv2beta1.PipelineTaskDetail_SUCCEEDED,
 			},
 		},
 	})
@@ -435,7 +435,7 @@ func TestUpdateTasksBulk_ValidationErrors(t *testing.T) {
 			task.GetTaskId(): {
 				TaskId: task.GetTaskId(),
 				RunId:  runID,
-				Status: apiv2beta1.PipelineTaskDetail_SUCCEEDED,
+				State:  apiv2beta1.PipelineTaskDetail_SUCCEEDED,
 				Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{
 					Artifacts: []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOArtifact{
 						{ArtifactKey: "should-fail"},
@@ -453,7 +453,7 @@ func TestUpdateTasksBulk_ValidationErrors(t *testing.T) {
 			"non-existent-task-id": {
 				TaskId: "non-existent-task-id",
 				RunId:  runID,
-				Status: apiv2beta1.PipelineTaskDetail_SUCCEEDED,
+				State:  apiv2beta1.PipelineTaskDetail_SUCCEEDED,
 			},
 		},
 	})

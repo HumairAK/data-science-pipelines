@@ -113,7 +113,7 @@ func TestCreateTask_Success(t *testing.T) {
 		Fingerprint:      "fp-1",
 		Name:             "taskA",
 		ParentTaskUUID:   strPTR(""),
-		Status:           1,
+		State:            1,
 		StateHistory:     model.JSONSlice{},
 		InputParameters:  model.JSONSlice{},
 		OutputParameters: model.JSONSlice{},
@@ -138,7 +138,7 @@ func TestCreateTask_Success(t *testing.T) {
 	assert.Equal(t, pods, fetched.Pods)
 	assert.Equal(t, "fp-1", fetched.Fingerprint)
 	assert.Equal(t, "taskA", fetched.Name)
-	assert.Equal(t, model.TaskStatus(1), fetched.Status)
+	assert.Equal(t, model.TaskStatus(1), fetched.State)
 	assert.Equal(t, model.TaskType(0), fetched.Type)
 }
 
@@ -161,7 +161,7 @@ func TestListTasks_BasicAndFilters(t *testing.T) {
 		RunUUID:          "run-1",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-parent",
-		Status:           1,
+		State:            1,
 		StateHistory:     model.JSONSlice{},
 		InputParameters:  model.JSONSlice{},
 		OutputParameters: model.JSONSlice{},
@@ -178,7 +178,7 @@ func TestListTasks_BasicAndFilters(t *testing.T) {
 		ParentTaskUUID:   strPTR(parent.UUID),
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p2", "uid2", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-c1",
-		Status:           1,
+		State:            1,
 		StateHistory:     model.JSONSlice{},
 		InputParameters:  model.JSONSlice{},
 		OutputParameters: model.JSONSlice{},
@@ -195,7 +195,7 @@ func TestListTasks_BasicAndFilters(t *testing.T) {
 		ParentTaskUUID:   strPTR(parent.UUID),
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p3", "uid3", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-c2",
-		Status:           1,
+		State:            1,
 		StateHistory:     model.JSONSlice{},
 		InputParameters:  model.JSONSlice{},
 		OutputParameters: model.JSONSlice{},
@@ -248,7 +248,7 @@ func TestUpdateTask_Success(t *testing.T) {
 		RunUUID:          "run-1",
 		Pods:             createTaskPodsAsJSONSlice(pod1),
 		Fingerprint:      "fp-0",
-		Status:           1,
+		State:            1,
 		StateHistory:     model.JSONSlice{},
 		InputParameters:  model.JSONSlice{},
 		OutputParameters: model.JSONSlice{},
@@ -261,14 +261,14 @@ func TestUpdateTask_Success(t *testing.T) {
 	created.Name = "updatedName"
 	created.Fingerprint = "fp-1"
 	created.Pods = createTaskPodsAsJSONSlice(pod1, pod2)
-	created.Status = 2
+	created.State = 2
 	updated, err := taskStore.UpdateTask(created)
 	assert.NoError(t, err)
 	assert.Equal(t, created.UUID, updated.UUID)
 	assert.Equal(t, "updatedName", updated.Name)
 	assert.Equal(t, "fp-1", updated.Fingerprint)
 	assert.Equal(t, createTaskPodsAsJSONSlice(pod1, pod2), updated.Pods)
-	assert.Equal(t, model.TaskStatus(2), updated.Status)
+	assert.Equal(t, model.TaskStatus(2), updated.State)
 }
 
 func TestGetChildTasks_ReturnsChildren(t *testing.T) {
@@ -284,7 +284,7 @@ func TestGetChildTasks_ReturnsChildren(t *testing.T) {
 		DisplayName:      "Parent Task",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-p",
-		Status:           1,
+		State:            1,
 		StateHistory:     model.JSONSlice{},
 		InputParameters:  model.JSONSlice{},
 		OutputParameters: model.JSONSlice{},
@@ -303,7 +303,7 @@ func TestGetChildTasks_ReturnsChildren(t *testing.T) {
 		DisplayName:      "First Child",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-a",
-		Status:           1,
+		State:            1,
 		StateHistory:     model.JSONSlice{},
 		InputParameters:  model.JSONSlice{},
 		OutputParameters: model.JSONSlice{},
@@ -322,7 +322,7 @@ func TestGetChildTasks_ReturnsChildren(t *testing.T) {
 		DisplayName:      "Second Child",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-b",
-		Status:           2,
+		State:            2,
 		StateHistory:     model.JSONSlice{},
 		InputParameters:  model.JSONSlice{},
 		OutputParameters: model.JSONSlice{},
@@ -350,7 +350,7 @@ func TestListTasks_FilterPredicates_EqualsOnColumns(t *testing.T) {
 		DisplayName:      "Alpha Task",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-alpha",
-		Status:           1,
+		State:            1,
 		StateHistory:     model.JSONSlice{},
 		InputParameters:  model.JSONSlice{},
 		OutputParameters: model.JSONSlice{},
@@ -368,7 +368,7 @@ func TestListTasks_FilterPredicates_EqualsOnColumns(t *testing.T) {
 		DisplayName:      "Beta Task",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-beta",
-		Status:           1,
+		State:            1,
 		StateHistory:     model.JSONSlice{},
 		InputParameters:  model.JSONSlice{},
 		OutputParameters: model.JSONSlice{},
@@ -386,7 +386,7 @@ func TestListTasks_FilterPredicates_EqualsOnColumns(t *testing.T) {
 		DisplayName:      "Gamma Task",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-gamma",
-		Status:           2,
+		State:            2,
 		StateHistory:     model.JSONSlice{},
 		InputParameters:  model.JSONSlice{},
 		OutputParameters: model.JSONSlice{},
@@ -424,7 +424,7 @@ func TestListTasks_FilterPredicates_EqualsOnColumns(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(res2))
 	assert.Equal(t, 1, total2)
-	assert.Equal(t, model.TaskStatus(2), res2[0].Status)
+	assert.Equal(t, model.TaskStatus(2), res2[0].State)
 
 	// cache_fingerprint == "fp-alpha"
 	f3Proto := &apiv2beta1.Filter{
@@ -474,7 +474,7 @@ func TestListTasks_PaginationWithToken(t *testing.T) {
 			Name:             fmt.Sprintf("task-%d", i+1),
 			Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 			Fingerprint:      fmt.Sprintf("fp-%d", i+1),
-			Status:           1,
+			State:            1,
 			StateHistory:     model.JSONSlice{},
 			InputParameters:  model.JSONSlice{},
 			OutputParameters: model.JSONSlice{},
@@ -541,7 +541,7 @@ func TestTaskParameters_PersistAndFetch(t *testing.T) {
 		RunUUID:          "run-1",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-param",
-		Status:           1,
+		State:            1,
 		StateHistory:     model.JSONSlice{},
 		InputParameters:  inParams,
 		OutputParameters: outParams,
@@ -568,7 +568,7 @@ func TestHydrateArtifactsForTask_GetAndList(t *testing.T) {
 		RunUUID:          "run-1",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-art",
-		Status:           1,
+		State:            1,
 		StateHistory:     model.JSONSlice{},
 		InputParameters:  model.JSONSlice{},
 		OutputParameters: model.JSONSlice{},

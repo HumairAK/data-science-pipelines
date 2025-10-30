@@ -110,13 +110,14 @@ type Task struct {
 	DisplayName      string     `gorm:"column:DisplayName; type:varchar(128); default:null;"`
 	ParentTaskUUID   *string    `gorm:"column:ParentTaskUUID; type:varchar(191); default:null; index:idx_parent_task_uuid; index:idx_parent_run,priority:2;"`
 	ParentTask       *Task      `gorm:"foreignKey:ParentTaskUUID;references:UUID;constraint:fk_tasks_parent_task,OnDelete:CASCADE,OnUpdate:CASCADE;"`
-	Status           TaskStatus `gorm:"column:Status; not null;"`
+	State            TaskStatus `gorm:"column:state; not null;"`
 	StatusMetadata   JSONData   `gorm:"column:StatusMetadata; type:json; default:null;"`
 	StateHistory     JSONSlice  `gorm:"column:StateHistory; type:json;"`
 	InputParameters  JSONSlice  `gorm:"column:InputParameters; type:json;"`
 	OutputParameters JSONSlice  `gorm:"column:OutputParameters; type:json;"`
 	Type             TaskType   `gorm:"column:Type; not null; index:idx_task_type;"`
 	TypeAttrs        JSONData   `gorm:"column:TypeAttrs; not null; type:json;"`
+	ScopePath        JSONSlice  `gorm:"column:ScopePath; type:json; default:null;"`
 
 	// Transient fields populated during hydration (not stored in DB)
 	InputArtifactsHydrated  []TaskArtifactHydrated `gorm:"-"`
@@ -174,6 +175,7 @@ var taskAPIToModelFieldMap = map[string]string{
 	"parent_task_id":    "ParentTaskUUID",
 	"inputs":            "InputParameters",
 	"outputs":           "OutputParameters",
+	"scope_path":        "ScopePath",
 }
 
 func (t Task) GetField(name string) (string, bool) {
@@ -203,8 +205,8 @@ func (t Task) GetFieldValue(name string) interface{} {
 		return t.Fingerprint
 	case "ParentTaskUUID":
 		return t.ParentTaskUUID
-	case "Status":
-		return t.Status
+	case "State":
+		return t.State
 	case "StatusMetadata":
 		return t.StatusMetadata
 	case "StateHistory":
@@ -221,6 +223,8 @@ func (t Task) GetFieldValue(name string) interface{} {
 		return t.Type
 	case "TypeAttrs":
 		return t.TypeAttrs
+	case "ScopePath":
+		return t.ScopePath
 	default:
 		return nil
 	}

@@ -49,7 +49,7 @@ func (cm *ClientManager) init() error {
 	}
 	cm.k8sClient = k8sClient
 
-	// Initialize connection to new KFP v2beta1 API server (Tasks/Artifacts)
+	// Initialize connection to new KFP v2beta1 API server
 	apiCfg := apiclient.FromEnv()
 	kfpAPIClient, apiErr := apiclient.New(apiCfg)
 	if apiErr != nil {
