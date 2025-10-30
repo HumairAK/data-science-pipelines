@@ -47,6 +47,7 @@ type LauncherV2Options struct {
 	PipelineName      string
 	PublishLogs       string
 	CachedFingerprint string
+	PipelineRoot      string
 	CacheDisabled     bool
 	IterationIndex    *int64
 	ComponentSpec     *pipelinespec.ComponentSpec
@@ -62,6 +63,7 @@ type LauncherV2 struct {
 	executorInput *pipelinespec.ExecutorInput
 	command       string
 	args          []string
+	pipelineRoot  string
 	options       LauncherV2Options
 	clientManager client_manager.ClientManagerInterface
 	// Maintaining a cache of opened buckets will minimize
@@ -104,6 +106,7 @@ func NewLauncherV2(
 	if err != nil {
 		return nil, err
 	}
+
 	launcher := &LauncherV2{
 		executorInput: executorInput,
 		command:       cmdArgs[0],
@@ -112,9 +115,12 @@ func NewLauncherV2(
 		clientManager: clientManager,
 		batchUpdater:  NewBatchUpdater(),
 		// Initialize with production implementations
-		fileSystem:  &OSFileSystem{},
-		cmdExecutor: &RealCommandExecutor{},
+		fileSystem:        &OSFileSystem{},
+		cmdExecutor:       &RealCommandExecutor{},
+		openedBucketCache: make(map[string]*blob.Bucket),
+		pipelineRoot:      opts.PipelineRoot,
 	}
+
 	// Object store is initialized after launcher creation
 	launcher.objectStore = NewRealObjectStoreClient(launcher)
 	return launcher, nil
@@ -701,7 +707,7 @@ func (l *LauncherV2) uploadOutputArtifacts(
 						glog.Warningf("Output Artifact %q does not have a recognized storage URI %q. Skipping uploading to remote storage.",
 							artifactKey, outputArtifact.Uri)
 					}
-					err = l.objectStore.UploadArtifact(ctx, localPath, outputArtifact.Uri, artifactKey)
+					err = l.objectStore.UploadArtifact(ctx, localPath, outputArtifact.Uri, artifactKey, l.pipelineRoot)
 					if err != nil {
 						return fmt.Errorf("failed to upload output artifact %q to remote storage URI %q: %w", artifactKey, outputArtifact.Uri, err)
 					}
@@ -1265,7 +1271,7 @@ func (l *LauncherV2) downloadArtifacts(ctx context.Context) error {
 				}
 				continue
 			}
-			err = l.objectStore.DownloadArtifact(ctx, artifact.Uri, localPath, artifactKey)
+			err = l.objectStore.DownloadArtifact(ctx, artifact.Uri, localPath, artifactKey, l.pipelineRoot)
 			if err != nil {
 				return fmt.Errorf("failed to download input artifact %q from remote storage URI %q: %w", artifactKey, artifact.Uri, err)
 			}

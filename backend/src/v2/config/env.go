@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 	"sigs.k8s.io/yaml"
 
@@ -140,6 +141,26 @@ func FetchLauncherConfigMap(ctx context.Context, clientSet kubernetes.Interface,
 		return nil, err
 	}
 	return &Config{data: config.Data}, nil
+}
+
+func GetPipelineRoot(
+	ctx context.Context,
+	namespace string,
+	k8sClient kubernetes.Interface,
+	runtimeConfig *go_client.RuntimeConfig) (string, error) {
+	var pipelineRoot string
+	if runtimeConfig != nil && runtimeConfig.PipelineRoot != "" {
+		pipelineRoot = runtimeConfig.PipelineRoot
+		glog.Infof("PipelineRoot=%q from runtime config will be used.", pipelineRoot)
+	} else {
+		cfg, err := FetchLauncherConfigMap(ctx, k8sClient, namespace)
+		if err != nil {
+			return "", fmt.Errorf("failed to fetch launcher configmap: %w", err)
+		}
+		pipelineRoot = cfg.DefaultPipelineRoot()
+		glog.Infof("PipelineRoot=%q from default config", pipelineRoot)
+	}
+	return pipelineRoot, nil
 }
 
 func getDefaultMinioSessionInfo() (objectstore.SessionInfo, error) {

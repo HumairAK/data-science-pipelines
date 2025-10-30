@@ -27,6 +27,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/component"
+	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -117,6 +118,15 @@ func run() error {
 	componentSpec := scopePath.GetLast().GetComponentSpec()
 	taskSpec := scopePath.GetLast().GetTaskSpec()
 
+	pipelineRoot, err := config.GetPipelineRoot(
+		ctx,
+		namespace,
+		clientManager.K8sClient(),
+		pipelineRun.RuntimeConfig)
+	if err != nil {
+		return fmt.Errorf("failed to get pipeline root: %w", err)
+	}
+
 	launcherV2Opts := &component.LauncherV2Options{
 		Namespace:         namespace,
 		PodName:           *podName,
@@ -130,6 +140,7 @@ func run() error {
 		ComponentSpec:     componentSpec,
 		TaskSpec:          taskSpec,
 		ScopePath:         scopePath,
+		PipelineRoot:      pipelineRoot,
 	}
 
 	if iterationIndex != nil && *iterationIndex > -1 {

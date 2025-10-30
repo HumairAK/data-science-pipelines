@@ -86,7 +86,6 @@ func (b *Config) KeyFromURI(uri string) (string, error) {
 	if !strings.HasPrefix(uri, prefixedBucket) {
 		return "", fmt.Errorf("URI %q does not have expected bucket prefix %q", uri, prefixedBucket)
 	}
-
 	key := strings.TrimLeft(strings.TrimPrefix(uri, prefixedBucket), "/")
 	if len(key) == 0 {
 		return "", fmt.Errorf("URI %q has empty key given prefixed bucket %q", uri, prefixedBucket)

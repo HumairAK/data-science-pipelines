@@ -183,7 +183,7 @@ func initPodSpecPatch(
 		"--pipeline_name", pipelineName,
 		"--run_id", runID,
 		"--task_id", fmt.Sprintf("%v", taskID),
-		"--parent_task_id", fmt.Sprintf("%v", taskID),
+		"--parent_task_id", fmt.Sprintf("%v", parentTaskID),
 		"--executor_input", string(executorInputJSON),
 		"--pod_name",
 		fmt.Sprintf("$(%s)", component.EnvPodName),

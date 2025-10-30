@@ -245,17 +245,13 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 	// TODO(Humair): We really only need to do this once per Run - consider having
 	// the apiserver do this instead during Run creation. This will avoid having to
 	// fetch the configmap for every task in driver.
-	var pipelineRoot string
-	if opts.Run.GetRuntimeConfig() != nil && opts.Run.GetRuntimeConfig().PipelineRoot != "" {
-		pipelineRoot = opts.Run.GetRuntimeConfig().PipelineRoot
-		glog.Infof("PipelineRoot=%q from runtime config will be used.", pipelineRoot)
-	} else {
-		cfg, err := config.FetchLauncherConfigMap(ctx, clientManager.K8sClient(), opts.Namespace)
-		if err != nil {
-			return nil, err
-		}
-		pipelineRoot = cfg.DefaultPipelineRoot()
-		glog.Infof("PipelineRoot=%q from default config", pipelineRoot)
+	pipelineRoot, err := config.GetPipelineRoot(
+		ctx,
+		opts.Namespace,
+		clientManager.K8sClient(),
+		opts.Run.RuntimeConfig)
+	if err != nil {
+		return execution, fmt.Errorf("failed to get pipeline root: %w", err)
 	}
 	// Provision Outputs in ExecutorInput
 	if execution.WillTrigger() {
