@@ -55,11 +55,9 @@ func (cm *ClientManager) init() error {
 	if apiErr != nil {
 		return fmt.Errorf("failed to init KFP API client: %w", apiErr)
 	}
-	defer kfpAPIClient.Close()
 	var kfpAPI kfpapi.API
 	kfpAPI = kfpapi.New(kfpAPIClient)
 	cm.kfpAPIClient = kfpAPI
-
 	return nil
 }
 
