@@ -152,12 +152,9 @@ func initPodSpecPatch(
 	taskConfig *TaskConfig,
 	fingerPrint string,
 	iterationIndex *int,
+	taskName string,
 ) (*k8score.PodSpec, error) {
 	executorInputJSON, err := protojson.Marshal(executorInput)
-	if err != nil {
-		return nil, fmt.Errorf("failed to init podSpecPatch: %w", err)
-	}
-	componentJSON, err := protojson.Marshal(componentSpec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init podSpecPatch: %w", err)
 	}
@@ -186,13 +183,13 @@ func initPodSpecPatch(
 		"--run_id", runID,
 		"--task_id", fmt.Sprintf("%v", taskID),
 		"--executor_input", string(executorInputJSON),
-		"--component_spec", string(componentJSON),
 		"--pod_name",
 		fmt.Sprintf("$(%s)", component.EnvPodName),
 		"--pod_uid",
 		fmt.Sprintf("$(%s)", component.EnvPodUID),
 		"--publish_logs", publishLogs,
 		"--fingerprint", fingerPrint,
+		"--task_name", taskName,
 	}
 	if cacheDisabled == "true" {
 		launcherCmd = append(launcherCmd, "--cache_disabled")

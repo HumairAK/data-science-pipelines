@@ -19,6 +19,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
@@ -26,7 +27,6 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/component"
-	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -38,9 +38,8 @@ var (
 	parentTaskID      = flag.String("parent_task_id", "", "Parent PipelineTask ID")
 	executorType      = flag.String("executor_type", "container", "The type of the ExecutorSpec")
 	executorInputJSON = flag.String("executor_input", "", "The JSON-encoded ExecutorInput.")
-	componentSpecJSON = flag.String("component_spec", "", "The JSON-encoded ComponentSpec.")
+	taskName          = flag.String("task_name", "", "The name of the task.")
 	importerSpecJSON  = flag.String("importer_spec", "", "The JSON-encoded ImporterSpec.")
-	taskSpecJSON      = flag.String("task_spec", "", "The JSON-encoded TaskSpec.")
 	podName           = flag.String("pod_name", "", "Kubernetes Pod name.")
 	podUID            = flag.String("pod_uid", "", "Kubernetes Pod UID.")
 	logLevel          = flag.String("log_level", "1", "The verbosity level to log.")
@@ -73,20 +72,9 @@ func run() error {
 		// early
 		return component.CopyThisBinary(*copy)
 	}
-	namespace, err := config.InPodNamespace()
-	if err != nil {
-		return err
-	}
-
-	componentSpec := &pipelinespec.ComponentSpec{}
-	err = protojson.Unmarshal([]byte(*componentSpecJSON), componentSpec)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal component spec: %w", err)
-	}
-	taskSpec := &pipelinespec.PipelineTaskSpec{}
-	err = protojson.Unmarshal([]byte(*taskSpecJSON), taskSpec)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal task spec: %w", err)
+	namespace := os.Getenv("NAMESPACE")
+	if namespace == "" {
+		return fmt.Errorf("NAMESPACE environment variable must be set")
 	}
 
 	// Create client manager
@@ -117,11 +105,14 @@ func run() error {
 	scopePath, err = util.ScopePathFromStringPathWithNewTask(
 		pipelineSpecStruct,
 		parentTask.GetScopePath(),
-		taskSpec.GetTaskInfo().GetName(),
+		*taskName,
 	)
 	if err != nil {
 		return err
 	}
+
+	componentSpec := scopePath.GetLast().GetComponentSpec()
+	taskSpec := scopePath.GetLast().GetTaskSpec()
 
 	launcherV2Opts := &component.LauncherV2Options{
 		Namespace:         namespace,

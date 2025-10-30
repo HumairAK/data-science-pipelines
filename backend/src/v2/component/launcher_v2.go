@@ -196,7 +196,7 @@ func updateStatuses(ctx context.Context, kfpAPIClient kfpapi.API, run *apiV2beta
 		if currentTask.ParentTaskId == nil || *currentTask.ParentTaskId == "" {
 			// Evaluate the root task's status based on its children
 			if err := evaluateAndUpdateParentStatus(ctx, kfpAPIClient, run, currentTask); err != nil {
-				return err
+				return fmt.Errorf("failed to evaluate root task %s status: %w", currentTask.GetTaskId(), err)
 			}
 			break
 		}
@@ -248,7 +248,7 @@ func updateStatuses(ctx context.Context, kfpAPIClient kfpapi.API, run *apiV2beta
 
 		// Evaluate and update parent's status based on its children
 		if err := evaluateAndUpdateParentStatus(ctx, kfpAPIClient, run, parentTask); err != nil {
-			return err
+			return fmt.Errorf("failed to evaluate parent task %s status: %w", parentTask.GetTaskId(), err)
 		}
 
 		// Move to the parent for next iteration
@@ -356,15 +356,15 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	// Add default parameter values to task inputs if they're not already present
 	// This makes the full set of input parameters visible in the task for inspection
 	if err = l.addDefaultParametersToTask(ctx); err != nil {
-		return err
+		return fmt.Errorf("failed to add default parameters to task: %w", err)
 	}
 
 	if err = l.prepareOutputFolders(l.executorInput); err != nil {
-		return err
+		return fmt.Errorf("failed to prepare output folders: %w", err)
 	}
 	_, err = l.executeV2(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to execute component: %w", err)
 	}
 
 	l.options.Task.State = apiV2beta1.PipelineTaskDetail_SUCCEEDED

@@ -288,6 +288,7 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 		taskConfig,
 		fingerPrint,
 		iterationIndex,
+		opts.Task.GetTaskInfo().GetName(),
 	)
 	if err != nil {
 		return execution, err
