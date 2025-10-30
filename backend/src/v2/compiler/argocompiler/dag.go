@@ -580,7 +580,7 @@ func (c *workflowCompiler) addDAGDriverTemplate() string {
 				{Name: paramRuntimeConfig, Default: wfapi.AnyStringPtr("")},
 				{Name: paramTask, Default: wfapi.AnyStringPtr("")},
 				{Name: paramTaskName, Default: wfapi.AnyStringPtr("")},
-				{Name: paramParentDagTaskID, Default: wfapi.AnyStringPtr("0")},
+				{Name: paramParentDagTaskID, Default: wfapi.AnyStringPtr("")},
 				{Name: paramIterationIndex, Default: wfapi.AnyStringPtr("-1")},
 				{Name: paramDriverType, Default: wfapi.AnyStringPtr("DAG")},
 			},
@@ -597,7 +597,7 @@ func (c *workflowCompiler) addDAGDriverTemplate() string {
 			Command:   c.driverCommand,
 			Args:      args,
 			Resources: driverResources,
-			Env:       proxy.GetConfig().GetEnvVars(),
+			Env:       append(proxy.GetConfig().GetEnvVars(), commonEnvs...),
 		},
 	}
 	c.templates[name] = t

@@ -19,9 +19,7 @@ package config
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
-	"strings"
 
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 	"sigs.k8s.io/yaml"
@@ -142,27 +140,6 @@ func FetchLauncherConfigMap(ctx context.Context, clientSet kubernetes.Interface,
 		return nil, err
 	}
 	return &Config{data: config.Data}, nil
-}
-
-// InPodNamespace gets current namespace from inside a Kubernetes Pod.
-func InPodNamespace() (string, error) {
-	// The path is available in Pods.
-	// https://kubernetes.io/docs/tasks/run-application/access-api-from-pod/#directly-accessing-the-rest-api
-	ns, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-	if err != nil {
-		return "", fmt.Errorf("failed to get namespace in Pod: %w", err)
-	}
-	return string(ns), nil
-}
-
-// InPodName gets the pod name from inside a Kubernetes Pod.
-func InPodName() (string, error) {
-	podName, err := os.ReadFile("/etc/hostname")
-	if err != nil {
-		return "", fmt.Errorf("failed to get pod name in Pod: %w", err)
-	}
-	name := string(podName)
-	return strings.TrimSuffix(name, "\n"), nil
 }
 
 func getDefaultMinioSessionInfo() (objectstore.SessionInfo, error) {

@@ -21,15 +21,12 @@ import (
 	"fmt"
 
 	"github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
+	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient/kfpapi"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/types/known/structpb"
-	"k8s.io/client-go/kubernetes"
-
-	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
-	"github.com/kubeflow/pipelines/backend/src/common/util"
 
 	"os"
 	"path/filepath"
@@ -38,7 +35,6 @@ import (
 	"github.com/golang/glog"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient"
-	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver"
 	"github.com/kubeflow/pipelines/kubernetes_platform/go/kubernetesplatform"
 )
@@ -178,9 +174,9 @@ func drive() (err error) {
 	if err != nil {
 		return err
 	}
-	namespace, err := config.InPodNamespace()
-	if err != nil {
-		return err
+	namespace := os.Getenv("NAMESPACE")
+	if namespace == "" {
+		return fmt.Errorf("NAMESPACE environment variable must be set")
 	}
 
 	podName := os.Getenv("KFP_POD_UID")
@@ -197,9 +193,12 @@ func drive() (err error) {
 		return err
 	}
 
-	parentTask, err := kfpAPI.GetTask(ctx, &go_client.GetTaskRequest{TaskId: *parentTaskID})
-	if err != nil {
-		return err
+	var parentTask *go_client.PipelineTaskDetail
+	if parentTaskID != nil && *parentTaskID != "" {
+		parentTask, err = kfpAPI.GetTask(ctx, &go_client.GetTaskRequest{TaskId: *parentTaskID})
+		if err != nil {
+			return err
+		}
 	}
 
 	scopePath, err := buildScopePath(ctx, run, parentTask, *taskName, kfpAPI)
@@ -398,36 +397,4 @@ func buildScopePath(
 		}
 	}
 	return &scopePath, nil
-}
-
-func fetchPipelineSpec(pipelineSpecStruct *structpb.Struct, run *go_client.Run, kfpAPI kfpapi.API, ctx context.Context) (*structpb.Struct, error) {
-	if run.GetPipelineSpec() != nil {
-		pipelineSpecStruct = run.GetPipelineSpec()
-	} else if run.GetPipelineVersionReference() != nil {
-		pvr := run.GetPipelineVersionReference()
-		pipeline, err := kfpAPI.GetPipelineVersion(ctx, &go_client.GetPipelineVersionRequest{
-			PipelineId:        pvr.GetPipelineId(),
-			PipelineVersionId: pvr.GetPipelineVersionId(),
-		})
-		if err != nil {
-			return nil, err
-		}
-		pipelineSpecStruct = pipeline.GetPipelineSpec()
-	} else {
-		return nil, fmt.Errorf("pipeline spec is not set")
-	}
-	return pipelineSpecStruct, nil
-}
-
-func createK8sClient() (*kubernetes.Clientset, error) {
-	// Initialize Kubernetes client set
-	restConfig, err := util.GetKubernetesConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize kubernetes client: %w", err)
-	}
-	k8sClient, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize kubernetes client set: %w", err)
-	}
-	return k8sClient, nil
 }

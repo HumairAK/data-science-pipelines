@@ -107,12 +107,8 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 	// ######################################
 	// ### TASK REQUEST ###
 	// ######################################
-	podName, err := config.InPodName()
-	if err != nil {
-		return nil, err
-	}
 
-	glog.Infof("Creating task %s in pod %s", opts.TaskName, podName)
+	glog.Infof("Creating task %s in pod %s", opts.TaskName, opts.Namespace)
 	taskToCreate := &apiV2beta1.PipelineTaskDetail{
 		Name:         opts.TaskName,
 		DisplayName:  opts.Task.GetTaskInfo().GetName(),

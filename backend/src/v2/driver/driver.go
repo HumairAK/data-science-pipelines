@@ -332,6 +332,14 @@ func initPodSpecPatch(
 				},
 			},
 		},
+		{
+			Name: "NAMESPACE",
+			ValueFrom: &k8score.EnvVarSource{
+				FieldRef: &k8score.ObjectFieldSelector{
+					FieldPath: "metadata.namespace",
+				},
+			},
+		},
 	}
 
 	if setOnTaskConfig[pipelinespec.TaskConfigPassthroughType_ENV] {

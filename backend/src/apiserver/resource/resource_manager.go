@@ -1454,12 +1454,10 @@ func (r *ResourceManager) ReportWorkflowResource(ctx context.Context, execSpec u
 		if r.options.CollectMetrics {
 			execNamespace := execSpec.ExecutionNamespace()
 			execName := execSpec.ExecutionName()
-
 			if execStatus.Condition() == exec.ExecutionSucceeded {
 				workflowSuccessCounter.WithLabelValues(execNamespace, execName).Inc()
 			} else {
 				glog.Errorf("pipeline '%s' finished with an error", execName)
-
 				// also collects counts regarding retries
 				workflowFailedCounter.WithLabelValues(execNamespace, execName).Inc()
 			}

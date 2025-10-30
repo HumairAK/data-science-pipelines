@@ -3,10 +3,10 @@ package client_manager
 import (
 	"fmt"
 
+	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient"
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient/kfpapi"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 type ClientManagerInterface interface {
@@ -64,9 +64,9 @@ func (cm *ClientManager) init() error {
 }
 
 func initK8sClient() (kubernetes.Interface, error) {
-	restConfig, err := rest.InClusterConfig()
+	restConfig, err := util.GetKubernetesConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize kubernetes client: %w", err)
+		return nil, err
 	}
 	k8sClient, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {

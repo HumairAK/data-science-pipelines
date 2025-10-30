@@ -30,21 +30,32 @@ var metadataEnvFrom = k8score.EnvFromSource{
 	},
 }
 
-var commonEnvs = []k8score.EnvVar{{
-	Name: "KFP_POD_NAME",
-	ValueFrom: &k8score.EnvVarSource{
-		FieldRef: &k8score.ObjectFieldSelector{
-			FieldPath: "metadata.name",
+var commonEnvs = []k8score.EnvVar{
+	{
+		Name: "KFP_POD_NAME",
+		ValueFrom: &k8score.EnvVarSource{
+			FieldRef: &k8score.ObjectFieldSelector{
+				FieldPath: "metadata.name",
+			},
 		},
 	},
-}, {
-	Name: "KFP_POD_UID",
-	ValueFrom: &k8score.EnvVarSource{
-		FieldRef: &k8score.ObjectFieldSelector{
-			FieldPath: "metadata.uid",
+	{
+		Name: "KFP_POD_UID",
+		ValueFrom: &k8score.EnvVarSource{
+			FieldRef: &k8score.ObjectFieldSelector{
+				FieldPath: "metadata.uid",
+			},
 		},
 	},
-}}
+	{
+		Name: "NAMESPACE",
+		ValueFrom: &k8score.EnvVarSource{
+			FieldRef: &k8score.ObjectFieldSelector{
+				FieldPath: "metadata.namespace",
+			},
+		},
+	},
+}
 
 // addExitTask adds an exit lifecycle hook to a task if exitTemplate is not empty.
 func addExitTask(task *wfapi.DAGTask, exitTemplate string, parentDagID string) {
