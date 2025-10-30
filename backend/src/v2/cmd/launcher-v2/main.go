@@ -80,20 +80,23 @@ func run() error {
 	// Create client manager
 	clientManager, err := client_manager.NewClientManager()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create client manager: %w", err)
 	}
 
 	// Fetch Run
 	kfpAPI := clientManager.KFPAPIClient()
 	pipelineRun, err := kfpAPI.GetRun(ctx, &go_client.GetRunRequest{RunId: *runID})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get run: %w", err)
 	}
 
 	// Fetch Parent Task
+	if parentTaskID == nil || *parentTaskID == "" {
+		return fmt.Errorf("parent task id is nil or empty")
+	}
 	parentTask, err := kfpAPI.GetTask(ctx, &go_client.GetTaskRequest{TaskId: *parentTaskID})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get parent task: %w", err)
 	}
 
 	// Build scope path
@@ -108,7 +111,7 @@ func run() error {
 		*taskName,
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to build scope path: %w", err)
 	}
 
 	componentSpec := scopePath.GetLast().GetComponentSpec()
@@ -149,10 +152,10 @@ func run() error {
 			clientManager,
 		)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create importer launcher: %w", err)
 		}
 		if err := importerLauncher.Execute(ctx); err != nil {
-			return err
+			return fmt.Errorf("failed to execute importer launcher: %w", err)
 		}
 		return nil
 	case "container":
@@ -160,7 +163,7 @@ func run() error {
 		if taskID != nil && *taskID != "" {
 			task, err := kfpAPI.GetTask(ctx, &go_client.GetTaskRequest{TaskId: *taskID})
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to get task: %w", err)
 			}
 			launcherV2Opts.Task = task
 		} else {
@@ -173,13 +176,12 @@ func run() error {
 			clientManager,
 		)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create launcher: %w", err)
 		}
 		glog.V(5).Info(launcher.Info())
 		if err := launcher.Execute(ctx); err != nil {
-			return err
+			return fmt.Errorf("failed to execute launcher: %w", err)
 		}
-
 		return nil
 
 	}

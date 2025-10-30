@@ -278,6 +278,7 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 		opts.Container,
 		opts.Component,
 		executorInput,
+		parentTask.GetTaskId(),
 		execution.TaskID,
 		opts.PipelineName,
 		opts.Run.GetRunId(),
