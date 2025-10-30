@@ -73,7 +73,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 	// Run Dag on the First Task
 	secondaryPipelineExecution, secondaryPipelineTask := tc.RunDagDriver("secondary-pipeline", parentTask)
 	require.Nil(t, secondaryPipelineExecution.ExecutorInput.Outputs)
-	require.Equal(t, apiv2beta1.PipelineTaskDetail_RUNNING, secondaryPipelineTask.Status)
+	require.Equal(t, apiv2beta1.PipelineTaskDetail_RUNNING, secondaryPipelineTask.State)
 
 	// Refresh Parent Task - The parent task should be the secondary pipeline task for "create-dataset"
 	parentTask = secondaryPipelineTask
@@ -553,14 +553,14 @@ func TestWithCaching(t *testing.T) {
 	processDatasetLauncher := tc.RunLauncher(processDatasetExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
 	require.NotNil(t, processDatasetExecution.Cached)
 	require.False(t, *processDatasetExecution.Cached)
-	require.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, processDatasetLauncher.Task.GetStatus())
+	require.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, processDatasetLauncher.Task.GetState())
 	require.NotEmpty(t, processDatasetExecution.PodSpecPatch)
 
 	// Second run of process-dataset - should be cached
 	processDatasetExecution2, processDatasetTask2 := tc.RunContainerDriver("process-dataset", parentTask, nil, true)
 	require.NotNil(t, processDatasetExecution2.Cached)
 	require.True(t, *processDatasetExecution2.Cached)
-	require.Equal(t, apiv2beta1.PipelineTaskDetail_CACHED, processDatasetTask2.GetStatus())
+	require.Equal(t, apiv2beta1.PipelineTaskDetail_CACHED, processDatasetTask2.GetState())
 	require.Empty(t, processDatasetExecution2.PodSpecPatch)
 }
 
@@ -838,7 +838,7 @@ func TestK8SPlatform(t *testing.T) {
 	}
 
 	// Environment variables
-	require.Len(t, podSpec.Containers[0].Env, 10)
+	require.Len(t, podSpec.Containers[0].Env, 11)
 	expectedEnvVars := []v1.EnvVar{
 		{
 			Name: "KFP_POD_NAME",
@@ -853,6 +853,14 @@ func TestK8SPlatform(t *testing.T) {
 			ValueFrom: &v1.EnvVarSource{
 				FieldRef: &v1.ObjectFieldSelector{
 					FieldPath: "metadata.uid",
+				},
+			},
+		},
+		{
+			Name: "NAMESPACE",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					FieldPath: "metadata.namespace",
 				},
 			},
 		},

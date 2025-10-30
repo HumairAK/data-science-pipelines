@@ -128,7 +128,7 @@ func (tc *TestContext) CreateTestTask(
 		DisplayName: taskName,
 		RunId:       runID,
 		Type:        taskType,
-		Status:      apiv2beta1.PipelineTaskDetail_RUNNING,
+		State:       apiv2beta1.PipelineTaskDetail_RUNNING,
 		Pods: []*apiv2beta1.PipelineTaskDetail_TaskPod{
 			{
 				Name: fmt.Sprintf("%s-pod", taskName),
@@ -435,16 +435,16 @@ func (tc *TestContext) RunContainerDriver(
 	require.NotNil(tc.T, task)
 	require.Equal(tc.T, execution.TaskID, task.TaskId)
 	require.Equal(tc.T, taskName, task.GetName())
-	if task.Status != apiv2beta1.PipelineTaskDetail_CACHED {
+	if task.State != apiv2beta1.PipelineTaskDetail_CACHED {
 		// In the case of k8s ops like createpvc/deletepvc
 		// There are no launchers, so we mark them success
 		// within driver.
 		require.True(
 			tc.T,
-			task.Status == apiv2beta1.PipelineTaskDetail_RUNNING ||
-				task.Status == apiv2beta1.PipelineTaskDetail_SUCCEEDED,
+			task.State == apiv2beta1.PipelineTaskDetail_RUNNING ||
+				task.State == apiv2beta1.PipelineTaskDetail_SUCCEEDED,
 			"expected task.Status to be RUNNING or SUCCEEDED, got %v",
-			task.Status,
+			task.State,
 		)
 	}
 
@@ -456,7 +456,7 @@ func (tc *TestContext) setContainerToComplete(taskID string) *apiv2beta1.Pipelin
 	require.NoError(tc.T, err)
 	require.NotNil(tc.T, getTask)
 
-	getTask.Status = apiv2beta1.PipelineTaskDetail_SUCCEEDED
+	getTask.State = apiv2beta1.PipelineTaskDetail_SUCCEEDED
 	task, err := tc.ClientManager.KFPAPIClient().UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
 		TaskId: taskID,
 		Task:   getTask,

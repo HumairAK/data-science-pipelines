@@ -36,7 +36,7 @@ func Test_isInputParameterChannel(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, isInputParameterChannel(test.input), test.isValid)
+			assert.Equal(t, IsInputParameterChannel(test.input), test.isValid)
 		})
 	}
 }

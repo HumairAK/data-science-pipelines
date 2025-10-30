@@ -84,7 +84,7 @@ func DAG(ctx context.Context, opts common.Options, clientManager client_manager.
 		RunId:       opts.Run.GetRunId(),
 		// Default to DAG
 		Type:       gc.PipelineTaskDetail_DAG,
-		Status:     gc.PipelineTaskDetail_RUNNING,
+		State:      gc.PipelineTaskDetail_RUNNING,
 		ScopePath:  opts.ScopePath.StringPath(),
 		StartTime:  timestamppb.Now(),
 		CreateTime: timestamppb.Now(),

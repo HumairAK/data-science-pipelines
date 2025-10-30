@@ -114,7 +114,7 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 		DisplayName:  opts.Task.GetTaskInfo().GetName(),
 		RunId:        opts.Run.GetRunId(),
 		Type:         apiV2beta1.PipelineTaskDetail_RUNTIME,
-		Status:       apiV2beta1.PipelineTaskDetail_RUNNING,
+		State:        apiV2beta1.PipelineTaskDetail_RUNNING,
 		ParentTaskId: util.StringPointer(opts.ParentTask.TaskId),
 		ScopePath:    opts.ScopePath.StringPath(),
 		StartTime:    timestamppb.Now(),
@@ -194,7 +194,7 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 	}
 
 	if !execution.WillTrigger() {
-		taskToCreate.Status = apiV2beta1.PipelineTaskDetail_SKIPPED
+		taskToCreate.State = apiV2beta1.PipelineTaskDetail_SKIPPED
 	}
 
 	createdTask, err := clientManager.KFPAPIClient().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{Task: taskToCreate})
@@ -223,7 +223,7 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 	execution.Cached = util.BoolPointer(false)
 	if !opts.CacheDisabled {
 		if opts.Task.GetCachingOptions().GetEnableCache() && cachedTask != nil {
-			taskToCreate.Status = apiV2beta1.PipelineTaskDetail_CACHED
+			taskToCreate.State = apiV2beta1.PipelineTaskDetail_CACHED
 			taskToCreate.Outputs = cachedTask.Outputs
 			*execution.Cached = true
 			_, createErr := clientManager.KFPAPIClient().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{

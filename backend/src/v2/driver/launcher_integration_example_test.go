@@ -45,7 +45,7 @@ func TestExample_SingleTask(t *testing.T) {
 		"Launcher should have executed the component command once")
 
 	// Verify task status was updated to SUCCEEDED
-	require.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, launcherExec.Task.Status,
+	require.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, launcherExec.Task.State,
 		"Task should be marked as SUCCEEDED")
 
 	// Clean up scope

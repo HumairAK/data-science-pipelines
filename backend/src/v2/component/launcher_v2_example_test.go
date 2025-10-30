@@ -43,7 +43,7 @@ func TestExample_launcherV2WithMocks(t *testing.T) {
 		TaskId:  taskID,
 		RunId:   runID,
 		Name:    "test-task",
-		Status:  apiv2beta1.PipelineTaskDetail_RUNNING,
+		State:   apiv2beta1.PipelineTaskDetail_RUNNING,
 		Type:    apiv2beta1.PipelineTaskDetail_RUNTIME,
 		Inputs:  &apiv2beta1.PipelineTaskDetail_InputOutputs{},
 		Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{},
@@ -288,13 +288,13 @@ func TestLauncherV2_TaskStatusUpdates(t *testing.T) {
 		TaskId: "task-456",
 		RunId:  "run-123",
 		Name:   "test-task",
-		Status: apiv2beta1.PipelineTaskDetail_RUNNING,
+		State:  apiv2beta1.PipelineTaskDetail_RUNNING,
 	}
 	_, err := mockAPI.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{Task: task})
 	require.NoError(t, err)
 
 	// Update task status
-	task.Status = apiv2beta1.PipelineTaskDetail_SUCCEEDED
+	task.State = apiv2beta1.PipelineTaskDetail_SUCCEEDED
 	_, err = mockAPI.UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
 		TaskId: "task-456",
 		Task:   task,
@@ -304,5 +304,5 @@ func TestLauncherV2_TaskStatusUpdates(t *testing.T) {
 	// Verify task was updated
 	updatedTask, err := mockAPI.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: "task-456"})
 	require.NoError(t, err)
-	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, updatedTask.Status)
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, updatedTask.State)
 }

@@ -642,7 +642,7 @@ func createPVCTask(
 	// Ensure that we update the final task state after creation, or if we fail the procedure
 	defer func() {
 		if err != nil {
-			taskToCreate.Status = apiV2beta1.PipelineTaskDetail_FAILED
+			taskToCreate.State = apiV2beta1.PipelineTaskDetail_FAILED
 			taskToCreate.StatusMetadata = &apiV2beta1.PipelineTaskDetail_StatusMetadata{
 				Message: err.Error(),
 			}
@@ -751,7 +751,7 @@ func createPVCTask(
 
 	// Create Initial Task. We will update the status later if
 	// anything fails, or the task successfully completes.
-	taskToCreate.Status = apiV2beta1.PipelineTaskDetail_RUNNING
+	taskToCreate.State = apiV2beta1.PipelineTaskDetail_RUNNING
 	task, err := clientManager.KFPAPIClient().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
 		Task: taskToCreate,
 	})
@@ -763,7 +763,7 @@ func createPVCTask(
 	taskCreated = true
 	execution.TaskID = task.TaskId
 	if !execution.WillTrigger() {
-		taskToCreate.Status = apiV2beta1.PipelineTaskDetail_SKIPPED
+		taskToCreate.State = apiV2beta1.PipelineTaskDetail_SKIPPED
 		glog.Infof("Condition not met, skipping task %s", task.TaskId)
 		return nil
 	}
@@ -779,7 +779,7 @@ func createPVCTask(
 	taskToCreate.CacheFingerprint = fingerPrint
 	execution.Cached = util.BoolPointer(false)
 	if !opts.CacheDisabled && opts.Task.GetCachingOptions().GetEnableCache() && cachedTask != nil {
-		taskToCreate.Status = apiV2beta1.PipelineTaskDetail_CACHED
+		taskToCreate.State = apiV2beta1.PipelineTaskDetail_CACHED
 		taskToCreate.Outputs = cachedTask.Outputs
 		*execution.Cached = true
 		return nil
@@ -810,7 +810,7 @@ func createPVCTask(
 		return err
 	}
 	glog.Infof("Created PVC %s\n", createdPVC.ObjectMeta.Name)
-	taskToCreate.Status = apiV2beta1.PipelineTaskDetail_SUCCEEDED
+	taskToCreate.State = apiV2beta1.PipelineTaskDetail_SUCCEEDED
 	return nil
 }
 
@@ -826,7 +826,7 @@ func deletePVCTask(
 	// Ensure that we update the final task state after creation, or if we fail the procedure
 	defer func() {
 		if err != nil {
-			taskToCreate.Status = apiV2beta1.PipelineTaskDetail_FAILED
+			taskToCreate.State = apiV2beta1.PipelineTaskDetail_FAILED
 			taskToCreate.StatusMetadata = &apiV2beta1.PipelineTaskDetail_StatusMetadata{
 				Message: err.Error(),
 			}
@@ -862,7 +862,7 @@ func deletePVCTask(
 
 	// Create Initial Task. We will update the status later if
 	// anything fails, or the task successfully completes.
-	taskToCreate.Status = apiV2beta1.PipelineTaskDetail_RUNNING
+	taskToCreate.State = apiV2beta1.PipelineTaskDetail_RUNNING
 	task, err := clientManager.KFPAPIClient().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
 		Task: taskToCreate,
 	})
@@ -874,7 +874,7 @@ func deletePVCTask(
 	taskCreated = true
 	execution.TaskID = task.TaskId
 	if !execution.WillTrigger() {
-		taskToCreate.Status = apiV2beta1.PipelineTaskDetail_SKIPPED
+		taskToCreate.State = apiV2beta1.PipelineTaskDetail_SKIPPED
 		glog.Infof("Condition not met, skipping task %s", task.TaskId)
 		return nil
 	}
@@ -890,7 +890,7 @@ func deletePVCTask(
 	taskToCreate.CacheFingerprint = fingerPrint
 	execution.Cached = util.BoolPointer(false)
 	if !opts.CacheDisabled && opts.Task.GetCachingOptions().GetEnableCache() && cachedTask != nil {
-		taskToCreate.Status = apiV2beta1.PipelineTaskDetail_CACHED
+		taskToCreate.State = apiV2beta1.PipelineTaskDetail_CACHED
 		taskToCreate.Outputs = cachedTask.Outputs
 		*execution.Cached = true
 		return nil

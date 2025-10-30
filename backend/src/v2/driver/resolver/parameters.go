@@ -314,12 +314,12 @@ func resolveTaskFinalStatus(opts common.Options,
 		return nil, fmt.Errorf("producer task, %v, not in tasks", producer.GetName())
 	}
 	finalStatus := pipelinespec.PipelineTaskFinalStatus{
-		State:                   producer.GetStatus().String(),
+		State:                   producer.GetState().String(),
 		PipelineTaskName:        producer.GetName(),
 		PipelineJobResourceName: opts.RunName,
 		Error: &status.Status{
 			Message: producer.GetStatusMetadata().GetMessage(),
-			Code:    int32(producer.GetStatus().Number()),
+			Code:    int32(producer.GetState().Number()),
 		},
 	}
 	finalStatusJSON, err := protojson.Marshal(&finalStatus)
