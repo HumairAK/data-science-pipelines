@@ -122,7 +122,7 @@ func run() error {
 		ctx,
 		namespace,
 		clientManager.K8sClient(),
-		pipelineRun.RuntimeConfig)
+		pipelineRun.GetRuntimeConfig())
 	if err != nil {
 		return fmt.Errorf("failed to get pipeline root: %w", err)
 	}
