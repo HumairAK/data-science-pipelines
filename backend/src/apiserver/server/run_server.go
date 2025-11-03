@@ -782,14 +782,6 @@ func (s *RunServer) UpdateTasksBulk(ctx context.Context, request *apiv2beta1.Upd
 			return nil, util.NewInvalidInputError("Task ID in map key does not match task ID in task detail for task %s", taskID)
 		}
 
-		// Validate that input/output artifacts are not being updated
-		if task.GetInputs() != nil && len(task.GetInputs().GetArtifacts()) > 0 {
-			return nil, util.NewInvalidInputError("Cannot update task input artifacts for task %s - use artifact tasks API instead", taskID)
-		}
-		if task.GetOutputs() != nil && len(task.GetOutputs().GetArtifacts()) > 0 {
-			return nil, util.NewInvalidInputError("Cannot update task output artifacts for task %s - use artifact tasks API instead", taskID)
-		}
-
 		// First get the existing task to find the run UUID for authorization
 		existingTask, err := s.resourceManager.GetTask(taskID)
 		if err != nil {

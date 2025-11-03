@@ -604,6 +604,13 @@ func (l *LauncherV2) execute(
 	cmd string,
 	args []string,
 ) (*pipelinespec.ExecutorOutput, error) {
+
+	// Used for local debugging.
+	customOutputFile := os.Getenv("KFP_OUTPUT_FILE")
+	if customOutputFile != "" {
+		return l.getExecutorOutputFile(customOutputFile)
+	}
+
 	if err := l.downloadArtifacts(ctx); err != nil {
 		return nil, err
 	}
@@ -1452,17 +1459,20 @@ func (l *LauncherV2) getExecutorOutputFile(path string) (*pipelinespec.ExecutorO
 }
 
 func LocalPathForURI(uri string) (string, error) {
+	// Used for local debugging
+	rootPath := os.Getenv("ARTIFACT_LOCAL_PATH")
+
 	if strings.HasPrefix(uri, "gs://") {
-		return "/gcs/" + strings.TrimPrefix(uri, "gs://"), nil
+		return fmt.Sprintf("%s/gcs/", rootPath) + strings.TrimPrefix(uri, "gs://"), nil
 	}
 	if strings.HasPrefix(uri, "minio://") {
-		return "/minio/" + strings.TrimPrefix(uri, "minio://"), nil
+		return fmt.Sprintf("%s/minio/", rootPath) + strings.TrimPrefix(uri, "minio://"), nil
 	}
 	if strings.HasPrefix(uri, "s3://") {
-		return "/s3/" + strings.TrimPrefix(uri, "s3://"), nil
+		return fmt.Sprintf("%s/s3/", rootPath) + strings.TrimPrefix(uri, "s3://"), nil
 	}
 	if strings.HasPrefix(uri, "oci://") {
-		return "/oci/" + strings.ReplaceAll(strings.TrimPrefix(uri, "oci://"), "/", "_") + "/models", nil
+		return fmt.Sprintf("%s/oci/", rootPath) + strings.ReplaceAll(strings.TrimPrefix(uri, "oci://"), "/", "_") + "/models", nil
 	}
 	return "", fmt.Errorf("failed to generate local path for URI %s: unsupported storage scheme", uri)
 }

@@ -45,7 +45,6 @@ def primary_pipeline():
 
 if __name__ == '__main__':
     from kfp import compiler
-
     compiler.Compiler().compile(
         pipeline_func=primary_pipeline,
         package_path=__file__+".yaml"
