@@ -19,6 +19,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
@@ -33,7 +34,7 @@ import (
 
 const (
 	configMapName                = "kfp-launcher"
-	defaultPipelineRoot          = "s3://mlpipeline/v2/artifacts"
+	defaultPipelineRoot          = "minio://mlpipeline/v2/artifacts"
 	configKeyDefaultPipelineRoot = "defaultPipelineRoot"
 	configBucketProviders        = "providers"
 	minioArtifactSecretName      = "mlpipeline-minio-artifact"
@@ -168,7 +169,7 @@ func getDefaultMinioSessionInfo() (objectstore.SessionInfo, error) {
 		Provider: "minio",
 		Params: map[string]string{
 			"region":     "minio",
-			"endpoint":   objectstore.DefaultMinioEndpointInMultiUserMode,
+			"endpoint":   getDefaultMinioHost(),
 			"disableSSL": strconv.FormatBool(true),
 			"fromEnv":    strconv.FormatBool(false),
 			"secretName": minioArtifactSecretName,
@@ -178,4 +179,20 @@ func getDefaultMinioSessionInfo() (objectstore.SessionInfo, error) {
 		},
 	}
 	return sess, nil
+}
+
+func getDefaultMinioHost() string {
+	endpoint := objectstore.DefaultMinioEndpointInMultiUserMode
+	var host, port string
+	if os.Getenv("OBJECT_STORE_HOST") != "" {
+		host = os.Getenv("OBJECT_STORE_HOST")
+	}
+	if os.Getenv("OBJECT_STORE_PORT") != "" {
+		port = os.Getenv("OBJECT_STORE_PORT")
+	}
+	if host != "" && port != "" {
+		return fmt.Sprintf("%s:%s", host, port)
+	} else {
+		return endpoint
+	}
 }

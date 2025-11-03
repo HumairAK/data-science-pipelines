@@ -73,7 +73,7 @@ func (b *BatchUpdater) QueueTaskUpdate(task *apiV2beta1.PipelineTaskDetail) {
 	// Check if we already have an update for this task
 	if existingTask, exists := b.taskUpdates[task.TaskId]; exists {
 		b.dedupedTaskUpdates++
-		glog.V(2).Infof("Merging task update for task %s", task.TaskId)
+		glog.V(4).Infof("Merging task update for task %s", task.TaskId)
 
 		// Merge the updates:
 		// 1. Accumulate output parameters (append new ones)
@@ -155,7 +155,7 @@ func (b *BatchUpdater) QueueArtifact(request *apiV2beta1.CreateArtifactRequest) 
 // 3. Create artifact-tasks (these depend on artifacts existing)
 func (b *BatchUpdater) Flush(ctx context.Context, client kfpapi.API) error {
 	if len(b.taskUpdates) == 0 && len(b.artifactTasks) == 0 && len(b.artifacts) == 0 {
-		glog.V(2).Info("BatchUpdater: No updates to flush")
+		glog.V(4).Info("BatchUpdater: No updates to flush")
 		return nil
 	}
 
@@ -164,17 +164,17 @@ func (b *BatchUpdater) Flush(ctx context.Context, client kfpapi.API) error {
 
 	// Print details about what we're flushing
 	for taskID, task := range b.taskUpdates {
-		glog.V(1).Infof("  Task update: %s, status=%v, outputs: %d params, %d artifacts",
+		glog.V(4).Infof("  Task update: %s, status=%v, outputs: %d params, %d artifacts",
 			taskID, task.State,
 			len(task.GetOutputs().GetParameters()),
 			len(task.GetOutputs().GetArtifacts()))
 	}
 	for i, artifact := range b.artifacts {
-		glog.V(1).Infof("  Artifact #%d: name=%s, taskID=%s, key=%s",
+		glog.V(4).Infof("  Artifact #%d: name=%s, taskID=%s, key=%s",
 			i, artifact.request.Artifact.Name, artifact.request.TaskId, artifact.request.ProducerKey)
 	}
 	for i, at := range b.artifactTasks {
-		glog.V(1).Infof("  ArtifactTask #%d: artifactID=%s, taskID=%s, key=%s, type=%v",
+		glog.V(4).Infof("  ArtifactTask #%d: artifactID=%s, taskID=%s, key=%s, type=%v",
 			i, at.ArtifactId, at.TaskId, at.Key, at.Type)
 	}
 

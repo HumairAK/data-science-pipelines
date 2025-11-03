@@ -693,6 +693,7 @@ func (l *LauncherV2) uploadOutputArtifacts(
 					Type:        artifactType,
 					Metadata:    outputArtifact.GetMetadata().GetFields(),
 					CreatedAt:   timestamppb.Now(),
+					Namespace:   l.options.Namespace,
 				}
 
 				// In the Classification metric case, the metric data is stored in metadata and
