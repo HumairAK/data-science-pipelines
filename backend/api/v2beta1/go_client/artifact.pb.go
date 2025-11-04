@@ -77,9 +77,9 @@ const (
 	// When an output is produced by a Runtime Iteration Task
 	// This value is use to differentiate between standard inputs
 	IOType_ITERATOR_OUTPUT          IOType = 8
-	IOType_OUTPUT                   IOType = 10
-	IOType_ONE_OF_OUTPUT            IOType = 11
-	IOType_TASK_FINAL_STATUS_OUTPUT IOType = 12
+	IOType_OUTPUT                   IOType = 9
+	IOType_ONE_OF_OUTPUT            IOType = 10
+	IOType_TASK_FINAL_STATUS_OUTPUT IOType = 11
 )
 
 // Enum value maps for IOType.
@@ -94,9 +94,9 @@ var (
 		6:  "ITERATOR_INPUT",
 		7:  "ITERATOR_INPUT_RAW",
 		8:  "ITERATOR_OUTPUT",
-		10: "OUTPUT",
-		11: "ONE_OF_OUTPUT",
-		12: "TASK_FINAL_STATUS_OUTPUT",
+		9:  "OUTPUT",
+		10: "ONE_OF_OUTPUT",
+		11: "TASK_FINAL_STATUS_OUTPUT",
 	}
 	IOType_value = map[string]int32{
 		"UNSPECIFIED":              0,
@@ -108,9 +108,9 @@ var (
 		"ITERATOR_INPUT":           6,
 		"ITERATOR_INPUT_RAW":       7,
 		"ITERATOR_OUTPUT":          8,
-		"OUTPUT":                   10,
-		"ONE_OF_OUTPUT":            11,
-		"TASK_FINAL_STATUS_OUTPUT": 12,
+		"OUTPUT":                   9,
+		"ONE_OF_OUTPUT":            10,
+		"TASK_FINAL_STATUS_OUTPUT": 11,
 	}
 )
 
@@ -1272,10 +1272,10 @@ const file_backend_api_v2beta1_artifact_proto_rawDesc = "" +
 	"\x12ITERATOR_INPUT_RAW\x10\a\x12\x13\n" +
 	"\x0fITERATOR_OUTPUT\x10\b\x12\n" +
 	"\n" +
-	"\x06OUTPUT\x10\n" +
-	"\x12\x11\n" +
-	"\rONE_OF_OUTPUT\x10\v\x12\x1c\n" +
-	"\x18TASK_FINAL_STATUS_OUTPUT\x10\f2\xf5\x0e\n" +
+	"\x06OUTPUT\x10\t\x12\x11\n" +
+	"\rONE_OF_OUTPUT\x10\n" +
+	"\x12\x1c\n" +
+	"\x18TASK_FINAL_STATUS_OUTPUT\x10\v2\xf5\x0e\n" +
 	"\x0fArtifactService\x12\x84\x02\n" +
 	"\rListArtifacts\x12;.kubeflow.pipelines.backend.api.v2beta1.ListArtifactRequest\x1a<.kubeflow.pipelines.backend.api.v2beta1.ListArtifactResponse\"x\x92AV\n" +
 	"\x0fArtifactService\x123Finds all artifacts within the specified namespace.*\x0elist_artifacts\x82\xd3\xe4\x93\x02\x19\x12\x17/apis/v2beta1/artifacts\x12\xee\x01\n" +

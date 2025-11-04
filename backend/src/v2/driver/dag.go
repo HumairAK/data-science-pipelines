@@ -94,10 +94,11 @@ func DAG(ctx context.Context, opts common.Options, clientManager client_manager.
 	// to assist with inferring type. For now, we infer the type based on attribute
 	// heuristics.
 	if iterationCount != nil {
-		iterationCount := int64(*iterationCount)
-		taskToCreate.TypeAttributes = &gc.PipelineTaskDetail_TypeAttributes{IterationCount: &iterationCount}
+		count := int64(*iterationCount)
+		taskToCreate.TypeAttributes = &gc.PipelineTaskDetail_TypeAttributes{IterationCount: &count}
 		taskToCreate.Type = gc.PipelineTaskDetail_LOOP
 		taskToCreate.DisplayName = "Loop"
+		execution.IterationCount = util.IntPointer(int(count))
 	} else if condition != "" {
 		taskToCreate.Type = gc.PipelineTaskDetail_CONDITION_BRANCH
 		taskToCreate.DisplayName = "Condition Branch"

@@ -2335,6 +2335,10 @@ func toModelArtifactTask(apiAT *apiv2beta1.ArtifactTask) (*model.ArtifactTask, e
 		return nil, util.NewInvalidInputError("ArtifactTask cannot be nil")
 	}
 
+	if apiAT.GetType() == apiv2beta1.IOType_UNSPECIFIED {
+		return nil, util.NewInvalidInputError("ArtifactTask's task id cannot be unspecified")
+	}
+
 	modelAT := &model.ArtifactTask{
 		UUID:        apiAT.GetId(),
 		RunUUID:     apiAT.GetRunId(),
@@ -2582,6 +2586,7 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 			ioArtifact := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOArtifact{
 				Artifacts:   []*apiv2beta1.Artifact{apiArt},
 				ArtifactKey: h.Key,
+				Type:        h.Type,
 			}
 			if h.Producer != nil {
 				ioArtifact.Producer = &apiv2beta1.IOProducer{

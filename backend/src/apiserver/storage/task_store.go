@@ -298,6 +298,7 @@ func hydrateArtifactsForTasks(db *DB, tasks []*model.Task) error {
 			Value:    mArtifact,
 			Producer: producerProto,
 			Key:      key,
+			Type:     apiv2beta1.IOType(linkType.Int32),
 		}
 
 		isOutput, err := iOTypeIsOutput(apiv2beta1.IOType(linkType.Int32))
@@ -321,6 +322,7 @@ func iOTypeIsOutput(ioType apiv2beta1.IOType) (bool, error) {
 		apiv2beta1.IOType_TASK_FINAL_STATUS_OUTPUT:
 		return true, nil
 	case apiv2beta1.IOType_COMPONENT_INPUT,
+		apiv2beta1.IOType_COLLECTED_INPUTS,
 		apiv2beta1.IOType_TASK_OUTPUT_INPUT,
 		apiv2beta1.IOType_RUNTIME_VALUE_INPUT,
 		apiv2beta1.IOType_ITERATOR_INPUT,

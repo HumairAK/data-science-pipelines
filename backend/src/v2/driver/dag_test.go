@@ -258,7 +258,9 @@ func TestParameterInputIterator(t *testing.T) {
 	loopExecution, loopTask := tc.RunDagDriver("for-loop-1", parentTask)
 	parentTask = loopTask
 	require.NotNil(t, loopExecution)
-
+	require.NotNil(t, loopExecution.IterationCount)
+	require.Equal(t, 3, *loopExecution.IterationCount)
+	
 	for index, _ := range []string{"1", "2", "3"} {
 		index64 := util.Int64Pointer(int64(index))
 		createFileExecution, _ := tc.RunContainerDriver("create-file", parentTask, index64, false)

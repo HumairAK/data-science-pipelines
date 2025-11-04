@@ -109,6 +109,7 @@ type TaskArtifactHydrated struct {
 	Value    *Artifact
 	Producer *IOProducer
 	Key      string
+	Type     apiv2beta1.IOType
 }
 type IOProducer struct {
 	TaskName  string

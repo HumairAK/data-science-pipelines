@@ -294,9 +294,9 @@ enum IOType {
   // When an output is produced by a Runtime Iteration Task
   // This value is use to differentiate between standard inputs
   ITERATOR_OUTPUT = 8;
-  OUTPUT = 10;
-  ONE_OF_OUTPUT = 11;
-  TASK_FINAL_STATUS_OUTPUT = 12;
+  OUTPUT = 9;
+  ONE_OF_OUTPUT = 10;
+  TASK_FINAL_STATUS_OUTPUT = 11;
 }
 
 message IOProducer {
