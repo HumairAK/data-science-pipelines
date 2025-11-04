@@ -375,6 +375,11 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 
 	l.options.Task.State = apiV2beta1.PipelineTaskDetail_SUCCEEDED
 	l.options.Task.EndTime = timestamppb.New(time.Now())
+	l.options.Task.Pods = append(l.options.Task.Pods, &apiV2beta1.PipelineTaskDetail_TaskPod{
+		Name: l.options.PodName,
+		Uid:  l.options.PodUID,
+		Type: apiV2beta1.PipelineTaskDetail_EXECUTOR,
+	})
 
 	// Queue the final task status update
 	l.batchUpdater.QueueTaskUpdate(l.options.Task)
@@ -909,8 +914,9 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 					TaskName: childTaskName,
 				}
 
-				// Include iteration index for ITERATOR_OUTPUT type
-				if ioType == apiV2beta1.IOType_ITERATOR_OUTPUT && artifactIO.Producer.Iteration != nil {
+				// Only a Runtime Task in an iteration can have an Output and an Iteration Index
+				// for its output.
+				if ioType == apiV2beta1.IOType_OUTPUT && artifactIO.Producer.Iteration != nil {
 					producer.Iteration = artifactIO.Producer.Iteration
 				}
 
@@ -977,8 +983,8 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 				TaskName: childTaskName,
 			}
 
-			// Include iteration index for ITERATOR_OUTPUT type
-			if ioType == apiV2beta1.IOType_ITERATOR_OUTPUT && paramIO.Producer.Iteration != nil {
+			// Include iteration index for IOType_OUTPUT type
+			if ioType == apiV2beta1.IOType_OUTPUT && paramIO.Producer.Iteration != nil {
 				paramProducer.Iteration = paramIO.Producer.Iteration
 			}
 

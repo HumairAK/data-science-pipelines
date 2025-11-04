@@ -733,10 +733,11 @@
     "PipelineTaskDetailTaskPodType": {
       "type": "string",
       "enum": [
+        "UNSPECIFIED",
         "DRIVER",
         "EXECUTOR"
       ],
-      "default": "DRIVER",
+      "default": "UNSPECIFIED",
       "description": "Name of the corresponding pod assigned by the orchestration engine.\nAlso known as node_id."
     },
     "PipelineTaskDetailTaskState": {

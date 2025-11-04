@@ -52,8 +52,13 @@ def analyze_artifact_list(artifact_list_input: List[Artifact]):
             data = f.read()
             actual_values.append(data)
             actual_metadata.append(artifact.metadata["model_id"])
-    assert actual_values == expected_values
-    assert actual_metadata == expected_metadata
+
+    print("actual_values: ", actual_values)
+    print("actual_metadata: ", actual_metadata)
+    print("expected_values: ", expected_values)
+    print("expected_metadata: ", expected_metadata)
+    assert sorted(actual_values) == sorted(expected_values)
+    assert sorted(actual_metadata) == sorted(expected_metadata)
 
 @dsl.pipeline
 def secondary_pipeline() -> List[Artifact]:

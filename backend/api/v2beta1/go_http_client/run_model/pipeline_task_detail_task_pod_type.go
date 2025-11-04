@@ -31,6 +31,9 @@ func (m PipelineTaskDetailTaskPodType) Pointer() *PipelineTaskDetailTaskPodType 
 
 const (
 
+	// PipelineTaskDetailTaskPodTypeUNSPECIFIED captures enum value "UNSPECIFIED"
+	PipelineTaskDetailTaskPodTypeUNSPECIFIED PipelineTaskDetailTaskPodType = "UNSPECIFIED"
+
 	// PipelineTaskDetailTaskPodTypeDRIVER captures enum value "DRIVER"
 	PipelineTaskDetailTaskPodTypeDRIVER PipelineTaskDetailTaskPodType = "DRIVER"
 
@@ -43,7 +46,7 @@ var pipelineTaskDetailTaskPodTypeEnum []interface{}
 
 func init() {
 	var res []PipelineTaskDetailTaskPodType
-	if err := json.Unmarshal([]byte(`["DRIVER","EXECUTOR"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["UNSPECIFIED","DRIVER","EXECUTOR"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {

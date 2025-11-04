@@ -93,7 +93,10 @@ func (m *MockAPI) hydrateTask(task *apiv2beta1.PipelineTaskDetail) *apiv2beta1.P
 				case apiv2beta1.IOType_COMPONENT_INPUT,
 					apiv2beta1.IOType_ITERATOR_INPUT,
 					apiv2beta1.IOType_RUNTIME_VALUE_INPUT,
-					apiv2beta1.IOType_TASK_OUTPUT_INPUT:
+					apiv2beta1.IOType_COMPONENT_DEFAULT_INPUT,
+					apiv2beta1.IOType_TASK_OUTPUT_INPUT,
+					apiv2beta1.IOType_COLLECTED_INPUTS,
+					apiv2beta1.IOType_ITERATOR_INPUT_RAW:
 					inputArtifacts = append(inputArtifacts, ioArtifact)
 				case apiv2beta1.IOType_OUTPUT,
 					apiv2beta1.IOType_ITERATOR_OUTPUT,

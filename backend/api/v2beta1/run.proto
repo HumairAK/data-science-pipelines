@@ -355,8 +355,9 @@ message PipelineTaskDetail {
   // Name of the corresponding pod assigned by the orchestration engine.
   // Also known as node_id.
   enum TaskPodType {
-    DRIVER = 0;
-    EXECUTOR = 1;
+    UNSPECIFIED = 0;
+    DRIVER = 1;
+    EXECUTOR = 2;
   }
   message TaskPod {
     string name = 1;

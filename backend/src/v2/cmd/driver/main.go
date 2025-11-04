@@ -184,8 +184,8 @@ func drive() (err error) {
 		return fmt.Errorf("NAMESPACE environment variable must be set")
 	}
 
-	podName := os.Getenv("KFP_POD_UID")
-	podUID := os.Getenv("KFP_POD_NAME")
+	podName := os.Getenv("KFP_POD_NAME")
+	podUID := os.Getenv("KFP_POD_UID")
 	if podUID == "" || podName == "" {
 		return fmt.Errorf("KFP_POD_UID and KFP_POD_NAME environment variables must be set")
 	}

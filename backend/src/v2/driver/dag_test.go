@@ -178,13 +178,15 @@ func TestLoopArtifactPassing(t *testing.T) {
 	parentTask = secondaryPipelineTask
 	tc.ExitDag()
 
-	analyzeArtifactListExecution, _ := tc.RunContainerDriver("analyze-artifact-list", parentTask, nil, false)
+	analyzeArtifactListExecution, analyzeArtifactListTask := tc.RunContainerDriver("analyze-artifact-list", parentTask, nil, false)
 	require.NotNil(t, analyzeArtifactListExecution.ExecutorInput.Outputs)
 	require.NotNil(t, analyzeArtifactListExecution.ExecutorInput.Inputs.Artifacts["artifact_list_input"])
 	require.Equal(t, 3, len(analyzeArtifactListExecution.ExecutorInput.Inputs.Artifacts["artifact_list_input"].GetArtifacts()))
 
-	_ = tc.RunLauncher(analyzeArtifactListExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
-
+	artifactListLauncher := tc.RunLauncher(analyzeArtifactListExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
+	require.NotNil(t, artifactListLauncher.Task)
+	analyzeArtifactListTask, err = tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: analyzeArtifactListTask.TaskId})
+	require.NoError(t, err)
 	// Primary Pipeline tests
 
 	// Expect the 3 artifacts from process-task to have been collected by the secondary-pipeline task
@@ -254,13 +256,12 @@ func TestParameterInputIterator(t *testing.T) {
 		"/tmp/kfp_outputs/output_metadata.json": []byte("{}"),
 		outputParamPath:                         []byte(`["1", "2", "3"]`),
 	}, true)
-
 	loopExecution, loopTask := tc.RunDagDriver("for-loop-1", parentTask)
 	parentTask = loopTask
 	require.NotNil(t, loopExecution)
 	require.NotNil(t, loopExecution.IterationCount)
 	require.Equal(t, 3, *loopExecution.IterationCount)
-	
+
 	for index, _ := range []string{"1", "2", "3"} {
 		index64 := util.Int64Pointer(int64(index))
 		createFileExecution, _ := tc.RunContainerDriver("create-file", parentTask, index64, false)

@@ -177,19 +177,22 @@ func (Run_StorageState) EnumDescriptor() ([]byte, []int) {
 type PipelineTaskDetail_TaskPodType int32
 
 const (
-	PipelineTaskDetail_DRIVER   PipelineTaskDetail_TaskPodType = 0
-	PipelineTaskDetail_EXECUTOR PipelineTaskDetail_TaskPodType = 1
+	PipelineTaskDetail_UNSPECIFIED PipelineTaskDetail_TaskPodType = 0
+	PipelineTaskDetail_DRIVER      PipelineTaskDetail_TaskPodType = 1
+	PipelineTaskDetail_EXECUTOR    PipelineTaskDetail_TaskPodType = 2
 )
 
 // Enum value maps for PipelineTaskDetail_TaskPodType.
 var (
 	PipelineTaskDetail_TaskPodType_name = map[int32]string{
-		0: "DRIVER",
-		1: "EXECUTOR",
+		0: "UNSPECIFIED",
+		1: "DRIVER",
+		2: "EXECUTOR",
 	}
 	PipelineTaskDetail_TaskPodType_value = map[string]int32{
-		"DRIVER":   0,
-		"EXECUTOR": 1,
+		"UNSPECIFIED": 0,
+		"DRIVER":      1,
+		"EXECUTOR":    2,
 	}
 )
 
@@ -2302,7 +2305,7 @@ func (x *PipelineTaskDetail_TaskPod) GetType() PipelineTaskDetail_TaskPodType {
 	if x != nil {
 		return x.Type
 	}
-	return PipelineTaskDetail_DRIVER
+	return PipelineTaskDetail_UNSPECIFIED
 }
 
 // Custom status metadata, this can be used to provide
@@ -2774,7 +2777,7 @@ const file_backend_api_v2beta1_run_proto_rawDesc = "" +
 	"RunDetails\x12.\n" +
 	"\x13pipeline_context_id\x18\x01 \x01(\x03R\x11pipelineContextId\x125\n" +
 	"\x17pipeline_run_context_id\x18\x02 \x01(\x03R\x14pipelineRunContextId\x12]\n" +
-	"\ftask_details\x18\x03 \x03(\v2:.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetailR\vtaskDetails\"\xdc\x19\n" +
+	"\ftask_details\x18\x03 \x03(\v2:.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetailR\vtaskDetails\"\xed\x19\n" +
 	"\x12PipelineTaskDetail\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x17\n" +
@@ -2841,11 +2844,12 @@ const file_backend_api_v2beta1_run_proto_rawDesc = "" +
 	"\tartifacts\x18\x01 \x03(\v20.kubeflow.pipelines.backend.api.v2beta1.ArtifactR\tartifacts\x12B\n" +
 	"\x04type\x18\x02 \x01(\x0e2..kubeflow.pipelines.backend.api.v2beta1.IOTypeR\x04type\x12!\n" +
 	"\fartifact_key\x18\x03 \x01(\tR\vartifactKey\x12N\n" +
-	"\bproducer\x18\x04 \x01(\v22.kubeflow.pipelines.backend.api.v2beta1.IOProducerR\bproducer\"'\n" +
-	"\vTaskPodType\x12\n" +
+	"\bproducer\x18\x04 \x01(\v22.kubeflow.pipelines.backend.api.v2beta1.IOProducerR\bproducer\"8\n" +
+	"\vTaskPodType\x12\x0f\n" +
+	"\vUNSPECIFIED\x10\x00\x12\n" +
 	"\n" +
-	"\x06DRIVER\x10\x00\x12\f\n" +
-	"\bEXECUTOR\x10\x01\"k\n" +
+	"\x06DRIVER\x10\x01\x12\f\n" +
+	"\bEXECUTOR\x10\x02\"k\n" +
 	"\tTaskState\x12\x1d\n" +
 	"\x19RUNTIME_STATE_UNSPECIFIED\x10\x00\x12\v\n" +
 	"\aRUNNING\x10\x01\x12\r\n" +
