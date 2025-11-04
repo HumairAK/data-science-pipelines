@@ -86,10 +86,6 @@ func (o Options) Info() string {
 
 const pipelineChannelPrefix = "pipelinechannel--"
 
-func IsPipelineChannel(name string) bool {
-	return strings.HasPrefix(name, "pipelinechannel--")
-}
-
 func IsLoopArgument(name string) bool {
 	// Remove prefix
 	nameWithoutPrefix := strings.TrimPrefix(name, pipelineChannelPrefix)
@@ -98,46 +94,6 @@ func IsLoopArgument(name string) bool {
 
 func IsRuntimeIterationTask(task *apiv2beta1.PipelineTaskDetail) bool {
 	return task.Type == apiv2beta1.PipelineTaskDetail_RUNTIME && task.TypeAttributes != nil && task.TypeAttributes.IterationIndex != nil
-}
-
-func ConvertArtifactsToArtifactList(artifacts []*apiv2beta1.Artifact) (*pipelinespec.ArtifactList, error) {
-	var runtimeArtifacts []*pipelinespec.RuntimeArtifact
-	for _, artifact := range artifacts {
-		runtimeArtifact, err := ConvertArtifactToRuntimeArtifact(artifact)
-		if err != nil {
-			return nil, err
-		}
-		runtimeArtifacts = append(runtimeArtifacts, runtimeArtifact)
-	}
-	return &pipelinespec.ArtifactList{
-		Artifacts: runtimeArtifacts,
-	}, nil
-}
-
-func ConvertArtifactToRuntimeArtifact(
-	artifact *apiv2beta1.Artifact,
-) (*pipelinespec.RuntimeArtifact, error) {
-	if artifact.GetName() == "" && artifact.GetUri() == "" {
-		return nil, fmt.Errorf("artifact name or uri cannot be empty")
-	}
-	runtimeArtifact := &pipelinespec.RuntimeArtifact{
-		Name:       artifact.GetName(),
-		ArtifactId: artifact.GetArtifactId(),
-		Type: &pipelinespec.ArtifactTypeSchema{
-			Kind: &pipelinespec.ArtifactTypeSchema_SchemaTitle{
-				SchemaTitle: artifact.Type.String(),
-			},
-		},
-	}
-	if artifact.GetUri() != "" {
-		runtimeArtifact.Uri = artifact.GetUri()
-	}
-	if artifact.GetMetadata() != nil {
-		runtimeArtifact.Metadata = &structpb.Struct{
-			Fields: artifact.GetMetadata(),
-		}
-	}
-	return runtimeArtifact, nil
 }
 
 // inputPipelineChannelPattern define a regex pattern to match the content within single quotes

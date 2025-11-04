@@ -131,8 +131,7 @@ root:
   dag:
     tasks:
       importer:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-importer
         inputs:
@@ -143,8 +142,7 @@ root:
         taskInfo:
           name: importer
       importer-2:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-importer-2
         inputs:
@@ -154,8 +152,7 @@ root:
         taskInfo:
           name: importer-2
       train:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-train
         dependentTasks:
@@ -169,8 +166,7 @@ root:
         taskInfo:
           name: train
       train-2:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-train-2
         dependentTasks:

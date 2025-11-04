@@ -360,10 +360,25 @@ func pipelineTaskInputsToExecutorInputs(inputMetadata *resolver.InputMetadata) (
 		if p.ParameterIO.GetValue() == nil {
 			return nil, fmt.Errorf("parameter %s has no value", p.Key)
 		}
-		parameters[p.Key] = p.ParameterIO.GetValue()
+		if p.ParameterIO.GetType() == apiV2beta1.IOType_ITERATOR_INPUT {
+			// first check if p.Key is already present in parameters
+			if _, ok := parameters[p.Key]; ok {
+				// if present, then append to the existing value
+				err := addValueToStructPBList(parameters[p.Key], p.ParameterIO.GetValue())
+				if err != nil {
+					return nil, fmt.Errorf("failed to append value to existing parameter %s: %w", p.Key, err)
+				}
+			} else {
+				parameters[p.Key] = resolver.ToListValue([]*structpb.Value{
+					p.ParameterIO.GetValue(),
+				})
+			}
+		} else {
+			parameters[p.Key] = p.ParameterIO.GetValue()
+		}
 	}
 	for _, a := range inputMetadata.Artifacts {
-		artifactsList, err := common.ConvertArtifactsToArtifactList(a.ArtifactIO.GetArtifacts())
+		artifactsList, err := convertArtifactsToArtifactList(a.ArtifactIO.GetArtifacts())
 		if err != nil {
 			return nil, err
 		}
@@ -376,4 +391,54 @@ func pipelineTaskInputsToExecutorInputs(inputMetadata *resolver.InputMetadata) (
 		},
 	}
 	return executorInput, nil
+}
+
+func convertArtifactsToArtifactList(artifacts []*apiV2beta1.Artifact) (*pipelinespec.ArtifactList, error) {
+	var runtimeArtifacts []*pipelinespec.RuntimeArtifact
+	for _, artifact := range artifacts {
+		runtimeArtifact, err := convertArtifactToRuntimeArtifact(artifact)
+		if err != nil {
+			return nil, err
+		}
+		runtimeArtifacts = append(runtimeArtifacts, runtimeArtifact)
+	}
+	return &pipelinespec.ArtifactList{
+		Artifacts: runtimeArtifacts,
+	}, nil
+}
+
+func convertArtifactToRuntimeArtifact(
+	artifact *apiV2beta1.Artifact,
+) (*pipelinespec.RuntimeArtifact, error) {
+	if artifact.GetName() == "" && artifact.GetUri() == "" {
+		return nil, fmt.Errorf("artifact name or uri cannot be empty")
+	}
+	runtimeArtifact := &pipelinespec.RuntimeArtifact{
+		Name:       artifact.GetName(),
+		ArtifactId: artifact.GetArtifactId(),
+		Type: &pipelinespec.ArtifactTypeSchema{
+			Kind: &pipelinespec.ArtifactTypeSchema_SchemaTitle{
+				SchemaTitle: artifact.Type.String(),
+			},
+		},
+	}
+	if artifact.GetUri() != "" {
+		runtimeArtifact.Uri = artifact.GetUri()
+	}
+	if artifact.GetMetadata() != nil {
+		runtimeArtifact.Metadata = &structpb.Struct{
+			Fields: artifact.GetMetadata(),
+		}
+	}
+	return runtimeArtifact, nil
+}
+
+func addValueToStructPBList(list *structpb.Value, value *structpb.Value) error {
+	switch v := list.GetKind().(type) {
+	case *structpb.Value_ListValue:
+		v.ListValue.Values = append(v.ListValue.Values, value)
+		return nil
+	default:
+		return fmt.Errorf("value of type %T cannot be appended to", v)
+	}
 }

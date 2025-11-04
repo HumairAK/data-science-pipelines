@@ -70,16 +70,8 @@ func DAG(ctx context.Context, opts common.Options, clientManager client_manager.
 		execution.Condition = &willTrigger
 	}
 
-	taskName := opts.TaskName
-	if taskName == "" {
-		taskName = opts.Task.GetTaskInfo().GetName()
-	}
-	if opts.TaskName == "" {
-		return execution, fmt.Errorf("task name flag is required for DAG")
-	}
-
 	taskToCreate := &gc.PipelineTaskDetail{
-		Name:        taskName,
+		Name:        opts.TaskName,
 		DisplayName: opts.Task.GetTaskInfo().GetName(),
 		RunId:       opts.Run.GetRunId(),
 		// Default to DAG
@@ -109,7 +101,7 @@ func DAG(ctx context.Context, opts common.Options, clientManager client_manager.
 	} else if condition != "" {
 		taskToCreate.Type = gc.PipelineTaskDetail_CONDITION_BRANCH
 		taskToCreate.DisplayName = "Condition Branch"
-	} else if strings.HasPrefix(taskName, "condition") && !strings.HasPrefix(taskName, "condition-branch") {
+	} else if strings.HasPrefix(opts.TaskName, "condition") && !strings.HasPrefix(opts.TaskName, "condition-branch") {
 		taskToCreate.Type = gc.PipelineTaskDetail_CONDITION
 		taskToCreate.DisplayName = "Condition"
 	} else {

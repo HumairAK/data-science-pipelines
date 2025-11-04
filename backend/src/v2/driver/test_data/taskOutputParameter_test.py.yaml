@@ -57,7 +57,7 @@ deploymentSpec:
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef analyze_artifact(data_input: int, output_opinion: OutputPath(bool)):\n\
           \    assert data_input == 100\n    with open(output_opinion, \"w\") as f:\n\
-          \        f.write(True)\n\n"
+          \        f.write(str(True))\n\n"
         image: python:3.9
     exec-create-dataset:
       container:

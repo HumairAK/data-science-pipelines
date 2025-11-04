@@ -29,7 +29,7 @@ def process_dataset(input_dataset: str, output_int: OutputPath(int)):
 def analyze_artifact(data_input: int, output_opinion: OutputPath(bool)):
     assert data_input == 100
     with open(output_opinion, "w") as f:
-        f.write(True)
+        f.write(str(True))
 
 @dsl.pipeline
 def primary_pipeline():

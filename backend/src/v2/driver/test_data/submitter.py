@@ -28,8 +28,8 @@ def submit_pipeline(pipeline_path: str, run_name: str, run_desc: str = ""):
 
 if __name__ == "__main__":
     # Example usage
-    PIPELINE_PATH = "taskOutputArtifact_test.py.yaml"
-    RUN_NAME = "TaskOutputArtifact-Test"
+    PIPELINE_PATH = "loop_collected_raw_Iterator.py.yaml"
+    RUN_NAME = "Run-Test"
     RUN_DESC = "Some Description"
 
     submit_pipeline(pipeline_path=PIPELINE_PATH, run_name=RUN_NAME, run_desc=RUN_DESC)

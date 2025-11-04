@@ -202,22 +202,19 @@ root:
   dag:
     tasks:
       digit-classification:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-digit-classification
         taskInfo:
           name: digit-classification
       html-visualization:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-html-visualization
         taskInfo:
           name: html-visualization
       iris-sgdclassifier:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-iris-sgdclassifier
         inputs:
@@ -228,15 +225,13 @@ root:
         taskInfo:
           name: iris-sgdclassifier
       markdown-visualization:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-markdown-visualization
         taskInfo:
           name: markdown-visualization
       wine-classification:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-wine-classification
         taskInfo:

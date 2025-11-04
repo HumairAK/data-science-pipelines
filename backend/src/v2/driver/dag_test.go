@@ -255,8 +255,9 @@ func TestParameterInputIterator(t *testing.T) {
 		outputParamPath:                         []byte(`["1", "2", "3"]`),
 	}, true)
 
-	_, loopTask := tc.RunDagDriver("for-loop-1", parentTask)
+	loopExecution, loopTask := tc.RunDagDriver("for-loop-1", parentTask)
 	parentTask = loopTask
+	require.NotNil(t, loopExecution)
 
 	for index, _ := range []string{"1", "2", "3"} {
 		index64 := util.Int64Pointer(int64(index))

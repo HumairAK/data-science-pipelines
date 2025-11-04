@@ -360,7 +360,7 @@ func getItems(value *structpb.Value) (items []*structpb.Value, err error) {
 }
 
 // Convert []*structpb.Value to a *structpb.Value_ListValue
-func toListValue(items []*structpb.Value) *structpb.Value {
+func ToListValue(items []*structpb.Value) *structpb.Value {
 	listValue := structpb.Value{}
 	listValue.Kind = &structpb.Value_ListValue{
 		ListValue: &structpb.ListValue{
@@ -466,7 +466,7 @@ func findParameterByProducerKeyInList(
 		}
 		ioType = apiv2beta1.IOType_COLLECTED_INPUTS
 		newParameterIO := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
-			Value:        toListValue(parameterValues),
+			Value:        ToListValue(parameterValues),
 			Type:         ioType,
 			ParameterKey: producerKey,
 			// This is unused by the caller

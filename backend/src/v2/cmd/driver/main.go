@@ -206,7 +206,22 @@ func drive() (err error) {
 		}
 	}
 
-	scopePath, err := buildScopePath(ctx, run, parentTask, *taskName, kfpAPI)
+	// Argo Compiler does not always pass task name, so we infer it from the task spec.
+	// In the future we should require the task name to be passed explicitly.
+	// This will allow us to remove the need for a taskspec and component spec to be
+	// passed into the driver (we can infer it from the scope path and taskname).
+	var resolvedTaskName string
+	if *driverType != ROOT_DAG {
+		if *taskName != "" {
+			resolvedTaskName = *taskName
+		} else if taskSpec != nil && taskSpec.GetTaskInfo() != nil && taskSpec.GetTaskInfo().GetName() != "" {
+			resolvedTaskName = taskSpec.GetTaskInfo().GetName()
+		} else {
+			return fmt.Errorf("task name for non Root dag could not be resolved")
+		}
+	}
+
+	scopePath, err := buildScopePath(ctx, run, parentTask, resolvedTaskName, kfpAPI)
 	if err != nil || scopePath == nil {
 		return fmt.Errorf("failed to build scope path: %w", err)
 	}
@@ -229,7 +244,7 @@ func drive() (err error) {
 		PublishLogs:      *publishLogs,
 		CacheDisabled:    *cacheDisabledFlag,
 		DriverType:       *driverType,
-		TaskName:         *taskName,
+		TaskName:         resolvedTaskName,
 		ParentTask:       parentTask,
 		PodName:          podName,
 		PodUID:           podUID,

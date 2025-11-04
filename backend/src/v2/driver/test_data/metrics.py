@@ -1,13 +1,7 @@
 import functools
-
-from kubernetes import client
-import kfp
 from kfp import dsl
 from kfp.dsl import (
-    Input,
     Output,
-    Artifact,
-    Dataset,
     component,
     Metrics,
     Markdown,
