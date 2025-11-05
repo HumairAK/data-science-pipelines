@@ -152,5 +152,8 @@ func (k *clientAdapter) FetchPipelineSpecFromRun(ctx context.Context, pipelineSp
 	} else {
 		return nil, fmt.Errorf("pipeline spec is not set")
 	}
+	if len(pipelineSpecStruct.GetFields()) > 1 {
+		return pipelineSpecStruct.GetFields()["pipeline_spec"].GetStructValue(), nil
+	}
 	return pipelineSpecStruct, nil
 }

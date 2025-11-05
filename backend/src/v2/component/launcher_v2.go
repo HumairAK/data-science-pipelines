@@ -921,7 +921,7 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 
 				// Only a Runtime Task in an iteration can have an Output and an Iteration Index
 				// for its output.
-				if ioType == apiV2beta1.IOType_OUTPUT && artifactIO.Producer.Iteration != nil {
+				if ioType == apiV2beta1.IOType_ITERATOR_OUTPUT && currentTask.TypeAttributes != nil && currentTask.TypeAttributes.IterationIndex != nil {
 					producer.Iteration = artifactIO.Producer.Iteration
 				}
 

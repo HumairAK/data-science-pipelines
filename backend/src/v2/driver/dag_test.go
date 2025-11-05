@@ -202,8 +202,8 @@ func TestLoopArtifactPassing(t *testing.T) {
 		require.NotNil(t, artifactIO.Producer, "Secondary pipeline artifact %d should have a producer", i)
 		require.Equal(t, "for-loop-2", artifactIO.Producer.TaskName,
 			"Secondary pipeline artifact %d producer should be 'for-loop-2' (immediate child from secondary-pipeline's perspective)", i)
-		require.NotNil(t, artifactIO.Producer.Iteration,
-			"Secondary pipeline artifact %d should have iteration index preserved from process-dataset", i)
+		require.Nil(t, artifactIO.Producer.Iteration,
+			"Secondary pipeline artifact %d should not have iteration index preserved from process-dataset", i)
 	}
 
 	// Move up a parent
@@ -336,8 +336,8 @@ func TestParameterInputIterator(t *testing.T) {
 		require.NotNil(t, params.Producer, "Secondary pipeline parameter %d should have a producer", i)
 		require.Equal(t, "for-loop-1", params.Producer.TaskName,
 			"Secondary pipeline parameter %d producer should be 'for-loop-1' (immediate child from secondary-pipeline's perspective)", i)
-		require.NotNil(t, params.Producer.Iteration,
-			"Secondary pipeline parameter %d should have iteration index preserved from read-single-file", i)
+		require.Nil(t, params.Producer.Iteration,
+			"Secondary pipeline parameter %d shouldn't propogate read-single-file", i)
 	}
 	require.Equal(t, []string{"file-0", "file-1", "file-2"}, collectOutputs)
 }
