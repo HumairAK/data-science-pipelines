@@ -70,7 +70,7 @@ type TaskStoreInterface interface {
 	ListTasks(filterContext *model.FilterContext, opts *list.Options) ([]*model.Task, int, string, error)
 
 	// UpdateTask Updates an existing task entry in the database.
-	UpdateTask(new *model.Task, old *model.Task) (*model.Task, error)
+	UpdateTask(new *model.Task) (*model.Task, error)
 
 	// GetChildTasks Fetches all child tasks for a given task UUID.
 	GetChildTasks(taskId string) ([]*model.Task, error)
@@ -580,14 +580,66 @@ func (s *TaskStore) GetTask(id string) (*model.Task, error) {
 	return tasks[0], nil
 }
 
+// getTaskForUpdate retrieves a task with a row-level lock (SELECT ... FOR UPDATE).
+// This must be called within a transaction.
+// The lock ensures that no other transaction can modify this row until the current transaction completes.
+// For MySQL/PostgreSQL, this adds FOR UPDATE. For SQLite (tests), it's a no-op since SQLite doesn't support row locks.
+func (s *TaskStore) getTaskForUpdate(tx *sql.Tx, id string) (*model.Task, error) {
+	// Build SELECT query
+	sqlStr, args, err := sq.
+		Select(taskColumns...).
+		From("tasks").
+		Where(sq.Eq{"tasks.uuid": id}).
+		Limit(1).
+		ToSql()
+	if err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to create query to get task for update: %v", err.Error())
+	}
+
+	// Add FOR UPDATE clause using the dialect (MySQL adds it, SQLite doesn't)
+	sqlStr = s.db.SelectForUpdate(sqlStr)
+
+	// Execute query within the transaction
+	row := tx.QueryRow(sqlStr, args...)
+
+	task, err := scanTaskRow(row)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, util.NewResourceNotFoundError("task", fmt.Sprint(id))
+		}
+		return nil, util.NewInternalServerError(err, "Failed to get task for update: %v", err)
+	}
+
+	return task, nil
+}
+
 // UpdateTask updates an existing task in the tasks table and returns the updated task.
-func (s *TaskStore) UpdateTask(new *model.Task, old *model.Task) (*model.Task, error) {
+// Uses row-level locking to prevent race conditions when multiple concurrent updates
+// try to modify the same task (e.g., loop iterations propagating parameters to parent task).
+func (s *TaskStore) UpdateTask(new *model.Task) (*model.Task, error) {
 	if new == nil {
 		return nil, util.NewInvalidInputError("Failed to update task: task cannot be nil")
 	}
 	if new.UUID == "" {
 		return nil, util.NewInvalidInputError("Failed to update task: task ID cannot be empty")
 	}
+
+	// Start a transaction to ensure atomic read-merge-write with row locking
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to start transaction for task update")
+	}
+	defer tx.Rollback() // Will be no-op if Commit() succeeds
+
+	// Get the current task state with a row-level lock (SELECT ... FOR UPDATE)
+	// This prevents other concurrent updates from reading the same old state
+	lockedOld, err := s.getTaskForUpdate(tx, new.UUID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Use the locked version for merging instead of the 'old' parameter
+	// This ensures we merge against the most recent state
 
 	// Build SET map dynamically so we only update provided fields.
 	setMap := sq.Eq{}
@@ -658,18 +710,12 @@ func (s *TaskStore) UpdateTask(new *model.Task, old *model.Task) (*model.Task, e
 		}
 	}
 
-	// Merge input parameters to avoid race conditions where concurrent updates
-	// (e.g., from different loop iterations) might overwrite each other's parameters
+	// Merge input parameters using the locked old state
+	// This prevents race conditions where concurrent updates might overwrite each other's parameters
 	if new.InputParameters != nil {
-		//glog.Infof("Updating INPUT parameters")
-		//glog.Infof("New INPUT parameters")
-		//logJSONSlice(new.InputParameters)
-		var oldInputParams model.JSONSlice
-		if old != nil {
-			glog.Infof("Old input parameters")
-			//logJSONSlice(old.InputParameters)
-			oldInputParams = old.InputParameters
-		}
+		glog.V(2).Infof("Updating INPUT parameters for task %s", new.UUID)
+		// Use lockedOld (from SELECT FOR UPDATE) instead of 'old' parameter
+		oldInputParams := lockedOld.InputParameters
 		merged, err := mergeParameters(oldInputParams, new.InputParameters)
 		if err != nil {
 			return nil, util.NewInternalServerError(err, "Failed to merge input parameters in an updated task")
@@ -679,25 +725,21 @@ func (s *TaskStore) UpdateTask(new *model.Task, old *model.Task) (*model.Task, e
 		} else {
 			return nil, util.NewInternalServerError(err, "Failed to marshal input parameters in an updated task")
 		}
-		glog.Infof("Merged INPUT parameters")
-		//logJSONSlice(merged)
+		glog.V(2).Infof("Merged INPUT parameters for task %s", new.UUID)
 	}
 
-	// Merge output parameters to avoid race conditions where concurrent updates
-	// (e.g., from different loop iterations) might overwrite each other's parameters
+	// Merge output parameters using the locked old state
+	// This prevents race conditions where concurrent updates might overwrite each other's parameters
 	if new.OutputParameters != nil {
-		glog.Infof("Updating OUTPUT parameters")
-		glog.Infof("New OUTPUT parameters")
+		glog.Infof("Updating OUTPUT parameters for task %s", new.UUID)
+		glog.Infof("New OUTPUT parameters:")
 		logJSONSlice(new.OutputParameters)
 
-		var oldOutputParams model.JSONSlice
-		if old != nil {
-			glog.Infof("Old OUTPUT parameters")
-			logJSONSlice(old.OutputParameters)
-			oldOutputParams = old.OutputParameters
-		} else {
-			glog.Infof("No old OUTPUT parameters")
-		}
+		// Use lockedOld (from SELECT FOR UPDATE) instead of 'old' parameter
+		oldOutputParams := lockedOld.OutputParameters
+		glog.Infof("Locked old OUTPUT parameters:")
+		logJSONSlice(oldOutputParams)
+
 		merged, err := mergeParameters(oldOutputParams, new.OutputParameters)
 		if err != nil {
 			return nil, util.NewInternalServerError(err, "Failed to merge output parameters in an updated task")
@@ -707,7 +749,7 @@ func (s *TaskStore) UpdateTask(new *model.Task, old *model.Task) (*model.Task, e
 		} else {
 			return nil, util.NewInternalServerError(err, "Failed to marshal output parameters in an updated task")
 		}
-		glog.Infof("Merged OUTPUT parameters")
+		glog.Infof("Merged OUTPUT parameters for task %s:", new.UUID)
 		logJSONSlice(merged)
 	}
 	if new.TypeAttrs != nil {
@@ -719,10 +761,14 @@ func (s *TaskStore) UpdateTask(new *model.Task, old *model.Task) (*model.Task, e
 	}
 
 	if len(setMap) == 0 {
-		// Nothing to update; return current record
+		// Nothing to update; commit transaction and return current record
+		if err := tx.Commit(); err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to commit transaction (no changes)")
+		}
 		return s.GetTask(new.UUID)
 	}
 
+	// Build UPDATE query
 	sqlStr, args, err := sq.
 		Update(tableName).
 		SetMap(setMap).
@@ -732,14 +778,22 @@ func (s *TaskStore) UpdateTask(new *model.Task, old *model.Task) (*model.Task, e
 		return nil, util.NewInternalServerError(err, "Failed to create query to update task: %v", err.Error())
 	}
 
-	res, err := s.db.Exec(sqlStr, args...)
+	// Execute UPDATE within the transaction
+	// The row is already locked by our SELECT FOR UPDATE, so this is safe
+	res, err := tx.Exec(sqlStr, args...)
 	if err != nil {
 		return nil, util.NewInternalServerError(err, "Failed to update task: %v", err.Error())
 	}
 	if rows, _ := res.RowsAffected(); rows == 0 {
 		return nil, util.NewResourceNotFoundError("task", new.UUID)
 	}
-	glog.Infof("DONE UPDATE")
+
+	// Commit the transaction to release the row lock and make changes visible
+	if err := tx.Commit(); err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to commit transaction for task update")
+	}
+
+	glog.Infof("Successfully updated task %s with row-level locking", new.UUID)
 	return s.GetTask(new.UUID)
 }
 

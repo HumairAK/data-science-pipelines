@@ -283,7 +283,7 @@ func TestUpdateTask_Success(t *testing.T) {
 	updatedTask.Fingerprint = "fp-1"
 	updatedTask.Pods = createTaskPodsAsJSONSlice(pod1, pod2)
 	updatedTask.State = 2
-	updated, err := taskStore.UpdateTask(updatedTask, created)
+	updated, err := taskStore.UpdateTask(updatedTask)
 	assert.NoError(t, err)
 	assert.Equal(t, created.UUID, updated.UUID)
 	assert.Equal(t, "updatedName", updated.Name)
@@ -340,7 +340,7 @@ func TestUpdateTask_MergesParameters(t *testing.T) {
 		UUID:             created.UUID,
 		OutputParameters: iter0Params,
 	}
-	updated1, err := taskStore.UpdateTask(update1, created)
+	updated1, err := taskStore.UpdateTask(update1)
 	assert.NoError(t, err)
 
 	// Verify first update has both initial input param and iter0 output param
@@ -365,7 +365,7 @@ func TestUpdateTask_MergesParameters(t *testing.T) {
 		UUID:             created.UUID,
 		OutputParameters: iter1Params,
 	}
-	updated2, err := taskStore.UpdateTask(update2, updated1)
+	updated2, err := taskStore.UpdateTask(update2)
 	assert.NoError(t, err)
 
 	// Verify second update preserves both iter0 and iter1 output params

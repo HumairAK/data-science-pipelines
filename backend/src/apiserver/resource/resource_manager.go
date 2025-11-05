@@ -1627,13 +1627,8 @@ func (r *ResourceManager) ReportMetric(metric *model.RunMetricV1) error {
 
 // Updates a task entry.
 func (r *ResourceManager) UpdateTask(new *model.Task) (*model.Task, error) {
-	// Verify task exists
-	old, err := r.GetTask(new.UUID)
-	if err != nil {
-		return nil, util.Wrapf(err, "Failed to update task with id %v", new.UUID)
-	}
 	// Update task
-	return r.taskStore.UpdateTask(new, old)
+	return r.taskStore.UpdateTask(new)
 }
 
 // ReadArtifact parses run's workflow to find artifact file path and reads the content of the file
