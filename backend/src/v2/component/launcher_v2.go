@@ -989,7 +989,7 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 			}
 
 			// Include iteration index for IOType_OUTPUT type
-			if ioType == apiV2beta1.IOType_OUTPUT && currentTask.TypeAttributes != nil && currentTask.TypeAttributes.IterationIndex != nil {
+			if ioType == apiV2beta1.IOType_ITERATOR_OUTPUT && currentTask.TypeAttributes != nil && currentTask.TypeAttributes.IterationIndex != nil {
 				paramProducer.Iteration = paramIO.Producer.Iteration
 			}
 

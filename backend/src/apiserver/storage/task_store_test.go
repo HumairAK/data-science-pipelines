@@ -292,6 +292,103 @@ func TestUpdateTask_Success(t *testing.T) {
 	assert.Equal(t, model.TaskStatus(2), updated.State)
 }
 
+func TestUpdateTask_MergesParameters(t *testing.T) {
+	db, taskStore, _ := initializeTaskStore()
+	defer db.Close()
+
+	// Create a task with initial input parameters
+	val1, _ := structpb.NewValue("initial-input")
+	initialParam := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+		Value:        val1,
+		ParameterKey: "common-param",
+		Type:         apiv2beta1.IOType_COMPONENT_INPUT,
+	}
+	initialParams, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{initialParam})
+	assert.NoError(t, err)
+
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID1, nil)
+	created, err := taskStore.CreateTask(&model.Task{
+		Namespace:        "ns1",
+		PipelineName:     "pipeA",
+		RunUUID:          "run-1",
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
+		Fingerprint:      "fp-0",
+		State:            1,
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  initialParams,
+		OutputParameters: model.JSONSlice{},
+		Type:             0,
+		TypeAttrs:        map[string]interface{}{},
+	})
+	assert.NoError(t, err)
+
+	// Simulate first update from iteration 0
+	valIter0, _ := structpb.NewValue("output-from-iter-0")
+	iter0Param := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+		Value:        valIter0,
+		ParameterKey: "loop-output",
+		Type:         apiv2beta1.IOType_ITERATOR_OUTPUT,
+		Producer: &apiv2beta1.IOProducer{
+			TaskName:  "loop-task",
+			Iteration: int64PTR(0),
+		},
+	}
+	iter0Params, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{iter0Param})
+	assert.NoError(t, err)
+
+	update1 := &model.Task{
+		UUID:             created.UUID,
+		OutputParameters: iter0Params,
+	}
+	updated1, err := taskStore.UpdateTask(update1, created)
+	assert.NoError(t, err)
+
+	// Verify first update has both initial input param and iter0 output param
+	assert.Equal(t, 1, len(updated1.InputParameters))
+	assert.Equal(t, 1, len(updated1.OutputParameters))
+
+	// Simulate second update from iteration 1
+	valIter1, _ := structpb.NewValue("output-from-iter-1")
+	iter1Param := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+		Value:        valIter1,
+		ParameterKey: "loop-output",
+		Type:         apiv2beta1.IOType_ITERATOR_OUTPUT,
+		Producer: &apiv2beta1.IOProducer{
+			TaskName:  "loop-task",
+			Iteration: int64PTR(1),
+		},
+	}
+	iter1Params, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{iter1Param})
+	assert.NoError(t, err)
+
+	update2 := &model.Task{
+		UUID:             created.UUID,
+		OutputParameters: iter1Params,
+	}
+	updated2, err := taskStore.UpdateTask(update2, updated1)
+	assert.NoError(t, err)
+
+	// Verify second update preserves both iter0 and iter1 output params
+	assert.Equal(t, 1, len(updated2.InputParameters))
+	assert.Equal(t, 2, len(updated2.OutputParameters), "Should have both iteration 0 and 1 output parameters")
+
+	// Verify both iterations are present
+	typeFunc := func() *apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter {
+		return &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{}
+	}
+	outputProtos, err := model.JSONSliceToProtoSlice(updated2.OutputParameters, typeFunc)
+	assert.NoError(t, err)
+
+	iterations := make(map[int64]bool)
+	for _, p := range outputProtos {
+		if p.Producer != nil && p.Producer.Iteration != nil {
+			iterations[*p.Producer.Iteration] = true
+		}
+	}
+	assert.True(t, iterations[0], "Should have iteration 0 parameter")
+	assert.True(t, iterations[1], "Should have iteration 1 parameter")
+}
+
 func TestGetChildTasks_ReturnsChildren(t *testing.T) {
 	db, taskStore, _ := initializeTaskStore()
 	defer db.Close()
@@ -676,4 +773,258 @@ func TestHydrateArtifactsForTask_GetAndList(t *testing.T) {
 		assert.Equal(t, 1, len(found.InputArtifactsHydrated))
 		assert.Equal(t, 1, len(found.OutputArtifactsHydrated))
 	}
+}
+
+func int64PTR(i int64) *int64 { return &i }
+
+func TestMergeParameters_EmptySlices(t *testing.T) {
+	// Test merging nil slices - returns empty slice (semantically equivalent to nil)
+	result, err := mergeParameters(nil, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(result))
+
+	// Test merging empty slices
+	result, err = mergeParameters(model.JSONSlice{}, model.JSONSlice{})
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(result))
+
+	// Test merging nil with non-empty
+	val1, _ := structpb.NewValue("value1")
+	param1 := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+		Value:        val1,
+		ParameterKey: "param1",
+		Type:         apiv2beta1.IOType_COMPONENT_INPUT,
+	}
+	params1, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{param1})
+	assert.NoError(t, err)
+
+	result, err = mergeParameters(nil, params1)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(result))
+
+	result, err = mergeParameters(params1, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(result))
+}
+
+func TestMergeParameters_NoOverlap(t *testing.T) {
+	// Create two parameters with different keys
+	val1, _ := structpb.NewValue("value1")
+	param1 := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+		Value:        val1,
+		ParameterKey: "param1",
+		Type:         apiv2beta1.IOType_COMPONENT_INPUT,
+	}
+
+	val2, _ := structpb.NewValue("value2")
+	param2 := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+		Value:        val2,
+		ParameterKey: "param2",
+		Type:         apiv2beta1.IOType_OUTPUT,
+	}
+
+	oldParams, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{param1})
+	assert.NoError(t, err)
+	newParams, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{param2})
+	assert.NoError(t, err)
+
+	result, err := mergeParameters(oldParams, newParams)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(result))
+
+	// Convert back to verify both parameters are present
+	typeFunc := func() *apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter {
+		return &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{}
+	}
+	resultProtos, err := model.JSONSliceToProtoSlice(result, typeFunc)
+	assert.NoError(t, err)
+
+	keys := make(map[string]bool)
+	for _, p := range resultProtos {
+		keys[p.ParameterKey] = true
+	}
+	assert.True(t, keys["param1"])
+	assert.True(t, keys["param2"])
+}
+
+func TestMergeParameters_WithProducer_NoIteration(t *testing.T) {
+	// Create parameters with producer but no iteration
+	val1, _ := structpb.NewValue("value-from-task1")
+	param1 := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+		Value:        val1,
+		ParameterKey: "output-param",
+		Type:         apiv2beta1.IOType_OUTPUT,
+		Producer: &apiv2beta1.IOProducer{
+			TaskName: "task1",
+		},
+	}
+
+	val2, _ := structpb.NewValue("value-from-task2")
+	param2 := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+		Value:        val2,
+		ParameterKey: "output-param",
+		Type:         apiv2beta1.IOType_OUTPUT,
+		Producer: &apiv2beta1.IOProducer{
+			TaskName: "task2",
+		},
+	}
+
+	oldParams, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{param1})
+	assert.NoError(t, err)
+	newParams, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{param2})
+	assert.NoError(t, err)
+
+	result, err := mergeParameters(oldParams, newParams)
+	assert.NoError(t, err)
+	// Different task names create different keys, so we should have 2 parameters
+	assert.Equal(t, 2, len(result))
+
+	typeFunc := func() *apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter {
+		return &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{}
+	}
+	resultProtos, err := model.JSONSliceToProtoSlice(result, typeFunc)
+	assert.NoError(t, err)
+
+	taskNames := make(map[string]bool)
+	for _, p := range resultProtos {
+		taskNames[p.Producer.TaskName] = true
+	}
+	assert.True(t, taskNames["task1"])
+	assert.True(t, taskNames["task2"])
+}
+
+func TestMergeParameters_WithProducer_WithIteration(t *testing.T) {
+	// Create parameters with producer including iteration
+	val1, _ := structpb.NewValue("value-iteration-0")
+	param1 := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+		Value:        val1,
+		ParameterKey: "loop-output",
+		Type:         apiv2beta1.IOType_ITERATOR_OUTPUT,
+		Producer: &apiv2beta1.IOProducer{
+			TaskName:  "loop-task",
+			Iteration: int64PTR(0),
+		},
+	}
+
+	val2, _ := structpb.NewValue("value-iteration-1")
+	param2 := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+		Value:        val2,
+		ParameterKey: "loop-output",
+		Type:         apiv2beta1.IOType_ITERATOR_OUTPUT,
+		Producer: &apiv2beta1.IOProducer{
+			TaskName:  "loop-task",
+			Iteration: int64PTR(1),
+		},
+	}
+
+	oldParams, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{param1})
+	assert.NoError(t, err)
+	newParams, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{param2})
+	assert.NoError(t, err)
+
+	result, err := mergeParameters(oldParams, newParams)
+	assert.NoError(t, err)
+	// Different iterations create different keys, so we should have 2 parameters
+	assert.Equal(t, 2, len(result))
+
+	typeFunc := func() *apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter {
+		return &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{}
+	}
+	resultProtos, err := model.JSONSliceToProtoSlice(result, typeFunc)
+	assert.NoError(t, err)
+
+	iterations := make(map[int64]bool)
+	for _, p := range resultProtos {
+		if p.Producer != nil && p.Producer.Iteration != nil {
+			iterations[*p.Producer.Iteration] = true
+		}
+	}
+	assert.True(t, iterations[0])
+	assert.True(t, iterations[1])
+}
+
+func TestMergeParameters_RaceConditionScenario(t *testing.T) {
+	// Simulate a race condition where two driver tasks from different iterations
+	// within a loop try to update parameters simultaneously
+
+	// Initial state - task already has some parameters
+	valExisting, _ := structpb.NewValue("existing-param")
+	existingParam := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+		Value:        valExisting,
+		ParameterKey: "common-param",
+		Type:         apiv2beta1.IOType_COMPONENT_INPUT,
+	}
+
+	// Update from iteration 0
+	valIter0, _ := structpb.NewValue("output-from-iter-0")
+	iter0Param := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+		Value:        valIter0,
+		ParameterKey: "loop-output",
+		Type:         apiv2beta1.IOType_ITERATOR_OUTPUT,
+		Producer: &apiv2beta1.IOProducer{
+			TaskName:  "loop-task",
+			Iteration: int64PTR(0),
+		},
+	}
+
+	// Update from iteration 1 (happening concurrently)
+	valIter1, _ := structpb.NewValue("output-from-iter-1")
+	iter1Param := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+		Value:        valIter1,
+		ParameterKey: "loop-output",
+		Type:         apiv2beta1.IOType_ITERATOR_OUTPUT,
+		Producer: &apiv2beta1.IOProducer{
+			TaskName:  "loop-task",
+			Iteration: int64PTR(1),
+		},
+	}
+
+	existingParams, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{existingParam})
+	assert.NoError(t, err)
+
+	// First update: merge existing with iteration 0
+	iter0Update, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{iter0Param})
+	assert.NoError(t, err)
+
+	result1, err := mergeParameters(existingParams, iter0Update)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(result1))
+
+	// Second update: merge result1 with iteration 1
+	iter1Update, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{iter1Param})
+	assert.NoError(t, err)
+
+	result2, err := mergeParameters(result1, iter1Update)
+	assert.NoError(t, err)
+	// Should have 3 parameters: existing + iter0 + iter1
+	assert.Equal(t, 3, len(result2))
+
+	// Verify all three parameters are present
+	typeFunc := func() *apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter {
+		return &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{}
+	}
+	resultProtos, err := model.JSONSliceToProtoSlice(result2, typeFunc)
+	assert.NoError(t, err)
+
+	hasExisting := false
+	hasIter0 := false
+	hasIter1 := false
+
+	for _, p := range resultProtos {
+		if p.ParameterKey == "common-param" && p.Producer == nil {
+			hasExisting = true
+		}
+		if p.Producer != nil && p.Producer.Iteration != nil {
+			if *p.Producer.Iteration == 0 {
+				hasIter0 = true
+			}
+			if *p.Producer.Iteration == 1 {
+				hasIter1 = true
+			}
+		}
+	}
+
+	assert.True(t, hasExisting, "Should preserve existing parameter")
+	assert.True(t, hasIter0, "Should preserve iteration 0 parameter")
+	assert.True(t, hasIter1, "Should preserve iteration 1 parameter")
 }

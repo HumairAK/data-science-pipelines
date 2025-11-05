@@ -15,7 +15,9 @@
 package storage
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
@@ -25,6 +27,8 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 const tableName = "tasks"
@@ -654,19 +658,57 @@ func (s *TaskStore) UpdateTask(new *model.Task, old *model.Task) (*model.Task, e
 		}
 	}
 
+	// Merge input parameters to avoid race conditions where concurrent updates
+	// (e.g., from different loop iterations) might overwrite each other's parameters
 	if new.InputParameters != nil {
-		if b, err := json.Marshal(new.InputParameters); err == nil {
+		//glog.Infof("Updating INPUT parameters")
+		//glog.Infof("New INPUT parameters")
+		//logJSONSlice(new.InputParameters)
+		var oldInputParams model.JSONSlice
+		if old != nil {
+			glog.Infof("Old input parameters")
+			//logJSONSlice(old.InputParameters)
+			oldInputParams = old.InputParameters
+		}
+		merged, err := mergeParameters(oldInputParams, new.InputParameters)
+		if err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to merge input parameters in an updated task")
+		}
+		if b, err := json.Marshal(merged); err == nil {
 			setMap["InputParameters"] = string(b)
 		} else {
 			return nil, util.NewInternalServerError(err, "Failed to marshal input parameters in an updated task")
 		}
+		glog.Infof("Merged INPUT parameters")
+		//logJSONSlice(merged)
 	}
+
+	// Merge output parameters to avoid race conditions where concurrent updates
+	// (e.g., from different loop iterations) might overwrite each other's parameters
 	if new.OutputParameters != nil {
-		if b, err := json.Marshal(new.OutputParameters); err == nil {
+		glog.Infof("Updating OUTPUT parameters")
+		glog.Infof("New OUTPUT parameters")
+		logJSONSlice(new.OutputParameters)
+
+		var oldOutputParams model.JSONSlice
+		if old != nil {
+			glog.Infof("Old OUTPUT parameters")
+			logJSONSlice(old.OutputParameters)
+			oldOutputParams = old.OutputParameters
+		} else {
+			glog.Infof("No old OUTPUT parameters")
+		}
+		merged, err := mergeParameters(oldOutputParams, new.OutputParameters)
+		if err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to merge output parameters in an updated task")
+		}
+		if b, err := json.Marshal(merged); err == nil {
 			setMap["OutputParameters"] = string(b)
 		} else {
 			return nil, util.NewInternalServerError(err, "Failed to marshal output parameters in an updated task")
 		}
+		glog.Infof("Merged OUTPUT parameters")
+		logJSONSlice(merged)
 	}
 	if new.TypeAttrs != nil {
 		if b, err := json.Marshal(new.TypeAttrs); err == nil {
@@ -697,10 +739,11 @@ func (s *TaskStore) UpdateTask(new *model.Task, old *model.Task) (*model.Task, e
 	if rows, _ := res.RowsAffected(); rows == 0 {
 		return nil, util.NewResourceNotFoundError("task", new.UUID)
 	}
-
+	glog.Infof("DONE UPDATE")
 	return s.GetTask(new.UUID)
 }
 
+// mergeParameters merges the new parameters with the old parameters.
 func mergeParameters(old, new model.JSONSlice) (model.JSONSlice, error) {
 	typeFunc := func() *apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter {
 		return &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{}
@@ -721,6 +764,15 @@ func mergeParameters(old, new model.JSONSlice) (model.JSONSlice, error) {
 				key = fmt.Sprintf("%s-%d", key, *p.Producer.Iteration)
 			}
 		}
+		// Include the value hash, in cases like the iterator case where
+		// iterations propagate values to upstream tasks, the iteration
+		// index is not propagated, so we need to include the value hash
+		// to avoid collisions.
+		valueHash, err := hashProtoValue(p.GetValue())
+		if err != nil {
+			glog.Errorf("Failed to hash parameter value: %v", err)
+		}
+		key = fmt.Sprintf("%s-%s", key, valueHash)
 		return key
 	}
 	mergedParams := map[string]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{}
@@ -761,4 +813,22 @@ func (s *TaskStore) GetChildTasks(taskId string) ([]*model.Task, error) {
 	defer rows.Close()
 
 	return s.scanRows(rows)
+}
+
+func hashProtoValue(v *structpb.Value) (string, error) {
+	// Deterministic binary marshal
+	b, err := proto.MarshalOptions{Deterministic: true}.Marshal(v)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:]), nil
+}
+
+func logJSONSlice(slice model.JSONSlice) {
+	if bytes, err := json.MarshalIndent(slice, "", "  "); err == nil {
+		glog.Infof("%s", string(bytes))
+	} else {
+		glog.Errorf("Failed to marshal JSON slice: %v", err)
+	}
 }

@@ -168,6 +168,17 @@ func (b *BatchUpdater) Flush(ctx context.Context, client kfpapi.API) error {
 			taskID, task.State,
 			len(task.GetOutputs().GetParameters()),
 			len(task.GetOutputs().GetArtifacts()))
+		// Todo(Humair): Debug print log, delete later.
+		for _, param := range task.GetOutputs().GetParameters() {
+			var producerString string
+			if param.GetProducer() != nil {
+				producerString = fmt.Sprintf(", producer=%s", param.GetProducer().GetTaskName())
+				if param.GetProducer().Iteration != nil {
+					producerString = fmt.Sprintf(", iterationIndex=%d", param.GetProducer().GetIteration())
+				}
+			}
+			glog.V(1).Infof("    Parameter Key: %s, value=%s, type=%s %s", param.ParameterKey, param.Value, param.GetType(), producerString)
+		}
 	}
 	for i, artifact := range b.artifacts {
 		glog.V(1).Infof("  Artifact #%d: name=%s, taskID=%s, key=%s",

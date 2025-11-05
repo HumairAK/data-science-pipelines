@@ -29,7 +29,7 @@ def read_values(values: List[str]) -> str:
         collect.append(v)
     print(collect)
     # TODO(HumairAK): These should not be required to be sorted to maintain backwards compatibility
-    assert sorted(collect) == sorted(['s1', 's2', 's3'])
+    assert sorted(collect) == sorted(['s1', 's2', 's3', 's4', 's5', 's6'])
     return 'values read'
 
 
@@ -54,7 +54,7 @@ def secondary_pipeline(model_ids: str = '',) -> List[str]:
 
 @pipeline()
 def primary_pipeline():
-    model_ids = 's1,s2,s3'
+    model_ids = 's1,s2,s3,s4,s5,s6'
     dag = secondary_pipeline(model_ids=model_ids)
     read_values(values=dag.output)
 
