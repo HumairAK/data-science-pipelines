@@ -713,7 +713,6 @@ func (s *TaskStore) UpdateTask(new *model.Task) (*model.Task, error) {
 	// Merge input parameters using the locked old state
 	// This prevents race conditions where concurrent updates might overwrite each other's parameters
 	if new.InputParameters != nil {
-		glog.V(2).Infof("Updating INPUT parameters for task %s", new.UUID)
 		// Use lockedOld (from SELECT FOR UPDATE) instead of 'old' parameter
 		oldInputParams := lockedOld.InputParameters
 		merged, err := mergeParameters(oldInputParams, new.InputParameters)
@@ -725,20 +724,13 @@ func (s *TaskStore) UpdateTask(new *model.Task) (*model.Task, error) {
 		} else {
 			return nil, util.NewInternalServerError(err, "Failed to marshal input parameters in an updated task")
 		}
-		glog.V(2).Infof("Merged INPUT parameters for task %s", new.UUID)
 	}
 
 	// Merge output parameters using the locked old state
 	// This prevents race conditions where concurrent updates might overwrite each other's parameters
 	if new.OutputParameters != nil {
-		glog.Infof("Updating OUTPUT parameters for task %s", new.UUID)
-		glog.Infof("New OUTPUT parameters:")
-		logJSONSlice(new.OutputParameters)
-
 		// Use lockedOld (from SELECT FOR UPDATE) instead of 'old' parameter
 		oldOutputParams := lockedOld.OutputParameters
-		glog.Infof("Locked old OUTPUT parameters:")
-		logJSONSlice(oldOutputParams)
 
 		merged, err := mergeParameters(oldOutputParams, new.OutputParameters)
 		if err != nil {
@@ -749,9 +741,8 @@ func (s *TaskStore) UpdateTask(new *model.Task) (*model.Task, error) {
 		} else {
 			return nil, util.NewInternalServerError(err, "Failed to marshal output parameters in an updated task")
 		}
-		glog.Infof("Merged OUTPUT parameters for task %s:", new.UUID)
-		logJSONSlice(merged)
 	}
+
 	if new.TypeAttrs != nil {
 		if b, err := json.Marshal(new.TypeAttrs); err == nil {
 			setMap["TypeAttrs"] = string(b)
@@ -820,8 +811,8 @@ func mergeParameters(old, new model.JSONSlice) (model.JSONSlice, error) {
 		}
 		// Include the value hash, in cases like the iterator case where
 		// iterations propagate values to upstream tasks, the iteration
-		// index is not propagated, so we need to include the value hash
-		// to avoid collisions.
+		// index is not propagated (like in a for-loop-task), so we need
+		// to include the value hash to avoid collisions.
 		valueHash, err := hashProtoValue(p.GetValue())
 		if err != nil {
 			glog.Errorf("Failed to hash parameter value: %v", err)
@@ -877,12 +868,4 @@ func hashProtoValue(v *structpb.Value) (string, error) {
 	}
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:]), nil
-}
-
-func logJSONSlice(slice model.JSONSlice) {
-	if bytes, err := json.MarshalIndent(slice, "", "  "); err == nil {
-		glog.Infof("%s", string(bytes))
-	} else {
-		glog.Errorf("Failed to marshal JSON slice: %v", err)
-	}
 }
