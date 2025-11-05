@@ -257,12 +257,33 @@ func TestUpdateTask_Success(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
+	// Deep copy the task for updates
+	updatedTask := &model.Task{
+		UUID:             created.UUID,
+		Namespace:        created.Namespace,
+		PipelineName:     created.PipelineName,
+		RunUUID:          created.RunUUID,
+		Pods:             created.Pods,
+		Fingerprint:      created.Fingerprint,
+		Name:             created.Name,
+		DisplayName:      created.DisplayName,
+		ParentTaskUUID:   created.ParentTaskUUID,
+		State:            created.State,
+		StateHistory:     created.StateHistory,
+		InputParameters:  created.InputParameters,
+		OutputParameters: created.OutputParameters,
+		Type:             created.Type,
+		TypeAttrs:        created.TypeAttrs,
+		CreatedAtInSec:   created.CreatedAtInSec,
+		StartedInSec:     created.StartedInSec,
+	}
+
 	// Update some fields
-	created.Name = "updatedName"
-	created.Fingerprint = "fp-1"
-	created.Pods = createTaskPodsAsJSONSlice(pod1, pod2)
-	created.State = 2
-	updated, err := taskStore.UpdateTask(created)
+	updatedTask.Name = "updatedName"
+	updatedTask.Fingerprint = "fp-1"
+	updatedTask.Pods = createTaskPodsAsJSONSlice(pod1, pod2)
+	updatedTask.State = 2
+	updated, err := taskStore.UpdateTask(updatedTask, created)
 	assert.NoError(t, err)
 	assert.Equal(t, created.UUID, updated.UUID)
 	assert.Equal(t, "updatedName", updated.Name)

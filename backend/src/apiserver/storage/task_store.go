@@ -66,7 +66,7 @@ type TaskStoreInterface interface {
 	ListTasks(filterContext *model.FilterContext, opts *list.Options) ([]*model.Task, int, string, error)
 
 	// UpdateTask Updates an existing task entry in the database.
-	UpdateTask(task *model.Task) (*model.Task, error)
+	UpdateTask(new *model.Task, old *model.Task) (*model.Task, error)
 
 	// GetChildTasks Fetches all child tasks for a given task UUID.
 	GetChildTasks(taskId string) ([]*model.Task, error)
@@ -577,11 +577,11 @@ func (s *TaskStore) GetTask(id string) (*model.Task, error) {
 }
 
 // UpdateTask updates an existing task in the tasks table and returns the updated task.
-func (s *TaskStore) UpdateTask(task *model.Task) (*model.Task, error) {
-	if task == nil {
+func (s *TaskStore) UpdateTask(new *model.Task, old *model.Task) (*model.Task, error) {
+	if new == nil {
 		return nil, util.NewInvalidInputError("Failed to update task: task cannot be nil")
 	}
-	if task.UUID == "" {
+	if new.UUID == "" {
 		return nil, util.NewInvalidInputError("Failed to update task: task ID cannot be empty")
 	}
 
@@ -590,85 +590,86 @@ func (s *TaskStore) UpdateTask(task *model.Task) (*model.Task, error) {
 
 	// Simple scalar/string fields: update if non-empty OR explicitly zero is meaningful.
 	// For strings: only update when not empty to avoid erasing existing values unintentionally.
-	if task.Namespace != "" {
-		setMap["Namespace"] = task.Namespace
+	if new.Namespace != "" {
+		setMap["Namespace"] = new.Namespace
 	}
-	if task.PipelineName != "" {
-		setMap["PipelineName"] = task.PipelineName
+	if new.PipelineName != "" {
+		setMap["PipelineName"] = new.PipelineName
 	}
-	if task.RunUUID != "" {
-		setMap["RunUUID"] = task.RunUUID
+	if new.RunUUID != "" {
+		setMap["RunUUID"] = new.RunUUID
 	}
-	if task.Fingerprint != "" {
-		setMap["Fingerprint"] = task.Fingerprint
+	if new.Fingerprint != "" {
+		setMap["Fingerprint"] = new.Fingerprint
 	}
-	if task.Name != "" {
-		setMap["Name"] = task.Name
+	if new.Name != "" {
+		setMap["Name"] = new.Name
 	}
-	if task.DisplayName != "" {
-		setMap["DisplayName"] = task.DisplayName
+	if new.DisplayName != "" {
+		setMap["DisplayName"] = new.DisplayName
 	}
-	if task.ParentTaskUUID != nil {
-		if *task.ParentTaskUUID == "" {
+	if new.ParentTaskUUID != nil {
+		if *new.ParentTaskUUID == "" {
 			setMap["ParentTaskUUID"] = nil
 		} else {
-			setMap["ParentTaskUUID"] = *task.ParentTaskUUID
+			setMap["ParentTaskUUID"] = *new.ParentTaskUUID
 		}
 	}
 
 	// State and Type default to 0 which are valid enums; update only when non-zero to avoid accidental resets.
-	if task.State != 0 {
-		setMap["State"] = task.State
+	if new.State != 0 {
+		setMap["State"] = new.State
 	}
-	if task.Type != 0 {
-		setMap["Type"] = task.Type
+	if new.Type != 0 {
+		setMap["Type"] = new.Type
 	}
 	// Timestamps: allow update when non-zero.
-	if task.StartedInSec != 0 {
-		setMap["StartedInSec"] = task.StartedInSec
+	if new.StartedInSec != 0 {
+		setMap["StartedInSec"] = new.StartedInSec
 	}
-	if task.FinishedInSec != 0 {
-		setMap["FinishedInSec"] = task.FinishedInSec
+	if new.FinishedInSec != 0 {
+		setMap["FinishedInSec"] = new.FinishedInSec
 	}
 
 	// JSON/slice/map fields: update only if not nil (presence indicates intent).
-	if task.StateHistory != nil {
-		if b, err := json.Marshal(task.StateHistory); err == nil {
+	if new.StateHistory != nil {
+		if b, err := json.Marshal(new.StateHistory); err == nil {
 			setMap["StateHistory"] = string(b)
 		} else {
 			return nil, util.NewInternalServerError(err, "Failed to marshal state history in an updated task")
 		}
 	}
-	if task.StatusMetadata != nil {
-		if b, err := json.Marshal(task.StatusMetadata); err == nil {
+	if new.StatusMetadata != nil {
+		if b, err := json.Marshal(new.StatusMetadata); err == nil {
 			setMap["StatusMetadata"] = string(b)
 		} else {
 			return nil, util.NewInternalServerError(err, "Failed to marshal status metadata in an updated task")
 		}
 	}
-	if task.Pods != nil {
-		if b, err := json.Marshal(task.Pods); err == nil {
+	if new.Pods != nil {
+		if b, err := json.Marshal(new.Pods); err == nil {
 			setMap["Pods"] = string(b)
 		} else {
 			return nil, util.NewInternalServerError(err, "Failed to marshal pod names in an updated task")
 		}
 	}
-	if task.InputParameters != nil {
-		if b, err := json.Marshal(task.InputParameters); err == nil {
+
+	if new.InputParameters != nil {
+		if b, err := json.Marshal(new.InputParameters); err == nil {
 			setMap["InputParameters"] = string(b)
 		} else {
 			return nil, util.NewInternalServerError(err, "Failed to marshal input parameters in an updated task")
 		}
 	}
-	if task.OutputParameters != nil {
-		if b, err := json.Marshal(task.OutputParameters); err == nil {
+	if new.OutputParameters != nil {
+		if b, err := json.Marshal(new.OutputParameters); err == nil {
 			setMap["OutputParameters"] = string(b)
 		} else {
 			return nil, util.NewInternalServerError(err, "Failed to marshal output parameters in an updated task")
 		}
 	}
-	if task.TypeAttrs != nil {
-		if b, err := json.Marshal(task.TypeAttrs); err == nil {
+	if new.TypeAttrs != nil {
+		if b, err := json.Marshal(new.TypeAttrs); err == nil {
 			setMap["TypeAttrs"] = string(b)
 		} else {
 			return nil, util.NewInternalServerError(err, "Failed to marshal type attributes in an updated task")
@@ -677,13 +678,13 @@ func (s *TaskStore) UpdateTask(task *model.Task) (*model.Task, error) {
 
 	if len(setMap) == 0 {
 		// Nothing to update; return current record
-		return s.GetTask(task.UUID)
+		return s.GetTask(new.UUID)
 	}
 
 	sqlStr, args, err := sq.
 		Update(tableName).
 		SetMap(setMap).
-		Where(sq.Eq{"UUID": task.UUID}).
+		Where(sq.Eq{"UUID": new.UUID}).
 		ToSql()
 	if err != nil {
 		return nil, util.NewInternalServerError(err, "Failed to create query to update task: %v", err.Error())
@@ -694,10 +695,52 @@ func (s *TaskStore) UpdateTask(task *model.Task) (*model.Task, error) {
 		return nil, util.NewInternalServerError(err, "Failed to update task: %v", err.Error())
 	}
 	if rows, _ := res.RowsAffected(); rows == 0 {
-		return nil, util.NewResourceNotFoundError("task", task.UUID)
+		return nil, util.NewResourceNotFoundError("task", new.UUID)
 	}
 
-	return s.GetTask(task.UUID)
+	return s.GetTask(new.UUID)
+}
+
+func mergeParameters(old, new model.JSONSlice) (model.JSONSlice, error) {
+	typeFunc := func() *apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter {
+		return &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{}
+	}
+	oldParams, err := model.JSONSliceToProtoSlice(old, typeFunc)
+	if err != nil {
+		return nil, err
+	}
+	newParams, err := model.JSONSliceToProtoSlice(new, typeFunc)
+	if err != nil {
+		return nil, err
+	}
+	makeKey := func(p *apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter) string {
+		key := fmt.Sprintf("%v-%s", p.Type, p.ParameterKey)
+		if p.Producer != nil {
+			key = fmt.Sprintf("%s-%s", key, p.Producer.TaskName)
+			if p.Producer.Iteration != nil {
+				key = fmt.Sprintf("%s-%d", key, *p.Producer.Iteration)
+			}
+		}
+		return key
+	}
+	mergedParams := map[string]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{}
+	for _, p := range oldParams {
+		key := makeKey(p)
+		mergedParams[key] = p
+	}
+	for _, p := range newParams {
+		key := makeKey(p)
+		mergedParams[key] = p
+	}
+	paramsSlice := make([]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter, 0, len(mergedParams))
+	for _, p := range mergedParams {
+		paramsSlice = append(paramsSlice, p)
+	}
+	parameters, err := model.ProtoSliceToJSONSlice(paramsSlice)
+	if err != nil {
+		return nil, err
+	}
+	return parameters, nil
 }
 
 func (s *TaskStore) GetChildTasks(taskId string) ([]*model.Task, error) {

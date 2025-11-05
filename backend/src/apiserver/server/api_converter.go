@@ -2423,11 +2423,11 @@ func toModelTask(apiTask *apiv2beta1.PipelineTaskDetail) (*model.Task, error) {
 	// Convert inputs: store full InputOutputs in InputParameters and artifacts subset in InputArtifacts
 	if apiTask.GetInputs() != nil {
 		if apiTask.GetInputs().GetParameters() != nil {
-			artifacts, err := model.ProtoSliceToJSONSlice(apiTask.GetInputs().GetParameters())
+			parameters, err := model.ProtoSliceToJSONSlice(apiTask.GetInputs().GetParameters())
 			if err != nil {
 				return nil, err
 			}
-			task.InputParameters = artifacts
+			task.InputParameters = parameters
 		}
 	}
 
