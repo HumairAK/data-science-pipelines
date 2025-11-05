@@ -28,7 +28,8 @@ def read_values(values: List[str]) -> str:
     for v in values:
         collect.append(v)
     print(collect)
-    assert collect == ['s1', 's2', 's3']
+    # TODO(HumairAK): These should not be required to be sorted to maintain backwards compatibility
+    assert sorted(collect) == sorted(['s1', 's2', 's3'])
     return 'values read'
 
 

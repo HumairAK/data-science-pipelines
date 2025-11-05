@@ -4,7 +4,7 @@
 #    configmap_parm: str [Default: 'cfg-2']
 #    container_image: str [Default: 'python:3.7-alpine']
 #    cpu_limit: str [Default: '200m']
-#    default_node_affinity_input: dict [Default: {'requiredDuringSchedulingIgnoredDuringExecution': {'nodeSelectorTerms': [{'matchExpressions': [{'key': 'kubernetes.io/os', 'values': ['linux'], 'operator': 'In'}]}]}}]
+#    default_node_affinity_input: dict [Default: {'requiredDuringSchedulingIgnoredDuringExecution': {'nodeSelectorTerms': [{'matchExpressions': [{'operator': 'In', 'values': ['linux'], 'key': 'kubernetes.io/os'}]}]}}]
 #    empty_dir_mnt_path: str [Default: '/empty_dir/path']
 #    field_path: str [Default: 'spec.serviceAccountName']
 #    memory_limit: str [Default: '50Mi']
@@ -14,8 +14,8 @@
 #    pull_secret_3: str [Default: 'pull-secret-3']
 #    pvc_name_suffix_input: str [Default: '-pvc-1']
 #    secret_param: str [Default: 'secret-2']
-#    tolerations_dict_input: dict [Default: {'key': 'some_foo_key6', 'operator': 'Equal', 'value': 'value3', 'effect': 'NoSchedule'}]
-#    tolerations_list_input: list [Default: [{'key': 'some_foo_key4', 'operator': 'Equal', 'value': 'value2', 'effect': 'NoSchedule'}, {'key': 'some_foo_key5', 'operator': 'Exists', 'effect': 'NoExecute'}]]
+#    tolerations_dict_input: dict [Default: {'operator': 'Equal', 'effect': 'NoSchedule', 'key': 'some_foo_key6', 'value': 'value3'}]
+#    tolerations_list_input: list [Default: [{'operator': 'Equal', 'effect': 'NoSchedule', 'key': 'some_foo_key4', 'value': 'value2'}, {'operator': 'Exists', 'effect': 'NoExecute', 'key': 'some_foo_key5'}]]
 components:
   comp-assert-values:
     executorLabel: exec-assert-values

@@ -57,6 +57,7 @@ def analyze_artifact_list(artifact_list_input: List[Artifact]):
     print("actual_metadata: ", actual_metadata)
     print("expected_values: ", expected_values)
     print("expected_metadata: ", expected_metadata)
+    # TODO(HumairAK): These should not be required to be sorted to maintain backwards compatibility
     assert sorted(actual_values) == sorted(expected_values)
     assert sorted(actual_metadata) == sorted(expected_metadata)
 

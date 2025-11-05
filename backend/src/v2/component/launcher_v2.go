@@ -213,7 +213,7 @@ func updateStatuses(ctx context.Context, kfpAPIClient kfpapi.API, run *apiV2beta
 			return fmt.Errorf("parent task %s not found for task %s", *currentTask.ParentTaskId, currentTask.GetTaskId())
 		}
 
-		// Before we proceed to updating this parent task's status, we need to ensure that all child tasks have been
+		// Before we proceed to update this parent task's status, we need to ensure that all child tasks have been
 		// created (irrespective of their status).
 		var expectedTotalChildTasks int
 		if parentTask.GetType() == apiV2beta1.PipelineTaskDetail_LOOP {
@@ -368,12 +368,13 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	if err = l.prepareOutputFolders(l.executorInput); err != nil {
 		return fmt.Errorf("failed to prepare output folders: %w", err)
 	}
-	_, err = l.executeV2(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to execute component: %w", err)
+	_, executionError := l.executeV2(ctx)
+	if executionError != nil {
+		l.options.Task.State = apiV2beta1.PipelineTaskDetail_FAILED
+	} else {
+		l.options.Task.State = apiV2beta1.PipelineTaskDetail_SUCCEEDED
 	}
 
-	l.options.Task.State = apiV2beta1.PipelineTaskDetail_SUCCEEDED
 	l.options.Task.EndTime = timestamppb.New(time.Now())
 	l.options.Task.Pods = append(l.options.Task.Pods, &apiV2beta1.PipelineTaskDetail_TaskPod{
 		Name: l.options.PodName,
@@ -405,6 +406,10 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	err = updateStatuses(ctx, l.clientManager.KFPAPIClient(), l.options.Run, l.options.Task)
 	if err != nil {
 		return fmt.Errorf("failed to update statuses: %w", err)
+	}
+
+	if executionError != nil {
+		return fmt.Errorf("component execution failed: %w", executionError)
 	}
 	return nil
 }
