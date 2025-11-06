@@ -25,7 +25,7 @@ components:
           artifactType:
             schemaTitle: system.Dataset
             schemaVersion: 0.0.1
-  comp-a-2-2:
+  comp-a-3:
     executorLabel: exec-a-2-2
     inputDefinitions:
       parameters:
@@ -91,7 +91,7 @@ components:
         a:
           cachingOptions: {}
           componentRef:
-            name: comp-a-2
+            name: comp-a-3
           inputs:
             parameters:
               situation:
@@ -152,7 +152,7 @@ components:
         a:
           cachingOptions: {}
           componentRef:
-            name: comp-a-2-2
+            name: comp-a-2
           inputs:
             parameters:
               situation:

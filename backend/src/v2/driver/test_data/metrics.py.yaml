@@ -74,7 +74,7 @@ deploymentSpec:
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef digit_classification(metrics: Output[Metrics]):\n    metrics.log_metric('accuracy',\
-          \ 0.5)\n\n"
+          \ 0.5)\n    metrics.log_metric('anotherOne', 1.3)\n\n"
         image: python:3.9
     exec-html-visualization:
       container:
