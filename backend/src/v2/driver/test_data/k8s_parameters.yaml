@@ -4,7 +4,7 @@
 #    configmap_parm: str [Default: 'cfg-2']
 #    container_image: str [Default: 'python:3.9']
 #    cpu_limit: str [Default: '200m']
-#    default_node_affinity_input: dict [Default: {'requiredDuringSchedulingIgnoredDuringExecution': {'nodeSelectorTerms': [{'matchExpressions': [{'key': 'kubernetes.io/os', 'operator': 'In', 'values': ['linux']}]}]}}]
+#    default_node_affinity_input: dict [Default: {'requiredDuringSchedulingIgnoredDuringExecution': {'nodeSelectorTerms': [{'matchExpressions': [{'key': 'kubernetes.io/os', 'values': ['linux'], 'operator': 'In'}]}]}}]
 #    empty_dir_mnt_path: str [Default: '/empty_dir/path']
 #    field_path: str [Default: 'spec.serviceAccountName']
 #    memory_limit: str [Default: '500Mi']
