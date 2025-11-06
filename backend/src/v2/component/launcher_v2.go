@@ -263,7 +263,6 @@ func updateStatuses(ctx context.Context, kfpAPIClient kfpapi.API, run *apiV2beta
 		// Move to the parent for next iteration
 		currentTask = parentTask
 	}
-
 	return nil
 }
 
@@ -338,10 +337,58 @@ func evaluateAndUpdateParentStatus(
 }
 
 // Execute calls executeV2, updates the cache, and creates artifacts for outputs.
-func (l *LauncherV2) Execute(ctx context.Context) (err error) {
+func (l *LauncherV2) Execute(ctx context.Context) (executionErr error) {
 	defer func() {
-		if err != nil {
-			err = fmt.Errorf("failed to execute component: %w", err)
+		if executionErr != nil {
+			executionErr = fmt.Errorf("failed to execute component: %w", executionErr)
+		}
+	}()
+
+	l.options.Task.Pods = append(l.options.Task.Pods, &apiV2beta1.PipelineTaskDetail_TaskPod{
+		Name: l.options.PodName,
+		Uid:  l.options.PodUID,
+		Type: apiV2beta1.PipelineTaskDetail_EXECUTOR,
+	})
+
+	// Defer the final task status update to ensure we handle and propagate errors.
+	defer func() {
+		if executionErr != nil {
+			l.options.Task.State = apiV2beta1.PipelineTaskDetail_FAILED
+		}
+		l.options.Task.EndTime = timestamppb.New(time.Now())
+		// Queue the final task status update
+		l.batchUpdater.QueueTaskUpdate(l.options.Task)
+
+		// Flush all batched updates (artifacts, artifact-tasks, task updates)
+		// This executes all queued operations that were accumulated during:
+		// - uploadOutputArtifacts (artifact creation)
+		// - executeV2 (task output parameter update)
+		// - propagateOutputsUpDAG (artifact-task creation, parent task parameter updates)
+		// - this final SUCCEEDED status update
+		if flushErr := l.batchUpdater.Flush(ctx, l.clientManager.KFPAPIClient()); flushErr != nil {
+			l.options.Task.State = apiV2beta1.PipelineTaskDetail_FAILED
+			glog.Errorf("failed to flush batch updates: %v", flushErr)
+			_, updateTaskErr := l.clientManager.KFPAPIClient().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{TaskId: l.options.Task.GetTaskId(), Task: l.options.Task})
+			if updateTaskErr != nil {
+				glog.Errorf("failed to update task status: %v", updateTaskErr)
+				// Return here, if we can't update this Task's status, then there's no point in proceeding.
+				// This should never happen.
+				return
+			}
+			// Do not return on flush error, we want to propagate the error to the upstream tasks.
+		}
+		// Refresh run before updating statuses
+		refreshedRun, getRunErr := l.clientManager.KFPAPIClient().GetRun(ctx, &apiV2beta1.GetRunRequest{RunId: l.options.Run.GetRunId()})
+		if getRunErr != nil {
+			glog.Errorf("failed to refresh run: %w", getRunErr)
+			return
+		}
+		l.options.Run = refreshedRun
+		// TODO(HumairAK): Let's have API Server handle this call instead of doing it here.
+		updateStatusErr := updateStatuses(ctx, l.clientManager.KFPAPIClient(), l.options.Run, l.pipelineSpec, l.options.Task)
+		if updateStatusErr != nil {
+			glog.Errorf("failed to update statuses: %w", updateStatusErr)
+			return
 		}
 	}()
 
@@ -356,64 +403,26 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 
 	// Fetch Launcher config and initialize KFP API client if not already set (testing mode)
 	// Production path: fetch real config and create real client
-	launcherConfig, err := config.FetchLauncherConfigMap(ctx, l.clientManager.K8sClient(), l.options.Namespace)
-	if err != nil {
-		return fmt.Errorf("failed to get launcher configmap: %w", err)
+	launcherConfig, executionErr := config.FetchLauncherConfigMap(ctx, l.clientManager.K8sClient(), l.options.Namespace)
+	if executionErr != nil {
+		return fmt.Errorf("failed to get launcher configmap: %w", executionErr)
 	}
 	l.launcherConfig = launcherConfig
 
 	// Add default parameter values to task inputs if they're not already present
 	// This makes the full set of input parameters visible in the task for inspection
-	if err = l.addDefaultParametersToTask(ctx); err != nil {
-		return fmt.Errorf("failed to add default parameters to task: %w", err)
+	if executionErr = l.addDefaultParametersToTask(ctx); executionErr != nil {
+		return fmt.Errorf("failed to add default parameters to task: %w", executionErr)
 	}
 
-	if err = l.prepareOutputFolders(l.executorInput); err != nil {
-		return fmt.Errorf("failed to prepare output folders: %w", err)
+	if executionErr = l.prepareOutputFolders(l.executorInput); executionErr != nil {
+		return fmt.Errorf("failed to prepare output folders: %w", executionErr)
 	}
-	_, executionError := l.executeV2(ctx)
-	if executionError != nil {
-		l.options.Task.State = apiV2beta1.PipelineTaskDetail_FAILED
-	} else {
-		l.options.Task.State = apiV2beta1.PipelineTaskDetail_SUCCEEDED
+	_, executionErr = l.executeV2(ctx)
+	if executionErr != nil {
+		return fmt.Errorf("failed to execute component: %w", executionErr)
 	}
-
-	l.options.Task.EndTime = timestamppb.New(time.Now())
-	l.options.Task.Pods = append(l.options.Task.Pods, &apiV2beta1.PipelineTaskDetail_TaskPod{
-		Name: l.options.PodName,
-		Uid:  l.options.PodUID,
-		Type: apiV2beta1.PipelineTaskDetail_EXECUTOR,
-	})
-
-	// Queue the final task status update
-	l.batchUpdater.QueueTaskUpdate(l.options.Task)
-
-	// Flush all batched updates (artifacts, artifact-tasks, task updates)
-	// This executes all queued operations that were accumulated during:
-	// - uploadOutputArtifacts (artifact creation)
-	// - executeV2 (task output parameter update)
-	// - propagateOutputsUpDAG (artifact-task creation, parent task parameter updates)
-	// - this final SUCCEEDED status update
-	if err = l.batchUpdater.Flush(ctx, l.clientManager.KFPAPIClient()); err != nil {
-		return fmt.Errorf("failed to flush batch updates: %w", err)
-	}
-
-	// Refresh run before updating statuses
-	refreshedRun, err := l.clientManager.KFPAPIClient().GetRun(ctx, &apiV2beta1.GetRunRequest{RunId: l.options.Run.GetRunId()})
-	if err != nil {
-		return fmt.Errorf("failed to refresh run: %w", err)
-	}
-	l.options.Run = refreshedRun
-
-	// TODO(HumairAK): Let's have API Server handle this call instead of doing it here.
-	err = updateStatuses(ctx, l.clientManager.KFPAPIClient(), l.options.Run, l.pipelineSpec, l.options.Task)
-	if err != nil {
-		return fmt.Errorf("failed to update statuses: %w", err)
-	}
-
-	if executionError != nil {
-		return fmt.Errorf("component execution failed: %w", executionError)
-	}
+	l.options.Task.State = apiV2beta1.PipelineTaskDetail_SUCCEEDED
 	return nil
 }
 
@@ -442,6 +451,9 @@ func (o *LauncherV2Options) validate() error {
 	}
 	if o.PipelineName == "" {
 		return err("PipelineName")
+	}
+	if o.PipelineSpec == nil {
+		return err("PipelineSpec")
 	}
 	return nil
 }

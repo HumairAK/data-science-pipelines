@@ -836,7 +836,7 @@ func TestK8SPlatform(t *testing.T) {
 
 	// Image pull secrets
 	require.Len(t, podSpec.ImagePullSecrets, 6)
-	expectedPullSecrets := []string{"pull-secret-1", "pull-secret-2", "pull_secret_1", "pull_secret_2", "pull-secret-3", "pull-secret-4"}
+	expectedPullSecrets := []string{"pull-secret-1", "pull-secret-2", "pull-secret-1", "pull-secret-2", "pull-secret-3", "pull-secret-4"}
 	for i, secret := range podSpec.ImagePullSecrets {
 		require.Equal(t, expectedPullSecrets[i], secret.Name)
 	}

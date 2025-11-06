@@ -709,6 +709,13 @@ func (tc *TestContext) RunLauncher(execution *Execution, outputFiles map[string]
 		}
 	}
 
+	// Convert PipelineSpec to structpb.Struct
+	pipelineSpecJSON, err := protojson.Marshal(tc.PipelineSpec)
+	require.NoError(t, err)
+	pipelineSpecStruct := &structpb.Struct{}
+	err = protojson.Unmarshal(pipelineSpecJSON, pipelineSpecStruct)
+	require.NoError(t, err)
+
 	opts := &component.LauncherV2Options{
 		Namespace:      TestNamespace,
 		PodName:        fmt.Sprintf("%s-pod", task.GetName()),
@@ -722,6 +729,7 @@ func (tc *TestContext) RunLauncher(execution *Execution, outputFiles map[string]
 		ParentTask:     parentTaskForLauncher,
 		Task:           task,
 		IterationIndex: iterPtr,
+		PipelineSpec:   pipelineSpecStruct,
 	}
 
 	// Create launcher with a dummy command (will be mocked anyway)

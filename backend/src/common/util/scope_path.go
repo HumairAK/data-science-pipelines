@@ -148,6 +148,9 @@ func ScopePathFromStringPathWithNewTask(rawPipelineSpec *structpb.Struct, path [
 
 // ScopePathFromStringPath builds a ScopePath from a string path.
 func ScopePathFromStringPath(rawPipelineSpec *structpb.Struct, path []string) (ScopePath, error) {
+	if rawPipelineSpec == nil {
+		return ScopePath{}, fmt.Errorf("PipelineSpec is nil")
+	}
 	scopePath, err := NewScopePathFromStruct(rawPipelineSpec)
 	if err != nil {
 		return ScopePath{}, fmt.Errorf("failed to build scope path: %w", err)

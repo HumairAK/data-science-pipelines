@@ -384,6 +384,9 @@ func (m *MockAPI) FetchPipelineSpecFromRun(_ context.Context, pipelineSpecStruct
 	} else {
 		return nil, fmt.Errorf("pipeline spec is not set")
 	}
+	if pipelineSpecStruct == nil {
+		return nil, fmt.Errorf("pipeline spec is nil")
+	}
 	return pipelineSpecStruct, nil
 }
 

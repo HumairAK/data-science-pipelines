@@ -101,6 +101,12 @@ func (l *ImportLauncher) Execute(ctx context.Context) (err error) {
 	})
 	createdTask.State = apiV2beta1.PipelineTaskDetail_SUCCEEDED
 	createdTask.EndTime = timestamppb.Now()
+	createdTask.Pods = append(l.opts.Task.Pods, &apiV2beta1.PipelineTaskDetail_TaskPod{
+		Name: l.opts.PodName,
+		Uid:  l.opts.PodUID,
+		Type: apiV2beta1.PipelineTaskDetail_EXECUTOR,
+	})
+
 	_, err = kfpAPI.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
 		TaskId: createdTask.TaskId,
 		Task:   createdTask,
