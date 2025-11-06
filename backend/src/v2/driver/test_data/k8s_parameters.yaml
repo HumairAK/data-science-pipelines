@@ -2,20 +2,20 @@
 # Name: primary-pipeline
 # Inputs:
 #    configmap_parm: str [Default: 'cfg-2']
-#    container_image: str [Default: 'python:3.7-alpine']
+#    container_image: str [Default: 'python:3.9']
 #    cpu_limit: str [Default: '200m']
 #    default_node_affinity_input: dict [Default: {'requiredDuringSchedulingIgnoredDuringExecution': {'nodeSelectorTerms': [{'matchExpressions': [{'key': 'kubernetes.io/os', 'operator': 'In', 'values': ['linux']}]}]}}]
 #    empty_dir_mnt_path: str [Default: '/empty_dir/path']
 #    field_path: str [Default: 'spec.serviceAccountName']
-#    memory_limit: str [Default: '50Mi']
+#    memory_limit: str [Default: '500Mi']
 #    node_selector_input: dict [Default: {'kubernetes.io/os': 'linux'}]
 #    pull_secret_1: str [Default: 'pull-secret-1']
 #    pull_secret_2: str [Default: 'pull-secret-2']
 #    pull_secret_3: str [Default: 'pull-secret-3']
 #    pvc_name_suffix_input: str [Default: '-pvc-1']
 #    secret_param: str [Default: 'secret-2']
-#    tolerations_dict_input: dict [Default: {'effect': 'NoSchedule', 'value': 'value3', 'operator': 'Equal', 'key': 'some_foo_key6'}]
-#    tolerations_list_input: list [Default: [{'effect': 'NoSchedule', 'value': 'value2', 'operator': 'Equal', 'key': 'some_foo_key4'}, {'effect': 'NoExecute', 'key': 'some_foo_key5', 'operator': 'Exists'}]]
+#    tolerations_dict_input: dict [Default: {'effect': 'NoSchedule', 'operator': 'Equal', 'key': 'some_foo_key6', 'value': 'value3'}]
+#    tolerations_list_input: list [Default: [{'effect': 'NoSchedule', 'operator': 'Equal', 'key': 'some_foo_key4', 'value': 'value2'}, {'effect': 'NoExecute', 'operator': 'Exists', 'key': 'some_foo_key5'}]]
 components:
   comp-assert-values:
     executorLabel: exec-assert-values
@@ -188,7 +188,7 @@ deploymentSpec:
           \ []\n    if pod.spec.image_pull_secrets:\n        for secret in pod.spec.image_pull_secrets:\n\
           \            print(f\"Secret name: {secret.name}\")\n            pull_secrets.append(secret.name)\n\
           \n    assert len(pull_secrets) == 6\n    print(pull_secrets)\n    assert\
-          \ pull_secrets == ['pull-secret-1', 'pull-secret-2', 'pull_secret_1', 'pull_secret_2',\
+          \ pull_secrets == ['pull-secret-1', 'pull-secret-2', 'pull-secret-1', 'pull-secret-2',\
           \ 'pull-secret-3', 'pull-secret-4']\n\n    # Get pod's node selector\n \
           \   print(\"\\nPod Node Selector:\")\n    node_selector = pod.spec.node_selector\n\
           \    print(node_selector)\n    if node_selector:\n        for key, value\
@@ -386,7 +386,7 @@ deploymentSpec:
           \ *\n\ndef generate_requests_resources(cpu_request_out: OutputPath(str),\
           \ memory_request_out: OutputPath(str)):\n    with open(cpu_request_out,\
           \ 'w') as f:\n        f.write('100m')\n    with open(memory_request_out,\
-          \ 'w') as f:\n        f.write('50Mi')\n\n"
+          \ 'w') as f:\n        f.write('500Mi')\n\n"
         image: python:3.9
     exec-get-access-mode:
       container:
@@ -620,7 +620,7 @@ root:
         isOptional: true
         parameterType: STRING
       container_image:
-        defaultValue: python:3.7-alpine
+        defaultValue: python:3.9
         isOptional: true
         parameterType: STRING
       cpu_limit:
@@ -647,7 +647,7 @@ root:
         isOptional: true
         parameterType: STRING
       memory_limit:
-        defaultValue: 50Mi
+        defaultValue: 500Mi
         isOptional: true
         parameterType: STRING
       node_selector_input:
@@ -737,14 +737,14 @@ platforms:
               componentInputParameter: pull_secret_1
           - secretNameParameter:
               componentInputParameter: pull_secret_2
-          - secretName: pull_secret_1
+          - secretName: pull-secret-1
             secretNameParameter:
               runtimeValue:
-                constant: pull_secret_1
-          - secretName: pull_secret_2
+                constant: pull-secret-1
+          - secretName: pull-secret-2
             secretNameParameter:
               runtimeValue:
-                constant: pull_secret_2
+                constant: pull-secret-2
           - secretNameParameter:
               componentInputParameter: pull_secret_3
           - secretName: pull-secret-4

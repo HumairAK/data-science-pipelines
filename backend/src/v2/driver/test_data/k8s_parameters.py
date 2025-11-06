@@ -53,7 +53,7 @@ def assert_values():
 
     assert len(pull_secrets) == 6
     print(pull_secrets)
-    assert pull_secrets == ['pull-secret-1', 'pull-secret-2', 'pull_secret_1', 'pull_secret_2', 'pull-secret-3', 'pull-secret-4']
+    assert pull_secrets == ['pull-secret-1', 'pull-secret-2', 'pull-secret-1', 'pull-secret-2', 'pull-secret-3', 'pull-secret-4']
 
     # Get pod's node selector
     print("\nPod Node Selector:")
@@ -239,7 +239,7 @@ def generate_requests_resources(cpu_request_out: OutputPath(str), memory_request
     with open(cpu_request_out, 'w') as f:
         f.write('100m')
     with open(memory_request_out, 'w') as f:
-        f.write('50Mi')
+        f.write('500Mi')
 
 @dsl.component()
 def get_node_affinity(node_affinity: OutputPath(dict)):
@@ -334,8 +334,8 @@ def primary_pipeline(
         field_path: str = 'spec.serviceAccountName',
         default_node_affinity_input: dict = default_node_affinity,
         cpu_limit: str = '200m',
-        memory_limit: str = '50Mi',
-        container_image: str = 'python:3.7-alpine',
+        memory_limit: str = '500Mi',
+        container_image: str = 'python:3.9',
 ):
 
     cfg_name_generator_task = cfg_name_generator()
@@ -401,7 +401,7 @@ def primary_pipeline(
         secret_names=[pull_secret_1, pull_secret_2])
     kubernetes.set_image_pull_secrets(
         task,
-        secret_names=["pull_secret_1", "pull_secret_2"])
+        secret_names=["pull-secret-1", "pull-secret-2"])
     kubernetes.set_image_pull_secrets(
         task,
         secret_names=([pull_secret_3, "pull-secret-4"])

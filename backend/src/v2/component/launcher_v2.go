@@ -52,6 +52,7 @@ type LauncherV2Options struct {
 	IterationIndex    *int64
 	ComponentSpec     *pipelinespec.ComponentSpec
 	ImporterSpec      *pipelinespec.PipelineDeploymentConfig_ImporterSpec
+	PipelineSpec      *structpb.Struct
 	TaskSpec          *pipelinespec.PipelineTaskSpec
 	ScopePath         util.ScopePath
 	Run               *apiV2beta1.Run
@@ -70,6 +71,7 @@ type LauncherV2 struct {
 	// the number of calls to the object store, and api server
 	openedBucketCache map[string]*blob.Bucket
 	launcherConfig    *config.Config
+	pipelineSpec      *structpb.Struct
 
 	// BatchUpdater collects API updates and flushes them in batches
 	// to reduce database round-trips
@@ -119,6 +121,7 @@ func NewLauncherV2(
 		cmdExecutor:       &RealCommandExecutor{},
 		openedBucketCache: make(map[string]*blob.Bucket),
 		pipelineRoot:      opts.PipelineRoot,
+		pipelineSpec:      opts.PipelineSpec,
 	}
 
 	// Object store is initialized after launcher creation
@@ -189,7 +192,7 @@ func stopWaitingArtifacts(artifacts map[string]*pipelinespec.ArtifactList) {
 //   - if any of the children in this DAG are FAILED, then the currentTask should be updated to be "FAILED"
 //   - if all children in this DAG were SKIPPED, then the currentTask should be updated to be "SKIPPED"
 //   - In any other case the state is SUCCEEDED
-func updateStatuses(ctx context.Context, kfpAPIClient kfpapi.API, run *apiV2beta1.Run, currentTask *apiV2beta1.PipelineTaskDetail) error {
+func updateStatuses(ctx context.Context, kfpAPIClient kfpapi.API, run *apiV2beta1.Run, pipelineSpec *structpb.Struct, currentTask *apiV2beta1.PipelineTaskDetail) error {
 	// Create a map of task IDs to tasks for quick lookup
 	taskMap := make(map[string]*apiV2beta1.PipelineTaskDetail)
 	for _, task := range run.GetTasks() {
@@ -226,7 +229,7 @@ func updateStatuses(ctx context.Context, kfpAPIClient kfpapi.API, run *apiV2beta
 			// In a non-loop case we can determine the total number of child tasks by inspecting the parent dag's
 			// task count within it's component spec.
 			// We need to use the parent task's scope path, not the current task's scope path
-			getScopePath, err := util.ScopePathFromStringPath(run.GetPipelineSpec(), parentTask.GetScopePath())
+			getScopePath, err := util.ScopePathFromStringPath(pipelineSpec, parentTask.GetScopePath())
 			if err != nil {
 				return fmt.Errorf("failed to get scope path for parent task %s: %w", parentTask.GetTaskId(), err)
 			}
@@ -403,7 +406,7 @@ func (l *LauncherV2) Execute(ctx context.Context) (err error) {
 	l.options.Run = refreshedRun
 
 	// TODO(HumairAK): Let's have API Server handle this call instead of doing it here.
-	err = updateStatuses(ctx, l.clientManager.KFPAPIClient(), l.options.Run, l.options.Task)
+	err = updateStatuses(ctx, l.clientManager.KFPAPIClient(), l.options.Run, l.pipelineSpec, l.options.Task)
 	if err != nil {
 		return fmt.Errorf("failed to update statuses: %w", err)
 	}
@@ -857,7 +860,7 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 
 	for parentTask != nil {
 		// Get the parent's component spec to check outputDefinitions
-		parentScopePath, err := util.ScopePathFromStringPath(l.options.Run.GetPipelineSpec(), parentTask.GetScopePath())
+		parentScopePath, err := util.ScopePathFromStringPath(l.pipelineSpec, parentTask.GetScopePath())
 		if err != nil {
 			return fmt.Errorf("failed to get scope path for parent task %s: %w", parentTask.GetTaskId(), err)
 		}

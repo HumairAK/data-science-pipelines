@@ -141,6 +141,7 @@ func run() error {
 		TaskSpec:          taskSpec,
 		ScopePath:         scopePath,
 		PipelineRoot:      pipelineRoot,
+		PipelineSpec:      pipelineSpecStruct,
 	}
 
 	if iterationIndex != nil && *iterationIndex > -1 {
