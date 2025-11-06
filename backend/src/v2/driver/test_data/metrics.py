@@ -15,6 +15,7 @@ dsl.component = functools.partial(dsl.component, base_image=base_image)
 @component()
 def digit_classification(metrics: Output[Metrics]):
     metrics.log_metric('accuracy', 0.5)
+    metrics.log_metric('anotherOne', 1.3)
 
 
 @component()

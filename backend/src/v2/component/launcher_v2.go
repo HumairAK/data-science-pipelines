@@ -709,7 +709,6 @@ func (l *LauncherV2) uploadOutputArtifacts(
 						Name:        key,
 						Description: "",
 						Type:        artifactType,
-						Metadata:    outputArtifact.GetMetadata().GetFields(),
 						NumberValue: &numVal.NumberValue,
 						CreatedAt:   timestamppb.Now(),
 						Namespace:   l.options.Namespace,

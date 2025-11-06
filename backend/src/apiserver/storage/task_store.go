@@ -228,6 +228,7 @@ func hydrateArtifactsForTasks(db *DB, tasks []*model.Task) error {
 			"artifacts.CreatedAtInSec",
 			"artifacts.LastUpdateInSec",
 			"artifacts.Metadata",
+			"artifacts.NumberValue",
 		).
 		From("artifact_tasks").
 		Join("artifacts ON artifact_tasks.ArtifactID = artifacts.UUID").
@@ -252,9 +253,10 @@ func hydrateArtifactsForTasks(db *DB, tasks []*model.Task) error {
 		var artType sql.NullInt32
 		var createdAt, updatedAt sql.NullInt64
 		var metadata, artURI sql.NullString
+		var numberValue sql.NullFloat64
 
 		if err := rows.Scan(&taskID, &linkType, &producer, &key,
-			&artUUID, &artNamespace, &artType, &artURI, &artName, &createdAt, &updatedAt, &metadata); err != nil {
+			&artUUID, &artNamespace, &artType, &artURI, &artName, &createdAt, &updatedAt, &metadata, &numberValue); err != nil {
 			return err
 		}
 
@@ -280,6 +282,9 @@ func hydrateArtifactsForTasks(db *DB, tasks []*model.Task) error {
 		}
 		if artURI.Valid {
 			mArtifact.Uri = &artURI.String
+		}
+		if numberValue.Valid {
+			mArtifact.NumberValue = &numberValue.Float64
 		}
 
 		// Parse producer JSON to IOProducer
