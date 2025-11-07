@@ -923,17 +923,27 @@ func (s *RunServer) ListTasks(ctx context.Context, request *apiv2beta1.ListTasks
 	}
 
 	// Sanity check: ensure all tasks have the same namespace as expected
-	// Skip this check if we're in single-user mode with empty namespace (all namespaces allowed)
-	if filterType == "namespace" && expectedNamespace == "" && !common.IsMultiUserMode() {
-		// In single-user mode with empty namespace, skip namespace validation
-		// This allows listing all tasks across all namespaces
-	} else {
-		// Validate namespace consistency for all other cases
+	// Skip this check if we're in single-user mode with namespace filtering
+	// In single-user mode, we allow tasks with empty namespace to be included
+	skipNamespaceCheck := filterType == "namespace" && !common.IsMultiUserMode()
+
+	if !skipNamespaceCheck {
+		// Validate namespace consistency for other filter types (run_id, parent_id)
 		for _, task := range tasks {
 			if task.Namespace != expectedNamespace {
 				return nil, util.NewInternalServerError(
 					util.NewInvalidInputError("Task namespace mismatch detected"),
 					"Task %s has namespace '%s' but expected namespace '%s'. This indicates a data consistency issue.",
+					task.UUID, task.Namespace, expectedNamespace)
+			}
+		}
+	} else {
+		// In single-user mode with namespace filtering, tasks can have the specified namespace OR empty namespace
+		for _, task := range tasks {
+			if task.Namespace != expectedNamespace && task.Namespace != "" {
+				return nil, util.NewInternalServerError(
+					util.NewInvalidInputError("Task namespace mismatch detected"),
+					"Task %s has namespace '%s' but expected namespace '%s' or empty. This indicates a data consistency issue.",
 					task.UUID, task.Namespace, expectedNamespace)
 			}
 		}

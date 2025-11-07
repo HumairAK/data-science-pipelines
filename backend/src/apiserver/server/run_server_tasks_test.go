@@ -7,6 +7,7 @@ import (
 
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/resource"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -557,6 +558,10 @@ func TestListTasks_ByNamespace(t *testing.T) {
 }
 
 func TestListTasks_MutualExclusivity(t *testing.T) {
+	// Test in single-user mode first
+	viper.Set(common.MultiUserMode, "false")
+	t.Cleanup(func() { viper.Set(common.MultiUserMode, "false") })
+
 	clients, manager, runID := seedOneRun(t)
 	defer clients.Close()
 
@@ -571,21 +576,10 @@ func TestListTasks_MutualExclusivity(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	// Test: No filter provided - should fail
+	// Test: No filter provided - should succeed in single-user mode (lists all tasks)
 	_, err = runSrv.ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
 		PageSize: 50,
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Either run_id, parent_id, or namespace is required")
-
-	// Test: Multiple filters provided - should fail
-	_, err = runSrv.ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
-		ParentFilter: &apiv2beta1.ListTasksRequest_RunId{
-			RunId: runID,
-		},
-		PageSize: 50,
-	})
-	// This should work since only one filter is provided
 	assert.NoError(t, err)
 
 	// Test: Providing run_id succeeds
@@ -614,6 +608,16 @@ func TestListTasks_MutualExclusivity(t *testing.T) {
 		PageSize: 50,
 	})
 	assert.NoError(t, err)
+
+	// Now test multi-user mode
+	viper.Set(common.MultiUserMode, "true")
+
+	// Test: No filter provided - should fail in multi-user mode
+	_, err = runSrv.ListTasks(ctxWithUser(), &apiv2beta1.ListTasksRequest{
+		PageSize: 50,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Either run_id, parent_id, or namespace is required")
 }
 
 func TestListTasks_EmptyNamespaceSingleUserMode(t *testing.T) {
@@ -668,4 +672,83 @@ func TestListTasks_EmptyNamespaceSingleUserMode(t *testing.T) {
 	for taskID, found := range taskIDs {
 		assert.True(t, found, "Task %s should be found when filtering by empty namespace in single-user mode", taskID)
 	}
+}
+
+func TestListTasks_NamespaceIncludesEmptyInSingleUserMode(t *testing.T) {
+	// Ensure we're in single-user mode
+	viper.Set(common.MultiUserMode, "false")
+	t.Cleanup(func() { viper.Set(common.MultiUserMode, "false") })
+
+	clients, manager, runID := seedOneRun(t)
+	defer clients.Close()
+
+	// Manually set some tasks to have a specific namespace and some with empty namespace
+	taskStore := clients.TaskStore()
+
+	// Create task with specific namespace
+	taskWithNamespace := &model.Task{
+		UUID:      "task-with-namespace",
+		RunUUID:   runID,
+		Name:      "task-with-ns",
+		Namespace: "test-namespace",
+	}
+	createdTask1, err := taskStore.CreateTask(taskWithNamespace)
+	assert.NoError(t, err)
+
+	// Create task with empty namespace
+	taskWithoutNamespace := &model.Task{
+		UUID:      "task-without-namespace",
+		RunUUID:   runID,
+		Name:      "task-without-ns",
+		Namespace: "",
+	}
+	createdTask2, err := taskStore.CreateTask(taskWithoutNamespace)
+	assert.NoError(t, err)
+
+	// Create task with different namespace (should not be returned)
+	taskWithDifferentNamespace := &model.Task{
+		UUID:      "task-with-different-namespace",
+		RunUUID:   runID,
+		Name:      "task-with-different-ns",
+		Namespace: "other-namespace",
+	}
+	createdTask3, err := taskStore.CreateTask(taskWithDifferentNamespace)
+	assert.NoError(t, err)
+
+	runSrv := createRunServer(manager)
+
+	// Test: Filtering by "test-namespace" in single-user mode should return:
+	// 1. Tasks with "test-namespace"
+	// 2. Tasks with empty namespace
+	// But NOT tasks with "other-namespace"
+	resp, err := runSrv.ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
+		ParentFilter: &apiv2beta1.ListTasksRequest_Namespace{
+			Namespace: "test-namespace",
+		},
+		PageSize: 50,
+	})
+	assert.NoError(t, err)
+
+	// Should find both task-with-namespace and task-without-namespace
+	assert.GreaterOrEqual(t, int(resp.GetTotalSize()), 2, "Should return at least 2 tasks")
+
+	foundWithNamespace := false
+	foundWithoutNamespace := false
+	foundWithDifferentNamespace := false
+
+	for _, task := range resp.GetTasks() {
+		if task.GetTaskId() == createdTask1.UUID {
+			foundWithNamespace = true
+		}
+		if task.GetTaskId() == createdTask2.UUID {
+			foundWithoutNamespace = true
+		}
+		if task.GetTaskId() == createdTask3.UUID {
+			foundWithDifferentNamespace = true
+		}
+	}
+
+	assert.True(t, foundWithNamespace, "Should find task with matching namespace")
+	assert.True(t, foundWithoutNamespace, "Should find task with empty namespace in single-user mode")
+	assert.False(t, foundWithDifferentNamespace, "Should NOT find task with different namespace")
 }
