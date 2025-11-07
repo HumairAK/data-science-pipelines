@@ -126,7 +126,7 @@ func resolveTaskOutputArtifact(
 	}
 	outputKey := spec.GetTaskOutputArtifact().GetOutputArtifactKey()
 	outputs := producerTask.GetOutputs().GetArtifacts()
-	outputIO, err := findArtifactByProducerKeyInList(outputKey, outputs)
+	outputIO, err := findArtifactByProducerKeyInList(outputKey, producerTask.GetName(), outputs)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +271,7 @@ func getTaskNameWithTaskID(taskName, taskID string) string {
 }
 
 func findArtifactByProducerKeyInList(
-	producerKey string,
+	producerKey, producerTaskName string,
 	artifactsIO []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOArtifact,
 ) (*apiv2beta1.PipelineTaskDetail_InputOutputs_IOArtifact, error) {
 	var artifactIOList []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOArtifact
@@ -304,7 +304,9 @@ func findArtifactByProducerKeyInList(
 			Type:        ioType,
 			ArtifactKey: producerKey,
 			// This is unused by the caller
-			Producer: nil,
+			Producer: &apiv2beta1.IOProducer{
+				TaskName: producerTaskName,
+			},
 		}
 		return newArtifactIO, nil
 	}

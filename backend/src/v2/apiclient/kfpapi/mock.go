@@ -251,6 +251,7 @@ func (m *MockAPI) CreateArtifact(_ context.Context, req *apiv2beta1.CreateArtifa
 	}
 	m.artifacts[artifact.ArtifactId] = artifact
 
+	task := m.tasks[req.TaskId]
 	// Also create the artifact-task relationship
 	// This mimics what the real API server does
 	artifactTask := &apiv2beta1.ArtifactTask{
@@ -260,7 +261,7 @@ func (m *MockAPI) CreateArtifact(_ context.Context, req *apiv2beta1.CreateArtifa
 		Key:        req.ProducerKey,
 		Type:       req.Type,
 		Producer: &apiv2beta1.IOProducer{
-			TaskName: "", // The task name will be populated from the task if needed
+			TaskName: task.Name, // The task name will be populated from the task if needed
 		},
 	}
 	if req.IterationIndex != nil {

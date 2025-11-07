@@ -107,7 +107,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 	// The parent task should be "for-loop-2" for the iterations at first depth
 	parentTask = loopTask
 
-	// Perform the iteration calls, mock any launcher calls
+	// Perform the iteration calls
 	for index, paramID := range []string{"1", "2", "3"} {
 		// Run the "process-dataset" Container Task with iteration index
 		processExecution, _ := tc.RunContainerDriver("process-dataset", parentTask, util.Int64Pointer(int64(index)), false)
