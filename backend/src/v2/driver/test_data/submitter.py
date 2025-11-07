@@ -16,7 +16,6 @@ def submit_pipeline(pipeline_path: str, run_name: str, run_desc: str = ""):
         verify_ssl=False,
     )
 
-
     # Create or get pipeline
     pipeline = client.create_run_from_pipeline_package(
         run_name=run_name,
@@ -28,7 +27,7 @@ def submit_pipeline(pipeline_path: str, run_name: str, run_desc: str = ""):
 
 if __name__ == "__main__":
     # Example usage
-    PIPELINE_PATH = "pipeline_with_input_status_state.yaml"
+    PIPELINE_PATH = "oneof_simple.yaml"
     RUN_NAME = "Run-Test"
     RUN_DESC = "Some Description"
 

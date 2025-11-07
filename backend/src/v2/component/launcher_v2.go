@@ -213,6 +213,20 @@ func updateStatuses(ctx context.Context, kfpAPIClient kfpapi.API, run *apiV2beta
 			return fmt.Errorf("parent task %s not found for task %s", *currentTask.ParentTaskId, currentTask.GetTaskId())
 		}
 
+		// Determine the total number of child tasks by inspecting the parent dag's
+		// task count within it's component spec.
+		// We need to use the parent task's scope path, not the current task's scope path
+		// Note this doesn't factor in the number of iterations of these child tasks when in a loop.
+		getScopePath, err := util.ScopePathFromStringPath(pipelineSpec, parentTask.GetScopePath())
+		if err != nil {
+			return fmt.Errorf("failed to get scope path for parent task %s: %w", parentTask.GetTaskId(), err)
+		}
+		if getScopePath.GetLast() == nil || getScopePath.GetLast().GetComponentSpec() == nil || getScopePath.GetLast().GetComponentSpec().GetDag() == nil {
+			return fmt.Errorf("failed to get dag for parent task %s (scope: %s): component spec or dag is nil", parentTask.GetTaskId(), parentTask.GetScopePath())
+		}
+		getScopePath.GetLast().GetComponentSpec().GetDag().GetTasks()
+		numberOfTasksInThisDag := len(getScopePath.GetLast().GetComponentSpec().GetDag().GetTasks())
+
 		// Before we proceed to update this parent task's status, we need to ensure that all child tasks have been
 		// created (irrespective of their status).
 		var expectedTotalChildTasks int
@@ -221,20 +235,9 @@ func updateStatuses(ctx context.Context, kfpAPIClient kfpapi.API, run *apiV2beta
 			if typeAttrs == nil || typeAttrs.IterationCount == nil {
 				return fmt.Errorf("loop task %s is missing iteration_count attribute", parentTask.GetTaskId())
 			}
-			expectedTotalChildTasks = int(*typeAttrs.IterationCount)
+			expectedTotalChildTasks = int(*typeAttrs.IterationCount) * numberOfTasksInThisDag
 		} else {
-			// In a non-loop case we can determine the total number of child tasks by inspecting the parent dag's
-			// task count within it's component spec.
-			// We need to use the parent task's scope path, not the current task's scope path
-			getScopePath, err := util.ScopePathFromStringPath(pipelineSpec, parentTask.GetScopePath())
-			if err != nil {
-				return fmt.Errorf("failed to get scope path for parent task %s: %w", parentTask.GetTaskId(), err)
-			}
-			if getScopePath.GetLast() == nil || getScopePath.GetLast().GetComponentSpec() == nil || getScopePath.GetLast().GetComponentSpec().GetDag() == nil {
-				return fmt.Errorf("failed to get dag for parent task %s (scope: %s): component spec or dag is nil", parentTask.GetTaskId(), parentTask.GetScopePath())
-			}
-			getScopePath.GetLast().GetComponentSpec().GetDag().GetTasks()
-			expectedTotalChildTasks = len(getScopePath.GetLast().GetComponentSpec().GetDag().GetTasks())
+			expectedTotalChildTasks = numberOfTasksInThisDag
 		}
 		// Now count the actual number of child tasks created.
 		var childCount int

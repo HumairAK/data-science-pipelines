@@ -210,10 +210,10 @@ func (m *MockAPI) ListTasks(_ context.Context, req *apiv2beta1.ListTasksRequest)
 		var statusPredicate *apiv2beta1.Predicate
 		var fingerprintPredicate *apiv2beta1.Predicate
 
-		if predicates[0].Key == "status" && predicates[1].Key == "fingerPrint" {
+		if predicates[0].Key == "status" && predicates[1].Key == "cache_fingerprint" {
 			statusPredicate = predicates[0]
 			fingerprintPredicate = predicates[1]
-		} else if predicates[1].Key == "status" && predicates[0].Key == "fingerPrint" {
+		} else if predicates[1].Key == "status" && predicates[0].Key == "cache_fingerprint" {
 			statusPredicate = predicates[1]
 			fingerprintPredicate = predicates[0]
 		} else {
@@ -254,6 +254,13 @@ func (m *MockAPI) CreateArtifact(_ context.Context, req *apiv2beta1.CreateArtifa
 	task := m.tasks[req.TaskId]
 	// Also create the artifact-task relationship
 	// This mimics what the real API server does
+
+	// Get the task name if the task exists, otherwise use empty string
+	taskName := ""
+	if task != nil {
+		taskName = task.Name
+	}
+
 	artifactTask := &apiv2beta1.ArtifactTask{
 		ArtifactId: artifact.ArtifactId,
 		TaskId:     req.TaskId,
@@ -261,7 +268,7 @@ func (m *MockAPI) CreateArtifact(_ context.Context, req *apiv2beta1.CreateArtifa
 		Key:        req.ProducerKey,
 		Type:       req.Type,
 		Producer: &apiv2beta1.IOProducer{
-			TaskName: task.Name, // The task name will be populated from the task if needed
+			TaskName: taskName,
 		},
 	}
 	if req.IterationIndex != nil {
@@ -289,6 +296,13 @@ func (m *MockAPI) CreateArtifactsBulk(_ context.Context, req *apiv2beta1.CreateA
 		}
 		m.artifacts[artifact.ArtifactId] = artifact
 
+		// Get the task name if the task exists, otherwise use empty string
+		task := m.tasks[artifactReq.TaskId]
+		taskName := ""
+		if task != nil {
+			taskName = task.Name
+		}
+
 		// Also create the artifact-task relationship
 		artifactTask := &apiv2beta1.ArtifactTask{
 			ArtifactId: artifact.ArtifactId,
@@ -297,7 +311,7 @@ func (m *MockAPI) CreateArtifactsBulk(_ context.Context, req *apiv2beta1.CreateA
 			Key:        artifactReq.ProducerKey,
 			Type:       artifactReq.Type,
 			Producer: &apiv2beta1.IOProducer{
-				TaskName: "",
+				TaskName: taskName,
 			},
 		}
 		if artifactReq.IterationIndex != nil {

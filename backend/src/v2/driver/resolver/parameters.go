@@ -102,6 +102,9 @@ func ResolveInputParameter(
 				ioParameter := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 					ParameterKey: "",
 					Value:        v,
+					Producer: &apiv2beta1.IOProducer{
+						TaskName: opts.ParentTask.GetName(),
+					},
 				}
 				return ioParameter, apiv2beta1.IOType_RUNTIME_VALUE_INPUT, nil
 			}
@@ -136,6 +139,9 @@ func ResolveInputParameter(
 			ioParameter := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 				ParameterKey: "",
 				Value:        v,
+				Producer: &apiv2beta1.IOProducer{
+					TaskName: opts.ParentTask.GetName(),
+				},
 			}
 			return ioParameter, apiv2beta1.IOType_RUNTIME_VALUE_INPUT, nil
 		default:
@@ -149,6 +155,9 @@ func ResolveInputParameter(
 		return &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 			ParameterKey: "status",
 			Value:        value,
+			Producer: &apiv2beta1.IOProducer{
+				TaskName: opts.ParentTask.GetName(),
+			},
 		}, apiv2beta1.IOType_TASK_FINAL_STATUS_OUTPUT, nil
 	default:
 		return nil, apiv2beta1.IOType_UNSPECIFIED, paramError(paramSpec, fmt.Errorf("parameter spec of type %T not implemented yet", t))

@@ -43,6 +43,10 @@ func RootDAG(ctx context.Context, opts common.Options, clientManager client_mana
 			params = append(params, &apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 				ParameterKey: n,
 				Value:        val,
+				Type:         apiV2beta1.IOType_RUNTIME_VALUE_INPUT,
+				Producer: &apiV2beta1.IOProducer{
+					TaskName: "ROOT",
+				},
 			})
 		}
 		inputs = &apiV2beta1.PipelineTaskDetail_InputOutputs{Parameters: params}

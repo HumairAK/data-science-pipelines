@@ -14,8 +14,8 @@
 #    pull_secret_3: str [Default: 'pull-secret-3']
 #    pvc_name_suffix_input: str [Default: '-pvc-1']
 #    secret_param: str [Default: 'secret-2']
-#    tolerations_dict_input: dict [Default: {'value': 'value3', 'effect': 'NoSchedule', 'key': 'some_foo_key6', 'operator': 'Equal'}]
-#    tolerations_list_input: list [Default: [{'value': 'value2', 'effect': 'NoSchedule', 'key': 'some_foo_key4', 'operator': 'Equal'}, {'effect': 'NoExecute', 'key': 'some_foo_key5', 'operator': 'Exists'}]]
+#    tolerations_dict_input: dict [Default: {'key': 'some_foo_key6', 'effect': 'NoSchedule', 'value': 'value3', 'operator': 'Equal'}]
+#    tolerations_list_input: list [Default: [{'key': 'some_foo_key4', 'effect': 'NoSchedule', 'value': 'value2', 'operator': 'Equal'}, {'key': 'some_foo_key5', 'effect': 'NoExecute', 'operator': 'Exists'}]]
 components:
   comp-assert-values:
     executorLabel: exec-assert-values
