@@ -419,3 +419,7 @@ func (m *MockAPI) AddPipelineVersion(pipelineID, versionID string, version *apiv
 	key := pipelineID + ":" + versionID
 	m.pipelineVersions[key] = version
 }
+
+func (m *MockAPI) UpdateStatuses(ctx context.Context, run *apiv2beta1.Run, pipelineSpec *structpb.Struct, currentTask *apiv2beta1.PipelineTaskDetail) error {
+	return updateStatuses(ctx, run, m, pipelineSpec, currentTask)
+}

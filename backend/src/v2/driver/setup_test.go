@@ -69,8 +69,16 @@ func NewTestContextWithRootExecuted(t *testing.T, runtimeConfig *pipelinespec.Pi
 	require.NotNil(t, platformSpec)
 	require.NotNil(t, pipelineSpec)
 
+	// Convert pipelineSpec to structpb.Struct
+	pipelineSpecJSON, err := protojson.Marshal(pipelineSpec)
+	require.NoError(t, err)
+	pipelineSpecStruct := &structpb.Struct{}
+	err = protojson.Unmarshal(pipelineSpecJSON, pipelineSpecStruct)
+	require.NoError(t, err)
+
 	// Set up scope path
-	tc.ScopePath = util.NewScopePath(pipelineSpec)
+	tc.ScopePath, err = util.NewScopePathFromStruct(pipelineSpecStruct)
+	require.NoError(t, err)
 	tc.PipelineSpec = pipelineSpec
 	tc.PlatformSpec = platformSpec
 

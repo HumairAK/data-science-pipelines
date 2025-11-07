@@ -3,11 +3,14 @@ package kfpapi
 import (
 	"context"
 	"fmt"
+	"time"
 
 	gc "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // API is a minimal interface exposing KFP API operations needed by drivers and launchers.
@@ -41,6 +44,9 @@ type API interface {
 	// Pipeline version operations
 	GetPipelineVersion(ctx context.Context, req *gc.GetPipelineVersionRequest) (*gc.PipelineVersion, error)
 	FetchPipelineSpecFromRun(ctx context.Context, pipelineSpecStruct *structpb.Struct, run *gc.Run) (*structpb.Struct, error)
+
+	// Propagate status updates up the DAG
+	UpdateStatuses(ctx context.Context, run *gc.Run, pipelineSpec *structpb.Struct, currentTask *gc.PipelineTaskDetail) error
 }
 
 // clientAdapter adapts apiclient.Client to API.
@@ -168,4 +174,167 @@ func (k *clientAdapter) FetchPipelineSpecFromRun(ctx context.Context, pipelineSp
 		return spec.GetStructValue(), nil
 	}
 	return pipelineSpecStruct, nil
+}
+
+// UpdateStatuses Traverse up the dag until we find a parent task that still has other children with "RUNNING" status
+// or when we have reached Root. If the parent task has other children in running that means this parent is also running.
+// However, if the currentTask is a parent task, and all children tasks have been created (though not necessarily completed):
+//   - if all children in this DAG are all CACHED, then the currentTask should be updated to be "CACHED"
+//   - if any of the children in this DAG are FAILED, then the currentTask should be updated to be "FAILED"
+//   - if all children in this DAG were SKIPPED, then the currentTask should be updated to be "SKIPPED"
+//   - In any other case the state is SUCCEEDED
+//
+// TODO(HumairAK): Let's have API Server handle this call instead of doing it here.
+func (k *clientAdapter) UpdateStatuses(ctx context.Context, run *gc.Run, pipelineSpec *structpb.Struct, currentTask *gc.PipelineTaskDetail) error {
+	return updateStatuses(ctx, run, k, pipelineSpec, currentTask)
+}
+
+// updateStatuses traverses up the dag until we find a parent task that still has other children with "RUNNING" status
+// or when we have reached Root.
+// This function is separated from UpdateStatuses so that it can be used by the mock api client in tests.
+func updateStatuses(ctx context.Context, run *gc.Run, kfpAPIClient API, pipelineSpec *structpb.Struct, currentTask *gc.PipelineTaskDetail) error {
+	// Create a map of task IDs to tasks for quick lookup
+	taskMap := make(map[string]*gc.PipelineTaskDetail)
+	for _, task := range run.GetTasks() {
+		taskMap[task.GetTaskId()] = task
+	}
+
+	// Start with the current task and traverse up
+	for {
+		// If current task has no parent, we've reached the root
+		if currentTask.ParentTaskId == nil || *currentTask.ParentTaskId == "" {
+			// Evaluate the root task's status based on its children
+			if err := evaluateAndUpdateParentStatus(ctx, run, currentTask, kfpAPIClient); err != nil {
+				return fmt.Errorf("failed to evaluate root task %s status: %w", currentTask.GetTaskId(), err)
+			}
+			break
+		}
+
+		// Get the parent task
+		parentTask, exists := taskMap[*currentTask.ParentTaskId]
+		if !exists {
+			return fmt.Errorf("parent task %s not found for task %s", *currentTask.ParentTaskId, currentTask.GetTaskId())
+		}
+
+		// Determine the total number of child tasks by inspecting the parent dag's
+		// task count within it's component spec.
+		// We need to use the parent task's scope path, not the current task's scope path
+		// Note this doesn't factor in the number of iterations of these child tasks when in a loop.
+		getScopePath, err := util.ScopePathFromStringPath(pipelineSpec, parentTask.GetScopePath())
+		if err != nil {
+			return fmt.Errorf("failed to get scope path for parent task %s: %w", parentTask.GetTaskId(), err)
+		}
+		if getScopePath.GetLast() == nil || getScopePath.GetLast().GetComponentSpec() == nil || getScopePath.GetLast().GetComponentSpec().GetDag() == nil {
+			return fmt.Errorf("failed to get dag for parent task %s (scope: %s): component spec or dag is nil", parentTask.GetTaskId(), parentTask.GetScopePath())
+		}
+		getScopePath.GetLast().GetComponentSpec().GetDag().GetTasks()
+		numberOfTasksInThisDag := len(getScopePath.GetLast().GetComponentSpec().GetDag().GetTasks())
+
+		// Before we proceed to update this parent task's status, we need to ensure that all child tasks have been
+		// created (irrespective of their status).
+		var expectedTotalChildTasks int
+		if parentTask.GetType() == gc.PipelineTaskDetail_LOOP {
+			typeAttrs := parentTask.GetTypeAttributes()
+			if typeAttrs == nil || typeAttrs.IterationCount == nil {
+				return fmt.Errorf("loop task %s is missing iteration_count attribute", parentTask.GetTaskId())
+			}
+			expectedTotalChildTasks = int(*typeAttrs.IterationCount) * numberOfTasksInThisDag
+		} else {
+			expectedTotalChildTasks = numberOfTasksInThisDag
+		}
+		// Now count the actual number of child tasks created.
+		var childCount int
+		for _, task := range run.GetTasks() {
+			if task.ParentTaskId != nil && *task.ParentTaskId == parentTask.GetTaskId() {
+				if task.GetState() == gc.PipelineTaskDetail_RUNNING {
+					return nil
+				}
+				childCount++
+			}
+		}
+
+		// If not all children created yet, exit traversal
+		if childCount < expectedTotalChildTasks {
+			return nil
+		}
+
+		// Evaluate and update parent's status based on its children
+		if err := evaluateAndUpdateParentStatus(ctx, run, parentTask, kfpAPIClient); err != nil {
+			return fmt.Errorf("failed to evaluate parent task %s status: %w", parentTask.GetTaskId(), err)
+		}
+
+		// Move to the parent for next iteration
+		currentTask = parentTask
+	}
+	return nil
+}
+
+// evaluateAndUpdateParentStatus evaluates a parent task's status based on its direct children and updates it accordingly
+func evaluateAndUpdateParentStatus(
+	ctx context.Context,
+	run *gc.Run,
+	parentTask *gc.PipelineTaskDetail,
+	kfpAPIClient API,
+) error {
+	// Collect all direct children of this parent
+	var children []*gc.PipelineTaskDetail
+	for _, task := range run.GetTasks() {
+		if task.ParentTaskId != nil && *task.ParentTaskId == parentTask.GetTaskId() {
+			children = append(children, task)
+		}
+	}
+
+	// If no children, nothing to evaluate
+	if len(children) == 0 {
+		return nil
+	}
+
+	// Evaluate child statuses
+	allCached := true
+	allSkipped := true
+	anyFailed := false
+
+	for _, child := range children {
+		status := child.GetState()
+
+		// Check for FAILED
+		if status == gc.PipelineTaskDetail_FAILED {
+			anyFailed = true
+		}
+
+		// Check if all are CACHED
+		if status != gc.PipelineTaskDetail_CACHED {
+			allCached = false
+		}
+
+		// Check if all are SKIPPED
+		if status != gc.PipelineTaskDetail_SKIPPED {
+			allSkipped = false
+		}
+	}
+
+	// Determine the new status for the parent
+	var newStatus gc.PipelineTaskDetail_TaskState
+	if anyFailed {
+		newStatus = gc.PipelineTaskDetail_FAILED
+	} else if allCached {
+		newStatus = gc.PipelineTaskDetail_CACHED
+	} else if allSkipped {
+		newStatus = gc.PipelineTaskDetail_SKIPPED
+	} else {
+		newStatus = gc.PipelineTaskDetail_SUCCEEDED
+	}
+
+	// Update the parent task status
+	parentTask.State = newStatus
+	parentTask.EndTime = timestamppb.New(time.Now())
+	_, err := kfpAPIClient.UpdateTask(ctx, &gc.UpdateTaskRequest{
+		TaskId: parentTask.GetTaskId(),
+		Task:   parentTask,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update parent task %s status to %s: %w", parentTask.GetTaskId(), newStatus, err)
+	}
+
+	return nil
 }

@@ -6,16 +6,16 @@ from kfp.dsl import (
     Metrics,
     Markdown,
     HTML,
-    ClassificationMetrics,
+    ClassificationMetrics, Input,
 )
 base_image="quay.io/opendatahub/ds-pipelines-ci-executor-image:v1.0"
 dsl.component = functools.partial(dsl.component, base_image=base_image)
 
 
 @component()
-def digit_classification(metrics: Output[Metrics]):
-    metrics.log_metric('accuracy', 0.5)
-    metrics.log_metric('anotherOne', 1.3)
+def digit_classification(metrics_out: Output[Metrics]):
+    metrics_out.log_metric('accuracy', 0.5)
+    metrics_out.log_metric('anotherOne', 1.3)
 
 
 @component()
@@ -59,15 +59,20 @@ def markdown_visualization(markdown_artifact: Output[Markdown]):
     with open(markdown_artifact.path, 'w') as f:
         f.write(markdown_content)
 
+@component()
+def takeMetricInput(metric_in: Input[Metrics]):
+    print(metric_in.metadata['accuracy'])
+    print(metric_in.metadata['anotherOne'])
 
 @dsl.pipeline(name='metrics-visualization-pipeline')
 def metrics_visualization_pipeline():
-    wine_classification_op = wine_classification()
-    iris_sgdclassifier_op = iris_sgdclassifier(test_samples_fraction=0.3)
+    # wine_classification_op = wine_classification()
+    # iris_sgdclassifier_op = iris_sgdclassifier(test_samples_fraction=0.3)
     digit_classification_op = digit_classification()
-    html_visualization_op = html_visualization()
-    markdown_visualization_op = markdown_visualization()
+    # html_visualization_op = html_visualization()
+    # markdown_visualization_op = markdown_visualization()
 
+    takeMetricInput(metric_in=digit_classification_op.outputs['metrics_out'])
 
 if __name__ == '__main__':
     from kfp import compiler

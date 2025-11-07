@@ -24,15 +24,15 @@ import (
 // Container mirrors Container but uses KFP RunService/ArtifactService instead of MLMD.
 // Initial version wires inputs and creates a runtime task; output recording via
 // ArtifactService will be added in subsequent steps.
-func Container(ctx context.Context, opts common.Options, clientManager client_manager.ClientManagerInterface) (execution *Execution, err error) {
+func Container(ctx context.Context, opts common.Options, clientManager client_manager.ClientManagerInterface) (execution *Execution, driverErr error) {
 	defer func() {
-		if err != nil {
-			err = fmt.Errorf("driver.Container(%s) failed: %w", opts.Info(), err)
+		if driverErr != nil {
+			driverErr = fmt.Errorf("driver.Container(%s) failed: %w", opts.Info(), driverErr)
 		}
 	}()
-	b, err := json.Marshal(opts)
-	if err != nil {
-		return nil, err
+	b, driverErr := json.Marshal(opts)
+	if driverErr != nil {
+		return nil, driverErr
 	}
 	glog.V(4).Info("Container opts: ", string(b))
 
@@ -52,28 +52,75 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 		iterationIndex = &idx
 	}
 
-	expr, err := expression.New()
-	if err != nil {
-		return nil, err
+	expr, driverErr := expression.New()
+	if driverErr != nil {
+		return nil, driverErr
 	}
 
-	parentTask, err := clientManager.KFPAPIClient().GetTask(ctx, &apiV2beta1.GetTaskRequest{TaskId: opts.ParentTask.GetTaskId()})
-	if err != nil {
-		return nil, err
+	parentTask, driverErr := clientManager.KFPAPIClient().GetTask(ctx, &apiV2beta1.GetTaskRequest{TaskId: opts.ParentTask.GetTaskId()})
+	if driverErr != nil {
+		return nil, driverErr
 	}
 	opts.ParentTask = parentTask
+
+	taskToCreate := &apiV2beta1.PipelineTaskDetail{
+		Name:         opts.TaskName,
+		DisplayName:  opts.Task.GetTaskInfo().GetName(),
+		RunId:        opts.Run.GetRunId(),
+		Type:         apiV2beta1.PipelineTaskDetail_RUNTIME,
+		State:        apiV2beta1.PipelineTaskDetail_RUNNING,
+		ParentTaskId: util.StringPointer(opts.ParentTask.TaskId),
+		ScopePath:    opts.ScopePath.StringPath(),
+		StartTime:    timestamppb.Now(),
+		CreateTime:   timestamppb.Now(),
+		Pods: []*apiV2beta1.PipelineTaskDetail_TaskPod{
+			{
+				Name: opts.PodName,
+				Uid:  opts.PodUID,
+				Type: apiV2beta1.PipelineTaskDetail_DRIVER,
+			},
+		},
+	}
+
+	// Ensure we capture and propagate any errors.
+	defer func() {
+		if driverErr != nil {
+			taskToCreate.State = apiV2beta1.PipelineTaskDetail_FAILED
+			taskToCreate.EndTime = timestamppb.Now()
+			taskToCreate.StatusMetadata = &apiV2beta1.PipelineTaskDetail_StatusMetadata{
+				Message: driverErr.Error(),
+			}
+			// We encountered an error in driver before we got the chance to create the task.
+			if taskToCreate.TaskId == "" {
+				_, err := clientManager.KFPAPIClient().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{Task: taskToCreate})
+				if err != nil {
+					glog.Errorf("Failed to Create task %s: %v", taskToCreate.Name, err)
+				}
+			} else {
+				_, err := clientManager.KFPAPIClient().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{Task: taskToCreate})
+				if err != nil {
+					glog.Errorf("Failed to update task %s: %v", taskToCreate.Name, err)
+				}
+			}
+		}
+		err := clientManager.KFPAPIClient().UpdateStatuses(ctx, opts.Run, opts.ScopePath.GetPipelineSpecStruct(), taskToCreate)
+		if err != nil {
+			glog.Errorf("Failed to update statuses: %v", err)
+			return
+		}
+	}()
 
 	// ######################################
 	// ### RESOLVE INPUTS ###
 	// ######################################
-	inputs, _, err := resolver.ResolveInputs(ctx, opts)
-	if err != nil {
-		return nil, err
+	inputs, _, driverErr := resolver.ResolveInputs(ctx, opts)
+	if driverErr != nil {
+		return nil, driverErr
 	}
 
-	executorInput, err := pipelineTaskInputsToExecutorInputs(inputs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert inputs to executor inputs: %w", err)
+	executorInput, driverErr := pipelineTaskInputsToExecutorInputs(inputs)
+	if driverErr != nil {
+		return nil, fmt.Errorf("failed to convert inputs to executor inputs: %w", driverErr)
 	}
 
 	execution = &Execution{ExecutorInput: executorInput}
@@ -107,27 +154,6 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 	// ######################################
 	// ### TASK REQUEST ###
 	// ######################################
-
-	glog.Infof("Creating task %s in pod %s", opts.TaskName, opts.Namespace)
-	taskToCreate := &apiV2beta1.PipelineTaskDetail{
-		Name:         opts.TaskName,
-		DisplayName:  opts.Task.GetTaskInfo().GetName(),
-		RunId:        opts.Run.GetRunId(),
-		Type:         apiV2beta1.PipelineTaskDetail_RUNTIME,
-		State:        apiV2beta1.PipelineTaskDetail_RUNNING,
-		ParentTaskId: util.StringPointer(opts.ParentTask.TaskId),
-		ScopePath:    opts.ScopePath.StringPath(),
-		StartTime:    timestamppb.Now(),
-		CreateTime:   timestamppb.Now(),
-		Pods: []*apiV2beta1.PipelineTaskDetail_TaskPod{
-			{
-				Name: opts.PodName,
-				Uid:  opts.PodUID,
-				Type: apiV2beta1.PipelineTaskDetail_DRIVER,
-			},
-		},
-	}
-
 	if iterationIndex != nil {
 		taskToCreate.TypeAttributes = &apiV2beta1.PipelineTaskDetail_TypeAttributes{IterationIndex: util.Int64Pointer(int64(*iterationIndex))}
 	}
@@ -142,8 +168,8 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 	var inputParams []*apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter
 	if opts.KubernetesExecutorConfig != nil {
 		inputParams = parentTask.GetInputs().GetParameters()
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch input parameters from task: %w", err)
+		if driverErr != nil {
+			return nil, fmt.Errorf("failed to fetch input parameters from task: %w", driverErr)
 		}
 	}
 
@@ -177,9 +203,9 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 			pvcNames = append(pvcNames, GetWorkspacePVCName(opts.RunName))
 		}
 
-		fingerPrint, cachedTask, err = getFingerPrintsAndID(ctx, execution, clientManager.KFPAPIClient(), &opts, pvcNames)
-		if err != nil {
-			return execution, err
+		fingerPrint, cachedTask, driverErr = getFingerPrintsAndID(ctx, execution, clientManager.KFPAPIClient(), &opts, pvcNames)
+		if driverErr != nil {
+			return execution, driverErr
 		}
 		taskToCreate.CacheFingerprint = fingerPrint
 	}
@@ -233,24 +259,25 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 	// ### CREATE TASK ###
 	// ######################################
 
-	taskToCreate, err = handleInputTaskParametersCreation(inputs.Parameters, taskToCreate)
-	if err != nil {
-		return execution, err
+	taskToCreate, driverErr = handleInputTaskParametersCreation(inputs.Parameters, taskToCreate)
+	if driverErr != nil {
+		return execution, driverErr
 	}
 
 	if !execution.WillTrigger() {
 		taskToCreate.State = apiV2beta1.PipelineTaskDetail_SKIPPED
 	}
 
-	createdTask, err := clientManager.KFPAPIClient().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{Task: taskToCreate})
-	if err != nil {
-		return execution, err
+	glog.Infof("Creating task %s in pod %s", opts.TaskName, opts.Namespace)
+	createdTask, driverErr := clientManager.KFPAPIClient().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{Task: taskToCreate})
+	if driverErr != nil {
+		return execution, driverErr
 	}
 	execution.TaskID = createdTask.TaskId
 
-	err = handleInputTaskArtifactsCreation(ctx, opts, inputs.Artifacts, createdTask, clientManager.KFPAPIClient())
-	if err != nil {
-		return execution, err
+	driverErr = handleInputTaskArtifactsCreation(ctx, opts, inputs.Artifacts, createdTask, clientManager.KFPAPIClient())
+	if driverErr != nil {
+		return execution, driverErr
 	}
 
 	if !execution.WillTrigger() {
@@ -261,14 +288,14 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 	// If a user sets a pipeline root at the runtime config, use that.
 	// Otherwise, we use the default pipeline root from the launcher config map.
 	// If none is set, we use the hardcoded default.
-	pipelineRoot, err := config.GetPipelineRootWithPipelineRunContext(
+	pipelineRoot, driverErr := config.GetPipelineRootWithPipelineRunContext(
 		ctx,
 		opts.PipelineName,
 		opts.Namespace,
 		clientManager.K8sClient(),
 		opts.Run)
-	if err != nil {
-		return execution, fmt.Errorf("failed to get pipeline root: %w", err)
+	if driverErr != nil {
+		return execution, fmt.Errorf("failed to get pipeline root: %w", driverErr)
 	}
 
 	// Provision Outputs in ExecutorInput
@@ -288,7 +315,7 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 
 	taskConfig := &TaskConfig{}
 
-	podSpec, err := initPodSpecPatch(
+	podSpec, driverErr := initPodSpecPatch(
 		opts.Container,
 		opts.Component,
 		executorInput,
@@ -305,13 +332,13 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 		iterationIndex,
 		opts.Task.GetTaskInfo().GetName(),
 	)
-	if err != nil {
-		return execution, err
+	if driverErr != nil {
+		return execution, driverErr
 	}
 	if opts.KubernetesExecutorConfig != nil {
-		err = extendPodSpecPatch(ctx, podSpec, opts, inputParams, taskConfig)
-		if err != nil {
-			return execution, err
+		driverErr = extendPodSpecPatch(ctx, podSpec, opts, inputParams, taskConfig)
+		if driverErr != nil {
+			return execution, driverErr
 		}
 	}
 
@@ -363,9 +390,9 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 		execution.ExecutorInput = executorInput
 	}
 
-	podSpecPatchBytes, err := json.Marshal(podSpec)
-	if err != nil {
-		return execution, fmt.Errorf("JSON marshaling pod spec patch: %w", err)
+	podSpecPatchBytes, driverErr := json.Marshal(podSpec)
+	if driverErr != nil {
+		return execution, fmt.Errorf("JSON marshaling pod spec patch: %w", driverErr)
 	}
 	execution.PodSpecPatch = string(podSpecPatchBytes)
 	return execution, nil

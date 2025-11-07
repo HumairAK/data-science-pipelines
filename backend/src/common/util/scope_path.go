@@ -9,9 +9,10 @@ import (
 )
 
 type ScopePath struct {
-	list         *LinkedList[ScopePathEntry]
-	pipelineSpec *pipelinespec.PipelineSpec
-	size         int
+	list               *LinkedList[ScopePathEntry]
+	pipelineSpec       *pipelinespec.PipelineSpec
+	pipelineSpecStruct *structpb.Struct
+	size               int
 }
 type ScopePathEntry struct {
 	taskName      string
@@ -27,11 +28,13 @@ func (e *ScopePathEntry) GetComponentSpec() *pipelinespec.ComponentSpec {
 	return e.componentSpec
 }
 
-func NewScopePath(
+func newScopePath(
 	pipelineSpec *pipelinespec.PipelineSpec,
+	pipelineSpecStruct *structpb.Struct,
 ) ScopePath {
 	return ScopePath{
-		pipelineSpec: pipelineSpec,
+		pipelineSpec:       pipelineSpec,
+		pipelineSpecStruct: pipelineSpecStruct,
 	}
 }
 
@@ -46,7 +49,41 @@ func NewScopePathFromStruct(spec *structpb.Struct) (ScopePath, error) {
 	if err := protojson.Unmarshal(b, pipelineSpec); err != nil {
 		return ScopePath{}, fmt.Errorf("failed to unmarshal spec: %w", err)
 	}
-	return NewScopePath(pipelineSpec), nil
+	return newScopePath(pipelineSpec, spec), nil
+}
+
+// ScopePathFromStringPathWithNewTask builds a ScopePath from a string path and pushes the newTask to the end of the path.
+func ScopePathFromStringPathWithNewTask(rawPipelineSpec *structpb.Struct, path []string, newTask string) (ScopePath, error) {
+	if rawPipelineSpec == nil {
+		return ScopePath{}, fmt.Errorf("PipelineSpec is nil")
+	}
+	scopePath, err := ScopePathFromStringPath(rawPipelineSpec, path)
+	if err != nil {
+		return ScopePath{}, fmt.Errorf("failed to build scope path: %w", err)
+	}
+	// Update scope path to current context
+	err = scopePath.Push(newTask)
+	if err != nil {
+		return ScopePath{}, err
+	}
+	return scopePath, nil
+}
+
+// ScopePathFromStringPath builds a ScopePath from a string path.
+func ScopePathFromStringPath(rawPipelineSpec *structpb.Struct, path []string) (ScopePath, error) {
+	if rawPipelineSpec == nil {
+		return ScopePath{}, fmt.Errorf("PipelineSpec is nil")
+	}
+	scopePath, err := NewScopePathFromStruct(rawPipelineSpec)
+	if err != nil {
+		return ScopePath{}, fmt.Errorf("failed to build scope path: %w", err)
+	}
+	for _, taskName := range path {
+		if err := scopePath.Push(taskName); err != nil {
+			return ScopePath{}, fmt.Errorf("failed to build scope path at task %q: %w", taskName, err)
+		}
+	}
+	return scopePath, nil
 }
 
 func (s *ScopePath) Push(taskName string) error {
@@ -118,6 +155,10 @@ func (s *ScopePath) GetPipelineSpec() *pipelinespec.PipelineSpec {
 	return s.pipelineSpec
 }
 
+func (s *ScopePath) GetPipelineSpecStruct() *structpb.Struct {
+	return s.pipelineSpecStruct
+}
+
 func (s *ScopePath) StringPath() []string {
 	var path []string
 	if s.list == nil {
@@ -127,40 +168,6 @@ func (s *ScopePath) StringPath() []string {
 		path = append(path, n.Value.taskName)
 	}
 	return path
-}
-
-// ScopePathFromStringPathWithNewTask ScopePathFromStringPath builds a ScopePath from a string path and push's the newTask to the end of the path.
-func ScopePathFromStringPathWithNewTask(rawPipelineSpec *structpb.Struct, path []string, newTask string) (ScopePath, error) {
-	if rawPipelineSpec == nil {
-		return ScopePath{}, fmt.Errorf("PipelineSpec is nil")
-	}
-	scopePath, err := ScopePathFromStringPath(rawPipelineSpec, path)
-	if err != nil {
-		return ScopePath{}, fmt.Errorf("failed to build scope path: %w", err)
-	}
-	// Update scope path to current context
-	err = scopePath.Push(newTask)
-	if err != nil {
-		return ScopePath{}, err
-	}
-	return scopePath, nil
-}
-
-// ScopePathFromStringPath builds a ScopePath from a string path.
-func ScopePathFromStringPath(rawPipelineSpec *structpb.Struct, path []string) (ScopePath, error) {
-	if rawPipelineSpec == nil {
-		return ScopePath{}, fmt.Errorf("PipelineSpec is nil")
-	}
-	scopePath, err := NewScopePathFromStruct(rawPipelineSpec)
-	if err != nil {
-		return ScopePath{}, fmt.Errorf("failed to build scope path: %w", err)
-	}
-	for _, taskName := range path {
-		if err := scopePath.Push(taskName); err != nil {
-			return ScopePath{}, fmt.Errorf("failed to build scope path at task %q: %w", taskName, err)
-		}
-	}
-	return scopePath, nil
 }
 
 // Node represents one element in the list.

@@ -27,7 +27,7 @@ def submit_pipeline(pipeline_path: str, run_name: str, run_desc: str = ""):
 
 if __name__ == "__main__":
     # Example usage
-    PIPELINE_PATH = "loop_collected_InputParameter_Iterator.py.yaml"
+    PIPELINE_PATH = "metrics.py.yaml"
     RUN_NAME = "Run-Test"
     RUN_DESC = "Some Description"
 

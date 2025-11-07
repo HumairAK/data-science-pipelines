@@ -91,7 +91,7 @@ func (l *ImportLauncher) Execute(ctx context.Context) (executionErr error) {
 			return
 		}
 		// Propagate any statuses up the DAG.
-		updateStatusErr := updateStatuses(ctx, l.clientManager.KFPAPIClient(), l.opts.Run, l.opts.PipelineSpec, l.opts.Task)
+		updateStatusErr := l.clientManager.KFPAPIClient().UpdateStatuses(ctx, l.opts.Run, l.opts.PipelineSpec, l.opts.Task)
 		if updateStatusErr != nil {
 			glog.Errorf("failed to update statuses: %v", updateStatusErr)
 			return
