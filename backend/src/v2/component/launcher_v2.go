@@ -708,7 +708,11 @@ func (l *LauncherV2) uploadOutputArtifacts(
 						Type:        artifactType,
 						NumberValue: &numVal.NumberValue,
 						CreatedAt:   timestamppb.Now(),
-						Namespace:   l.options.Namespace,
+						// Continue to retain the artifact in metadata for backwards compatibility.
+						Metadata: map[string]*structpb.Value{
+							key: value,
+						},
+						Namespace: l.options.Namespace,
 					}
 					artifactsMap[artifactKey] = append(artifactsMap[artifactKey], artifact)
 				}

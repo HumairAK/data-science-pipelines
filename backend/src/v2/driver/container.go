@@ -232,19 +232,17 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 			if createErr != nil {
 				return execution, fmt.Errorf("failed to update task: %w", createErr)
 			}
+			glog.Infof("Cache hit for task %s", opts.TaskName)
 			return execution, nil
 		}
 	} else {
 		glog.Info("Cache disabled globally at the server level.")
 	}
 
-	// Determine the pipeline root
+	// Determine the pipeline root with the pipeline run context.
 	// If a user sets a pipeline root at the runtime config, use that.
 	// Otherwise, we use the default pipeline root from the launcher config map.
 	// If none is set, we use the hardcoded default.
-	// TODO(Humair): We really only need to do this once per Run - consider having
-	// the apiserver do this instead during Run creation. This will avoid having to
-	// fetch the configmap for every task in driver.
 	pipelineRoot, err := config.GetPipelineRootWithPipelineRunContext(
 		ctx,
 		opts.PipelineName,

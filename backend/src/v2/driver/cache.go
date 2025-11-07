@@ -25,6 +25,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient/kfpapi"
 	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // getFingerPrint generates a fingerprint for caching. The PVC names are included in the fingerprint since it's assumed
@@ -83,23 +84,34 @@ func getFingerPrintsAndID(
 		return "", nil, fmt.Errorf("failure while getting fingerPrint: %w", err)
 	}
 
-	filter := apiv2beta1.Filter{
-		Predicates: []*apiv2beta1.Predicate{
-			{
-				Operation: apiv2beta1.Predicate_EQUALS,
-				Key:       "fingerPrint",
-				Value:     &apiv2beta1.Predicate_StringValue{StringValue: fingerPrint},
-			},
-			{
-				Operation: apiv2beta1.Predicate_EQUALS,
-				Key:       "status",
-				Value:     &apiv2beta1.Predicate_IntValue{IntValue: int32(apiv2beta1.PipelineTaskDetail_SUCCEEDED)},
-			},
+	predicates := []*apiv2beta1.Predicate{
+		{
+			Operation: apiv2beta1.Predicate_EQUALS,
+			Key:       "cache_fingerprint",
+			Value:     &apiv2beta1.Predicate_StringValue{StringValue: fingerPrint},
+		},
+		{
+			Operation: apiv2beta1.Predicate_EQUALS,
+			Key:       "status",
+			Value:     &apiv2beta1.Predicate_IntValue{IntValue: int32(apiv2beta1.PipelineTaskDetail_SUCCEEDED)},
 		},
 	}
+
+	filter := &apiv2beta1.Filter{
+		Predicates: predicates,
+	}
+	mo := protojson.MarshalOptions{
+		UseProtoNames:   true,
+		EmitUnpopulated: false,
+	}
+	filterJSON, err := mo.Marshal(filter)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to marshal filter: %v", err)
+	}
+
 	tasks, err := kfpAPI.ListTasks(ctx, &apiv2beta1.ListTasksRequest{
 		ParentFilter: &apiv2beta1.ListTasksRequest_RunId{RunId: opts.Run.GetRunId()},
-		Filter:       filter.String(),
+		Filter:       string(filterJSON),
 	})
 	if err != nil {
 		return "", nil, fmt.Errorf("failure while listing tasks: %w", err)
