@@ -64,7 +64,6 @@ func TestArtifactServer_CreateArtifact_MultiUserCreateAndGet_Succeeds(t *testing
 	// Create task for the run
 	task, err := clientManager.TaskStore().CreateTask(&model.Task{
 		Namespace:    "ns1",
-		PipelineName: "test-pipeline",
 		RunUUID:      runid1,
 		Name:         "test-task",
 		State:        1,
@@ -137,7 +136,6 @@ func TestArtifactServer_CreateArtifact_WithIterationIndex(t *testing.T) {
 	// Create task for the run
 	task, err := clientManager.TaskStore().CreateTask(&model.Task{
 		Namespace:    "ns1",
-		PipelineName: "iteration-pipeline",
 		RunUUID:      runid1,
 		Name:         "iteration-task",
 		State:        1,
@@ -206,7 +204,6 @@ func TestArtifactServer_ListArtifacts_HappyPath(t *testing.T) {
 	assert.NoError(t, err)
 	listTask, err := clientManager.TaskStore().CreateTask(&model.Task{
 		Namespace:    "ns1",
-		PipelineName: "p-list",
 		RunUUID:      runid1,
 		Name:         "t-list",
 		State:        1,
@@ -288,7 +285,6 @@ func TestArtifactServer_SingleUserNamespaceEmpty(t *testing.T) {
 	assert.NoError(t, err)
 	singleTask, err := clientManager.TaskStore().CreateTask(&model.Task{
 		Namespace:    "ns1",
-		PipelineName: "p-single",
 		RunUUID:      "single-run",
 		Name:         "t-single",
 		State:        1,
@@ -368,7 +364,6 @@ func seedArtifactTasks(t *testing.T) (*ArtifactServer, *resource.FakeClientManag
 	// Tasks
 	t1, err := clientManager.TaskStore().CreateTask(&model.Task{
 		Namespace:    "ns1",
-		PipelineName: "p1",
 		RunUUID:      serverRunID1,
 		Name:         "t1",
 		State:        1,
@@ -376,7 +371,6 @@ func seedArtifactTasks(t *testing.T) (*ArtifactServer, *resource.FakeClientManag
 	assert.NoError(t, err)
 	t2, err := clientManager.TaskStore().CreateTask(&model.Task{
 		Namespace:    "ns1",
-		PipelineName: "p1",
 		RunUUID:      serverRunID2,
 		Name:         "t2",
 		State:        1,
@@ -532,7 +526,6 @@ func TestArtifactServer_CreateArtifactTasksBulk_Success(t *testing.T) {
 	// Create tasks
 	t1, err := clientManager.TaskStore().CreateTask(&model.Task{
 		Namespace:    "ns1",
-		PipelineName: "p1",
 		RunUUID:      serverRunID1,
 		Name:         "task1",
 		State:        1,
@@ -541,7 +534,6 @@ func TestArtifactServer_CreateArtifactTasksBulk_Success(t *testing.T) {
 
 	t2, err := clientManager.TaskStore().CreateTask(&model.Task{
 		Namespace:    "ns1",
-		PipelineName: "p1",
 		RunUUID:      serverRunID1,
 		Name:         "task2",
 		State:        1,
@@ -688,7 +680,6 @@ func TestArtifactServer_CreateArtifactsBulk_Success(t *testing.T) {
 	// Create three tasks for the run
 	task1, err := clientManager.TaskStore().CreateTask(&model.Task{
 		Namespace:    "ns1",
-		PipelineName: "bulk-pipeline",
 		RunUUID:      runid1,
 		Name:         "task1",
 		State:        1,
@@ -697,7 +688,6 @@ func TestArtifactServer_CreateArtifactsBulk_Success(t *testing.T) {
 
 	task2, err := clientManager.TaskStore().CreateTask(&model.Task{
 		Namespace:    "ns1",
-		PipelineName: "bulk-pipeline",
 		RunUUID:      runid1,
 		Name:         "task2",
 		State:        1,
@@ -706,7 +696,6 @@ func TestArtifactServer_CreateArtifactsBulk_Success(t *testing.T) {
 
 	task3, err := clientManager.TaskStore().CreateTask(&model.Task{
 		Namespace:    "ns1",
-		PipelineName: "bulk-pipeline",
 		RunUUID:      runid1,
 		Name:         "task3",
 		State:        1,
@@ -837,7 +826,6 @@ func TestArtifactServer_CreateArtifactsBulk_WithIterationIndex(t *testing.T) {
 	// Create task for the run
 	task, err := clientManager.TaskStore().CreateTask(&model.Task{
 		Namespace:    "ns1",
-		PipelineName: "iteration-pipeline",
 		RunUUID:      runid1,
 		Name:         "iteration-task",
 		State:        1,
@@ -963,7 +951,6 @@ func TestArtifactServer_CreateArtifactsBulk_ValidationErrors(t *testing.T) {
 
 	task, err := clientManager.TaskStore().CreateTask(&model.Task{
 		Namespace:    "ns1",
-		PipelineName: "validation-pipeline",
 		RunUUID:      runid1,
 		Name:         "validation-task",
 		State:        1,
@@ -1009,7 +996,6 @@ func TestArtifactServer_CreateArtifactsBulk_ValidationErrors(t *testing.T) {
 	// Test with wrong run ID
 	otherTask, err := clientManager.TaskStore().CreateTask(&model.Task{
 		Namespace:    "ns1",
-		PipelineName: "other-pipeline",
 		RunUUID:      "other-run-id",
 		Name:         "other-task",
 		State:        1,

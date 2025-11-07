@@ -2573,28 +2573,101 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 		if len(in) == 0 {
 			return nil, nil
 		}
-		out := make([]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOArtifact, 0, len(in))
-		for _, h := range in {
-			var apiArt *apiv2beta1.Artifact
-			if h.Value != nil {
-				apiArtConv, err := toApiArtifact(h.Value)
-				if err != nil {
-					return nil, err
-				}
-				apiArt = apiArtConv
-			}
-			ioArtifact := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOArtifact{
-				Artifacts:   []*apiv2beta1.Artifact{apiArt},
-				ArtifactKey: h.Key,
-				Type:        h.Type,
+
+		// Group artifacts by (ArtifactKey, Type, Producer) to consolidate metrics
+		type groupKey struct {
+			artifactKey  string
+			ioType       apiv2beta1.IOType
+			producerTask string
+			hasIteration bool
+			iterationVal int64
+		}
+
+		makeKey := func(h model.TaskArtifactHydrated) groupKey {
+			key := groupKey{
+				artifactKey: h.Key,
+				ioType:      h.Type,
 			}
 			if h.Producer != nil {
-				ioArtifact.Producer = &apiv2beta1.IOProducer{
-					TaskName:  h.Producer.TaskName,
-					Iteration: h.Producer.Iteration,
+				key.producerTask = h.Producer.TaskName
+				if h.Producer.Iteration != nil {
+					key.hasIteration = true
+					key.iterationVal = *h.Producer.Iteration
 				}
 			}
-			out = append(out, ioArtifact)
+			return key
+		}
+
+		grouped := make(map[groupKey][]model.TaskArtifactHydrated)
+		for _, h := range in {
+			key := makeKey(h)
+			grouped[key] = append(grouped[key], h)
+		}
+
+		// Convert grouped artifacts to IOArtifacts
+		out := make([]*apiv2beta1.PipelineTaskDetail_InputOutputs_IOArtifact, 0, len(grouped))
+		for _, hydratedGroup := range grouped {
+			// Check if all artifacts in this group are metrics
+			allMetrics := true
+			for _, h := range hydratedGroup {
+				if h.Value == nil || h.Value.Type != model.ArtifactType(apiv2beta1.Artifact_Metric) {
+					allMetrics = false
+					break
+				}
+			}
+
+			if allMetrics && len(hydratedGroup) > 1 {
+				// Multiple metrics with same key - consolidate into ONE IOArtifact with multiple artifacts
+				apiArtifacts := make([]*apiv2beta1.Artifact, 0, len(hydratedGroup))
+				for _, h := range hydratedGroup {
+					if h.Value != nil {
+						apiArt, err := toApiArtifact(h.Value)
+						if err != nil {
+							return nil, err
+						}
+						apiArtifacts = append(apiArtifacts, apiArt)
+					}
+				}
+
+				// Use first hydrated entry for common fields
+				firstHydrated := hydratedGroup[0]
+				ioArtifact := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOArtifact{
+					Artifacts:   apiArtifacts,
+					ArtifactKey: firstHydrated.Key,
+					Type:        firstHydrated.Type,
+				}
+				if firstHydrated.Producer != nil {
+					ioArtifact.Producer = &apiv2beta1.IOProducer{
+						TaskName:  firstHydrated.Producer.TaskName,
+						Iteration: firstHydrated.Producer.Iteration,
+					}
+				}
+				out = append(out, ioArtifact)
+			} else {
+				// Non-metrics or single artifact - one IOArtifact per artifact
+				for _, h := range hydratedGroup {
+					var apiArt *apiv2beta1.Artifact
+					if h.Value != nil {
+						apiArtConv, err := toApiArtifact(h.Value)
+						if err != nil {
+							return nil, err
+						}
+						apiArt = apiArtConv
+					}
+					ioArtifact := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOArtifact{
+						Artifacts:   []*apiv2beta1.Artifact{apiArt},
+						ArtifactKey: h.Key,
+						Type:        h.Type,
+					}
+					if h.Producer != nil {
+						ioArtifact.Producer = &apiv2beta1.IOProducer{
+							TaskName:  h.Producer.TaskName,
+							Iteration: h.Producer.Iteration,
+						}
+					}
+					out = append(out, ioArtifact)
+				}
+			}
 		}
 		return out, nil
 	}

@@ -446,6 +446,78 @@ func pipelineTaskInputsToExecutorInputs(inputMetadata *resolver.InputMetadata) (
 }
 
 func convertArtifactsToArtifactList(artifacts []*apiV2beta1.Artifact) (*pipelinespec.ArtifactList, error) {
+	if len(artifacts) == 0 {
+		return &pipelinespec.ArtifactList{}, nil
+	}
+
+	// Check if all artifacts are metrics
+	allMetrics := true
+	for _, artifact := range artifacts {
+		if artifact.Type != apiV2beta1.Artifact_Metric {
+			allMetrics = false
+			break
+		}
+	}
+
+	// If all are metrics and there are multiple, merge into ONE RuntimeArtifact
+	// This is because the KFP sdk expects a single RuntimeArtifact for metrics
+	// for a given key, and it expects the key/value data to be present in the
+	// metadata.
+	if allMetrics && len(artifacts) > 1 {
+		// Merge all metric artifacts into one RuntimeArtifact with combined metadata
+		mergedMetadata := make(map[string]*structpb.Value)
+		var firstName string
+		var firstURI string
+		var firstArtifactId string
+
+		for i, artifact := range artifacts {
+			// Use first artifact's common fields
+			if i == 0 {
+				firstName = artifact.GetName()
+				firstURI = artifact.GetUri()
+				firstArtifactId = artifact.GetArtifactId()
+			}
+
+			// Merge metadata fields: each artifact's metadata contains the metric key/value
+			if artifact.GetMetadata() != nil {
+				for key, value := range artifact.GetMetadata() {
+					mergedMetadata[key] = value
+				}
+			}
+
+			// Also include the NumberValue in metadata if present
+			if artifact.NumberValue != nil {
+				// The artifact Name is the metric key (e.g., "accuracy", "precision")
+				metricKey := artifact.GetName()
+				if metricKey != "" {
+					mergedMetadata[metricKey] = structpb.NewNumberValue(*artifact.NumberValue)
+				}
+			}
+		}
+
+		// Create single RuntimeArtifact with merged metadata
+		mergedRuntimeArtifact := &pipelinespec.RuntimeArtifact{
+			Name:       firstName,
+			ArtifactId: firstArtifactId,
+			Type: &pipelinespec.ArtifactTypeSchema{
+				Kind: &pipelinespec.ArtifactTypeSchema_SchemaTitle{
+					SchemaTitle: apiV2beta1.Artifact_Metric.String(),
+				},
+			},
+			Metadata: &structpb.Struct{
+				Fields: mergedMetadata,
+			},
+		}
+		if firstURI != "" {
+			mergedRuntimeArtifact.Uri = firstURI
+		}
+
+		return &pipelinespec.ArtifactList{
+			Artifacts: []*pipelinespec.RuntimeArtifact{mergedRuntimeArtifact},
+		}, nil
+	}
+
+	// Non-metrics or single artifact: convert each artifact to RuntimeArtifact (existing behavior)
 	var runtimeArtifacts []*pipelinespec.RuntimeArtifact
 	for _, artifact := range artifacts {
 		runtimeArtifact, err := convertArtifactToRuntimeArtifact(artifact)
