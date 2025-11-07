@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -1003,4 +1004,172 @@ func TestMergeParameters_RaceConditionScenario(t *testing.T) {
 	assert.True(t, hasExisting, "Should preserve existing parameter")
 	assert.True(t, hasIter0, "Should preserve iteration 0 parameter")
 	assert.True(t, hasIter1, "Should preserve iteration 1 parameter")
+}
+
+// TestCreateTask_AutoPopulatesStateHistory verifies that state_history is automatically
+// populated when creating a task with a state (mirrors Run behavior).
+func TestCreateTask_AutoPopulatesStateHistory(t *testing.T) {
+	db, taskStore, _ := initializeTaskStore()
+	defer db.Close()
+
+	pods := createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR))
+	task := &model.Task{
+		Namespace:        "ns1",
+		RunUUID:          "run-1",
+		Pods:             pods,
+		Fingerprint:      "fp-1",
+		Name:             "taskA",
+		State:            model.TaskStatus(apiv2beta1.PipelineTaskDetail_RUNNING),
+		StateHistory:     model.JSONSlice{}, // Empty state history
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
+		Type:             0,
+		TypeAttrs:        model.JSONData(map[string]interface{}{"k": "v"}),
+	}
+
+	created, err := taskStore.CreateTask(task)
+	assert.NoError(t, err)
+
+	// Verify state_history was auto-populated with initial state
+	assert.NotNil(t, created.StateHistory)
+	assert.Equal(t, 1, len(created.StateHistory), "Should have exactly 1 state history entry")
+
+	// Fetch task from DB to verify persistence
+	fetched, err := taskStore.GetTask(created.UUID)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(fetched.StateHistory), "Fetched task should have 1 state history entry")
+
+	// Convert and verify state
+	typeFunc := func() *apiv2beta1.PipelineTaskDetail_TaskStatus {
+		return &apiv2beta1.PipelineTaskDetail_TaskStatus{}
+	}
+	histProtos, err := model.JSONSliceToProtoSlice(fetched.StateHistory, typeFunc)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(histProtos))
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_RUNNING, histProtos[0].GetState())
+	assert.NotNil(t, histProtos[0].GetUpdateTime())
+	assert.Greater(t, histProtos[0].GetUpdateTime().GetSeconds(), int64(0))
+}
+
+// TestUpdateTask_AutoPopulatesStateHistory verifies that state transitions
+// are automatically tracked in state_history when updating a task.
+func TestUpdateTask_AutoPopulatesStateHistory(t *testing.T) {
+	db, taskStore, _ := initializeTaskStore()
+	defer db.Close()
+
+	// Create initial task in RUNNING state
+	pods := createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR))
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID1, nil)
+	created, err := taskStore.CreateTask(&model.Task{
+		Namespace:        "ns1",
+		RunUUID:          "run-1",
+		Pods:             pods,
+		Fingerprint:      "fp-0",
+		State:            model.TaskStatus(apiv2beta1.PipelineTaskDetail_RUNNING),
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
+		Type:             0,
+		TypeAttrs:        map[string]interface{}{},
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(created.StateHistory), "Should have 1 entry after creation")
+
+	// Update to SUCCEEDED state
+	update := &model.Task{
+		UUID:  created.UUID,
+		State: model.TaskStatus(apiv2beta1.PipelineTaskDetail_SUCCEEDED),
+	}
+	updated, err := taskStore.UpdateTask(update)
+	assert.NoError(t, err)
+
+	// Should now have 2 entries: RUNNING and SUCCEEDED
+	assert.Equal(t, 2, len(updated.StateHistory), "Should have 2 state history entries after state change")
+
+	// Verify states in order
+	typeFunc := func() *apiv2beta1.PipelineTaskDetail_TaskStatus {
+		return &apiv2beta1.PipelineTaskDetail_TaskStatus{}
+	}
+	histProtos, err := model.JSONSliceToProtoSlice(updated.StateHistory, typeFunc)
+	assert.NoError(t, err)
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_RUNNING, histProtos[0].GetState())
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, histProtos[1].GetState())
+	assert.Greater(t, histProtos[1].GetUpdateTime().GetSeconds(), histProtos[0].GetUpdateTime().GetSeconds(),
+		"Second state timestamp should be after first")
+}
+
+// TestUpdateTask_StateHistory_MultipleTransitions verifies that multiple
+// state transitions are all captured in history.
+func TestUpdateTask_StateHistory_MultipleTransitions(t *testing.T) {
+	db, taskStore, _ := initializeTaskStore()
+	defer db.Close()
+
+	pods := createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR))
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID1, nil)
+	created, err := taskStore.CreateTask(&model.Task{
+		Namespace:        "ns1",
+		RunUUID:          "run-1",
+		Pods:             pods,
+		Fingerprint:      "fp-0",
+		State:            model.TaskStatus(apiv2beta1.PipelineTaskDetail_RUNNING),
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
+		Type:             0,
+		TypeAttrs:        map[string]interface{}{},
+	})
+	assert.NoError(t, err)
+
+	// Transition: RUNNING → SUCCEEDED
+	update1 := &model.Task{
+		UUID:  created.UUID,
+		State: model.TaskStatus(apiv2beta1.PipelineTaskDetail_SUCCEEDED),
+	}
+	updated1, err := taskStore.UpdateTask(update1)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(updated1.StateHistory))
+
+	// Transition: SUCCEEDED → FAILED (hypothetical retry scenario)
+	update2 := &model.Task{
+		UUID:  created.UUID,
+		State: model.TaskStatus(apiv2beta1.PipelineTaskDetail_FAILED),
+	}
+	updated2, err := taskStore.UpdateTask(update2)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(updated2.StateHistory))
+
+	// Verify all states are preserved
+	typeFunc := func() *apiv2beta1.PipelineTaskDetail_TaskStatus {
+		return &apiv2beta1.PipelineTaskDetail_TaskStatus{}
+	}
+	histProtos, err := model.JSONSliceToProtoSlice(updated2.StateHistory, typeFunc)
+	assert.NoError(t, err)
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_RUNNING, histProtos[0].GetState())
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, histProtos[1].GetState())
+	assert.Equal(t, apiv2beta1.PipelineTaskDetail_FAILED, histProtos[2].GetState())
+}
+
+// Test helper function getLastTaskState
+func TestGetLastTaskState(t *testing.T) {
+	// Empty history
+	assert.Equal(t, model.TaskStatus(0), getLastTaskState(model.JSONSlice{}))
+	assert.Equal(t, model.TaskStatus(0), getLastTaskState(nil))
+
+	// Valid history with one entry
+	status1 := &apiv2beta1.PipelineTaskDetail_TaskStatus{
+		UpdateTime: &timestamppb.Timestamp{Seconds: 100},
+		State:      apiv2beta1.PipelineTaskDetail_RUNNING,
+	}
+	history1, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_TaskStatus{status1})
+	assert.NoError(t, err)
+	assert.Equal(t, model.TaskStatus(apiv2beta1.PipelineTaskDetail_RUNNING), getLastTaskState(history1))
+
+	// Valid history with multiple entries
+	status2 := &apiv2beta1.PipelineTaskDetail_TaskStatus{
+		UpdateTime: &timestamppb.Timestamp{Seconds: 200},
+		State:      apiv2beta1.PipelineTaskDetail_SUCCEEDED,
+	}
+	history2, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_TaskStatus{status1, status2})
+	assert.NoError(t, err)
+	assert.Equal(t, model.TaskStatus(apiv2beta1.PipelineTaskDetail_SUCCEEDED), getLastTaskState(history2))
 }

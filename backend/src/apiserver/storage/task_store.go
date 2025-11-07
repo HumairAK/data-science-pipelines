@@ -29,6 +29,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const tableName = "tasks"
@@ -372,6 +373,24 @@ func (s *TaskStore) CreateTask(task *model.Task) (*model.Task, error) {
 		}
 	}
 
+	// Auto-populate state history if state is set (mirrors Run behavior)
+	// Only append if state_history is empty OR if last state differs from current state
+	if newTask.State != 0 {
+		if len(newTask.StateHistory) == 0 || getLastTaskState(newTask.StateHistory) != newTask.State {
+			taskStatus := &apiv2beta1.PipelineTaskDetail_TaskStatus{
+				UpdateTime: &timestamppb.Timestamp{Seconds: s.time.Now().Unix()},
+				State:      apiv2beta1.PipelineTaskDetail_TaskState(newTask.State),
+			}
+			newEntry, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_TaskStatus{taskStatus})
+			if err != nil {
+				return nil, util.NewInternalServerError(err, "Failed to create state history entry")
+			}
+			if len(newEntry) > 0 {
+				newTask.StateHistory = append(newTask.StateHistory, newEntry[0])
+			}
+		}
+	}
+
 	stateHistoryString := ""
 	if history, err := json.Marshal(newTask.StateHistory); err == nil {
 		stateHistoryString = string(history)
@@ -681,7 +700,34 @@ func (s *TaskStore) UpdateTask(new *model.Task) (*model.Task, error) {
 	// State and Type default to 0 which are valid enums; update only when non-zero to avoid accidental resets.
 	if new.State != 0 {
 		setMap["State"] = new.State
+
+		// Auto-populate state history when state changes (mirrors Run behavior)
+		// Use lockedOld.StateHistory as the base to prevent race conditions
+		mergedHistory := lockedOld.StateHistory
+
+		// Check if we need to append new state to history
+		if len(mergedHistory) == 0 || getLastTaskState(mergedHistory) != new.State {
+			taskStatus := &apiv2beta1.PipelineTaskDetail_TaskStatus{
+				UpdateTime: &timestamppb.Timestamp{Seconds: s.time.Now().Unix()},
+				State:      apiv2beta1.PipelineTaskDetail_TaskState(new.State),
+			}
+			newEntry, err := model.ProtoSliceToJSONSlice([]*apiv2beta1.PipelineTaskDetail_TaskStatus{taskStatus})
+			if err != nil {
+				return nil, util.NewInternalServerError(err, "Failed to create state history entry")
+			}
+			if len(newEntry) > 0 {
+				mergedHistory = append(mergedHistory, newEntry[0])
+			}
+		}
+
+		// Marshal merged history
+		if b, err := json.Marshal(mergedHistory); err == nil {
+			setMap["StateHistory"] = string(b)
+		} else {
+			return nil, util.NewInternalServerError(err, "Failed to marshal state history in an updated task")
+		}
 	}
+
 	if new.Type != 0 {
 		setMap["Type"] = new.Type
 	}
@@ -694,13 +740,7 @@ func (s *TaskStore) UpdateTask(new *model.Task) (*model.Task, error) {
 	}
 
 	// JSON/slice/map fields: update only if not nil (presence indicates intent).
-	if new.StateHistory != nil {
-		if b, err := json.Marshal(new.StateHistory); err == nil {
-			setMap["StateHistory"] = string(b)
-		} else {
-			return nil, util.NewInternalServerError(err, "Failed to marshal state history in an updated task")
-		}
-	}
+	// Note: StateHistory is now auto-populated above when State changes
 	if new.StatusMetadata != nil {
 		if b, err := json.Marshal(new.StatusMetadata); err == nil {
 			setMap["StatusMetadata"] = string(b)
@@ -874,4 +914,26 @@ func hashProtoValue(v *structpb.Value) (string, error) {
 	}
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:]), nil
+}
+
+// getLastTaskState retrieves the state from the last entry in task state history.
+// Returns 0 (unspecified) if history is empty or cannot be parsed.
+func getLastTaskState(history model.JSONSlice) model.TaskStatus {
+	if len(history) == 0 {
+		return 0
+	}
+
+	// Convert JSONSlice to TaskStatus protobuf slice
+	typeFunc := func() *apiv2beta1.PipelineTaskDetail_TaskStatus {
+		return &apiv2beta1.PipelineTaskDetail_TaskStatus{}
+	}
+
+	histProtos, err := model.JSONSliceToProtoSlice(history, typeFunc)
+	if err != nil || len(histProtos) == 0 {
+		glog.Warningf("Failed to parse state history: %v", err)
+		return 0
+	}
+
+	lastEntry := histProtos[len(histProtos)-1]
+	return model.TaskStatus(lastEntry.GetState())
 }
