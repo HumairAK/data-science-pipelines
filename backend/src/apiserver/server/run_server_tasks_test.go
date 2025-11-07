@@ -485,24 +485,23 @@ func TestUpdateTasksBulk_ValidationErrors(t *testing.T) {
 }
 
 func TestListTasks_ByNamespace(t *testing.T) {
-	// Single-user mode to bypass authz for simplicity
-	clients, manager, runID := seedOneRun(t)
+	// Enable multi-user mode to ensure runs have namespaces
+	viper.Set(common.MultiUserMode, "true")
+	t.Cleanup(func() { viper.Set(common.MultiUserMode, "false") })
+
+	// Use initWithOneTimeRunV2 which creates a run with unique UUIDs
+	clients, manager, run := initWithOneTimeRunV2(t)
 	defer clients.Close()
 
 	runSrv := createRunServer(manager)
-
-	// Get the run and verify its default namespace
-	run, err := manager.GetRun(runID)
-	assert.NoError(t, err)
+	runID := run.UUID
 	originalNamespace := run.Namespace
 
-	// Skip test if namespace is empty (single-user mode)
-	if originalNamespace == "" {
-		t.Skip("Skipping namespace test in single-user mode")
-	}
+	// Verify namespace is set
+	assert.NotEmpty(t, originalNamespace, "Run namespace should not be empty in multi-user mode")
 
-	// Create tasks in the default namespace
-	task1, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+	// Create tasks in the default namespace (use ctxWithUser for multi-user mode)
+	task1, err := runSrv.CreateTask(ctxWithUser(), &apiv2beta1.CreateTaskRequest{
 		Task: &apiv2beta1.PipelineTaskDetail{
 			RunId: runID,
 			Name:  "task-1",
@@ -511,7 +510,7 @@ func TestListTasks_ByNamespace(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	task2, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+	task2, err := runSrv.CreateTask(ctxWithUser(), &apiv2beta1.CreateTaskRequest{
 		Task: &apiv2beta1.PipelineTaskDetail{
 			RunId: runID,
 			Name:  "task-2",
@@ -521,7 +520,7 @@ func TestListTasks_ByNamespace(t *testing.T) {
 	assert.NoError(t, err)
 
 	// List tasks by the default namespace - should return both tasks
-	resp1, err := runSrv.ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
+	resp1, err := runSrv.ListTasks(ctxWithUser(), &apiv2beta1.ListTasksRequest{
 		ParentFilter: &apiv2beta1.ListTasksRequest_Namespace{
 			Namespace: originalNamespace,
 		},
@@ -546,7 +545,7 @@ func TestListTasks_ByNamespace(t *testing.T) {
 	}
 
 	// List tasks by a non-existent namespace - should return 0 tasks
-	resp2, err := runSrv.ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
+	resp2, err := runSrv.ListTasks(ctxWithUser(), &apiv2beta1.ListTasksRequest{
 		ParentFilter: &apiv2beta1.ListTasksRequest_Namespace{
 			Namespace: "non-existent-namespace",
 		},
@@ -615,4 +614,58 @@ func TestListTasks_MutualExclusivity(t *testing.T) {
 		PageSize: 50,
 	})
 	assert.NoError(t, err)
+}
+
+func TestListTasks_EmptyNamespaceSingleUserMode(t *testing.T) {
+	// Ensure we're in single-user mode
+	viper.Set(common.MultiUserMode, "false")
+	t.Cleanup(func() { viper.Set(common.MultiUserMode, "false") })
+
+	clients, manager, runID := seedOneRun(t)
+	defer clients.Close()
+
+	runSrv := createRunServer(manager)
+
+	// Create some tasks
+	task1, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+		Task: &apiv2beta1.PipelineTaskDetail{
+			RunId: runID,
+			Name:  "task-1",
+			State: apiv2beta1.PipelineTaskDetail_RUNNING,
+		},
+	})
+	assert.NoError(t, err)
+
+	task2, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+		Task: &apiv2beta1.PipelineTaskDetail{
+			RunId: runID,
+			Name:  "task-2",
+			State: apiv2beta1.PipelineTaskDetail_SUCCEEDED,
+		},
+	})
+	assert.NoError(t, err)
+
+	// Test: In single-user mode, empty namespace should list all tasks
+	resp, err := runSrv.ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
+		ParentFilter: &apiv2beta1.ListTasksRequest_Namespace{
+			Namespace: "", // Empty namespace in single-user mode
+		},
+		PageSize: 50,
+	})
+	assert.NoError(t, err)
+	assert.GreaterOrEqual(t, int(resp.GetTotalSize()), 2, "Should return at least the 2 tasks we created")
+
+	// Verify our tasks are in the response
+	taskIDs := map[string]bool{
+		task1.GetTaskId(): false,
+		task2.GetTaskId(): false,
+	}
+	for _, task := range resp.GetTasks() {
+		if _, exists := taskIDs[task.GetTaskId()]; exists {
+			taskIDs[task.GetTaskId()] = true
+		}
+	}
+	for taskID, found := range taskIDs {
+		assert.True(t, found, "Task %s should be found when filtering by empty namespace in single-user mode", taskID)
+	}
 }

@@ -473,7 +473,11 @@ func (s *TaskStore) ListTasks(filterContext *model.FilterContext, opts *list.Opt
 		sqlBuilder = sqlBuilder.Where(sq.Eq{"ParentTaskUUID": filterContext.ReferenceKey.ID})
 	}
 	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.NamespaceResourceType {
-		sqlBuilder = sqlBuilder.Where(sq.Eq{"Namespace": filterContext.ReferenceKey.ID})
+		// Only add namespace filter if namespace is not empty
+		// Empty namespace in single-user mode means list all tasks
+		if filterContext.ReferenceKey.ID != "" {
+			sqlBuilder = sqlBuilder.Where(sq.Eq{"Namespace": filterContext.ReferenceKey.ID})
+		}
 	}
 	sqlBuilder = opts.AddFilterToSelect(sqlBuilder)
 
@@ -495,7 +499,11 @@ func (s *TaskStore) ListTasks(filterContext *model.FilterContext, opts *list.Opt
 		sqlBuilder = sqlBuilder.Where(sq.Eq{"ParentTaskUUID": filterContext.ReferenceKey.ID})
 	}
 	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.NamespaceResourceType {
-		sqlBuilder = sqlBuilder.Where(sq.Eq{"Namespace": filterContext.ReferenceKey.ID})
+		// Only add namespace filter if namespace is not empty
+		// Empty namespace in single-user mode means list all tasks
+		if filterContext.ReferenceKey.ID != "" {
+			sqlBuilder = sqlBuilder.Where(sq.Eq{"Namespace": filterContext.ReferenceKey.ID})
+		}
 	}
 	sizeSql, sizeArgs, err := opts.AddFilterToSelect(sqlBuilder).ToSql()
 	if err != nil {

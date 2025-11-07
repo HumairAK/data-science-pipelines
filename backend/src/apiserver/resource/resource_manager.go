@@ -837,6 +837,7 @@ func (r *ResourceManager) CreateTask(t *model.Task) (*model.Task, error) {
 }
 
 // Fetches tasks with a given set of filtering and listing options.
+// namespaceSet indicates whether the namespace filter was explicitly set (even if empty).
 func (r *ResourceManager) ListTasks(runId, parentId, namespace string, opts *list.Options) ([]*model.Task, int, string, error) {
 	var filterContext *model.FilterContext
 
@@ -849,12 +850,12 @@ func (r *ResourceManager) ListTasks(runId, parentId, namespace string, opts *lis
 			ReferenceKey: &model.ReferenceKey{Type: model.TaskResourceType, ID: parentId},
 		}
 	} else if namespace != "" {
+		// Namespace filter is set (can be empty string in single-user mode)
 		filterContext = &model.FilterContext{
 			ReferenceKey: &model.ReferenceKey{Type: model.NamespaceResourceType, ID: namespace},
 		}
 	} else {
-		// This shouldn't happen as the server should validate this, but just in case
-		return nil, 0, "", util.NewInvalidInputError("Either run_id, parent_id, or namespace must be provided")
+		filterContext = &model.FilterContext{}
 	}
 
 	tasks, totalSize, nextPageToken, err := r.taskStore.ListTasks(filterContext, opts)

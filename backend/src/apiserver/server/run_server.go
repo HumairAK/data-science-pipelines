@@ -841,32 +841,36 @@ func (s *RunServer) GetTask(ctx context.Context, request *apiv2beta1.GetTaskRequ
 // ListTasks retrieves a list of tasks based on a specified run ID, parent task ID, or namespace, enforcing mutual exclusivity.
 // It validates authorization, processes pagination options, and ensures namespace consistency within the data.
 func (s *RunServer) ListTasks(ctx context.Context, request *apiv2beta1.ListTasksRequest) (*apiv2beta1.ListTasksResponse, error) {
-	runId := request.GetRunId()
-	parentId := request.GetParentId()
-	namespace := request.GetNamespace()
+	// Check which filter is set using the oneof field
+	// This allows empty namespace in single-user mode
+	var runId, parentId, namespace string
+	var filterType string
 
-	// Ensure exactly one filter is provided (they are mutually exclusive)
-	filterCount := 0
-	if runId != "" {
-		filterCount++
-	}
-	if parentId != "" {
-		filterCount++
-	}
-	if namespace != "" {
-		filterCount++
-	}
-
-	if filterCount == 0 {
-		return nil, util.NewInvalidInputError("Either run_id, parent_id, or namespace is required")
-	}
-	if filterCount > 1 {
-		return nil, util.NewInvalidInputError("Cannot specify more than one of run_id, parent_id, or namespace - they are mutually exclusive")
+	switch filter := request.ParentFilter.(type) {
+	case *apiv2beta1.ListTasksRequest_RunId:
+		runId = filter.RunId
+		filterType = "run_id"
+	case *apiv2beta1.ListTasksRequest_ParentId:
+		parentId = filter.ParentId
+		filterType = "parent_id"
+	case *apiv2beta1.ListTasksRequest_Namespace:
+		namespace = filter.Namespace
+		filterType = "namespace"
+	default:
+		// One of these fields is required to enforce RBAC on this request in multi-user mode.
+		// In the case of run IDs, we use the associated run's namespace to enforce RBAC.
+		// In the namespace case, we use the namespace to enforce RBAC.
+		if common.IsMultiUserMode() {
+			return nil, util.NewInvalidInputError("Either run_id, parent_id, or namespace is required in multi-user mode")
+		}
+		// In single-user mode, allow the namespace to be empty.
+		filterType = "namespace"
 	}
 
 	var expectedNamespace string
-	// Check authorization and get expected namespace
-	if runId != "" {
+	// Check authorization and get expected namespace based on filter type
+	switch filterType {
+	case "run_id":
 		err := s.canAccessRun(ctx, runId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbList})
 		if err != nil {
 			return nil, util.Wrap(err, "Failed to authorize task listing")
@@ -877,7 +881,7 @@ func (s *RunServer) ListTasks(ctx context.Context, request *apiv2beta1.ListTasks
 			return nil, util.Wrap(err, "Failed to get run for namespace validation")
 		}
 		expectedNamespace = run.Namespace
-	} else if parentId != "" {
+	case "parent_id":
 		// parent_id is provided, get the parent task to find the run_id and namespace
 		parentTask, err := s.resourceManager.GetTask(parentId)
 		if err != nil {
@@ -888,8 +892,8 @@ func (s *RunServer) ListTasks(ctx context.Context, request *apiv2beta1.ListTasks
 			return nil, util.Wrap(err, "Failed to authorize task listing")
 		}
 		expectedNamespace = parentTask.Namespace
-	} else {
-		// namespace is provided
+	case "namespace":
+		// namespace is provided (can be empty in single-user mode)
 		// For namespace filtering, check if user has get permission on runs in this namespace
 		resourceAttributes := &authorizationv1.ResourceAttributes{
 			Namespace: namespace,
@@ -912,18 +916,26 @@ func (s *RunServer) ListTasks(ctx context.Context, request *apiv2beta1.ListTasks
 		return nil, util.Wrap(err, "Failed to create list options")
 	}
 
+	// Pass namespaceSet=true when namespace filter was explicitly set
 	tasks, totalSize, nextPageToken, err := s.resourceManager.ListTasks(runId, parentId, namespace, opts)
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to list tasks")
 	}
 
-	// Ensure all tasks have the same namespace as expected
-	for _, task := range tasks {
-		if task.Namespace != expectedNamespace {
-			return nil, util.NewInternalServerError(
-				util.NewInvalidInputError("Task namespace mismatch detected"),
-				"Task %s has namespace '%s' but expected namespace '%s'. This indicates a data consistency issue.",
-				task.UUID, task.Namespace, expectedNamespace)
+	// Sanity check: ensure all tasks have the same namespace as expected
+	// Skip this check if we're in single-user mode with empty namespace (all namespaces allowed)
+	if filterType == "namespace" && expectedNamespace == "" && !common.IsMultiUserMode() {
+		// In single-user mode with empty namespace, skip namespace validation
+		// This allows listing all tasks across all namespaces
+	} else {
+		// Validate namespace consistency for all other cases
+		for _, task := range tasks {
+			if task.Namespace != expectedNamespace {
+				return nil, util.NewInternalServerError(
+					util.NewInvalidInputError("Task namespace mismatch detected"),
+					"Task %s has namespace '%s' but expected namespace '%s'. This indicates a data consistency issue.",
+					task.UUID, task.Namespace, expectedNamespace)
+			}
 		}
 	}
 
