@@ -2078,11 +2078,12 @@ type ListTasksRequest struct {
 	//
 	//	*ListTasksRequest_ParentId
 	//	*ListTasksRequest_RunId
+	//	*ListTasksRequest_Namespace
 	ParentFilter  isListTasksRequest_ParentFilter `protobuf_oneof:"parent_filter"`
-	PageSize      int32                           `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	PageToken     string                          `protobuf:"bytes,4,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
-	Filter        string                          `protobuf:"bytes,5,opt,name=filter,proto3" json:"filter,omitempty"`
-	OrderBy       string                          `protobuf:"bytes,6,opt,name=order_by,json=orderBy,proto3" json:"order_by,omitempty"`
+	PageSize      int32                           `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageToken     string                          `protobuf:"bytes,5,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	Filter        string                          `protobuf:"bytes,6,opt,name=filter,proto3" json:"filter,omitempty"`
+	OrderBy       string                          `protobuf:"bytes,7,opt,name=order_by,json=orderBy,proto3" json:"order_by,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2142,6 +2143,15 @@ func (x *ListTasksRequest) GetRunId() string {
 	return ""
 }
 
+func (x *ListTasksRequest) GetNamespace() string {
+	if x != nil {
+		if x, ok := x.ParentFilter.(*ListTasksRequest_Namespace); ok {
+			return x.Namespace
+		}
+	}
+	return ""
+}
+
 func (x *ListTasksRequest) GetPageSize() int32 {
 	if x != nil {
 		return x.PageSize
@@ -2184,9 +2194,16 @@ type ListTasksRequest_RunId struct {
 	RunId string `protobuf:"bytes,2,opt,name=run_id,json=runId,proto3,oneof"`
 }
 
+type ListTasksRequest_Namespace struct {
+	// List all tasks in this namespace.
+	Namespace string `protobuf:"bytes,3,opt,name=namespace,proto3,oneof"`
+}
+
 func (*ListTasksRequest_ParentId) isListTasksRequest_ParentFilter() {}
 
 func (*ListTasksRequest_RunId) isListTasksRequest_ParentFilter() {}
+
+func (*ListTasksRequest_Namespace) isListTasksRequest_ParentFilter() {}
 
 type ListTasksResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -2935,15 +2952,16 @@ const file_backend_api_v2beta1_run_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12P\n" +
 	"\x05value\x18\x02 \x01(\v2:.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetailR\x05value:\x028\x01\")\n" +
 	"\x0eGetTaskRequest\x12\x17\n" +
-	"\atask_id\x18\x01 \x01(\tR\x06taskId\"\xca\x01\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\"\xea\x01\n" +
 	"\x10ListTasksRequest\x12\x1d\n" +
 	"\tparent_id\x18\x01 \x01(\tH\x00R\bparentId\x12\x17\n" +
-	"\x06run_id\x18\x02 \x01(\tH\x00R\x05runId\x12\x1b\n" +
-	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\x06run_id\x18\x02 \x01(\tH\x00R\x05runId\x12\x1e\n" +
+	"\tnamespace\x18\x03 \x01(\tH\x00R\tnamespace\x12\x1b\n" +
+	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\x04 \x01(\tR\tpageToken\x12\x16\n" +
-	"\x06filter\x18\x05 \x01(\tR\x06filter\x12\x19\n" +
-	"\border_by\x18\x06 \x01(\tR\aorderByB\x0f\n" +
+	"page_token\x18\x05 \x01(\tR\tpageToken\x12\x16\n" +
+	"\x06filter\x18\x06 \x01(\tR\x06filter\x12\x19\n" +
+	"\border_by\x18\a \x01(\tR\aorderByB\x0f\n" +
 	"\rparent_filter\"\xac\x01\n" +
 	"\x11ListTasksResponse\x12P\n" +
 	"\x05tasks\x18\x01 \x03(\v2:.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetailR\x05tasks\x12&\n" +
@@ -3171,6 +3189,7 @@ func file_backend_api_v2beta1_run_proto_init() {
 	file_backend_api_v2beta1_run_proto_msgTypes[23].OneofWrappers = []any{
 		(*ListTasksRequest_ParentId)(nil),
 		(*ListTasksRequest_RunId)(nil),
+		(*ListTasksRequest_Namespace)(nil),
 	}
 	file_backend_api_v2beta1_run_proto_msgTypes[28].OneofWrappers = []any{}
 	file_backend_api_v2beta1_run_proto_msgTypes[32].OneofWrappers = []any{}

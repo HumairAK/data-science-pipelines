@@ -472,6 +472,9 @@ func (s *TaskStore) ListTasks(filterContext *model.FilterContext, opts *list.Opt
 	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.TaskResourceType {
 		sqlBuilder = sqlBuilder.Where(sq.Eq{"ParentTaskUUID": filterContext.ReferenceKey.ID})
 	}
+	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.NamespaceResourceType {
+		sqlBuilder = sqlBuilder.Where(sq.Eq{"Namespace": filterContext.ReferenceKey.ID})
+	}
 	sqlBuilder = opts.AddFilterToSelect(sqlBuilder)
 
 	rowsSql, rowsArgs, err := opts.AddPaginationToSelect(sqlBuilder).ToSql()
@@ -490,6 +493,9 @@ func (s *TaskStore) ListTasks(filterContext *model.FilterContext, opts *list.Opt
 	}
 	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.TaskResourceType {
 		sqlBuilder = sqlBuilder.Where(sq.Eq{"ParentTaskUUID": filterContext.ReferenceKey.ID})
+	}
+	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.NamespaceResourceType {
+		sqlBuilder = sqlBuilder.Where(sq.Eq{"Namespace": filterContext.ReferenceKey.ID})
 	}
 	sizeSql, sizeArgs, err := opts.AddFilterToSelect(sqlBuilder).ToSql()
 	if err != nil {

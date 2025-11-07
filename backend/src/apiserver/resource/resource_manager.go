@@ -837,7 +837,7 @@ func (r *ResourceManager) CreateTask(t *model.Task) (*model.Task, error) {
 }
 
 // Fetches tasks with a given set of filtering and listing options.
-func (r *ResourceManager) ListTasks(runId, parentId string, opts *list.Options) ([]*model.Task, int, string, error) {
+func (r *ResourceManager) ListTasks(runId, parentId, namespace string, opts *list.Options) ([]*model.Task, int, string, error) {
 	var filterContext *model.FilterContext
 
 	if runId != "" {
@@ -848,9 +848,13 @@ func (r *ResourceManager) ListTasks(runId, parentId string, opts *list.Options) 
 		filterContext = &model.FilterContext{
 			ReferenceKey: &model.ReferenceKey{Type: model.TaskResourceType, ID: parentId},
 		}
+	} else if namespace != "" {
+		filterContext = &model.FilterContext{
+			ReferenceKey: &model.ReferenceKey{Type: model.NamespaceResourceType, ID: namespace},
+		}
 	} else {
 		// This shouldn't happen as the server should validate this, but just in case
-		return nil, 0, "", util.NewInvalidInputError("Either run_id or parent_id must be provided")
+		return nil, 0, "", util.NewInvalidInputError("Either run_id, parent_id, or namespace must be provided")
 	}
 
 	tasks, totalSize, nextPageToken, err := r.taskStore.ListTasks(filterContext, opts)

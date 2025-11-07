@@ -16,7 +16,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
@@ -581,7 +580,7 @@ func (s *ArtifactServer) validateCreateArtifactRequest(request *apiv2beta1.Creat
 	if (request.GetArtifact().GetType() == apiv2beta1.Artifact_ClassificationMetric ||
 		request.GetArtifact().GetType() == apiv2beta1.Artifact_SlicedClassificationMetric) &&
 		request.GetArtifact().GetMetadata() == nil {
-		return util.NewInvalidInputError(fmt.Sprintf("No metric or metadata was found for %s artifact", request.GetArtifact().GetType()))
+		return util.NewInvalidInputError("No metric or metadata was found for %s artifact", request.GetArtifact().GetType())
 	}
 	if request.GetType() == apiv2beta1.IOType_UNSPECIFIED {
 		return util.NewInvalidInputError("Artifact type is required")

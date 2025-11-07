@@ -838,18 +838,30 @@ func (s *RunServer) GetTask(ctx context.Context, request *apiv2beta1.GetTaskRequ
 	return toApiTask(task, childTasks)
 }
 
-// ListTasks retrieves a list of tasks based on a specified run ID or parent task ID, enforcing mutual exclusivity.
+// ListTasks retrieves a list of tasks based on a specified run ID, parent task ID, or namespace, enforcing mutual exclusivity.
 // It validates authorization, processes pagination options, and ensures namespace consistency within the data.
 func (s *RunServer) ListTasks(ctx context.Context, request *apiv2beta1.ListTasksRequest) (*apiv2beta1.ListTasksResponse, error) {
 	runId := request.GetRunId()
 	parentId := request.GetParentId()
+	namespace := request.GetNamespace()
 
-	// Ensure runId and parentId are mutually exclusive
-	if runId != "" && parentId != "" {
-		return nil, util.NewInvalidInputError("Cannot specify both run_id and parent_id - they are mutually exclusive")
+	// Ensure exactly one filter is provided (they are mutually exclusive)
+	filterCount := 0
+	if runId != "" {
+		filterCount++
 	}
-	if runId == "" && parentId == "" {
-		return nil, util.NewInvalidInputError("Either run_id or parent_id is required")
+	if parentId != "" {
+		filterCount++
+	}
+	if namespace != "" {
+		filterCount++
+	}
+
+	if filterCount == 0 {
+		return nil, util.NewInvalidInputError("Either run_id, parent_id, or namespace is required")
+	}
+	if filterCount > 1 {
+		return nil, util.NewInvalidInputError("Cannot specify more than one of run_id, parent_id, or namespace - they are mutually exclusive")
 	}
 
 	var expectedNamespace string
@@ -865,7 +877,7 @@ func (s *RunServer) ListTasks(ctx context.Context, request *apiv2beta1.ListTasks
 			return nil, util.Wrap(err, "Failed to get run for namespace validation")
 		}
 		expectedNamespace = run.Namespace
-	} else {
+	} else if parentId != "" {
 		// parent_id is provided, get the parent task to find the run_id and namespace
 		parentTask, err := s.resourceManager.GetTask(parentId)
 		if err != nil {
@@ -876,6 +888,23 @@ func (s *RunServer) ListTasks(ctx context.Context, request *apiv2beta1.ListTasks
 			return nil, util.Wrap(err, "Failed to authorize task listing")
 		}
 		expectedNamespace = parentTask.Namespace
+	} else {
+		// namespace is provided
+		// For namespace filtering, check if user has get permission on runs in this namespace
+		resourceAttributes := &authorizationv1.ResourceAttributes{
+			Namespace: namespace,
+			Verb:      common.RbacResourceVerbGet,
+			Group:     common.RbacPipelinesGroup,
+			Version:   common.RbacPipelinesVersion,
+			Resource:  common.RbacResourceTypeRuns,
+		}
+		if common.IsMultiUserMode() {
+			err := s.resourceManager.IsAuthorized(ctx, resourceAttributes)
+			if err != nil {
+				return nil, util.Wrapf(err, "Failed to authorize task listing by namespace. Check if you have access to runs in namespace %s", namespace)
+			}
+		}
+		expectedNamespace = namespace
 	}
 
 	opts, err := validatedListOptions(&model.Task{}, request.GetPageToken(), int(request.GetPageSize()), request.GetOrderBy(), request.GetFilter(), "v2beta1")
@@ -883,12 +912,12 @@ func (s *RunServer) ListTasks(ctx context.Context, request *apiv2beta1.ListTasks
 		return nil, util.Wrap(err, "Failed to create list options")
 	}
 
-	tasks, totalSize, nextPageToken, err := s.resourceManager.ListTasks(runId, parentId, opts)
+	tasks, totalSize, nextPageToken, err := s.resourceManager.ListTasks(runId, parentId, namespace, opts)
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to list tasks")
 	}
 
-	// Sanity check: ensure all tasks have the same namespace as expected
+	// Ensure all tasks have the same namespace as expected
 	for _, task := range tasks {
 		if task.Namespace != expectedNamespace {
 			return nil, util.NewInternalServerError(

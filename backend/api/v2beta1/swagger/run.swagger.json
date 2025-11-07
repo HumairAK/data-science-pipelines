@@ -451,6 +451,13 @@
             "type": "string"
           },
           {
+            "name": "namespace",
+            "description": "List all tasks in this namespace.",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
             "name": "page_size",
             "in": "query",
             "required": false,

@@ -65,6 +65,12 @@ type ListTasksParams struct {
 	// Filter.
 	Filter *string
 
+	/* Namespace.
+
+	   List all tasks in this namespace.
+	*/
+	Namespace *string
+
 	// OrderBy.
 	OrderBy *string
 
@@ -152,6 +158,17 @@ func (o *ListTasksParams) SetFilter(filter *string) {
 	o.Filter = filter
 }
 
+// WithNamespace adds the namespace to the list tasks params
+func (o *ListTasksParams) WithNamespace(namespace *string) *ListTasksParams {
+	o.SetNamespace(namespace)
+	return o
+}
+
+// SetNamespace adds the namespace to the list tasks params
+func (o *ListTasksParams) SetNamespace(namespace *string) {
+	o.Namespace = namespace
+}
+
 // WithOrderBy adds the orderBy to the list tasks params
 func (o *ListTasksParams) WithOrderBy(orderBy *string) *ListTasksParams {
 	o.SetOrderBy(orderBy)
@@ -227,6 +244,23 @@ func (o *ListTasksParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Reg
 		if qFilter != "" {
 
 			if err := r.SetQueryParam("filter", qFilter); err != nil {
+				return err
+			}
+		}
+	}
+
+	if o.Namespace != nil {
+
+		// query param namespace
+		var qrNamespace string
+
+		if o.Namespace != nil {
+			qrNamespace = *o.Namespace
+		}
+		qNamespace := qrNamespace
+		if qNamespace != "" {
+
+			if err := r.SetQueryParam("namespace", qNamespace); err != nil {
 				return err
 			}
 		}

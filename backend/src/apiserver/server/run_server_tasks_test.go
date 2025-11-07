@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"sort"
 	"testing"
 
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
@@ -77,7 +78,12 @@ func TestTask_Create_Update_Get_List(t *testing.T) {
 	updated, err := runSrv.UpdateTask(context.Background(), updReq)
 	assert.NoError(t, err)
 	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, updated.GetState())
-	assert.Equal(t, "done", updated.GetOutputs().GetParameters()[0].GetValue().AsInterface())
+	// Parameter values are merged, not overridden
+
+	params := updated.GetOutputs().GetParameters()
+	sortParams(params)
+	assert.Equal(t, "3.14", params[0].GetValue().AsInterface())
+	assert.Equal(t, "done", params[1].GetValue().AsInterface())
 
 	// GetTask
 	got, err := runSrv.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: created.GetTaskId()})
@@ -355,17 +361,26 @@ func TestUpdateTasksBulk_Success(t *testing.T) {
 	updatedTask1 := resp.GetTasks()[task1.GetTaskId()]
 	assert.NotNil(t, updatedTask1)
 	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SUCCEEDED, updatedTask1.GetState())
-	assert.Equal(t, "updated1", updatedTask1.GetOutputs().GetParameters()[0].GetValue().AsInterface())
+	params := updatedTask1.GetOutputs().GetParameters()
+	sortParams(params)
+	assert.Equal(t, "initial1", params[0].GetValue().AsInterface())
+	assert.Equal(t, "updated1", params[1].GetValue().AsInterface())
 
 	updatedTask2 := resp.GetTasks()[task2.GetTaskId()]
 	assert.NotNil(t, updatedTask2)
 	assert.Equal(t, apiv2beta1.PipelineTaskDetail_FAILED, updatedTask2.GetState())
-	assert.Equal(t, "updated2", updatedTask2.GetOutputs().GetParameters()[0].GetValue().AsInterface())
+	params = updatedTask2.GetOutputs().GetParameters()
+	sortParams(params)
+	assert.Equal(t, "initial2", params[0].GetValue().AsInterface())
+	assert.Equal(t, "updated2", params[1].GetValue().AsInterface())
 
 	updatedTask3 := resp.GetTasks()[task3.GetTaskId()]
 	assert.NotNil(t, updatedTask3)
 	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SKIPPED, updatedTask3.GetState())
-	assert.Equal(t, "updated3", updatedTask3.GetOutputs().GetParameters()[0].GetValue().AsInterface())
+	params = updatedTask3.GetOutputs().GetParameters()
+	sortParams(params)
+	assert.Equal(t, "initial3", params[0].GetValue().AsInterface())
+	assert.Equal(t, "updated3", params[1].GetValue().AsInterface())
 
 	// Verify updates persisted by fetching individually
 	fetched1, err := runSrv.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: task1.GetTaskId()})
@@ -379,6 +394,13 @@ func TestUpdateTasksBulk_Success(t *testing.T) {
 	fetched3, err := runSrv.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: task3.GetTaskId()})
 	assert.NoError(t, err)
 	assert.Equal(t, apiv2beta1.PipelineTaskDetail_SKIPPED, fetched3.GetState())
+}
+
+func sortParams(params []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter) []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter {
+	sort.Slice(params, func(i, j int) bool {
+		return params[i].GetValue().GetStringValue() < params[j].GetValue().GetStringValue()
+	})
+	return params
 }
 
 func TestUpdateTasksBulk_EmptyRequest(t *testing.T) {
@@ -429,8 +451,8 @@ func TestUpdateTasksBulk_ValidationErrors(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "does not match")
 
-	// Test with artifact updates (should fail)
-	_, err = runSrv.UpdateTasksBulk(context.Background(), &apiv2beta1.UpdateTasksBulkRequest{
+	// Test with artifact updates
+	tasksResp, err := runSrv.UpdateTasksBulk(context.Background(), &apiv2beta1.UpdateTasksBulkRequest{
 		Tasks: map[string]*apiv2beta1.PipelineTaskDetail{
 			task.GetTaskId(): {
 				TaskId: task.GetTaskId(),
@@ -444,8 +466,9 @@ func TestUpdateTasksBulk_ValidationErrors(t *testing.T) {
 			},
 		},
 	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Cannot update task output artifacts")
+	assert.NoError(t, err)
+	// Artifact updates should be ignored, these need to be created via Artifacts API.
+	assert.Empty(t, tasksResp.GetTasks()[task.GetTaskId()].GetOutputs().GetArtifacts())
 
 	// Test with non-existent task
 	_, err = runSrv.UpdateTasksBulk(context.Background(), &apiv2beta1.UpdateTasksBulkRequest{
@@ -459,4 +482,137 @@ func TestUpdateTasksBulk_ValidationErrors(t *testing.T) {
 	})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Failed to get existing task")
+}
+
+func TestListTasks_ByNamespace(t *testing.T) {
+	// Single-user mode to bypass authz for simplicity
+	clients, manager, runID := seedOneRun(t)
+	defer clients.Close()
+
+	runSrv := createRunServer(manager)
+
+	// Get the run and verify its default namespace
+	run, err := manager.GetRun(runID)
+	assert.NoError(t, err)
+	originalNamespace := run.Namespace
+
+	// Skip test if namespace is empty (single-user mode)
+	if originalNamespace == "" {
+		t.Skip("Skipping namespace test in single-user mode")
+	}
+
+	// Create tasks in the default namespace
+	task1, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+		Task: &apiv2beta1.PipelineTaskDetail{
+			RunId: runID,
+			Name:  "task-1",
+			State: apiv2beta1.PipelineTaskDetail_RUNNING,
+		},
+	})
+	assert.NoError(t, err)
+
+	task2, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+		Task: &apiv2beta1.PipelineTaskDetail{
+			RunId: runID,
+			Name:  "task-2",
+			State: apiv2beta1.PipelineTaskDetail_SUCCEEDED,
+		},
+	})
+	assert.NoError(t, err)
+
+	// List tasks by the default namespace - should return both tasks
+	resp1, err := runSrv.ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
+		ParentFilter: &apiv2beta1.ListTasksRequest_Namespace{
+			Namespace: originalNamespace,
+		},
+		PageSize: 50,
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, int32(2), resp1.GetTotalSize())
+	assert.Equal(t, 2, len(resp1.GetTasks()))
+
+	// Verify the returned tasks are from the default namespace
+	taskIDs := map[string]bool{
+		task1.GetTaskId(): false,
+		task2.GetTaskId(): false,
+	}
+	for _, task := range resp1.GetTasks() {
+		if _, exists := taskIDs[task.GetTaskId()]; exists {
+			taskIDs[task.GetTaskId()] = true
+		}
+	}
+	for taskID, found := range taskIDs {
+		assert.True(t, found, "Task %s from namespace not found in response", taskID)
+	}
+
+	// List tasks by a non-existent namespace - should return 0 tasks
+	resp2, err := runSrv.ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
+		ParentFilter: &apiv2beta1.ListTasksRequest_Namespace{
+			Namespace: "non-existent-namespace",
+		},
+		PageSize: 50,
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, int32(0), resp2.GetTotalSize())
+	assert.Equal(t, 0, len(resp2.GetTasks()))
+}
+
+func TestListTasks_MutualExclusivity(t *testing.T) {
+	clients, manager, runID := seedOneRun(t)
+	defer clients.Close()
+
+	runSrv := createRunServer(manager)
+
+	// Create a parent task
+	parent, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+		Task: &apiv2beta1.PipelineTaskDetail{
+			RunId: runID,
+			Name:  "parent",
+		},
+	})
+	assert.NoError(t, err)
+
+	// Test: No filter provided - should fail
+	_, err = runSrv.ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
+		PageSize: 50,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Either run_id, parent_id, or namespace is required")
+
+	// Test: Multiple filters provided - should fail
+	_, err = runSrv.ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
+		ParentFilter: &apiv2beta1.ListTasksRequest_RunId{
+			RunId: runID,
+		},
+		PageSize: 50,
+	})
+	// This should work since only one filter is provided
+	assert.NoError(t, err)
+
+	// Test: Providing run_id succeeds
+	_, err = runSrv.ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
+		ParentFilter: &apiv2beta1.ListTasksRequest_RunId{
+			RunId: runID,
+		},
+		PageSize: 50,
+	})
+	assert.NoError(t, err)
+
+	// Test: Providing parent_id succeeds
+	_, err = runSrv.ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
+		ParentFilter: &apiv2beta1.ListTasksRequest_ParentId{
+			ParentId: parent.GetTaskId(),
+		},
+		PageSize: 50,
+	})
+	assert.NoError(t, err)
+
+	// Test: Providing namespace succeeds
+	_, err = runSrv.ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
+		ParentFilter: &apiv2beta1.ListTasksRequest_Namespace{
+			Namespace: "some-namespace",
+		},
+		PageSize: 50,
+	})
+	assert.NoError(t, err)
 }

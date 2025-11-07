@@ -110,7 +110,7 @@ func getFingerPrintsAndID(
 	}
 
 	tasks, err := kfpAPI.ListTasks(ctx, &apiv2beta1.ListTasksRequest{
-		ParentFilter: &apiv2beta1.ListTasksRequest_RunId{RunId: opts.Run.GetRunId()},
+		ParentFilter: &apiv2beta1.ListTasksRequest_Namespace{Namespace: opts.Namespace},
 		Filter:       string(filterJSON),
 	})
 	if err != nil {
