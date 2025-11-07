@@ -867,7 +867,6 @@ func (s *RunServer) ListTasks(ctx context.Context, request *apiv2beta1.ListTasks
 		filterType = "namespace"
 	}
 
-	var expectedNamespace string
 	// Check authorization and get expected namespace based on filter type
 	switch filterType {
 	case "run_id":
@@ -875,12 +874,6 @@ func (s *RunServer) ListTasks(ctx context.Context, request *apiv2beta1.ListTasks
 		if err != nil {
 			return nil, util.Wrap(err, "Failed to authorize task listing")
 		}
-		// Get the run to find its namespace
-		run, err := s.resourceManager.GetRun(runId)
-		if err != nil {
-			return nil, util.Wrap(err, "Failed to get run for namespace validation")
-		}
-		expectedNamespace = run.Namespace
 	case "parent_id":
 		// parent_id is provided, get the parent task to find the run_id and namespace
 		parentTask, err := s.resourceManager.GetTask(parentId)
@@ -891,24 +884,28 @@ func (s *RunServer) ListTasks(ctx context.Context, request *apiv2beta1.ListTasks
 		if err != nil {
 			return nil, util.Wrap(err, "Failed to authorize task listing")
 		}
-		expectedNamespace = parentTask.Namespace
 	case "namespace":
-		// namespace is provided (can be empty in single-user mode)
 		// For namespace filtering, check if user has get permission on runs in this namespace
-		resourceAttributes := &authorizationv1.ResourceAttributes{
-			Namespace: namespace,
-			Verb:      common.RbacResourceVerbGet,
-			Group:     common.RbacPipelinesGroup,
-			Version:   common.RbacPipelinesVersion,
-			Resource:  common.RbacResourceTypeRuns,
-		}
 		if common.IsMultiUserMode() {
+			if namespace == "" {
+				return nil, util.NewInvalidInputError("Namespace is required in multi-user mode")
+			}
+			resourceAttributes := &authorizationv1.ResourceAttributes{
+				Namespace: namespace,
+				Verb:      common.RbacResourceVerbGet,
+				Group:     common.RbacPipelinesGroup,
+				Version:   common.RbacPipelinesVersion,
+				Resource:  common.RbacResourceTypeRuns,
+			}
 			err := s.resourceManager.IsAuthorized(ctx, resourceAttributes)
 			if err != nil {
 				return nil, util.Wrapf(err, "Failed to authorize task listing by namespace. Check if you have access to runs in namespace %s", namespace)
 			}
+		} else {
+			// It doesn't matter if users specify a namespace in single-user mode, namespaces are not set in this mode
+			// so we just list everything.
+			namespace = ""
 		}
-		expectedNamespace = namespace
 	}
 
 	opts, err := validatedListOptions(&model.Task{}, request.GetPageToken(), int(request.GetPageSize()), request.GetOrderBy(), request.GetFilter(), "v2beta1")
@@ -920,33 +917,6 @@ func (s *RunServer) ListTasks(ctx context.Context, request *apiv2beta1.ListTasks
 	tasks, totalSize, nextPageToken, err := s.resourceManager.ListTasks(runId, parentId, namespace, opts)
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to list tasks")
-	}
-
-	// Sanity check: ensure all tasks have the same namespace as expected
-	// Skip this check if we're in single-user mode with namespace filtering
-	// In single-user mode, we allow tasks with empty namespace to be included
-	skipNamespaceCheck := filterType == "namespace" && !common.IsMultiUserMode()
-
-	if !skipNamespaceCheck {
-		// Validate namespace consistency for other filter types (run_id, parent_id)
-		for _, task := range tasks {
-			if task.Namespace != expectedNamespace {
-				return nil, util.NewInternalServerError(
-					util.NewInvalidInputError("Task namespace mismatch detected"),
-					"Task %s has namespace '%s' but expected namespace '%s'. This indicates a data consistency issue.",
-					task.UUID, task.Namespace, expectedNamespace)
-			}
-		}
-	} else {
-		// In single-user mode with namespace filtering, tasks can have the specified namespace OR empty namespace
-		for _, task := range tasks {
-			if task.Namespace != expectedNamespace && task.Namespace != "" {
-				return nil, util.NewInternalServerError(
-					util.NewInvalidInputError("Task namespace mismatch detected"),
-					"Task %s has namespace '%s' but expected namespace '%s' or empty. This indicates a data consistency issue.",
-					task.UUID, task.Namespace, expectedNamespace)
-			}
-		}
 	}
 
 	apiTasks := make([]*apiv2beta1.PipelineTaskDetail, len(tasks))

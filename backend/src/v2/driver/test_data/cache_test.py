@@ -29,10 +29,19 @@ def process_dataset(input_dataset: Input[Dataset], output_artifact: Output[Artif
     with open(output_artifact.path, "w") as f:
         f.write(f'very_bad')
 
+@component
+def analyze_artifact(data_input: Input[Artifact], output_artifact: Output[Artifact]):
+    with open(data_input.path, "r") as f:
+        data = f.read()
+    assert data == "very_bad"
+    with open(output_artifact.path, "w") as f:
+        f.write(f'done_analyzing')
+
 @dsl.pipeline
 def primary_pipeline():
     dataset_op = create_dataset()
     processed = process_dataset(input_dataset=dataset_op.outputs["output_dataset"]).set_caching_options(True)
+    analyze_artifact(data_input=processed.outputs["output_artifact"])
 
 if __name__ == '__main__':
     from kfp import compiler

@@ -852,14 +852,10 @@ func (r *ResourceManager) ListTasks(runId, parentId, namespace string, opts *lis
 	} else if namespace != "" {
 		// Namespace filter is set (can be empty string in single-user mode)
 		filterContext = &model.FilterContext{
-			ReferenceKey:          &model.ReferenceKey{Type: model.NamespaceResourceType, ID: namespace},
-			IncludeEmptyNamespace: !common.IsMultiUserMode(), // In single-user mode, include tasks with empty namespace
+			ReferenceKey: &model.ReferenceKey{Type: model.NamespaceResourceType, ID: namespace},
 		}
 	} else {
-		// No filter specified (only allowed in single-user mode)
-		filterContext = &model.FilterContext{
-			IncludeEmptyNamespace: !common.IsMultiUserMode(),
-		}
+		filterContext = &model.FilterContext{}
 	}
 
 	tasks, totalSize, nextPageToken, err := r.taskStore.ListTasks(filterContext, opts)

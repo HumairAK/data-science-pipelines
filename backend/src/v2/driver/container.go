@@ -148,7 +148,7 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 	}
 
 	// ######################################
-	// ### CACHE 1 ###
+	// ### CACHE ###
 	// ######################################
 	var fingerPrint string
 	var cachedTask *apiV2beta1.PipelineTaskDetail
@@ -184,6 +184,51 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 		taskToCreate.CacheFingerprint = fingerPrint
 	}
 
+	// Use cache and skip pvc creation if all conditions met:
+	// (1) Cache is enabled globally
+	// (2) Cache is enabled for the task
+	// (3) We had a cache hit for this Task
+	execution.Cached = util.BoolPointer(false)
+	if !opts.CacheDisabled {
+		if opts.Task.GetCachingOptions().GetEnableCache() && cachedTask != nil {
+			taskToCreate.State = apiV2beta1.PipelineTaskDetail_CACHED
+			taskToCreate.Outputs = cachedTask.Outputs
+			*execution.Cached = true
+			createdTask, createErr := clientManager.KFPAPIClient().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
+				Task: taskToCreate,
+			})
+			if createErr != nil {
+				return execution, fmt.Errorf("failed to update task: %w", createErr)
+			}
+
+			// Artifacts are not embedded in tasks like parameters, we need to create separate ArtifactTasks for each output.
+			var artifactTasks []*apiV2beta1.ArtifactTask
+			for _, cachedOutput := range cachedTask.Outputs.Artifacts {
+				for _, artifact := range cachedOutput.Artifacts {
+					artifactTasks = append(artifactTasks, &apiV2beta1.ArtifactTask{
+						ArtifactId: artifact.GetArtifactId(),
+						RunId:      createdTask.RunId,
+						TaskId:     createdTask.TaskId,
+						Type:       cachedOutput.GetType(),
+						Producer:   cachedOutput.GetProducer(),
+						Key:        cachedOutput.ArtifactKey,
+					})
+				}
+			}
+			_, err := clientManager.KFPAPIClient().CreateArtifactTasks(ctx, &apiV2beta1.CreateArtifactTasksBulkRequest{
+				ArtifactTasks: artifactTasks,
+			})
+			if err != nil {
+				return execution, fmt.Errorf("failed to create artifact tasks: %w", err)
+			}
+			execution.TaskID = createdTask.TaskId
+			glog.Infof("Cache hit for task %s", opts.TaskName)
+			return execution, nil
+		}
+	} else {
+		glog.Info("Cache disabled globally at the server level.")
+	}
+
 	// ######################################
 	// ### CREATE TASK ###
 	// ######################################
@@ -212,33 +257,6 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 		return execution, nil
 	}
 
-	// ######################################
-	// ### CACHE 2 ###
-	// ######################################
-
-	// Use cache and skip pvc creation if all conditions met:
-	// (1) Cache is enabled globally
-	// (2) Cache is enabled for the task
-	// (3) We had a cache hit for this Task
-	execution.Cached = util.BoolPointer(false)
-	if !opts.CacheDisabled {
-		if opts.Task.GetCachingOptions().GetEnableCache() && cachedTask != nil {
-			taskToCreate.State = apiV2beta1.PipelineTaskDetail_CACHED
-			taskToCreate.Outputs = cachedTask.Outputs
-			*execution.Cached = true
-			_, createErr := clientManager.KFPAPIClient().CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
-				Task: taskToCreate,
-			})
-			if createErr != nil {
-				return execution, fmt.Errorf("failed to update task: %w", createErr)
-			}
-			glog.Infof("Cache hit for task %s", opts.TaskName)
-			return execution, nil
-		}
-	} else {
-		glog.Info("Cache disabled globally at the server level.")
-	}
-
 	// Determine the pipeline root with the pipeline run context.
 	// If a user sets a pipeline root at the runtime config, use that.
 	// Otherwise, we use the default pipeline root from the launcher config map.
@@ -252,6 +270,7 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 	if err != nil {
 		return execution, fmt.Errorf("failed to get pipeline root: %w", err)
 	}
+
 	// Provision Outputs in ExecutorInput
 	if execution.WillTrigger() {
 		executorInput.Outputs = provisionOutputs(

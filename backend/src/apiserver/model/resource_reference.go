@@ -181,8 +181,6 @@ type ReferenceKey struct {
 type FilterContext struct {
 	// Filter by a specific reference key
 	*ReferenceKey
-	// In single-user mode with namespace filtering, also include tasks with empty/null namespace
-	IncludeEmptyNamespace bool
 }
 
 // Checks whether the resource-reference relationship combination is valid.

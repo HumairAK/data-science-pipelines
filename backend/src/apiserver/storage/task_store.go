@@ -473,21 +473,11 @@ func (s *TaskStore) ListTasks(filterContext *model.FilterContext, opts *list.Opt
 		sqlBuilder = sqlBuilder.Where(sq.Eq{"ParentTaskUUID": filterContext.ReferenceKey.ID})
 	}
 	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.NamespaceResourceType {
-		// Handle namespace filtering
+		// Only add namespace filter if namespace is not empty
+		// Empty namespace in single-user mode means list all tasks
 		if filterContext.ReferenceKey.ID != "" {
-			// Non-empty namespace
-			if filterContext.IncludeEmptyNamespace {
-				// In single-user mode: include tasks with specified namespace OR empty namespace
-				sqlBuilder = sqlBuilder.Where(sq.Or{
-					sq.Eq{"Namespace": filterContext.ReferenceKey.ID},
-					sq.Eq{"Namespace": ""},
-				})
-			} else {
-				// In multi-user mode: only include tasks with exact namespace match
-				sqlBuilder = sqlBuilder.Where(sq.Eq{"Namespace": filterContext.ReferenceKey.ID})
-			}
+			sqlBuilder = sqlBuilder.Where(sq.Eq{"Namespace": filterContext.ReferenceKey.ID})
 		}
-		// else: empty namespace in single-user mode means list all tasks (no filter)
 	}
 	sqlBuilder = opts.AddFilterToSelect(sqlBuilder)
 
@@ -509,21 +499,11 @@ func (s *TaskStore) ListTasks(filterContext *model.FilterContext, opts *list.Opt
 		sqlBuilder = sqlBuilder.Where(sq.Eq{"ParentTaskUUID": filterContext.ReferenceKey.ID})
 	}
 	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.NamespaceResourceType {
-		// Handle namespace filtering
+		// Only add namespace filter if namespace is not empty
+		// Empty namespace in single-user mode means list all tasks
 		if filterContext.ReferenceKey.ID != "" {
-			// Non-empty namespace
-			if filterContext.IncludeEmptyNamespace {
-				// In single-user mode: include tasks with specified namespace OR empty namespace
-				sqlBuilder = sqlBuilder.Where(sq.Or{
-					sq.Eq{"Namespace": filterContext.ReferenceKey.ID},
-					sq.Eq{"Namespace": ""},
-				})
-			} else {
-				// In multi-user mode: only include tasks with exact namespace match
-				sqlBuilder = sqlBuilder.Where(sq.Eq{"Namespace": filterContext.ReferenceKey.ID})
-			}
+			sqlBuilder = sqlBuilder.Where(sq.Eq{"Namespace": filterContext.ReferenceKey.ID})
 		}
-		// else: empty namespace in single-user mode means list all tasks (no filter)
 	}
 	sizeSql, sizeArgs, err := opts.AddFilterToSelect(sqlBuilder).ToSql()
 	if err != nil {

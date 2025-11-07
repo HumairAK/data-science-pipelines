@@ -109,7 +109,7 @@ func getFingerPrintsAndID(
 		return "", nil, fmt.Errorf("failed to marshal filter: %v", err)
 	}
 
-	glog.Infof("Looking for cached tasks with: filter=%s, namespace=%s", filterJSON, opts.Namespace)
+	glog.V(4).Infof("Looking for cached tasks with: filter=%s, namespace=%s", filterJSON, opts.Namespace)
 	tasks, err := kfpAPI.ListTasks(ctx, &apiv2beta1.ListTasksRequest{
 		ParentFilter: &apiv2beta1.ListTasksRequest_Namespace{Namespace: opts.Namespace},
 		Filter:       string(filterJSON),
@@ -125,6 +125,6 @@ func getFingerPrintsAndID(
 		glog.Infof("Found multiple cached tasks for task %s with fingerprint %s, the first one found will be used.", opts.Task.GetTaskInfo().GetName(), fingerprint)
 	}
 
-	glog.Infof("Got a cache hit for task {%s}", opts.Task.GetTaskInfo().GetName())
+	glog.V(4).Infof("Got a cache hit for task {%s}", opts.Task.GetTaskInfo().GetName())
 	return fingerPrint, tasks.Tasks[0], nil
 }

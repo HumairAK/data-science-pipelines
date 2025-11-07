@@ -1,6 +1,20 @@
 # PIPELINE DEFINITION
 # Name: primary-pipeline
 components:
+  comp-analyze-artifact:
+    executorLabel: exec-analyze-artifact
+    inputDefinitions:
+      artifacts:
+        data_input:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      artifacts:
+        output_artifact:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
   comp-create-dataset:
     executorLabel: exec-create-dataset
     outputDefinitions:
@@ -25,6 +39,37 @@ components:
             schemaVersion: 0.0.1
 deploymentSpec:
   executors:
+    exec-analyze-artifact:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - analyze_artifact
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef analyze_artifact(data_input: Input[Artifact], output_artifact:\
+          \ Output[Artifact]):\n    with open(data_input.path, \"r\") as f:\n    \
+          \    data = f.read()\n    assert data == \"very_bad\"\n    with open(output_artifact.path,\
+          \ \"w\") as f:\n        f.write(f'done_analyzing')\n\n"
+        image: python:3.9
     exec-create-dataset:
       container:
         args:
@@ -92,6 +137,20 @@ pipelineInfo:
 root:
   dag:
     tasks:
+      analyze-artifact:
+        cachingOptions: {}
+        componentRef:
+          name: comp-analyze-artifact
+        dependentTasks:
+        - process-dataset
+        inputs:
+          artifacts:
+            data_input:
+              taskOutputArtifact:
+                outputArtifactKey: output_artifact
+                producerTask: process-dataset
+        taskInfo:
+          name: analyze-artifact
       create-dataset:
         cachingOptions: {}
         componentRef:
