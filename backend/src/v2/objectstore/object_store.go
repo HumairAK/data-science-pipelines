@@ -128,6 +128,7 @@ func UploadBlob(ctx context.Context, bucket *blob.Bucket, localPath, blobPath st
 
 func DownloadBlob(ctx context.Context, bucket *blob.Bucket, localDir, blobDir string) error {
 	iter := bucket.List(&blob.ListOptions{Prefix: blobDir})
+	downloadedBlob := false
 	for {
 		obj, err := iter.Next(ctx)
 		if err != nil {
@@ -150,7 +151,11 @@ func DownloadBlob(ctx context.Context, bucket *blob.Bucket, localDir, blobDir st
 			if err := downloadFile(ctx, bucket, obj.Key, filepath.Join(localDir, relativePath)); err != nil {
 				return err
 			}
+			downloadedBlob = true
 		}
+	}
+	if downloadedBlob == false {
+		return fmt.Errorf("no blob found in remote storage %q", blobDir)
 	}
 	return nil
 }

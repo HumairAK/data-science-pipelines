@@ -325,7 +325,7 @@ func (c *workflowCompiler) task(name string, task *pipelinespec.PipelineTaskSpec
 				// it's impossible to add a when condition based on driver outputs.
 				return nil, fmt.Errorf("triggerPolicy.condition on importer task is not supported")
 			}
-			importer, err := c.importerTask(name, task, taskSpecJson, inputs.parentDagID)
+			importer, err := c.importerTask(name, task, name, inputs.parentDagID)
 			if err != nil {
 				return nil, err
 			}

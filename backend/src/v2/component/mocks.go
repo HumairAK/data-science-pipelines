@@ -226,7 +226,7 @@ func NewMockObjectStoreClient() *MockObjectStoreClient {
 	}
 }
 
-func (m *MockObjectStoreClient) UploadArtifact(ctx context.Context, localPath, remoteURI, artifactKey, pipelineRoot string) error {
+func (m *MockObjectStoreClient) UploadArtifact(ctx context.Context, localPath, remoteURI, artifactKey string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -245,7 +245,7 @@ func (m *MockObjectStoreClient) UploadArtifact(ctx context.Context, localPath, r
 	return nil
 }
 
-func (m *MockObjectStoreClient) DownloadArtifact(ctx context.Context, remoteURI, localPath, artifactKey, pipelineRoot string) error {
+func (m *MockObjectStoreClient) DownloadArtifact(ctx context.Context, remoteURI, localPath, artifactKey string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

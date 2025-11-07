@@ -32,11 +32,7 @@ func (c *workflowCompiler) Importer(name string, componentSpec *pipelinespec.Com
 	return c.saveComponentImpl(name, importer)
 }
 
-func (c *workflowCompiler) importerTask(name string, task *pipelinespec.PipelineTaskSpec, taskJSON string, parentDagID string) (*wfapi.DAGTask, error) {
-	componentPlaceholder, err := c.useComponentSpec(task.GetComponentRef().GetName())
-	if err != nil {
-		return nil, err
-	}
+func (c *workflowCompiler) importerTask(name string, task *pipelinespec.PipelineTaskSpec, taskName string, parentDagID string) (*wfapi.DAGTask, error) {
 	importerPlaceholder, err := c.useComponentImpl(task.GetComponentRef().GetName())
 	if err != nil {
 		return nil, err
@@ -44,19 +40,18 @@ func (c *workflowCompiler) importerTask(name string, task *pipelinespec.Pipeline
 	return &wfapi.DAGTask{
 		Name:     name,
 		Template: c.addImporterTemplate(),
-		Arguments: wfapi.Arguments{Parameters: []wfapi.Parameter{{
-			Name:  paramTask,
-			Value: wfapi.AnyStringPtr(taskJSON),
-		}, {
-			Name:  paramComponent,
-			Value: wfapi.AnyStringPtr(componentPlaceholder),
-		}, {
-			Name:  paramImporter,
-			Value: wfapi.AnyStringPtr(importerPlaceholder),
-		}, {
-			Name:  paramParentDagTaskID,
-			Value: wfapi.AnyStringPtr(parentDagID),
-		}}},
+		Arguments: wfapi.Arguments{Parameters: []wfapi.Parameter{
+			{
+				Name:  paramTaskName,
+				Value: wfapi.AnyStringPtr(taskName),
+			},
+			{
+				Name:  paramImporter,
+				Value: wfapi.AnyStringPtr(importerPlaceholder),
+			}, {
+				Name:  paramParentDagTaskID,
+				Value: wfapi.AnyStringPtr(parentDagID),
+			}}},
 	}, nil
 }
 
@@ -67,12 +62,11 @@ func (c *workflowCompiler) addImporterTemplate() string {
 	}
 	args := []string{
 		"--executor_type", "importer",
-		"--task_spec", inputValue(paramTask),
-		"--component_spec", inputValue(paramComponent),
+		"--task_name", inputValue(paramTaskName),
 		"--importer_spec", inputValue(paramImporter),
 		"--pipeline_name", c.spec.PipelineInfo.GetName(),
 		"--run_id", runID(),
-		"--parent_dag_id", inputValue(paramParentDagTaskID),
+		"--parent_task_id", inputValue(paramParentDagTaskID),
 		"--pod_name",
 		fmt.Sprintf("$(%s)", component.EnvPodName),
 		"--pod_uid",
@@ -91,8 +85,7 @@ func (c *workflowCompiler) addImporterTemplate() string {
 		Name: name,
 		Inputs: wfapi.Inputs{
 			Parameters: []wfapi.Parameter{
-				{Name: paramTask},
-				{Name: paramComponent},
+				{Name: paramTaskName},
 				{Name: paramImporter},
 				{Name: paramParentDagTaskID},
 			},

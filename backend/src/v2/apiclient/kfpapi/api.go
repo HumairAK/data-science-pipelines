@@ -6,6 +6,7 @@ import (
 
 	gc "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -89,10 +90,20 @@ func (k *clientAdapter) CreateArtifactsBulk(ctx context.Context, req *gc.CreateA
 }
 
 func (k *clientAdapter) ListArtifactsByURI(ctx context.Context, uri, namespace string) ([]*gc.Artifact, error) {
+	predicates := []*gc.Predicate{
+		{Key: "uri", Operation: gc.Predicate_EQUALS, Value: &gc.Predicate_StringValue{StringValue: uri}},
+	}
 	filter := &gc.Filter{
-		Predicates: []*gc.Predicate{
-			{Key: "uri", Operation: gc.Predicate_EQUALS, Value: &gc.Predicate_StringValue{StringValue: uri}},
-		}}
+		Predicates: predicates,
+	}
+	mo := protojson.MarshalOptions{
+		UseProtoNames:   true,
+		EmitUnpopulated: false,
+	}
+	filterJSON, err := mo.Marshal(filter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal filter: %v", err)
+	}
 
 	const pageSize = 100
 	var allArtifacts []*gc.Artifact
@@ -101,7 +112,7 @@ func (k *clientAdapter) ListArtifactsByURI(ctx context.Context, uri, namespace s
 	for {
 		artifactsResponse, err := k.c.Artifact.ListArtifacts(ctx, &gc.ListArtifactRequest{
 			Namespace: namespace,
-			Filter:    filter.String(),
+			Filter:    string(filterJSON),
 			PageSize:  pageSize,
 			PageToken: nextPageToken,
 		})

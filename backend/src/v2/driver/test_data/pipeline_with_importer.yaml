@@ -15,32 +15,8 @@ components:
           artifactType:
             schemaTitle: system.Dataset
             schemaVersion: 0.0.1
-  comp-importer-2:
-    executorLabel: exec-importer-2
-    inputDefinitions:
-      parameters:
-        uri:
-          parameterType: STRING
-    outputDefinitions:
-      artifacts:
-        artifact:
-          artifactType:
-            schemaTitle: system.Dataset
-            schemaVersion: 0.0.1
   comp-train:
     executorLabel: exec-train
-    inputDefinitions:
-      artifacts:
-        dataset:
-          artifactType:
-            schemaTitle: system.Dataset
-            schemaVersion: 0.0.1
-    outputDefinitions:
-      parameters:
-        Output:
-          parameterType: STRING
-  comp-train-2:
-    executorLabel: exec-train-2
     inputDefinitions:
       artifacts:
         dataset:
@@ -56,14 +32,7 @@ deploymentSpec:
     exec-importer:
       importer:
         artifactUri:
-          constant: s3://ml-pipeline/shakespeare1.txt
-        typeSchema:
-          schemaTitle: system.Dataset
-          schemaVersion: 0.0.1
-    exec-importer-2:
-      importer:
-        artifactUri:
-          runtimeParameter: uri
+          constant: minio://mlpipeline/shakespeare1.txt
         typeSchema:
           schemaTitle: system.Dataset
           schemaVersion: 0.0.1
@@ -94,36 +63,7 @@ deploymentSpec:
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef train(dataset: Input[Dataset]) -> str:\n    with open(dataset.path,\
-          \ 'r') as f:\n        data = f.read()\n\n    return data\n\n"
-        image: python:3.9
-    exec-train-2:
-      container:
-        args:
-        - --executor_input
-        - '{{$}}'
-        - --function_to_execute
-        - train
-        command:
-        - sh
-        - -c
-        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
-          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
-          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
-          $0\" \"$@\"\n"
-        - sh
-        - -ec
-        - 'program_path=$(mktemp -d)
-
-
-          printf "%s" "$0" > "$program_path/ephemeral_component.py"
-
-          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
-
-          '
-        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
-          \ *\n\ndef train(dataset: Input[Dataset]) -> str:\n    with open(dataset.path,\
-          \ 'r') as f:\n        data = f.read()\n\n    return data\n\n"
+          \ 'r') as f:\n        data = f.read()\n    return data\n\n"
         image: python:3.9
 pipelineInfo:
   name: pipeline-with-importer
@@ -138,19 +78,9 @@ root:
           parameters:
             uri:
               runtimeValue:
-                constant: s3://ml-pipeline/shakespeare1.txt
+                constant: minio://mlpipeline/shakespeare1.txt
         taskInfo:
           name: importer
-      importer-2:
-        cachingOptions: {}
-        componentRef:
-          name: comp-importer-2
-        inputs:
-          parameters:
-            uri:
-              componentInputParameter: uri
-        taskInfo:
-          name: importer-2
       train:
         cachingOptions: {}
         componentRef:
@@ -165,20 +95,6 @@ root:
                 producerTask: importer
         taskInfo:
           name: train
-      train-2:
-        cachingOptions: {}
-        componentRef:
-          name: comp-train-2
-        dependentTasks:
-        - importer-2
-        inputs:
-          artifacts:
-            dataset:
-              taskOutputArtifact:
-                outputArtifactKey: artifact
-                producerTask: importer-2
-        taskInfo:
-          name: train-2
   inputDefinitions:
     parameters:
       uri:

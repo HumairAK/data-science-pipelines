@@ -39,15 +39,17 @@ func NewImporterLauncher(
 	}, nil
 }
 
-func (l *ImportLauncher) Execute(ctx context.Context) (err error) {
+func (l *ImportLauncher) Execute(ctx context.Context) (executionErr error) {
 	defer func() {
-		if err != nil {
-			err = fmt.Errorf("failed to execute importer component: %w", err)
+		if executionErr != nil {
+			executionErr = fmt.Errorf("failed to execute importer component: %w", executionErr)
 		}
 	}()
 	kfpAPI := l.clientManager.KFPAPIClient()
+
+	// Create the task, we will continue to update this as needed.
 	parentTaskID := l.opts.ParentTask.GetTaskId()
-	createdTask, err := kfpAPI.CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
+	createdTask, executionErr := kfpAPI.CreateTask(ctx, &apiV2beta1.CreateTaskRequest{
 		Task: &apiV2beta1.PipelineTaskDetail{
 			Name:         l.opts.TaskSpec.GetTaskInfo().GetName(),
 			DisplayName:  l.opts.TaskSpec.GetTaskInfo().GetName(),
@@ -67,22 +69,39 @@ func (l *ImportLauncher) Execute(ctx context.Context) (err error) {
 			},
 		},
 	})
-	if err != nil {
-		return err
+	if executionErr != nil {
+		return executionErr
 	}
+
+	// The defer statement is used to ensure we propagate any errors
+	// encountered in this task execution.
+	defer func() {
+		if executionErr != nil {
+			createdTask.State = apiV2beta1.PipelineTaskDetail_FAILED
+		} else {
+			createdTask.State = apiV2beta1.PipelineTaskDetail_SUCCEEDED
+		}
+		createdTask.EndTime = timestamppb.Now()
+		_, updateErr := kfpAPI.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
+			TaskId: createdTask.TaskId,
+			Task:   createdTask,
+		})
+		if updateErr != nil {
+			glog.Errorf("failed to update task: %v", updateErr)
+			return
+		}
+		// Propagate any statuses up the DAG.
+		updateStatusErr := updateStatuses(ctx, l.clientManager.KFPAPIClient(), l.opts.Run, l.opts.PipelineSpec, l.opts.Task)
+		if updateStatusErr != nil {
+			glog.Errorf("failed to update statuses: %v", updateStatusErr)
+			return
+		}
+	}()
+
 	if createdTask == nil {
 		return fmt.Errorf("failed to create task for importer execution")
 	}
 	l.opts.Task = createdTask
-
-	artifact, err := l.findOrNewArtifactToImport(ctx)
-	if err != nil {
-		return err
-	}
-	artifactOutputKey, err := l.getArtifactOutputKey()
-	if err != nil {
-		return err
-	}
 
 	if createdTask.Outputs == nil {
 		createdTask.Outputs = &apiV2beta1.PipelineTaskDetail_InputOutputs{
@@ -91,50 +110,58 @@ func (l *ImportLauncher) Execute(ctx context.Context) (err error) {
 	} else if createdTask.Outputs.Artifacts == nil {
 		createdTask.Outputs.Artifacts = make([]*apiV2beta1.PipelineTaskDetail_InputOutputs_IOArtifact, 0)
 	}
-	createdTask.Outputs.Artifacts = append(createdTask.Outputs.Artifacts, &apiV2beta1.PipelineTaskDetail_InputOutputs_IOArtifact{
-		Artifacts:   []*apiV2beta1.Artifact{artifact},
-		Type:        apiV2beta1.IOType_OUTPUT,
-		ArtifactKey: artifactOutputKey,
-		Producer: &apiV2beta1.IOProducer{
-			TaskName: l.opts.TaskSpec.GetTaskInfo().GetName(),
-		},
-	})
-	createdTask.State = apiV2beta1.PipelineTaskDetail_SUCCEEDED
-	createdTask.EndTime = timestamppb.Now()
-	createdTask.Pods = append(l.opts.Task.Pods, &apiV2beta1.PipelineTaskDetail_TaskPod{
-		Name: l.opts.PodName,
-		Uid:  l.opts.PodUID,
-		Type: apiV2beta1.PipelineTaskDetail_EXECUTOR,
-	})
 
-	_, err = kfpAPI.UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
-		TaskId: createdTask.TaskId,
-		Task:   createdTask,
-	})
+	// Handle artifact creation and links to Importer Task
+	artifactToImport, executionErr := l.ImportSpecToArtifact()
+	if executionErr != nil {
+		return executionErr
+	}
+
+	// Determine if the Artifact already exists.
+	preExistingArtifact, executionErr := l.findMatchedArtifact(ctx, artifactToImport)
+	if executionErr != nil {
+		return executionErr
+	}
+
+	// Get the output artifact name from the component spec.
+	artifactOutputKey, executionErr := l.getArtifactOutputKey()
+	if executionErr != nil {
+		return executionErr
+	}
+
+	// If reimport is true or the artifact does not already exist we create a new artifact
+	if l.opts.ImporterSpec.Reimport || preExistingArtifact == nil {
+		_, executionErr = kfpAPI.CreateArtifact(ctx, &apiV2beta1.CreateArtifactRequest{
+			Artifact:    artifactToImport,
+			RunId:       l.opts.Run.RunId,
+			TaskId:      createdTask.TaskId,
+			ProducerKey: artifactOutputKey,
+			Type:        apiV2beta1.IOType_OUTPUT,
+		})
+		if executionErr != nil {
+			return executionErr
+		}
+	} else {
+		// If reimporting then we just need to create a new link to this Importer task via
+		// and ArtifactTask entry.
+		_, executionErr = kfpAPI.CreateArtifactTask(ctx, &apiV2beta1.CreateArtifactTaskRequest{
+			ArtifactTask: &apiV2beta1.ArtifactTask{
+				ArtifactId: preExistingArtifact.GetArtifactId(),
+				TaskId:     createdTask.TaskId,
+				RunId:      l.opts.Run.RunId,
+				Key:        artifactOutputKey,
+				Type:       apiV2beta1.IOType_OUTPUT,
+				Producer: &apiV2beta1.IOProducer{
+					TaskName: l.opts.TaskSpec.GetTaskInfo().GetName(),
+				},
+			},
+		})
+		if executionErr != nil {
+			return executionErr
+		}
+	}
+
 	return nil
-}
-
-// findOrNewArtifactToImport will find an artifact to import.
-// If Re-Import on the importer spec is true then a new artifact is returned for creation.
-// If Re-Import is False, then we search for a matching artifact, if:
-//   - A match is found, then we return the match
-//   - No match is found, then a new artifact is returned for creation.
-func (l *ImportLauncher) findOrNewArtifactToImport(ctx context.Context) (artifact *apiV2beta1.Artifact, err error) {
-	artifactToImport, err := l.ImportSpecToArtifact()
-	if err != nil {
-		return nil, err
-	}
-	if l.opts.ImporterSpec.Reimport {
-		return artifactToImport, nil
-	}
-	matchedArtifact, err := l.findMatchedArtifact(ctx, artifactToImport)
-	if err != nil {
-		return nil, err
-	}
-	if matchedArtifact != nil {
-		return matchedArtifact, nil
-	}
-	return artifactToImport, nil
 }
 
 func (l *ImportLauncher) findMatchedArtifact(ctx context.Context, artifactToMatch *apiV2beta1.Artifact) (matchedArtifact *apiV2beta1.Artifact, err error) {
@@ -239,10 +266,12 @@ func (l *ImportLauncher) ImportSpecToArtifact() (artifact *apiV2beta1.Artifact, 
 		return nil, fmt.Errorf("failed to extract filename from artifact uri: %w", err)
 	}
 	artifact = &apiV2beta1.Artifact{
-		Type:        artifactType,
-		Uri:         &artifactUri,
 		Name:        artifactName,
 		Description: "",
+		Type:        artifactType,
+		Uri:         &artifactUri,
+		CreatedAt:   timestamppb.Now(),
+		Namespace:   l.opts.Namespace,
 	}
 	if importerSpec.Metadata != nil {
 		artifact.Metadata = importerSpec.Metadata.GetFields()

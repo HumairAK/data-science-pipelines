@@ -23,6 +23,7 @@ import (
 	"strconv"
 
 	"github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
 	"sigs.k8s.io/yaml"
 
@@ -144,14 +145,16 @@ func FetchLauncherConfigMap(ctx context.Context, clientSet kubernetes.Interface,
 	return &Config{data: config.Data}, nil
 }
 
-func GetPipelineRoot(
+// GetPipelineRootWithPipelineRunContext gets the pipeline root for a run.
+// The returned Pipeline Root appends the pipeline name and run id.
+func GetPipelineRootWithPipelineRunContext(
 	ctx context.Context,
-	namespace string,
+	pipelineName, namespace string,
 	k8sClient kubernetes.Interface,
-	runtimeConfig *go_client.RuntimeConfig) (string, error) {
+	run *go_client.Run) (string, error) {
 	var pipelineRoot string
-	if runtimeConfig != nil && runtimeConfig.PipelineRoot != "" {
-		pipelineRoot = runtimeConfig.PipelineRoot
+	if run.RuntimeConfig != nil && run.RuntimeConfig.PipelineRoot != "" {
+		pipelineRoot = run.RuntimeConfig.PipelineRoot
 		glog.Infof("PipelineRoot=%q from runtime config will be used.", pipelineRoot)
 	} else {
 		cfg, err := FetchLauncherConfigMap(ctx, k8sClient, namespace)
@@ -161,7 +164,9 @@ func GetPipelineRoot(
 		pipelineRoot = cfg.DefaultPipelineRoot()
 		glog.Infof("PipelineRoot=%q from default config", pipelineRoot)
 	}
-	return pipelineRoot, nil
+
+	pipelineRootAppended := util.GenerateOutputURI(pipelineRoot, []string{pipelineName, run.RunId}, true)
+	return pipelineRootAppended, nil
 }
 
 func getDefaultMinioSessionInfo() (objectstore.SessionInfo, error) {

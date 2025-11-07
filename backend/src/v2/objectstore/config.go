@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"path"
 	"regexp"
 	"strconv"
@@ -147,6 +148,27 @@ func ParseBucketConfigForArtifactURI(uri string) (*Config, error) {
 		Scheme:     ms[1],
 		BucketName: ms[2],
 	}, nil
+}
+
+func SplitObjectURI(uri string) (prefix, base string, err error) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid URI: %w", err)
+	}
+
+	// Trim trailing slash (if any)
+	cleanPath := strings.TrimSuffix(u.Path, "/")
+
+	// Get base name and dir prefix
+	base = path.Base(cleanPath)
+	dir := path.Dir(cleanPath)
+
+	// Reconstruct prefix (scheme + host + dir)
+	prefix = fmt.Sprintf("%s://%s", u.Scheme, u.Host)
+	if dir != "." && dir != "/" {
+		prefix += dir
+	}
+	return prefix, base, nil
 }
 
 // ParseProviderFromPath prases the uri and returns the scheme, which is
