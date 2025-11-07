@@ -18,6 +18,11 @@ func resolveArtifacts(opts common.Options) ([]ArtifactMetadata, error) {
 			return nil, err
 		}
 
+		producer := v.GetProducer()
+		if producer == nil {
+			return nil, fmt.Errorf("producer cannot be nil")
+		}
+
 		am := ArtifactMetadata{
 			Key:               key,
 			InputArtifactSpec: artifactSpec,
@@ -25,7 +30,7 @@ func resolveArtifacts(opts common.Options) ([]ArtifactMetadata, error) {
 				Artifacts:   v.Artifacts,
 				Type:        ioType,
 				ArtifactKey: key,
-				Producer:    &apiv2beta1.IOProducer{TaskName: opts.ParentTask.Name},
+				Producer:    v.GetProducer(),
 			},
 		}
 		if opts.IterationIndex >= 0 {

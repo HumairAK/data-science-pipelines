@@ -14,7 +14,6 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -42,6 +41,12 @@ func resolveParameters(opts common.Options) ([]ParameterMetadata, error) {
 			}
 			return nil, err
 		}
+
+		producer := v.GetProducer()
+		if producer == nil {
+			return nil, fmt.Errorf("producer cannot be nil")
+		}
+
 		pm := ParameterMetadata{
 			Key:                key,
 			InputParameterSpec: paramSpec,
@@ -49,7 +54,7 @@ func resolveParameters(opts common.Options) ([]ParameterMetadata, error) {
 				Value:        v.GetValue(),
 				Type:         ioType,
 				ParameterKey: key,
-				Producer:     &apiv2beta1.IOProducer{TaskName: opts.TaskName},
+				Producer:     producer,
 			},
 		}
 		if opts.IterationIndex >= 0 {
@@ -177,7 +182,7 @@ func resolveTaskOutputParameter(
 	}
 	outputKey := spec.GetTaskOutputParameter().GetOutputParameterKey()
 	outputs := producerTask.GetOutputs().GetParameters()
-	outputIO, err := findParameterByProducerKeyInList(outputKey, outputs)
+	outputIO, err := findParameterByProducerKeyInList(outputKey, producerTask.GetName(), outputs)
 	if err != nil {
 		return nil, err
 	}
@@ -313,6 +318,7 @@ func resolveTaskFinalStatus(opts common.Options,
 	if !ok {
 		return nil, fmt.Errorf("producer task, %v, not in tasks", producer.GetName())
 	}
+
 	finalStatus := pipelinespec.PipelineTaskFinalStatus{
 		State:                   producer.GetState().String(),
 		PipelineTaskName:        producer.GetName(),
@@ -437,7 +443,7 @@ func ResolveInputParameterStr(
 }
 
 func findParameterByProducerKeyInList(
-	producerKey string,
+	producerKey, producerTaskName string,
 	parametersIO []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter,
 ) (*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter, error) {
 	var parameterIOList []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter
@@ -469,33 +475,11 @@ func findParameterByProducerKeyInList(
 			Value:        ToListValue(parameterValues),
 			Type:         ioType,
 			ParameterKey: producerKey,
-			// This is unused by the caller
-			Producer: nil,
+			Producer: &apiv2beta1.IOProducer{
+				TaskName: producerTaskName,
+			},
 		}
 		return newParameterIO, nil
 	}
 	return parameterIOList[0], nil
-}
-
-func addDefaultParams(
-	executorInput *pipelinespec.ExecutorInput,
-	component *pipelinespec.ComponentSpec,
-) (*pipelinespec.ExecutorInput, error) {
-	// Make a deep copy so we don't alter the original data
-	executorInputWithDefaultMsg := proto.Clone(executorInput)
-	executorInputWithDefault, ok := executorInputWithDefaultMsg.(*pipelinespec.ExecutorInput)
-	if !ok {
-		return nil, fmt.Errorf("bug: cloned executor input message does not have expected type")
-	}
-
-	if executorInputWithDefault.GetInputs().GetParameterValues() == nil {
-		executorInputWithDefault.Inputs.ParameterValues = make(map[string]*structpb.Value)
-	}
-	for name, value := range component.GetInputDefinitions().GetParameters() {
-		_, hasInput := executorInputWithDefault.GetInputs().GetParameterValues()[name]
-		if value.GetDefaultValue() != nil && !hasInput {
-			executorInputWithDefault.GetInputs().GetParameterValues()[name] = value.GetDefaultValue()
-		}
-	}
-	return executorInputWithDefault, nil
 }

@@ -1301,6 +1301,7 @@ func (l *LauncherV2) downloadArtifacts(ctx context.Context) error {
 				}
 				continue
 			}
+
 			err = l.objectStore.DownloadArtifact(ctx, artifact.Uri, localPath, artifactKey)
 			if err != nil {
 				return fmt.Errorf("failed to download input artifact %q from remote storage URI %q: %w", artifactKey, artifact.Uri, err)
