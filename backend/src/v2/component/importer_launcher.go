@@ -131,6 +131,7 @@ func (l *ImportLauncher) Execute(ctx context.Context) (executionErr error) {
 
 	// If reimport is true or the artifact does not already exist we create a new artifact
 	if l.opts.ImporterSpec.Reimport || preExistingArtifact == nil {
+		glog.Infof("Creating new artifact for importer task %s", l.opts.TaskSpec.GetTaskInfo().GetName())
 		_, executionErr = kfpAPI.CreateArtifact(ctx, &apiV2beta1.CreateArtifactRequest{
 			Artifact:    artifactToImport,
 			RunId:       l.opts.Run.RunId,
@@ -142,6 +143,7 @@ func (l *ImportLauncher) Execute(ctx context.Context) (executionErr error) {
 			return executionErr
 		}
 	} else {
+		glog.Infof("Reusing existing artifact %s for importer task %s", preExistingArtifact.GetArtifactId(), l.opts.TaskSpec.GetTaskInfo().GetName())
 		// If reimporting then we just need to create a new link to this Importer task via
 		// and ArtifactTask entry.
 		_, executionErr = kfpAPI.CreateArtifactTask(ctx, &apiV2beta1.CreateArtifactTaskRequest{

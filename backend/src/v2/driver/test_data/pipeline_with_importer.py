@@ -12,22 +12,23 @@ dsl.component = functools.partial(dsl.component, base_image=base_image)
 def train(dataset: Input[Dataset]) -> str:
     with open(dataset.path, 'r') as f:
         data = f.read()
+    print(data)
     return data
 
 
 @dsl.pipeline(name='pipeline-with-importer')
-def pipeline_with_importer(uri: str = 's3://ml-pipeline/shakespeare1.txt'):
-    importer1 = importer(
-        artifact_uri='minio://mlpipeline/shakespeare1.txt',
-        artifact_class=Dataset,
-        reimport=False)
-    train(dataset=importer1.output)
-
-    # importer2 = importer(
-    #     artifact_uri=uri,
+def pipeline_with_importer(uri: str = 'minio://mlpipeline/shakespeare1.txt'):
+    # importer1 = importer(
+    #     artifact_uri='minio://mlpipeline/shakespeare1.txt',
     #     artifact_class=Dataset,
     #     reimport=False)
-    # train(dataset=importer2.output)
+    # train(dataset=importer1.output)
+
+    importer2 = importer(
+        artifact_uri=uri,
+        artifact_class=Dataset,
+        reimport=False)
+    train(dataset=importer2.output)
 
 
 if __name__ == '__main__':

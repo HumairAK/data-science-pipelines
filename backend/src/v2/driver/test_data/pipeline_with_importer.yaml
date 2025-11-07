@@ -1,7 +1,7 @@
 # PIPELINE DEFINITION
 # Name: pipeline-with-importer
 # Inputs:
-#    uri: str [Default: 's3://ml-pipeline/shakespeare1.txt']
+#    uri: str [Default: 'minio://mlpipeline/shakespeare1.txt']
 components:
   comp-importer:
     executorLabel: exec-importer
@@ -32,7 +32,7 @@ deploymentSpec:
     exec-importer:
       importer:
         artifactUri:
-          constant: minio://mlpipeline/shakespeare1.txt
+          runtimeParameter: uri
         typeSchema:
           schemaTitle: system.Dataset
           schemaVersion: 0.0.1
@@ -63,7 +63,8 @@ deploymentSpec:
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef train(dataset: Input[Dataset]) -> str:\n    with open(dataset.path,\
-          \ 'r') as f:\n        data = f.read()\n    return data\n\n"
+          \ 'r') as f:\n        data = f.read()\n    print(data)\n    return data\n\
+          \n"
         image: python:3.9
 pipelineInfo:
   name: pipeline-with-importer
@@ -77,8 +78,7 @@ root:
         inputs:
           parameters:
             uri:
-              runtimeValue:
-                constant: minio://mlpipeline/shakespeare1.txt
+              componentInputParameter: uri
         taskInfo:
           name: importer
       train:
@@ -98,7 +98,7 @@ root:
   inputDefinitions:
     parameters:
       uri:
-        defaultValue: s3://ml-pipeline/shakespeare1.txt
+        defaultValue: minio://mlpipeline/shakespeare1.txt
         isOptional: true
         parameterType: STRING
 schemaVersion: 2.1.0
