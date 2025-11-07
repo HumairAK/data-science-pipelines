@@ -107,7 +107,6 @@ func TestCreateTask_Success(t *testing.T) {
 	pods := createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR))
 	task := &model.Task{
 		Namespace:        "ns1",
-		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
 		Pods:             pods,
 		Fingerprint:      "fp-1",
@@ -133,7 +132,6 @@ func TestCreateTask_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, created.UUID, fetched.UUID)
 	assert.Equal(t, "ns1", fetched.Namespace)
-	assert.Equal(t, "pipeA", fetched.PipelineName)
 	assert.Equal(t, "run-1", fetched.RunUUID)
 	assert.Equal(t, pods, fetched.Pods)
 	assert.Equal(t, "fp-1", fetched.Fingerprint)
@@ -153,11 +151,10 @@ func TestListTasks_BasicAndFilters(t *testing.T) {
 	db, taskStore, _ := initializeTaskStore()
 	defer db.Close()
 
-	// Create a parent task and two child tasks under different runs/pipelines
+	// Create a parent task and two child tasks under different runs/namespaces
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID1, nil)
 	parent, err := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-parent",
@@ -173,7 +170,6 @@ func TestListTasks_BasicAndFilters(t *testing.T) {
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID2, nil)
 	_, err = taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
 		ParentTaskUUID:   strPTR(parent.UUID),
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p2", "uid2", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
@@ -190,7 +186,6 @@ func TestListTasks_BasicAndFilters(t *testing.T) {
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID3, nil)
 	_, err = taskStore.CreateTask(&model.Task{
 		Namespace:        "ns2",
-		PipelineName:     "pipeB",
 		RunUUID:          "run-2",
 		ParentTaskUUID:   strPTR(parent.UUID),
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p3", "uid3", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
@@ -219,19 +214,12 @@ func TestListTasks_BasicAndFilters(t *testing.T) {
 	assert.Equal(t, 2, len(runFiltered))
 	assert.Equal(t, 2, total2)
 
-	// Filter by PipelineName
-	opts3, _ := list.NewOptions(&model.Task{}, 10, "", nil)
-	pipeFiltered, total3, _, err := taskStore.ListTasks(&model.FilterContext{ReferenceKey: &model.ReferenceKey{Type: model.PipelineResourceType, ID: "pipeB"}}, opts3)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(pipeFiltered))
-	assert.Equal(t, 1, total3)
-
 	// Filter by ParentTaskUUID (child tasks)
-	opts4, _ := list.NewOptions(&model.Task{}, 10, "", nil)
-	children, total4, _, err := taskStore.ListTasks(&model.FilterContext{ReferenceKey: &model.ReferenceKey{Type: model.TaskResourceType, ID: parent.UUID}}, opts4)
+	opts3, _ := list.NewOptions(&model.Task{}, 10, "", nil)
+	children, total3, _, err := taskStore.ListTasks(&model.FilterContext{ReferenceKey: &model.ReferenceKey{Type: model.TaskResourceType, ID: parent.UUID}}, opts3)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, len(children))
-	assert.Equal(t, 2, total4)
+	assert.Equal(t, 2, total3)
 }
 
 func TestUpdateTask_Success(t *testing.T) {
@@ -244,7 +232,6 @@ func TestUpdateTask_Success(t *testing.T) {
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID1, nil)
 	created, err := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
 		Pods:             createTaskPodsAsJSONSlice(pod1),
 		Fingerprint:      "fp-0",
@@ -261,7 +248,6 @@ func TestUpdateTask_Success(t *testing.T) {
 	updatedTask := &model.Task{
 		UUID:             created.UUID,
 		Namespace:        created.Namespace,
-		PipelineName:     created.PipelineName,
 		RunUUID:          created.RunUUID,
 		Pods:             created.Pods,
 		Fingerprint:      created.Fingerprint,
@@ -309,7 +295,6 @@ func TestUpdateTask_MergesParameters(t *testing.T) {
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID1, nil)
 	created, err := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-0",
@@ -396,7 +381,6 @@ func TestGetChildTasks_ReturnsChildren(t *testing.T) {
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID1, nil)
 	parent, err := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
 		Name:             "parent",
 		DisplayName:      "Parent Task",
@@ -414,7 +398,6 @@ func TestGetChildTasks_ReturnsChildren(t *testing.T) {
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID2, nil)
 	_, err = taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
 		ParentTaskUUID:   strPTR(parent.UUID),
 		Name:             "child-a",
@@ -433,7 +416,6 @@ func TestGetChildTasks_ReturnsChildren(t *testing.T) {
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID3, nil)
 	_, err = taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
 		ParentTaskUUID:   strPTR(parent.UUID),
 		Name:             "child-b",
@@ -462,7 +444,6 @@ func TestListTasks_FilterPredicates_EqualsOnColumns(t *testing.T) {
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID1, nil)
 	_, err := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
 		Name:             "alpha",
 		DisplayName:      "Alpha Task",
@@ -480,7 +461,6 @@ func TestListTasks_FilterPredicates_EqualsOnColumns(t *testing.T) {
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID2, nil)
 	_, err = taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
 		Name:             "beta",
 		DisplayName:      "Beta Task",
@@ -498,7 +478,6 @@ func TestListTasks_FilterPredicates_EqualsOnColumns(t *testing.T) {
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID3, nil)
 	_, err = taskStore.CreateTask(&model.Task{
 		Namespace:        "ns2",
-		PipelineName:     "pipeB",
 		RunUUID:          "run-2",
 		Name:             "gamma",
 		DisplayName:      "Gamma Task",
@@ -587,7 +566,6 @@ func TestListTasks_PaginationWithToken(t *testing.T) {
 		taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(id, nil)
 		_, err := taskStore.CreateTask(&model.Task{
 			Namespace:        "ns1",
-			PipelineName:     "pipeA",
 			RunUUID:          "run-1",
 			Name:             fmt.Sprintf("task-%d", i+1),
 			Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
@@ -655,7 +633,6 @@ func TestTaskParameters_PersistAndFetch(t *testing.T) {
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID1, nil)
 	created, err := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-param",
@@ -682,7 +659,6 @@ func TestHydrateArtifactsForTask_GetAndList(t *testing.T) {
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID1, nil)
 	task, err := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		PipelineName:     "pipeA",
 		RunUUID:          "run-1",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-art",

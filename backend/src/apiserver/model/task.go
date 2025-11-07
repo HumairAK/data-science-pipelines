@@ -122,7 +122,6 @@ type TaskStatus apiv2beta1.PipelineTaskDetail_TaskState
 type Task struct {
 	UUID             string     `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
 	Namespace        string     `gorm:"column:Namespace; not null; type:varchar(63);"`
-	PipelineName     string     `gorm:"column:PipelineName; not null; type:varchar(128); index:idx_pipeline_name;"`
 	RunUUID          string     `gorm:"column:RunUUID; type:varchar(191); not null; index:idx_parent_run,priority:1;"`
 	Run              Run        `gorm:"foreignKey:RunUUID;references:UUID;constraint:tasks_RunUUID_run_details_UUID_foreign,OnDelete:CASCADE,OnUpdate:CASCADE;"`
 	Pods             JSONSlice  `gorm:"column:pods; not null; type:json;"`
@@ -215,8 +214,6 @@ func (t Task) GetFieldValue(name string) interface{} {
 		return t.UUID
 	case "Namespace":
 		return t.Namespace
-	case "PipelineName":
-		return t.PipelineName
 	case "RunUUID":
 		return t.RunUUID
 	case "CreatedAtInSec":

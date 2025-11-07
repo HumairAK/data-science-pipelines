@@ -36,7 +36,6 @@ const tableName = "tasks"
 var taskColumns = []string{
 	"UUID",
 	"Namespace",
-	"PipelineName",
 	"RunUUID",
 	"Pods",
 	"CreatedAtInSec",
@@ -93,14 +92,13 @@ func NewTaskStore(db *DB, time util.TimeInterface, uuid util.UUIDGeneratorInterf
 
 // scanTaskRow scans a single row into a model.Task. It expects the column order to match taskColumns.
 func scanTaskRow(rowscanner interface{ Scan(dest ...any) error }) (*model.Task, error) {
-	var uuid, namespace, pipelineName, runUUID, fingerprint string
+	var uuid, namespace, runUUID, fingerprint string
 	var name, displayName, parentTaskId, pods, statusMetadata, stateHistory, inputParams, outputParams, typeAttrs, scopePath sql.NullString
 	var createdAtInSec, startedInSec, finishedInSec sql.NullInt64
 	var taskState, taskType int32
 	if err := rowscanner.Scan(
 		&uuid,
 		&namespace,
-		&pipelineName,
 		&runUUID,
 		&pods,
 		&createdAtInSec,
@@ -170,7 +168,6 @@ func scanTaskRow(rowscanner interface{ Scan(dest ...any) error }) (*model.Task, 
 	return &model.Task{
 		UUID:             uuid,
 		Namespace:        namespace,
-		PipelineName:     pipelineName,
 		RunUUID:          runUUID,
 		Pods:             podsNew,
 		CreatedAtInSec:   createdAtInSec.Int64,
@@ -423,7 +420,6 @@ func (s *TaskStore) CreateTask(task *model.Task) (*model.Task, error) {
 			sq.Eq{
 				"UUID":             newTask.UUID,
 				"Namespace":        newTask.Namespace,
-				"PipelineName":     newTask.PipelineName,
 				"RunUUID":          newTask.RunUUID,
 				"Pods":             podsString,
 				"CreatedAtInSec":   newTask.CreatedAtInSec,
@@ -463,9 +459,6 @@ func (s *TaskStore) ListTasks(filterContext *model.FilterContext, opts *list.Opt
 
 	// SQL for getting the filtered and paginated rows
 	sqlBuilder := sq.Select(taskColumns...).From("tasks")
-	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.PipelineResourceType {
-		sqlBuilder = sqlBuilder.Where(sq.Eq{"PipelineName": filterContext.ReferenceKey.ID})
-	}
 	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.RunResourceType {
 		sqlBuilder = sqlBuilder.Where(sq.Eq{"RunUUID": filterContext.ReferenceKey.ID})
 	}
@@ -489,9 +482,6 @@ func (s *TaskStore) ListTasks(filterContext *model.FilterContext, opts *list.Opt
 	// SQL for getting total size. This matches the query to get all the rows above, in order
 	// to do the same filter, but counts instead of scanning the rows.
 	sqlBuilder = sq.Select("count(*)").From("tasks")
-	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.PipelineResourceType {
-		sqlBuilder = sqlBuilder.Where(sq.Eq{"PipelineName": filterContext.ReferenceKey.ID})
-	}
 	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.RunResourceType {
 		sqlBuilder = sqlBuilder.Where(sq.Eq{"RunUUID": filterContext.ReferenceKey.ID})
 	}
@@ -667,9 +657,6 @@ func (s *TaskStore) UpdateTask(new *model.Task) (*model.Task, error) {
 	// For strings: only update when not empty to avoid erasing existing values unintentionally.
 	if new.Namespace != "" {
 		setMap["Namespace"] = new.Namespace
-	}
-	if new.PipelineName != "" {
-		setMap["PipelineName"] = new.PipelineName
 	}
 	if new.RunUUID != "" {
 		setMap["RunUUID"] = new.RunUUID

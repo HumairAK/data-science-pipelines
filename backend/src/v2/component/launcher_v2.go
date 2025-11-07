@@ -354,6 +354,9 @@ func (l *LauncherV2) Execute(ctx context.Context) (executionErr error) {
 	defer func() {
 		if executionErr != nil {
 			l.options.Task.State = apiV2beta1.PipelineTaskDetail_FAILED
+			l.options.Task.StatusMetadata = &apiV2beta1.PipelineTaskDetail_StatusMetadata{
+				Message: executionErr.Error(),
+			}
 		}
 		l.options.Task.EndTime = timestamppb.New(time.Now())
 		// Queue the final task status update

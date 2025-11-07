@@ -64,7 +64,6 @@ func TestCreateArtifactTask_Success(t *testing.T) {
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskId1, nil)
 	task, err := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		PipelineName:     "p1",
 		RunUUID:          runId1,
 		Name:             "t1",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
@@ -130,7 +129,6 @@ func TestListArtifactTasks_Filters(t *testing.T) {
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskId1, nil)
 	t1, err := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		PipelineName:     "p1",
 		RunUUID:          runId1,
 		Name:             "t1",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
@@ -146,7 +144,6 @@ func TestListArtifactTasks_Filters(t *testing.T) {
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskId2, nil)
 	t2, err := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns2",
-		PipelineName:     "p2",
 		RunUUID:          runId2,
 		Name:             "t2",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p2", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
@@ -248,7 +245,6 @@ func TestListArtifactsForTask_UsingArtifactTasks(t *testing.T) {
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskId1, nil)
 	t1, err := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		PipelineName:     "p1",
 		RunUUID:          runId1,
 		Name:             "t1",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
@@ -324,7 +320,6 @@ func TestListArtifactTasks_Pagination_PageSizeAndNextPageToken(t *testing.T) {
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskId1, nil)
 	t1, _ := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		PipelineName:     "p1",
 		RunUUID:          runId1,
 		Name:             "t1",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
@@ -413,7 +408,6 @@ func TestListArtifactTasks_Pagination_WithFilter(t *testing.T) {
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskId1, nil)
 	t1, _ := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		PipelineName:     "p1",
 		RunUUID:          runId1,
 		Name:             "t1",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
@@ -429,7 +423,6 @@ func TestListArtifactTasks_Pagination_WithFilter(t *testing.T) {
 	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskId2, nil)
 	t2, _ := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns2",
-		PipelineName:     "p2",
 		RunUUID:          runId2,
 		Name:             "t2",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),

@@ -27,7 +27,7 @@ def submit_pipeline(pipeline_path: str, run_name: str, run_desc: str = ""):
 
 if __name__ == "__main__":
     # Example usage
-    PIPELINE_PATH = "oneof_simple.yaml"
+    PIPELINE_PATH = "test_fail_message.py.yaml"
     RUN_NAME = "Run-Test"
     RUN_DESC = "Some Description"
 
