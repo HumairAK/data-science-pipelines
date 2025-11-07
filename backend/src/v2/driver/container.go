@@ -103,6 +103,13 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 				}
 			}
 		}
+
+		refreshedRun, getRunErr := clientManager.KFPAPIClient().GetRun(ctx, &apiV2beta1.GetRunRequest{RunId: opts.Run.GetRunId()})
+		if getRunErr != nil {
+			glog.Errorf("failed to refresh run: %w", getRunErr)
+			return
+		}
+		opts.Run = refreshedRun
 		err := clientManager.KFPAPIClient().UpdateStatuses(ctx, opts.Run, opts.ScopePath.GetPipelineSpecStruct(), taskToCreate)
 		if err != nil {
 			glog.Errorf("Failed to update statuses: %v", err)
