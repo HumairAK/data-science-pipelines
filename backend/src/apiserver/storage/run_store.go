@@ -63,10 +63,14 @@ type RunStoreInterface interface {
 	CreateRun(run *model.Run) (*model.Run, error)
 
 	// GetRun fetches a run.
-	GetRun(runId string) (*model.Run, error)
+	// If hydrateTasks is true, full task details are loaded (expensive operation).
+	// If hydrateTasks is false, only task count is populated (lightweight operation).
+	GetRun(runId string, hydrateTasks bool) (*model.Run, error)
 
-	// ListRuns fetches runs with specified options. Joins with children tasks.
-	ListRuns(filterContext *model.FilterContext, opts *list.Options) ([]*model.Run, int, string, error)
+	// ListRuns fetches runs with specified options.
+	// If hydrateTasks is true, full task details are loaded (expensive operation).
+	// If hydrateTasks is false, only task counts are populated (lightweight operation).
+	ListRuns(filterContext *model.FilterContext, opts *list.Options, hydrateTasks bool) ([]*model.Run, int, string, error)
 
 	// UpdateRun updates a run.
 	// Note: only state, runtime manifest can be updated. Does not update dependent tasks.
@@ -92,6 +96,7 @@ type RunStoreInterface interface {
 type RunStore struct {
 	db                     *DB
 	resourceReferenceStore *ResourceReferenceStore
+	taskStore              *TaskStore
 	time                   util.TimeInterface
 }
 
@@ -99,7 +104,7 @@ type RunStore struct {
 // total_size. The total_size does not reflect the page size, but it does reflect the number of runs
 // matching the supplied filters and resource references.
 func (s *RunStore) ListRuns(
-	filterContext *model.FilterContext, opts *list.Options,
+	filterContext *model.FilterContext, opts *list.Options, hydrateTasks bool,
 ) ([]*model.Run, int, string, error) {
 	errorF := func(err error) ([]*model.Run, int, string, error) {
 		return nil, 0, "", util.NewInternalServerError(err, "Failed to list runs: %v", err)
@@ -158,10 +163,16 @@ func (s *RunStore) ListRuns(
 		return errorF(err)
 	}
 
-	// Hydrate tasks only for the runs we return on this page
+	// Either hydrate full task details or just populate task counts for the runs we return on this page
 	if len(runs) <= opts.PageSize {
-		if err := s.hydrateTasksForRuns(runs); err != nil {
-			return errorF(err)
+		if hydrateTasks {
+			if err := s.hydrateTasksForRuns(runs); err != nil {
+				return errorF(err)
+			}
+		} else {
+			if err := s.populateTaskCountsForRuns(runs); err != nil {
+				return errorF(err)
+			}
 		}
 		return runs, total_size, "", nil
 	}
@@ -171,8 +182,14 @@ func (s *RunStore) ListRuns(
 		return errorF(err)
 	}
 	page := runs[:opts.PageSize]
-	if err := s.hydrateTasksForRuns(page); err != nil {
-		return errorF(err)
+	if hydrateTasks {
+		if err := s.hydrateTasksForRuns(page); err != nil {
+			return errorF(err)
+		}
+	} else {
+		if err := s.populateTaskCountsForRuns(page); err != nil {
+			return errorF(err)
+		}
 	}
 	return page, total_size, npt, nil
 }
@@ -218,7 +235,9 @@ func (s *RunStore) buildSelectRunsQuery(selectCount bool, opts *list.Options,
 }
 
 // GetRun Get the run manifest from Workflow CRD.
-func (s *RunStore) GetRun(runId string) (*model.Run, error) {
+// If hydrateTasks is true, full task details are loaded (expensive operation).
+// If hydrateTasks is false, only task count is populated (lightweight operation).
+func (s *RunStore) GetRun(runId string, hydrateTasks bool) (*model.Run, error) {
 	sql, args, err := s.addMetricsResourceReferencesAndTasks(
 		sq.Select(runColumns...).
 			From("run_details").
@@ -246,9 +265,15 @@ func (s *RunStore) GetRun(runId string) (*model.Run, error) {
 		return nil, util.NewResourceNotFoundError("Failed to get run: %s", runId)
 	}
 
-	// Hydrate tasks for this single run
-	if err := s.hydrateTasksForRuns(runs); err != nil {
-		return nil, util.NewInternalServerError(err, "Failed to get run tasks: %v", err)
+	// Either hydrate full task details or just populate task count
+	if hydrateTasks {
+		if err := s.hydrateTasksForRuns(runs); err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to get run tasks: %v", err)
+		}
+	} else {
+		if err := s.populateTaskCountsForRuns(runs); err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to get run task counts: %v", err)
+		}
 	}
 	return runs[0], nil
 }
@@ -317,6 +342,29 @@ func (s *RunStore) hydrateTasksForRuns(runs []*model.Run) error {
 		allTasks = append(allTasks, t)
 	}
 	return hydrateArtifactsForTasks(s.db, allTasks)
+}
+
+// populateTaskCountsForRuns fetches task counts for the provided runs and assigns them to the Run model.
+// This is a lightweight alternative to hydrateTasksForRuns that only populates the TaskCount field
+// without performing expensive task hydration.
+func (s *RunStore) populateTaskCountsForRuns(runs []*model.Run) error {
+	if len(runs) == 0 {
+		return nil
+	}
+
+	for _, run := range runs {
+		if run == nil || run.UUID == "" {
+			continue
+		}
+
+		count, err := s.taskStore.GetTaskCountForRun(run.UUID)
+		if err != nil {
+			return err
+		}
+		run.TaskCount = count
+	}
+
+	return nil
 }
 
 // Applies a func f to every string in a given string slice.
@@ -762,6 +810,7 @@ func NewRunStore(db *DB, time util.TimeInterface) *RunStore {
 	return &RunStore{
 		db:                     db,
 		resourceReferenceStore: NewResourceReferenceStore(db, nil),
+		taskStore:              NewTaskStore(db, time, util.NewUUIDGenerator()),
 		time:                   time,
 	}
 }

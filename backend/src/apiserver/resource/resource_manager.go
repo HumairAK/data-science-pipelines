@@ -698,17 +698,32 @@ func (r *ResourceManager) updateSwfCrSpec(ctx context.Context, k8sNamespace stri
 }
 
 // Fetches a run with a given id.
+// GetRun fetches a run with full task hydration (backward compatible).
 func (r *ResourceManager) GetRun(runId string) (*model.Run, error) {
-	run, err := r.runStore.GetRun(runId)
+	return r.GetRunWithHydration(runId, true)
+}
+
+// GetRunWithHydration fetches a run with optional task hydration.
+// If hydrateTasks is true, full task details are loaded (expensive operation).
+// If hydrateTasks is false, only task count is populated (lightweight operation).
+func (r *ResourceManager) GetRunWithHydration(runId string, hydrateTasks bool) (*model.Run, error) {
+	run, err := r.runStore.GetRun(runId, hydrateTasks)
 	if err != nil {
 		return nil, util.Wrapf(err, "Failed to fetch run %v", runId)
 	}
 	return run, nil
 }
 
-// Fetches runs with a given set of filtering and listing options.
+// ListRuns fetches runs with full task hydration (backward compatible).
 func (r *ResourceManager) ListRuns(filterContext *model.FilterContext, opts *list.Options) ([]*model.Run, int, string, error) {
-	runs, totalSize, nextPageToken, err := r.runStore.ListRuns(filterContext, opts)
+	return r.ListRunsWithHydration(filterContext, opts, true)
+}
+
+// ListRunsWithHydration fetches runs with a given set of filtering and listing options.
+// If hydrateTasks is true, full task details are loaded (expensive operation).
+// If hydrateTasks is false, only task counts are populated (lightweight operation).
+func (r *ResourceManager) ListRunsWithHydration(filterContext *model.FilterContext, opts *list.Options, hydrateTasks bool) ([]*model.Run, int, string, error) {
+	runs, totalSize, nextPageToken, err := r.runStore.ListRuns(filterContext, opts, hydrateTasks)
 	if err != nil {
 		return nil, 0, "", util.Wrap(err, "Failed to list runs")
 	}
@@ -1639,7 +1654,8 @@ func (r *ResourceManager) UpdateTask(new *model.Task) (*model.Task, error) {
 // ReadArtifact parses run's workflow to find artifact file path and reads the content of the file
 // from object store.
 func (r *ResourceManager) ReadArtifact(runID string, nodeID string, artifactName string) ([]byte, error) {
-	run, err := r.runStore.GetRun(runID)
+	// No need to hydrate tasks for reading artifacts
+	run, err := r.runStore.GetRun(runID, false)
 	if err != nil {
 		return nil, err
 	}

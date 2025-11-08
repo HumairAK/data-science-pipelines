@@ -906,6 +906,34 @@ func (s *TaskStore) GetChildTasks(taskId string) ([]*model.Task, error) {
 	return s.scanRows(rows)
 }
 
+// GetTaskCountForRun returns the total count of tasks for a given run ID.
+// This is a lightweight operation that doesn't perform task hydration.
+func (s *TaskStore) GetTaskCountForRun(runId string) (int, error) {
+	sizeSql, sizeArgs, err := sq.
+		Select("count(*)").
+		From("tasks").
+		Where(sq.Eq{"RunUUID": runId}).
+		ToSql()
+
+	if err != nil {
+		return 0, util.NewInternalServerError(err, "Failed to create task count query: %v", err.Error())
+	}
+
+	sizeRow, err := s.db.Query(sizeSql, sizeArgs...)
+	if err != nil {
+		return 0, util.NewInternalServerError(err, "Failed to get task count: %v", err.Error())
+	}
+	defer sizeRow.Close()
+
+	var total int
+	sizeRow.Next()
+	if err := sizeRow.Scan(&total); err != nil {
+		return 0, util.NewInternalServerError(err, "Failed to scan task count: %v", err.Error())
+	}
+
+	return total, nil
+}
+
 func hashProtoValue(v *structpb.Value) (string, error) {
 	// Deterministic binary marshal
 	b, err := proto.MarshalOptions{Deterministic: true}.Marshal(v)

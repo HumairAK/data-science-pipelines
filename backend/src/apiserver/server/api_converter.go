@@ -1479,6 +1479,13 @@ func toApiRun(r *model.Run) *apiv2beta1.Run {
 	if apiRd.PipelineContextId == 0 && apiRd.PipelineRunContextId == 0 && apiRd.TaskDetails == nil {
 		apiRd = nil
 	}
+	// Populate task count from either the TaskCount field or the length of Tasks
+	taskCount := int32(r.TaskCount)
+	if taskCount == 0 && len(apiTasks) > 0 {
+		// If TaskCount wasn't populated but we have tasks, use the task slice length
+		taskCount = int32(len(apiTasks))
+	}
+
 	apiRunV2 := &apiv2beta1.Run{
 		RunId:          r.UUID,
 		ExperimentId:   r.ExperimentId,
@@ -1494,6 +1501,7 @@ func toApiRun(r *model.Run) *apiv2beta1.Run {
 		ScheduledAt:    timestamppb.New(time.Unix(r.RunDetails.ScheduledAtInSec, 0)),
 		FinishedAt:     timestamppb.New(time.Unix(r.RunDetails.FinishedAtInSec, 0)),
 		RunDetails:     apiRd,
+		TaskCount:      taskCount,
 		Tasks:          apiTasks,
 	}
 

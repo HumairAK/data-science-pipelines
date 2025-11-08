@@ -185,11 +185,15 @@ func (s *RunServerV1) CreateRunV1(ctx context.Context, request *apiv1beta1.Creat
 // Fetches a run.
 // Applies common logic on v1beta1 and v2beta1 API.
 func (s *BaseRunServer) getRun(ctx context.Context, runId string) (*model.Run, error) {
+	return s.getRunWithHydration(ctx, runId, true)
+}
+
+func (s *BaseRunServer) getRunWithHydration(ctx context.Context, runId string, hydrateTasks bool) (*model.Run, error) {
 	err := s.canAccessRun(ctx, runId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbGet})
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to authorize the request")
 	}
-	run, err := s.resourceManager.GetRun(runId)
+	run, err := s.resourceManager.GetRunWithHydration(runId, hydrateTasks)
 	if err != nil {
 		return nil, err
 	}
@@ -214,6 +218,10 @@ func (s *RunServerV1) GetRunV1(ctx context.Context, request *apiv1beta1.GetRunRe
 // Fetches all runs that conform to the specified filter and listing options.
 // Applies common logic on v1beta1 and v2beta1 API.
 func (s *BaseRunServer) listRuns(ctx context.Context, pageToken string, pageSize int, sortBy string, opts *list.Options, namespace string, experimentId string) ([]*model.Run, int, string, error) {
+	return s.listRunsWithHydration(ctx, pageToken, pageSize, sortBy, opts, namespace, experimentId, true)
+}
+
+func (s *BaseRunServer) listRunsWithHydration(ctx context.Context, pageToken string, pageSize int, sortBy string, opts *list.Options, namespace string, experimentId string, hydrateTasks bool) ([]*model.Run, int, string, error) {
 	namespace = s.resourceManager.ReplaceNamespace(namespace)
 	if experimentId != "" {
 		ns, err := s.resourceManager.GetNamespaceFromExperimentId(experimentId)
@@ -242,7 +250,7 @@ func (s *BaseRunServer) listRuns(ctx context.Context, pageToken string, pageSize
 			ReferenceKey: &model.ReferenceKey{Type: model.ExperimentResourceType, ID: experimentId},
 		}
 	}
-	runs, totalSize, token, err := s.resourceManager.ListRuns(filterContext, opts)
+	runs, totalSize, token, err := s.resourceManager.ListRunsWithHydration(filterContext, opts, hydrateTasks)
 	if err != nil {
 		return nil, 0, "", err
 	}
@@ -560,7 +568,15 @@ func (s *RunServer) GetRun(ctx context.Context, request *apiv2beta1.GetRunReques
 		getRunRequests.Inc()
 	}
 
-	run, err := s.getRun(ctx, request.RunId)
+	// Determine if we should hydrate tasks based on view parameter
+	// Default view (or unspecified) means no task hydration, only task count
+	// ALL view means full task hydration
+	hydrateTasks := false
+	if request.View != nil && *request.View == apiv2beta1.GetRunRequest_ALL {
+		hydrateTasks = true
+	}
+
+	run, err := s.getRunWithHydration(ctx, request.RunId, hydrateTasks)
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to get a run")
 	}
@@ -578,7 +594,16 @@ func (s *RunServer) ListRuns(ctx context.Context, r *apiv2beta1.ListRunsRequest)
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to create list options")
 	}
-	runs, runsCount, nextPageToken, err := s.listRuns(ctx, r.GetPageToken(), int(r.GetPageSize()), r.GetSortBy(), opts, r.GetNamespace(), r.GetExperimentId())
+
+	// Determine if we should hydrate tasks based on view parameter
+	// Default view (or unspecified) means no task hydration, only task count
+	// ALL view means full task hydration
+	hydrateTasks := false
+	if r.View != nil && *r.View == apiv2beta1.ListRunsRequest_ALL {
+		hydrateTasks = true
+	}
+
+	runs, runsCount, nextPageToken, err := s.listRunsWithHydration(ctx, r.GetPageToken(), int(r.GetPageSize()), r.GetSortBy(), opts, r.GetNamespace(), r.GetExperimentId(), hydrateTasks)
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to list runs")
 	}

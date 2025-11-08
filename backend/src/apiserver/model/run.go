@@ -236,7 +236,8 @@ type Run struct {
 
 	RunDetails
 
-	Tasks []*Task
+	Tasks     []*Task
+	TaskCount int `gorm:"-"` // Not persisted in DB, populated from task query
 }
 
 // Converts to v1beta1-compatible internal representation of run.
