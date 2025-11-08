@@ -1551,6 +1551,18 @@
             "in": "query",
             "required": false,
             "type": "string"
+          },
+          {
+            "name": "view",
+            "description": "Optional view mode. This field can be used to adjust\nhow detailed the Run object that is returned will be.\n\n - DEFAULT: By default `tasks` field is omitted.\nThis provides a faster and leaner run object.\n - ALL: This view mode displays all the tasks for this run\nwith all its fields populated.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "DEFAULT",
+              "ALL"
+            ],
+            "default": "DEFAULT"
           }
         ],
         "tags": [
@@ -1629,6 +1641,18 @@
             "in": "query",
             "required": false,
             "type": "string"
+          },
+          {
+            "name": "view",
+            "description": "Optional view mode. This field can be used to adjust\nhow detailed the Run object that is returned will be.\n\n - DEFAULT: By default `tasks` field is omitted.\nThis provides a faster and leaner run object.\n - ALL: This view mode displays all the tasks for this run\nwith all its fields populated.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "DEFAULT",
+              "ALL"
+            ],
+            "default": "DEFAULT"
           }
         ],
         "tags": [
@@ -3165,6 +3189,24 @@
           "title": "Optional. Applies to type LOOP"
         }
       }
+    },
+    "v2beta1GetRunRequestViewMode": {
+      "type": "string",
+      "enum": [
+        "DEFAULT",
+        "ALL"
+      ],
+      "default": "DEFAULT",
+      "description": " - DEFAULT: By default `tasks` field is omitted.\nThis provides a faster and leaner run object.\n - ALL: This view mode displays all the tasks for this run\nwith all its fields populated."
+    },
+    "v2beta1ListRunsRequestViewMode": {
+      "type": "string",
+      "enum": [
+        "DEFAULT",
+        "ALL"
+      ],
+      "default": "DEFAULT",
+      "description": " - DEFAULT: By default `tasks` field is omitted.\nThis provides a faster and leaner run object.\n - ALL: This view mode displays all the tasks for this run\nwith all its fields populated."
     },
     "v2beta1ListRunsResponse": {
       "type": "object",

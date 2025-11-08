@@ -560,6 +560,20 @@ message GetRunRequest {
 
   // The ID of the run to be retrieved.
   string run_id = 2;
+
+  enum ViewMode {
+    // By default `tasks` field is omitted.
+    // This provides a faster and leaner run object.
+    DEFAULT = 0;
+
+    // This view mode displays all the tasks for this run
+    // with all its fields populated.
+    ALL = 1;
+  }
+
+  // Optional view mode. This field can be used to adjust
+  // how detailed the Run object that is returned will be.
+  optional ViewMode view = 3;
 }
 
 message ListRunsRequest {
@@ -586,6 +600,20 @@ message ListRunsRequest {
   // A url-encoded, JSON-serialized Filter protocol buffer (see
   // [filter.proto](https://github.com/kubeflow/pipelines/blob/master/backend/api/filter.proto)).
   string filter = 6;
+
+  enum ViewMode {
+    // By default `tasks` field is omitted.
+    // This provides a faster and leaner run object.
+    DEFAULT = 0;
+
+    // This view mode displays all the tasks for this run
+    // with all its fields populated.
+    ALL = 1;
+  }
+
+  // Optional view mode. This field can be used to adjust
+  // how detailed the Run object that is returned will be.
+  optional ViewMode view = 7;
 }
 
 message TerminateRunRequest {

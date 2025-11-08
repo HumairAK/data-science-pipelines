@@ -81,6 +81,18 @@
             "in": "query",
             "required": false,
             "type": "string"
+          },
+          {
+            "name": "view",
+            "description": "Optional view mode. This field can be used to adjust\nhow detailed the Run object that is returned will be.\n\n - DEFAULT: By default `tasks` field is omitted.\nThis provides a faster and leaner run object.\n - ALL: This view mode displays all the tasks for this run\nwith all its fields populated.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "DEFAULT",
+              "ALL"
+            ],
+            "default": "DEFAULT"
           }
         ],
         "tags": [
@@ -159,6 +171,18 @@
             "in": "query",
             "required": false,
             "type": "string"
+          },
+          {
+            "name": "view",
+            "description": "Optional view mode. This field can be used to adjust\nhow detailed the Run object that is returned will be.\n\n - DEFAULT: By default `tasks` field is omitted.\nThis provides a faster and leaner run object.\n - ALL: This view mode displays all the tasks for this run\nwith all its fields populated.",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "DEFAULT",
+              "ALL"
+            ],
+            "default": "DEFAULT"
           }
         ],
         "tags": [
@@ -895,6 +919,15 @@
       },
       "title": "Note to be confused with RuntimeArtifact in pipelinespec"
     },
+    "v2beta1GetRunRequestViewMode": {
+      "type": "string",
+      "enum": [
+        "DEFAULT",
+        "ALL"
+      ],
+      "default": "DEFAULT",
+      "description": " - DEFAULT: By default `tasks` field is omitted.\nThis provides a faster and leaner run object.\n - ALL: This view mode displays all the tasks for this run\nwith all its fields populated."
+    },
     "v2beta1IOProducer": {
       "type": "object",
       "properties": {
@@ -926,6 +959,15 @@
       ],
       "default": "UNSPECIFIED",
       "description": "Describes the I/O relationship between\nthis Artifacts \u0026 Parameters and Task\nThere are a couple of instances where\ninput/outputs have special types such\nas in the case of LoopArguments or\ndsl.Collected outputs.\n\n - UNSPECIFIED: For validation\n - COMPONENT_DEFAULT_INPUT: This is used for inputs that are\nprovided via default parameters in\nthe component input definitions\n - TASK_OUTPUT_INPUT: The name seems convoluted, but this aligns with the\nsdk naming in TaskInputsSpec.kind.task_output_parameter\nand TaskInputsSpec.kind.task_output_artifact\n - COLLECTED_INPUTS: Used for dsl.Collected\nUsage of this type indicates that all\nArtifacts within the IOArtifact.artifacts\nare inputs collected from sub tasks with\nITERATOR_OUTPUT outputs.\n - ITERATOR_INPUT: In a for loop task, introduced via ParallelFor, this type\nis used to indicate whether this resolved input belongs\nto a parameterIterator or artifactIterator.\nIn such a case the \"artifacts\" field for IOArtifact.artifacts\nis the list of resolved items for this parallelFor.\n - ITERATOR_INPUT_RAW: Raw Iterator inputs have no producer\n - ITERATOR_OUTPUT: When an output is produced by a Runtime Iteration Task\nThis value is use to differentiate between standard inputs"
+    },
+    "v2beta1ListRunsRequestViewMode": {
+      "type": "string",
+      "enum": [
+        "DEFAULT",
+        "ALL"
+      ],
+      "default": "DEFAULT",
+      "description": " - DEFAULT: By default `tasks` field is omitted.\nThis provides a faster and leaner run object.\n - ALL: This view mode displays all the tasks for this run\nwith all its fields populated."
     },
     "v2beta1ListRunsResponse": {
       "type": "object",
