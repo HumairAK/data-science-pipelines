@@ -226,7 +226,8 @@ func (l *LauncherV2) Execute(ctx context.Context) (executionErr error) {
 			// Do not return on flush error, we want to propagate the error to the upstream tasks.
 		}
 		// Refresh run before updating statuses
-		refreshedRun, getRunErr := l.clientManager.KFPAPIClient().GetRun(ctx, &apiV2beta1.GetRunRequest{RunId: l.options.Run.GetRunId()})
+		fullView := apiV2beta1.GetRunRequest_FULL
+		refreshedRun, getRunErr := l.clientManager.KFPAPIClient().GetRun(ctx, &apiV2beta1.GetRunRequest{RunId: l.options.Run.GetRunId(), View: &fullView})
 		if getRunErr != nil {
 			glog.Errorf("failed to refresh run: %w", getRunErr)
 			return
@@ -678,7 +679,8 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 
 	// Refresh the Run once to get all tasks with their latest state
 	// This eliminates the need for individual GetTask calls
-	refreshedRun, err := l.clientManager.KFPAPIClient().GetRun(ctx, &apiV2beta1.GetRunRequest{RunId: l.options.Run.GetRunId()})
+	fullView := apiV2beta1.GetRunRequest_FULL
+	refreshedRun, err := l.clientManager.KFPAPIClient().GetRun(ctx, &apiV2beta1.GetRunRequest{RunId: l.options.Run.GetRunId(), View: &fullView})
 	if err != nil {
 		return fmt.Errorf("failed to refresh run before propagation: %w", err)
 	}

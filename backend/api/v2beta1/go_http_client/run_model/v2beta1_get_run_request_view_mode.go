@@ -16,7 +16,7 @@ import (
 
 // V2beta1GetRunRequestViewMode  - DEFAULT: By default `tasks` field is omitted.
 // This provides a faster and leaner run object.
-//   - ALL: This view mode displays all the tasks for this run
+//   - FULL: This view mode displays all the tasks for this run
 //
 // with all its fields populated.
 //
@@ -37,8 +37,8 @@ const (
 	// V2beta1GetRunRequestViewModeDEFAULT captures enum value "DEFAULT"
 	V2beta1GetRunRequestViewModeDEFAULT V2beta1GetRunRequestViewMode = "DEFAULT"
 
-	// V2beta1GetRunRequestViewModeALL captures enum value "ALL"
-	V2beta1GetRunRequestViewModeALL V2beta1GetRunRequestViewMode = "ALL"
+	// V2beta1GetRunRequestViewModeFULL captures enum value "FULL"
+	V2beta1GetRunRequestViewModeFULL V2beta1GetRunRequestViewMode = "FULL"
 )
 
 // for schema
@@ -46,7 +46,7 @@ var v2beta1GetRunRequestViewModeEnum []interface{}
 
 func init() {
 	var res []V2beta1GetRunRequestViewMode
-	if err := json.Unmarshal([]byte(`["DEFAULT","ALL"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["DEFAULT","FULL"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {

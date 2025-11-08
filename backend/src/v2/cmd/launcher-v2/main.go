@@ -85,7 +85,8 @@ func run() error {
 
 	// Fetch Run
 	kfpAPI := clientManager.KFPAPIClient()
-	pipelineRun, err := kfpAPI.GetRun(ctx, &go_client.GetRunRequest{RunId: *runID})
+	fullView := go_client.GetRunRequest_FULL
+	pipelineRun, err := kfpAPI.GetRun(ctx, &go_client.GetRunRequest{RunId: *runID, View: &fullView})
 	if err != nil {
 		return fmt.Errorf("failed to get run: %w", err)
 	}

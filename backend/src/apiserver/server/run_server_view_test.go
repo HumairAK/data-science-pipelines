@@ -123,8 +123,8 @@ func TestGetRun_DefaultView_Unspecified(t *testing.T) {
 	assert.Nil(t, response.Tasks)
 }
 
-// TestGetRun_AllView tests that GetRun with ALL view returns both task_count and full tasks
-func TestGetRun_AllView(t *testing.T) {
+// TestGetRun_FullView tests that GetRun with FULL view returns both task_count and full tasks
+func TestGetRun_FullView(t *testing.T) {
 	clients, manager, createdRun := initWithRunAndTasks(t)
 	defer clients.Close()
 	server := createRunServer(manager)
@@ -135,11 +135,11 @@ func TestGetRun_AllView(t *testing.T) {
 		ctx = metadata.NewIncomingContext(context.Background(), md)
 	}
 
-	// Get run with ALL view
-	allView := apiv2beta1.GetRunRequest_ALL
+	// Get run with FULL view
+	fullView := apiv2beta1.GetRunRequest_FULL
 	response, err := server.GetRun(ctx, &apiv2beta1.GetRunRequest{
 		RunId: createdRun.UUID,
-		View:  &allView,
+		View:  &fullView,
 	})
 
 	assert.Nil(t, err)
@@ -243,8 +243,8 @@ func TestListRuns_DefaultView_Unspecified(t *testing.T) {
 	assert.Nil(t, foundRun.Tasks)
 }
 
-// TestListRuns_AllView tests that ListRuns with ALL view returns both task_count and full tasks
-func TestListRuns_AllView(t *testing.T) {
+// TestListRuns_FullView tests that ListRuns with FULL view returns both task_count and full tasks
+func TestListRuns_FullView(t *testing.T) {
 	clients, manager, createdRun := initWithRunAndTasks(t)
 	defer clients.Close()
 	server := createRunServer(manager)
@@ -255,11 +255,11 @@ func TestListRuns_AllView(t *testing.T) {
 		ctx = metadata.NewIncomingContext(context.Background(), md)
 	}
 
-	// List runs with ALL view
-	allView := apiv2beta1.ListRunsRequest_ALL
+	// List runs with FULL view
+	fullView := apiv2beta1.ListRunsRequest_FULL
 	response, err := server.ListRuns(ctx, &apiv2beta1.ListRunsRequest{
 		Namespace: "ns1",
-		View:      &allView,
+		View:      &fullView,
 	})
 
 	assert.Nil(t, err)
@@ -355,15 +355,15 @@ func TestTaskCount_AlwaysPopulated(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, int32(3), defaultResponse.TaskCount)
 
-	// Test with ALL view
-	allView := apiv2beta1.GetRunRequest_ALL
-	allResponse, err := server.GetRun(ctx, &apiv2beta1.GetRunRequest{
+	// Test with FULL view
+	fullView := apiv2beta1.GetRunRequest_FULL
+	fullResponse, err := server.GetRun(ctx, &apiv2beta1.GetRunRequest{
 		RunId: createdRun.UUID,
-		View:  &allView,
+		View:  &fullView,
 	})
 	assert.Nil(t, err)
-	assert.Equal(t, int32(3), allResponse.TaskCount)
+	assert.Equal(t, int32(3), fullResponse.TaskCount)
 
 	// Both should have the same task count
-	assert.Equal(t, defaultResponse.TaskCount, allResponse.TaskCount)
+	assert.Equal(t, defaultResponse.TaskCount, fullResponse.TaskCount)
 }

@@ -570,9 +570,9 @@ func (s *RunServer) GetRun(ctx context.Context, request *apiv2beta1.GetRunReques
 
 	// Determine if we should hydrate tasks based on view parameter
 	// Default view (or unspecified) means no task hydration, only task count
-	// ALL view means full task hydration
+	// FULL view means full task hydration
 	hydrateTasks := false
-	if request.View != nil && *request.View == apiv2beta1.GetRunRequest_ALL {
+	if request.View != nil && *request.View == apiv2beta1.GetRunRequest_FULL {
 		hydrateTasks = true
 	}
 
@@ -597,9 +597,9 @@ func (s *RunServer) ListRuns(ctx context.Context, r *apiv2beta1.ListRunsRequest)
 
 	// Determine if we should hydrate tasks based on view parameter
 	// Default view (or unspecified) means no task hydration, only task count
-	// ALL view means full task hydration
+	// FULL view means full task hydration
 	hydrateTasks := false
-	if r.View != nil && *r.View == apiv2beta1.ListRunsRequest_ALL {
+	if r.View != nil && *r.View == apiv2beta1.ListRunsRequest_FULL {
 		hydrateTasks = true
 	}
 

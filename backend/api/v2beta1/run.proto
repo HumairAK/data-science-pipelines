@@ -568,7 +568,7 @@ message GetRunRequest {
 
     // This view mode displays all the tasks for this run
     // with all its fields populated.
-    ALL = 1;
+    FULL = 1;
   }
 
   // Optional view mode. This field can be used to adjust
@@ -608,7 +608,7 @@ message ListRunsRequest {
 
     // This view mode displays all the tasks for this run
     // with all its fields populated.
-    ALL = 1;
+    FULL = 1;
   }
 
   // Optional view mode. This field can be used to adjust

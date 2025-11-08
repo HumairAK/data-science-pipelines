@@ -84,13 +84,13 @@
           },
           {
             "name": "view",
-            "description": "Optional view mode. This field can be used to adjust\nhow detailed the Run object that is returned will be.\n\n - DEFAULT: By default `tasks` field is omitted.\nThis provides a faster and leaner run object.\n - ALL: This view mode displays all the tasks for this run\nwith all its fields populated.",
+            "description": "Optional view mode. This field can be used to adjust\nhow detailed the Run object that is returned will be.\n\n - DEFAULT: By default `tasks` field is omitted.\nThis provides a faster and leaner run object.\n - FULL: This view mode displays all the tasks for this run\nwith all its fields populated.",
             "in": "query",
             "required": false,
             "type": "string",
             "enum": [
               "DEFAULT",
-              "ALL"
+              "FULL"
             ],
             "default": "DEFAULT"
           }
@@ -174,13 +174,13 @@
           },
           {
             "name": "view",
-            "description": "Optional view mode. This field can be used to adjust\nhow detailed the Run object that is returned will be.\n\n - DEFAULT: By default `tasks` field is omitted.\nThis provides a faster and leaner run object.\n - ALL: This view mode displays all the tasks for this run\nwith all its fields populated.",
+            "description": "Optional view mode. This field can be used to adjust\nhow detailed the Run object that is returned will be.\n\n - DEFAULT: By default `tasks` field is omitted.\nThis provides a faster and leaner run object.\n - FULL: This view mode displays all the tasks for this run\nwith all its fields populated.",
             "in": "query",
             "required": false,
             "type": "string",
             "enum": [
               "DEFAULT",
-              "ALL"
+              "FULL"
             ],
             "default": "DEFAULT"
           }
@@ -923,10 +923,10 @@
       "type": "string",
       "enum": [
         "DEFAULT",
-        "ALL"
+        "FULL"
       ],
       "default": "DEFAULT",
-      "description": " - DEFAULT: By default `tasks` field is omitted.\nThis provides a faster and leaner run object.\n - ALL: This view mode displays all the tasks for this run\nwith all its fields populated."
+      "description": " - DEFAULT: By default `tasks` field is omitted.\nThis provides a faster and leaner run object.\n - FULL: This view mode displays all the tasks for this run\nwith all its fields populated."
     },
     "v2beta1IOProducer": {
       "type": "object",
@@ -964,10 +964,10 @@
       "type": "string",
       "enum": [
         "DEFAULT",
-        "ALL"
+        "FULL"
       ],
       "default": "DEFAULT",
-      "description": " - DEFAULT: By default `tasks` field is omitted.\nThis provides a faster and leaner run object.\n - ALL: This view mode displays all the tasks for this run\nwith all its fields populated."
+      "description": " - DEFAULT: By default `tasks` field is omitted.\nThis provides a faster and leaner run object.\n - FULL: This view mode displays all the tasks for this run\nwith all its fields populated."
     },
     "v2beta1ListRunsResponse": {
       "type": "object",

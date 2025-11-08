@@ -368,18 +368,18 @@ const (
 	GetRunRequest_DEFAULT GetRunRequest_ViewMode = 0
 	// This view mode displays all the tasks for this run
 	// with all its fields populated.
-	GetRunRequest_ALL GetRunRequest_ViewMode = 1
+	GetRunRequest_FULL GetRunRequest_ViewMode = 1
 )
 
 // Enum value maps for GetRunRequest_ViewMode.
 var (
 	GetRunRequest_ViewMode_name = map[int32]string{
 		0: "DEFAULT",
-		1: "ALL",
+		1: "FULL",
 	}
 	GetRunRequest_ViewMode_value = map[string]int32{
 		"DEFAULT": 0,
-		"ALL":     1,
+		"FULL":    1,
 	}
 )
 
@@ -418,18 +418,18 @@ const (
 	ListRunsRequest_DEFAULT ListRunsRequest_ViewMode = 0
 	// This view mode displays all the tasks for this run
 	// with all its fields populated.
-	ListRunsRequest_ALL ListRunsRequest_ViewMode = 1
+	ListRunsRequest_FULL ListRunsRequest_ViewMode = 1
 )
 
 // Enum value maps for ListRunsRequest_ViewMode.
 var (
 	ListRunsRequest_ViewMode_name = map[int32]string{
 		0: "DEFAULT",
-		1: "ALL",
+		1: "FULL",
 	}
 	ListRunsRequest_ViewMode_value = map[string]int32{
 		"DEFAULT": 0,
-		"ALL":     1,
+		"FULL":    1,
 	}
 )
 
@@ -3029,15 +3029,15 @@ const file_backend_api_v2beta1_run_proto_rawDesc = "" +
 	"\fartifact_ids\x18\x01 \x03(\x03R\vartifactIds\"z\n" +
 	"\x10CreateRunRequest\x12'\n" +
 	"\rexperiment_id\x18\x01 \x01(\tB\x02\x18\x01R\fexperimentId\x12=\n" +
-	"\x03run\x18\x02 \x01(\v2+.kubeflow.pipelines.backend.api.v2beta1.RunR\x03run\"\xd3\x01\n" +
+	"\x03run\x18\x02 \x01(\v2+.kubeflow.pipelines.backend.api.v2beta1.RunR\x03run\"\xd4\x01\n" +
 	"\rGetRunRequest\x12'\n" +
 	"\rexperiment_id\x18\x01 \x01(\tB\x02\x18\x01R\fexperimentId\x12\x15\n" +
 	"\x06run_id\x18\x02 \x01(\tR\x05runId\x12W\n" +
-	"\x04view\x18\x03 \x01(\x0e2>.kubeflow.pipelines.backend.api.v2beta1.GetRunRequest.ViewModeH\x00R\x04view\x88\x01\x01\" \n" +
+	"\x04view\x18\x03 \x01(\x0e2>.kubeflow.pipelines.backend.api.v2beta1.GetRunRequest.ViewModeH\x00R\x04view\x88\x01\x01\"!\n" +
 	"\bViewMode\x12\v\n" +
-	"\aDEFAULT\x10\x00\x12\a\n" +
-	"\x03ALL\x10\x01B\a\n" +
-	"\x05_view\"\xc7\x02\n" +
+	"\aDEFAULT\x10\x00\x12\b\n" +
+	"\x04FULL\x10\x01B\a\n" +
+	"\x05_view\"\xc8\x02\n" +
 	"\x0fListRunsRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12#\n" +
 	"\rexperiment_id\x18\x02 \x01(\tR\fexperimentId\x12\x1d\n" +
@@ -3046,10 +3046,10 @@ const file_backend_api_v2beta1_run_proto_rawDesc = "" +
 	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\x12\x17\n" +
 	"\asort_by\x18\x05 \x01(\tR\x06sortBy\x12\x16\n" +
 	"\x06filter\x18\x06 \x01(\tR\x06filter\x12Y\n" +
-	"\x04view\x18\a \x01(\x0e2@.kubeflow.pipelines.backend.api.v2beta1.ListRunsRequest.ViewModeH\x00R\x04view\x88\x01\x01\" \n" +
+	"\x04view\x18\a \x01(\x0e2@.kubeflow.pipelines.backend.api.v2beta1.ListRunsRequest.ViewModeH\x00R\x04view\x88\x01\x01\"!\n" +
 	"\bViewMode\x12\v\n" +
-	"\aDEFAULT\x10\x00\x12\a\n" +
-	"\x03ALL\x10\x01B\a\n" +
+	"\aDEFAULT\x10\x00\x12\b\n" +
+	"\x04FULL\x10\x01B\a\n" +
 	"\x05_view\"U\n" +
 	"\x13TerminateRunRequest\x12'\n" +
 	"\rexperiment_id\x18\x01 \x01(\tB\x02\x18\x01R\fexperimentId\x12\x15\n" +

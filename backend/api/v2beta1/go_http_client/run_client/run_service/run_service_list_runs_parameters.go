@@ -113,7 +113,7 @@ type RunServiceListRunsParams struct {
 
 	 - DEFAULT: By default `tasks` field is omitted.
 	This provides a faster and leaner run object.
-	 - ALL: This view mode displays all the tasks for this run
+	 - FULL: This view mode displays all the tasks for this run
 	with all its fields populated.
 
 	     Default: "DEFAULT"

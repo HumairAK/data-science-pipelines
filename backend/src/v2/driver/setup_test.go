@@ -301,7 +301,8 @@ func TestTestContext(t *testing.T) {
 	)
 
 	// Test getting run with populated tasks and artifacts
-	populatedRun, err := testSetup.ClientManager.KFPAPIClient().GetRun(context.Background(), &apiv2beta1.GetRunRequest{RunId: run.RunId})
+	fullView := apiv2beta1.GetRunRequest_FULL
+	populatedRun, err := testSetup.ClientManager.KFPAPIClient().GetRun(context.Background(), &apiv2beta1.GetRunRequest{RunId: run.RunId, View: &fullView})
 	require.NoError(t, err)
 	assert.NotNil(t, populatedRun)
 	assert.Len(t, populatedRun.Tasks, 2)
@@ -475,7 +476,8 @@ func (tc *TestContext) setContainerToComplete(taskID string) *apiv2beta1.Pipelin
 
 func (tc *TestContext) RefreshRun() {
 	t := tc.T
-	run, err := tc.ClientManager.KFPAPIClient().GetRun(context.Background(), &apiv2beta1.GetRunRequest{RunId: tc.Run.RunId})
+	fullView := apiv2beta1.GetRunRequest_FULL
+	run, err := tc.ClientManager.KFPAPIClient().GetRun(context.Background(), &apiv2beta1.GetRunRequest{RunId: tc.Run.RunId, View: &fullView})
 	require.NoError(t, err)
 	tc.Run = run
 }

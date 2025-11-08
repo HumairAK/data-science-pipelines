@@ -193,7 +193,8 @@ func drive() (err error) {
 	if runID == nil {
 		return fmt.Errorf("argument --%s must be specified", runID)
 	}
-	run, err := kfpAPI.GetRun(ctx, &go_client.GetRunRequest{RunId: *runID})
+	fullView := go_client.GetRunRequest_FULL
+	run, err := kfpAPI.GetRun(ctx, &go_client.GetRunRequest{RunId: *runID, View: &fullView})
 	if err != nil {
 		return err
 	}

@@ -104,7 +104,8 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 			}
 		}
 
-		refreshedRun, getRunErr := clientManager.KFPAPIClient().GetRun(ctx, &apiV2beta1.GetRunRequest{RunId: opts.Run.GetRunId()})
+		fullView := apiV2beta1.GetRunRequest_FULL
+	refreshedRun, getRunErr := clientManager.KFPAPIClient().GetRun(ctx, &apiV2beta1.GetRunRequest{RunId: opts.Run.GetRunId(), View: &fullView})
 		if getRunErr != nil {
 			glog.Errorf("failed to refresh run: %w", getRunErr)
 			return
