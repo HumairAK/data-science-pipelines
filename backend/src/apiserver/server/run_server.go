@@ -185,19 +185,7 @@ func (s *RunServerV1) CreateRunV1(ctx context.Context, request *apiv1beta1.Creat
 // Fetches a run.
 // Applies common logic on v1beta1 and v2beta1 API.
 func (s *BaseRunServer) getRun(ctx context.Context, runId string) (*model.Run, error) {
-	return s.getRunWithHydration(ctx, runId, true)
-}
-
-func (s *BaseRunServer) getRunWithHydration(ctx context.Context, runId string, hydrateTasks bool) (*model.Run, error) {
-	err := s.canAccessRun(ctx, runId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbGet})
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to authorize the request")
-	}
-	run, err := s.resourceManager.GetRunWithHydration(runId, hydrateTasks)
-	if err != nil {
-		return nil, err
-	}
-	return run, nil
+	return s.getRunWithHydration(ctx, runId, false)
 }
 
 // Fetches a run.
@@ -582,6 +570,18 @@ func (s *RunServer) GetRun(ctx context.Context, request *apiv2beta1.GetRunReques
 	}
 
 	return toApiRun(run), nil
+}
+
+func (s *BaseRunServer) getRunWithHydration(ctx context.Context, runId string, hydrateTasks bool) (*model.Run, error) {
+	err := s.canAccessRun(ctx, runId, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbGet})
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to authorize the request")
+	}
+	run, err := s.resourceManager.GetRunWithHydration(runId, hydrateTasks)
+	if err != nil {
+		return nil, err
+	}
+	return run, nil
 }
 
 // Fetches runs given query parameters.
