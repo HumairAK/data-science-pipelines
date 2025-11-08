@@ -22,6 +22,7 @@ import (
 
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	"github.com/kubeflow/pipelines/backend/src/v2/common"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/resolver"
 
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
@@ -31,6 +32,26 @@ import (
 	k8score "k8s.io/api/core/v1"
 	k8sres "k8s.io/apimachinery/pkg/api/resource"
 )
+
+//// KFP service account token configuration for authentication with API server
+//const (
+//	// kfpTokenExpirationSeconds is the expiration time for the projected service account token.
+//	// Set to 7200 seconds (2 hours) to provide enough buffer while kubelet auto-rotates tokens.
+//	kfpTokenExpirationSeconds = 7200
+//	// kfpTokenVolumeName is the name of the volume containing the KFP service account token
+//	kfpTokenVolumeName = "kfp-launcher-token"
+//	// kfpTokenMountPath is the path where the KFP token is mounted
+//	kfpTokenMountPath = "/var/run/secrets/kfp"
+//	// kfpTokenAudience is the audience for the projected service account token
+//	kfpTokenAudience = "pipelines.kubeflow.org"
+//)
+//
+//// kfpTokenExpirationSecondsPtr returns a pointer to the KFP token expiration seconds constant.
+//// This is used for the ServiceAccountTokenProjection ExpirationSeconds field which requires *int64.
+//func kfpTokenExpirationSecondsPtr() *int64 {
+//	seconds := int64(kfpTokenExpirationSeconds)
+//	return &seconds
+//}
 
 // TaskConfig needs to stay aligned with the TaskConfig in the SDK.
 type TaskConfig struct {
@@ -388,15 +409,15 @@ func initPodSpecPatch(
 
 	// Add KFP token volume for authentication with API server
 	kfpTokenVolume := k8score.Volume{
-		Name: "kfp-launcher-token",
+		Name: common.KFPTokenVolumeName,
 		VolumeSource: k8score.VolumeSource{
 			Projected: &k8score.ProjectedVolumeSource{
 				Sources: []k8score.VolumeProjection{
 					{
 						ServiceAccountToken: &k8score.ServiceAccountTokenProjection{
 							Path:              "token",
-							Audience:          "pipelines.kubeflow.org",
-							ExpirationSeconds: func() *int64 { i := int64(7200); return &i }(),
+							Audience:          common.KFPTokenAudience,
+							ExpirationSeconds: common.KFPTokenExpirationSecondsPtr(),
 						},
 					},
 				},
@@ -404,8 +425,8 @@ func initPodSpecPatch(
 		},
 	}
 	kfpTokenVolumeMount := k8score.VolumeMount{
-		Name:      "kfp-launcher-token",
-		MountPath: "/var/run/secrets/kfp",
+		Name:      common.KFPTokenVolumeName,
+		MountPath: common.KFPTokenMountPath,
 		ReadOnly:  true,
 	}
 	podSpec.Volumes = append(podSpec.Volumes, kfpTokenVolume)

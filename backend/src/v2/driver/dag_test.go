@@ -805,9 +805,9 @@ func TestK8SPlatform(t *testing.T) {
 	require.Equal(t, "amd64", podSpec.NodeSelector["kubernetes.io/arch"])
 	require.Len(t, podSpec.Containers, 1)
 
-	// The volumes are: cfg-map volume, secret volume, and pvc volume
-	require.Len(t, podSpec.Volumes, 3)
-	require.Len(t, podSpec.Containers[0].VolumeMounts, 3)
+	// The volumes are: cfg-map volume, secret volume, and pvc volume, SA token volume (always mounted by driver)
+	require.Len(t, podSpec.Volumes, 4)
+	require.Len(t, podSpec.Containers[0].VolumeMounts, 4)
 
 	// Verify all volumes are present and configured correctly
 	volume := podSpec.Volumes[0]

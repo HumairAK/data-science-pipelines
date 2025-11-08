@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
+	"github.com/kubeflow/pipelines/backend/src/v2/common"
 
 	wfapi "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
@@ -600,23 +601,23 @@ func (c *workflowCompiler) addDAGDriverTemplate() string {
 			Env:       append(proxy.GetConfig().GetEnvVars(), commonEnvs...),
 			VolumeMounts: []k8score.VolumeMount{
 				{
-					Name:      "kfp-launcher-token",
-					MountPath: "/var/run/secrets/kfp",
+					Name:      common.KFPTokenVolumeName,
+					MountPath: common.KFPTokenMountPath,
 					ReadOnly:  true,
 				},
 			},
 		},
 		Volumes: []k8score.Volume{
 			{
-				Name: "kfp-launcher-token",
+				Name: common.KFPTokenVolumeName,
 				VolumeSource: k8score.VolumeSource{
 					Projected: &k8score.ProjectedVolumeSource{
 						Sources: []k8score.VolumeProjection{
 							{
 								ServiceAccountToken: &k8score.ServiceAccountTokenProjection{
 									Path:              "token",
-									Audience:          "pipelines.kubeflow.org",
-									ExpirationSeconds: func() *int64 { i := int64(7200); return &i }(),
+									Audience:          common.KFPTokenAudience,
+									ExpirationSeconds: common.KFPTokenExpirationSecondsPtr(),
 								},
 							},
 						},
