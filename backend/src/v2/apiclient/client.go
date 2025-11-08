@@ -46,6 +46,7 @@ func New(cfg *Config) (*Client, error) {
 		grpc.WithInsecure(), // In-cluster traffic; mTLS/secure options can be added later
 		grpc.WithBlock(),
 		grpc.WithTimeout(10*time.Second),
+		grpc.WithUnaryInterceptor(authUnaryInterceptor), // Add auth interceptor for all requests
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to KFP API at %s: %w", cfg.Endpoint, err)

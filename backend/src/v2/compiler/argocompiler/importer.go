@@ -97,6 +97,31 @@ func (c *workflowCompiler) addImporterTemplate() string {
 			EnvFrom:   []k8score.EnvFromSource{metadataEnvFrom},
 			Env:       commonEnvs,
 			Resources: driverResources,
+			VolumeMounts: []k8score.VolumeMount{
+				{
+					Name:      "kfp-launcher-token",
+					MountPath: "/var/run/secrets/kfp",
+					ReadOnly:  true,
+				},
+			},
+		},
+		Volumes: []k8score.Volume{
+			{
+				Name: "kfp-launcher-token",
+				VolumeSource: k8score.VolumeSource{
+					Projected: &k8score.ProjectedVolumeSource{
+						Sources: []k8score.VolumeProjection{
+							{
+								ServiceAccountToken: &k8score.ServiceAccountTokenProjection{
+									Path:              "token",
+									Audience:          "pipelines.kubeflow.org",
+									ExpirationSeconds: func() *int64 { i := int64(7200); return &i }(),
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 	c.templates[name] = importerTemplate

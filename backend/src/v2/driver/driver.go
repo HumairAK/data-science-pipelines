@@ -386,6 +386,31 @@ func initPodSpecPatch(
 		}
 	}
 
+	// Add KFP token volume for authentication with API server
+	kfpTokenVolume := k8score.Volume{
+		Name: "kfp-launcher-token",
+		VolumeSource: k8score.VolumeSource{
+			Projected: &k8score.ProjectedVolumeSource{
+				Sources: []k8score.VolumeProjection{
+					{
+						ServiceAccountToken: &k8score.ServiceAccountTokenProjection{
+							Path:              "token",
+							Audience:          "pipelines.kubeflow.org",
+							ExpirationSeconds: func() *int64 { i := int64(7200); return &i }(),
+						},
+					},
+				},
+			},
+		},
+	}
+	kfpTokenVolumeMount := k8score.VolumeMount{
+		Name:      "kfp-launcher-token",
+		MountPath: "/var/run/secrets/kfp",
+		ReadOnly:  true,
+	}
+	podSpec.Volumes = append(podSpec.Volumes, kfpTokenVolume)
+	podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, kfpTokenVolumeMount)
+
 	return podSpec, nil
 }
 

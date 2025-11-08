@@ -13,14 +13,6 @@ import (
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 )
 
-const (
-	// MaxGRPCMessageSize contains max grpc message size supported by the client
-	MaxClientGRPCMessageSize = 100 * 1024 * 1024
-	// The endpoint uses Kubernetes service DNS name with namespace:
-	// https://kubernetes.io/docs/concepts/services-networking/service/#dns
-	defaultKfpApiEndpoint = "ml-pipeline.kubeflow:8887"
-)
-
 func GenerateFingerPrint(cacheKey *cachekey.CacheKey) (string, error) {
 	cacheKeyJsonBytes, err := protojson.Marshal(cacheKey)
 	if err != nil {
