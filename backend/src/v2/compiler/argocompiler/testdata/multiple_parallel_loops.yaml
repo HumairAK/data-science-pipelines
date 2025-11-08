@@ -83,6 +83,19 @@ spec:
       - ""
       command:
       - driver
+      env:
+      - name: KFP_POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+      - name: KFP_POD_UID
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.uid
+      - name: NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
       image: ghcr.io/kubeflow/kfp-driver
       name: ""
       resources:
@@ -92,15 +105,10 @@ spec:
         requests:
           cpu: 100m
           memory: 64Mi
-      env:
-        - name: KFP_POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: KFP_POD_UID
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.uid
+      volumeMounts:
+      - mountPath: /var/run/secrets/kfp
+        name: kfp-launcher-token
+        readOnly: true
     inputs:
       parameters:
       - name: component
@@ -129,6 +137,14 @@ spec:
         valueFrom:
           default: "true"
           path: /tmp/outputs/condition
+    volumes:
+    - name: kfp-launcher-token
+      projected:
+        sources:
+        - serviceAccountToken:
+            audience: pipelines.kubeflow.org
+            expirationSeconds: 7200
+            path: token
   - dag:
       tasks:
       - arguments:
@@ -158,6 +174,10 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: metadata.uid
+      - name: NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
       envFrom:
       - configMapRef:
           name: metadata-grpc-configmap
@@ -387,6 +407,19 @@ spec:
       - ""
       command:
       - driver
+      env:
+      - name: KFP_POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+      - name: KFP_POD_UID
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.uid
+      - name: NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
       image: ghcr.io/kubeflow/kfp-driver
       name: ""
       resources:
@@ -396,15 +429,10 @@ spec:
         requests:
           cpu: 100m
           memory: 64Mi
-      env:
-        - name: KFP_POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: KFP_POD_UID
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.uid
+      volumeMounts:
+      - mountPath: /var/run/secrets/kfp
+        name: kfp-launcher-token
+        readOnly: true
     inputs:
       parameters:
       - name: component
@@ -414,7 +442,7 @@ spec:
         name: task
       - default: ""
         name: task-name
-      - default: "0"
+      - default: ""
         name: parent-dag-task-id
       - default: "-1"
         name: iteration-index
@@ -435,6 +463,14 @@ spec:
         valueFrom:
           default: "true"
           path: /tmp/outputs/condition
+    volumes:
+    - name: kfp-launcher-token
+      projected:
+        sources:
+        - serviceAccountToken:
+            audience: pipelines.kubeflow.org
+            expirationSeconds: 7200
+            path: token
   - dag:
       tasks:
       - arguments:

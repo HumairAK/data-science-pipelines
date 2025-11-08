@@ -805,21 +805,31 @@ func TestK8SPlatform(t *testing.T) {
 	require.Equal(t, "amd64", podSpec.NodeSelector["kubernetes.io/arch"])
 	require.Len(t, podSpec.Containers, 1)
 
-	// The volumes are: cfg-map volume, secret volume, and pvc volume, SA token volume (always mounted by driver)
+	// The volumes are: KFP SA token (always added by driver), pvc, secret, and cfg-map volumes
 	require.Len(t, podSpec.Volumes, 4)
 	require.Len(t, podSpec.Containers[0].VolumeMounts, 4)
 
 	// Verify all volumes are present and configured correctly
+	// Volume 0: KFP token volume (always added by driver for API authentication)
 	volume := podSpec.Volumes[0]
+	require.Equal(t, "kfp-launcher-token", volume.Name)
+	require.NotNil(t, volume.Projected)
+	require.NotNil(t, volume.Projected.Sources[0].ServiceAccountToken)
+	require.Equal(t, "pipelines.kubeflow.org", volume.Projected.Sources[0].ServiceAccountToken.Audience)
+
+	// Volume 1: PVC volume
+	volume = podSpec.Volumes[1]
 	require.Contains(t, volume.Name, "-pvc-1")
 	require.Contains(t, volume.PersistentVolumeClaim.ClaimName, "-pvc-1")
 
-	volume = podSpec.Volumes[1]
+	// Volume 2: Secret volume
+	volume = podSpec.Volumes[2]
 	require.Equal(t, "secret-2", volume.Name)
 	require.Equal(t, "secret-2", volume.Secret.SecretName)
 	require.False(t, *volume.Secret.Optional)
 
-	volume = podSpec.Volumes[2]
+	// Volume 3: ConfigMap volume
+	volume = podSpec.Volumes[3]
 	require.Equal(t, "cfg-2", volume.Name)
 	require.Equal(t, "cfg-2", volume.ConfigMap.Name)
 	require.False(t, *volume.ConfigMap.Optional)
