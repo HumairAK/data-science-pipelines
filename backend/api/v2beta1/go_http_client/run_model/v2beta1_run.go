@@ -89,6 +89,9 @@ type V2beta1Run struct {
 	// Output. Specifies whether this run is in archived or available mode.
 	StorageState *V2beta1RunStorageState `json:"storage_state,omitempty"`
 
+	// task count
+	TaskCount int32 `json:"task_count,omitempty"`
+
 	// tasks
 	Tasks []*V2beta1PipelineTaskDetail `json:"tasks"`
 }

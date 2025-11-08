@@ -413,7 +413,8 @@ type Run struct {
 	StateHistory []*RuntimeStatus `protobuf:"bytes,17,rep,name=state_history,json=stateHistory,proto3" json:"state_history,omitempty"`
 	// Output only. Reference to the pipeline used for this run.
 	PipelineReference *PipelineVersionReference `protobuf:"bytes,19,opt,name=pipeline_reference,json=pipelineReference,proto3" json:"pipeline_reference,omitempty"`
-	Tasks             []*PipelineTaskDetail     `protobuf:"bytes,20,rep,name=tasks,proto3" json:"tasks,omitempty"`
+	TaskCount         int32                     `protobuf:"varint,20,opt,name=task_count,json=taskCount,proto3" json:"task_count,omitempty"`
+	Tasks             []*PipelineTaskDetail     `protobuf:"bytes,21,rep,name=tasks,proto3" json:"tasks,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -594,6 +595,13 @@ func (x *Run) GetPipelineReference() *PipelineVersionReference {
 		return x.PipelineReference
 	}
 	return nil
+}
+
+func (x *Run) GetTaskCount() int32 {
+	if x != nil {
+		return x.TaskCount
+	}
+	return 0
 }
 
 func (x *Run) GetTasks() []*PipelineTaskDetail {
@@ -2072,7 +2080,7 @@ func (x *GetTaskRequest) GetTaskId() string {
 
 type ListTasksRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Required. Must specify either parent_id or run_id to filter tasks.
+	// Required. Must specify either parent_id, run_id, namespace to filter tasks.
 	//
 	// Types that are valid to be assigned to ParentFilter:
 	//
@@ -2196,6 +2204,7 @@ type ListTasksRequest_RunId struct {
 
 type ListTasksRequest_Namespace struct {
 	// List all tasks in this namespace.
+	// The primary use case for this filter is to detect cache hits.
 	Namespace string `protobuf:"bytes,3,opt,name=namespace,proto3,oneof"`
 }
 
@@ -2325,11 +2334,14 @@ func (x *PipelineTaskDetail_TaskPod) GetType() PipelineTaskDetail_TaskPodType {
 	return PipelineTaskDetail_UNSPECIFIED
 }
 
-// Custom status metadata, this can be used to provide
-// additional status info for a given task during runtime
 type PipelineTaskDetail_StatusMetadata struct {
-	state            protoimpl.MessageState     `protogen:"open.v1"`
-	Message          string                     `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// KFP Backend will populate this field with error messages
+	// if any are available on a Failed task.
+	Message string `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	// Custom status metadata, this can be used to provide
+	// additional status info for a given task during runtime
+	// This is currently not utilized by KFP backend.
 	CustomProperties map[string]*structpb.Value `protobuf:"bytes,2,rep,name=custom_properties,json=customProperties,proto3" json:"custom_properties,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
@@ -2750,7 +2762,7 @@ var File_backend_api_v2beta1_run_proto protoreflect.FileDescriptor
 
 const file_backend_api_v2beta1_run_proto_rawDesc = "" +
 	"\n" +
-	"\x1dbackend/api/v2beta1/run.proto\x12&kubeflow.pipelines.backend.api.v2beta1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x17google/rpc/status.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\x1a(backend/api/v2beta1/runtime_config.proto\x1a\"backend/api/v2beta1/artifact.proto\"\x93\v\n" +
+	"\x1dbackend/api/v2beta1/run.proto\x12&kubeflow.pipelines.backend.api.v2beta1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x17google/rpc/status.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\x1a(backend/api/v2beta1/runtime_config.proto\x1a\"backend/api/v2beta1/artifact.proto\"\xb2\v\n" +
 	"\x03Run\x12#\n" +
 	"\rexperiment_id\x18\x01 \x01(\tR\fexperimentId\x12\x15\n" +
 	"\x06run_id\x18\x02 \x01(\tR\x05runId\x12!\n" +
@@ -2774,8 +2786,10 @@ const file_backend_api_v2beta1_run_proto_rawDesc = "" +
 	"runDetails\x12(\n" +
 	"\x10recurring_run_id\x18\x10 \x01(\tR\x0erecurringRunId\x12Z\n" +
 	"\rstate_history\x18\x11 \x03(\v25.kubeflow.pipelines.backend.api.v2beta1.RuntimeStatusR\fstateHistory\x12o\n" +
-	"\x12pipeline_reference\x18\x13 \x01(\v2@.kubeflow.pipelines.backend.api.v2beta1.PipelineVersionReferenceR\x11pipelineReference\x12P\n" +
-	"\x05tasks\x18\x14 \x03(\v2:.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetailR\x05tasks\"J\n" +
+	"\x12pipeline_reference\x18\x13 \x01(\v2@.kubeflow.pipelines.backend.api.v2beta1.PipelineVersionReferenceR\x11pipelineReference\x12\x1d\n" +
+	"\n" +
+	"task_count\x18\x14 \x01(\x05R\ttaskCount\x12P\n" +
+	"\x05tasks\x18\x15 \x03(\v2:.kubeflow.pipelines.backend.api.v2beta1.PipelineTaskDetailR\x05tasks\"J\n" +
 	"\fStorageState\x12\x1d\n" +
 	"\x19STORAGE_STATE_UNSPECIFIED\x10\x00\x12\r\n" +
 	"\tAVAILABLE\x10\x01\x12\f\n" +

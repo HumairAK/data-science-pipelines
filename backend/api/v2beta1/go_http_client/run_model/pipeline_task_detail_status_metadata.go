@@ -12,16 +12,18 @@ import (
 	"github.com/go-openapi/swag"
 )
 
-// PipelineTaskDetailStatusMetadata Custom status metadata, this can be used to provide
-// additional status info for a given task during runtime
+// PipelineTaskDetailStatusMetadata pipeline task detail status metadata
 //
 // swagger:model PipelineTaskDetailStatusMetadata
 type PipelineTaskDetailStatusMetadata struct {
 
-	// custom properties
+	// Custom status metadata, this can be used to provide
+	// additional status info for a given task during runtime
+	// This is currently not utilized by KFP backend.
 	CustomProperties map[string]interface{} `json:"custom_properties,omitempty"`
 
-	// message
+	// KFP Backend will populate this field with error messages
+	// if any are available on a Failed task.
 	Message string `json:"message,omitempty"`
 }
 

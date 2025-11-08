@@ -274,7 +274,10 @@ message Run {
 
   // Output only. Reference to the pipeline used for this run.
   PipelineVersionReference pipeline_reference = 19;
-  repeated PipelineTaskDetail tasks = 20;
+
+  int32 task_count = 20;
+
+  repeated PipelineTaskDetail tasks = 21;
 }
 
 // Reference to an existing pipeline version.

@@ -452,7 +452,7 @@
           },
           {
             "name": "namespace",
-            "description": "List all tasks in this namespace.",
+            "description": "List all tasks in this namespace.\nThe primary use case for this filter is to detect cache hits.",
             "in": "query",
             "required": false,
             "type": "string"
@@ -714,14 +714,15 @@
       "type": "object",
       "properties": {
         "message": {
-          "type": "string"
+          "type": "string",
+          "description": "KFP Backend will populate this field with error messages\nif any are available on a Failed task."
         },
         "custom_properties": {
           "type": "object",
-          "additionalProperties": {}
+          "additionalProperties": {},
+          "description": "Custom status metadata, this can be used to provide\nadditional status info for a given task during runtime\nThis is currently not utilized by KFP backend."
         }
-      },
-      "title": "Custom status metadata, this can be used to provide\nadditional status info for a given task during runtime"
+      }
     },
     "PipelineTaskDetailTaskPod": {
       "type": "object",
@@ -1172,6 +1173,10 @@
           "$ref": "#/definitions/v2beta1PipelineVersionReference",
           "description": "Output only. Reference to the pipeline used for this run.",
           "readOnly": true
+        },
+        "task_count": {
+          "type": "integer",
+          "format": "int32"
         },
         "tasks": {
           "type": "array",

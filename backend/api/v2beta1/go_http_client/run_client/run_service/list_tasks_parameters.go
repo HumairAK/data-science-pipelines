@@ -67,7 +67,8 @@ type ListTasksParams struct {
 
 	/* Namespace.
 
-	   List all tasks in this namespace.
+	     List all tasks in this namespace.
+	The primary use case for this filter is to detect cache hits.
 	*/
 	Namespace *string
 

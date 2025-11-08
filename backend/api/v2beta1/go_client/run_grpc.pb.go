@@ -75,6 +75,12 @@ type RunServiceClient interface {
 	// Re-initiates a failed or terminated run.
 	RetryRun(ctx context.Context, in *RetryRunRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CreateTask(ctx context.Context, in *CreateTaskRequest, opts ...grpc.CallOption) (*PipelineTaskDetail, error)
+	// Update the task with the provided task details.
+	// Update Task uses merge semantics for Parameters and does not
+	// over-write them. This is to accommodate driver/launcher usage
+	// for asynchronous writes to the same task (e.g. during
+	// back propagation). Merging parameters avoids encountering
+	// race conditions.
 	UpdateTask(ctx context.Context, in *UpdateTaskRequest, opts ...grpc.CallOption) (*PipelineTaskDetail, error)
 	UpdateTasksBulk(ctx context.Context, in *UpdateTasksBulkRequest, opts ...grpc.CallOption) (*UpdateTasksBulkResponse, error)
 	GetTask(ctx context.Context, in *GetTaskRequest, opts ...grpc.CallOption) (*PipelineTaskDetail, error)
@@ -254,6 +260,12 @@ type RunServiceServer interface {
 	// Re-initiates a failed or terminated run.
 	RetryRun(context.Context, *RetryRunRequest) (*emptypb.Empty, error)
 	CreateTask(context.Context, *CreateTaskRequest) (*PipelineTaskDetail, error)
+	// Update the task with the provided task details.
+	// Update Task uses merge semantics for Parameters and does not
+	// over-write them. This is to accommodate driver/launcher usage
+	// for asynchronous writes to the same task (e.g. during
+	// back propagation). Merging parameters avoids encountering
+	// race conditions.
 	UpdateTask(context.Context, *UpdateTaskRequest) (*PipelineTaskDetail, error)
 	UpdateTasksBulk(context.Context, *UpdateTasksBulkRequest) (*UpdateTasksBulkResponse, error)
 	GetTask(context.Context, *GetTaskRequest) (*PipelineTaskDetail, error)
