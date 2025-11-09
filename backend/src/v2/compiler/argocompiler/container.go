@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
-	"github.com/kubeflow/pipelines/backend/src/v2/common"
 	"google.golang.org/protobuf/encoding/protojson"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -244,23 +243,23 @@ func (c *workflowCompiler) addContainerDriverTemplate() string {
 			Env:       append(proxy.GetConfig().GetEnvVars(), commonEnvs...),
 			VolumeMounts: []k8score.VolumeMount{
 				{
-					Name:      common.KFPTokenVolumeName,
-					MountPath: common.KFPTokenMountPath,
+					Name:      kfpTokenVolumeName,
+					MountPath: kfpTokenMountPath,
 					ReadOnly:  true,
 				},
 			},
 		},
 		Volumes: []k8score.Volume{
 			{
-				Name: common.KFPTokenVolumeName,
+				Name: kfpTokenVolumeName,
 				VolumeSource: k8score.VolumeSource{
 					Projected: &k8score.ProjectedVolumeSource{
 						Sources: []k8score.VolumeProjection{
 							{
 								ServiceAccountToken: &k8score.ServiceAccountTokenProjection{
 									Path:              "token",
-									Audience:          common.KFPTokenAudience,
-									ExpirationSeconds: common.KFPTokenExpirationSecondsPtr(),
+									Audience:          kfpTokenAudience,
+									ExpirationSeconds: kfpTokenExpirationSecondsPtr(),
 								},
 							},
 						},
@@ -457,6 +456,22 @@ func (c *workflowCompiler) addContainerExecutorTemplate(task *pipelinespec.Pipel
 				},
 			},
 			{
+				Name: kfpTokenVolumeName,
+				VolumeSource: k8score.VolumeSource{
+					Projected: &k8score.ProjectedVolumeSource{
+						Sources: []k8score.VolumeProjection{
+							{
+								ServiceAccountToken: &k8score.ServiceAccountTokenProjection{
+									Path:              "token",
+									Audience:          kfpTokenAudience,
+									ExpirationSeconds: kfpTokenExpirationSecondsPtr(),
+								},
+							},
+						},
+					},
+				},
+			},
+			{
 				Name: gcsScratchName,
 				VolumeSource: k8score.VolumeSource{
 					EmptyDir: &k8score.EmptyDirVolumeSource{},
@@ -521,6 +536,11 @@ func (c *workflowCompiler) addContainerExecutorTemplate(task *pipelinespec.Pipel
 				{
 					Name:      volumeNameKFPLauncher,
 					MountPath: component.VolumePathKFPLauncher,
+				},
+				{
+					Name:      kfpTokenVolumeName,
+					MountPath: kfpTokenMountPath,
+					ReadOnly:  true,
 				},
 				{
 					Name:      gcsScratchName,

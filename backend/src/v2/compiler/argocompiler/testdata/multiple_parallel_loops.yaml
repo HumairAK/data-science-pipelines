@@ -188,6 +188,9 @@ spec:
       volumeMounts:
       - mountPath: /kfp-launcher
         name: kfp-launcher
+      - mountPath: /var/run/secrets/kfp
+        name: kfp-launcher-token
+        readOnly: true
       - mountPath: /gcs
         name: gcs-scratch
       - mountPath: /s3
@@ -227,6 +230,13 @@ spec:
     volumes:
     - emptyDir: {}
       name: kfp-launcher
+    - name: kfp-launcher-token
+      projected:
+        sources:
+        - serviceAccountToken:
+            audience: pipelines.kubeflow.org
+            expirationSeconds: 7200
+            path: token
     - emptyDir: {}
       name: gcs-scratch
     - emptyDir: {}

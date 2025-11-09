@@ -30,6 +30,26 @@ var metadataEnvFrom = k8score.EnvFromSource{
 	},
 }
 
+// KFP service account token configuration for authentication with API server
+const (
+	// kfpTokenExpirationSeconds is the expiration time for the projected service account token.
+	// Set to 7200 seconds (2 hours) to provide enough buffer while kubelet auto-rotates tokens.
+	kfpTokenExpirationSeconds = 7200
+	// kfpTokenVolumeName is the name of the volume containing the KFP service account token
+	kfpTokenVolumeName = "kfp-launcher-token"
+	// kfpTokenMountPath is the path where the KFP token is mounted
+	kfpTokenMountPath = "/var/run/secrets/kfp"
+	// kfpTokenAudience is the audience for the projected service account token
+	kfpTokenAudience = "pipelines.kubeflow.org"
+)
+
+// kfpTokenExpirationSecondsPtr returns a pointer to the KFP token expiration seconds constant.
+// This is used for the ServiceAccountTokenProjection ExpirationSeconds field which requires *int64.
+func kfpTokenExpirationSecondsPtr() *int64 {
+	seconds := int64(kfpTokenExpirationSeconds)
+	return &seconds
+}
+
 var commonEnvs = []k8score.EnvVar{
 	{
 		Name: "KFP_POD_NAME",

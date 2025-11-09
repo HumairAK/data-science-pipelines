@@ -301,7 +301,7 @@ func (s *ArtifactServer) CreateArtifactTask(ctx context.Context, request *apiv2b
 		Namespace: task.Namespace,
 		Verb:      common.RbacResourceVerbCreate,
 	}
-	if err = s.canAccessRun(ctx, "", resourceAttributes); err != nil {
+	if err = s.canAccessArtifacts(ctx, "", resourceAttributes); err != nil {
 		return nil, util.Wrap(err, "Failed to authorize the request")
 	}
 
@@ -399,7 +399,7 @@ func (s *ArtifactServer) CreateArtifactTasksBulk(ctx context.Context, request *a
 			Namespace: task.Namespace,
 			Verb:      common.RbacResourceVerbCreate,
 		}
-		if err = s.canAccessRun(ctx, "", resourceAttributes); err != nil {
+		if err = s.canAccessArtifacts(ctx, "", resourceAttributes); err != nil {
 			return nil, util.Wrap(err, "Failed to authorize the request")
 		}
 

@@ -20,7 +20,6 @@ import (
 
 	wfapi "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
-	"github.com/kubeflow/pipelines/backend/src/v2/common"
 	"github.com/kubeflow/pipelines/backend/src/v2/component"
 	k8score "k8s.io/api/core/v1"
 )
@@ -100,23 +99,23 @@ func (c *workflowCompiler) addImporterTemplate() string {
 			Resources: driverResources,
 			VolumeMounts: []k8score.VolumeMount{
 				{
-					Name:      common.KFPTokenVolumeName,
-					MountPath: common.KFPTokenMountPath,
+					Name:      kfpTokenVolumeName,
+					MountPath: kfpTokenMountPath,
 					ReadOnly:  true,
 				},
 			},
 		},
 		Volumes: []k8score.Volume{
 			{
-				Name: common.KFPTokenVolumeName,
+				Name: kfpTokenVolumeName,
 				VolumeSource: k8score.VolumeSource{
 					Projected: &k8score.ProjectedVolumeSource{
 						Sources: []k8score.VolumeProjection{
 							{
 								ServiceAccountToken: &k8score.ServiceAccountTokenProjection{
 									Path:              "token",
-									Audience:          common.KFPTokenAudience,
-									ExpirationSeconds: common.KFPTokenExpirationSecondsPtr(),
+									Audience:          kfpTokenAudience,
+									ExpirationSeconds: kfpTokenExpirationSecondsPtr(),
 								},
 							},
 						},
