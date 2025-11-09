@@ -39,9 +39,9 @@ type CommandExecutor interface {
 	Run(ctx context.Context, cmd string, args []string, stdin io.Reader, stdout, stderr io.Writer) error
 }
 
-// ObjectStoreClient provides an interface for object store operations.
+// ObjectStoreClientInterface provides an interface for object store operations.
 // This abstraction allows for easy mocking in tests.
-type ObjectStoreClient interface {
+type ObjectStoreClientInterface interface {
 	// UploadArtifact uploads an artifact from local path to remote URI
 	UploadArtifact(ctx context.Context, localPath, remoteURI, artifactKey string) error
 
@@ -83,16 +83,16 @@ func (e *RealCommandExecutor) Run(ctx context.Context, cmd string, args []string
 	return command.Run()
 }
 
-// RealObjectStoreClient is the production implementation using the actual objectstore package
-type RealObjectStoreClient struct {
+// ObjectStoreClient is the production implementation using the actual objectstore package
+type ObjectStoreClient struct {
 	launcher *LauncherV2
 }
 
-func NewRealObjectStoreClient(launcher *LauncherV2) *RealObjectStoreClient {
-	return &RealObjectStoreClient{launcher: launcher}
+func NewObjectStoreClient(launcher *LauncherV2) *ObjectStoreClient {
+	return &ObjectStoreClient{launcher: launcher}
 }
 
-func (c *RealObjectStoreClient) UploadArtifact(ctx context.Context, localPath, remoteURI, artifactKey string) error {
+func (c *ObjectStoreClient) UploadArtifact(ctx context.Context, localPath, remoteURI, artifactKey string) error {
 	openedBucket, blobKey, err := c.getBucket(ctx, artifactKey, remoteURI, c.launcher.launcherConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get opened bucket for output artifact %q: %w", artifactKey, err)
@@ -104,7 +104,7 @@ func (c *RealObjectStoreClient) UploadArtifact(ctx context.Context, localPath, r
 	return nil
 }
 
-func (c *RealObjectStoreClient) DownloadArtifact(ctx context.Context, remoteURI, localPath, artifactKey string) error {
+func (c *ObjectStoreClient) DownloadArtifact(ctx context.Context, remoteURI, localPath, artifactKey string) error {
 	openedBucket, blobKey, err := c.getBucket(ctx, artifactKey, remoteURI, c.launcher.launcherConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get opened bucket for input artifact %q: %w", artifactKey, err)
@@ -115,7 +115,7 @@ func (c *RealObjectStoreClient) DownloadArtifact(ctx context.Context, remoteURI,
 	return err
 }
 
-func (c *RealObjectStoreClient) getBucket(
+func (c *ObjectStoreClient) getBucket(
 	ctx context.Context,
 	artifactKey,
 	artifactUri string,

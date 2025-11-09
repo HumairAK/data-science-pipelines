@@ -198,7 +198,7 @@ func (m *MockCommandExecutor) CallCount() int {
 	return len(m.RunCalls)
 }
 
-// MockObjectStoreClient is a mock implementation of ObjectStoreClient for testing
+// MockObjectStoreClient is a mock implementation of ObjectStoreClientInterface for testing
 type MockObjectStoreClient struct {
 	mu sync.Mutex
 

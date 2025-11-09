@@ -77,7 +77,7 @@ type LauncherV2 struct {
 	// Dependency interfaces for testing
 	fileSystem  FileSystem
 	cmdExecutor CommandExecutor
-	objectStore ObjectStoreClient
+	objectStore ObjectStoreClientInterface
 }
 
 // NewLauncherV2 is a factory function that returns an instance of LauncherV2.
@@ -121,7 +121,7 @@ func NewLauncherV2(
 	}
 
 	// Object store is initialized after launcher creation
-	launcher.objectStore = NewRealObjectStoreClient(launcher)
+	launcher.objectStore = NewObjectStoreClient(launcher)
 	return launcher, nil
 }
 
@@ -138,7 +138,7 @@ func (l *LauncherV2) WithCommandExecutor(executor CommandExecutor) *LauncherV2 {
 }
 
 // WithObjectStore allows overriding the object store client (for testing)
-func (l *LauncherV2) WithObjectStore(store ObjectStoreClient) *LauncherV2 {
+func (l *LauncherV2) WithObjectStore(store ObjectStoreClientInterface) *LauncherV2 {
 	l.objectStore = store
 	return l
 }
