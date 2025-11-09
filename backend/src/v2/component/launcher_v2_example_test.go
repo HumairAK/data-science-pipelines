@@ -135,16 +135,18 @@ func TestExample_launcherV2WithMocks(t *testing.T) {
 		ScopePath:     util.ScopePath{},
 		Run:           run,
 		Task:          task,
+		PipelineSpec:  &structpb.Struct{},
 	}
 
 	// Step 7: Create launcher with client manager
 	clientManager := clientmanager.NewFakeClientManager(fake.NewClientset(), mockAPI)
-	launcher, _ := NewLauncherV2(
+	launcher, err := NewLauncherV2(
 		string(executorInputJSON),
 		[]string{"python", "train.py", "--data", "{{$.inputs.artifacts['input_data'].path}}"},
 		opts,
 		clientManager,
 	)
+	require.NoError(t, err)
 
 	// Step 8: Setup mocks for dependencies
 	mockFS := NewMockFileSystem()

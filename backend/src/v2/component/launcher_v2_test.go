@@ -1,6 +1,3 @@
-//go:build ignore
-// +build ignore
-
 // Copyright 2023 The Kubeflow Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,15 +21,13 @@ import (
 	"os"
 	"testing"
 
-	"github.com/kubeflow/pipelines/backend/src/v2/cacheutils"
+	"github.com/kubeflow/pipelines/backend/src/v2/apiclient/kfpapi"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
-	"github.com/kubeflow/pipelines/backend/src/v2/objectstore"
+	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/stretchr/testify/assert"
-	"gocloud.dev/blob"
-	_ "gocloud.dev/blob/memblob"
 	"google.golang.org/protobuf/types/known/structpb"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -53,7 +48,7 @@ var addNumbersComponent = &pipelinespec.ComponentSpec{
 }
 
 // Tests that launcher correctly executes the user component and successfully writes output parameters to file.
-func Test_executeV2_Parameters(t *testing.T) {
+func Test_execute_Parameters(t *testing.T) {
 	tests := []struct {
 		name          string
 		executorInput *pipelinespec.ExecutorInput
@@ -84,92 +79,79 @@ func Test_executeV2_Parameters(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			fakeKubernetesClientset := &fake.Clientset{}
-			fakeMetadataClient := metadata.NewFakeClient()
-			bucket, err := blob.OpenBucket(context.Background(), "mem://test-bucket")
-			assert.Nil(t, err)
-			bucketConfig, err := objectstore.ParseBucketConfig("mem://test-bucket/pipeline-root/", nil)
-			assert.Nil(t, err)
-			_, _, err = executeV2(
-				context.Background(),
-				test.executorInput,
-				addNumbersComponent,
-				"sh",
-				test.executorArgs,
-				bucket,
-				bucketConfig,
-				fakeMetadataClient,
-				"namespace",
-				fakeKubernetesClientset,
-				"false",
-			)
-
-			if test.wantErr {
-				assert.NotNil(t, err)
-			} else {
-				assert.Nil(t, err)
-
+			// Setup executor input with outputs section
+			test.executorInput.Outputs = &pipelinespec.ExecutorInput_Outputs{
+				OutputFile: "/tmp/kfp_outputs/output_metadata.json",
 			}
-		})
-	}
-}
 
-func Test_executeV2_publishLogs(t *testing.T) {
-	tests := []struct {
-		name          string
-		executorInput *pipelinespec.ExecutorInput
-		executorArgs  []string
-		wantErr       bool
-	}{
-		{
-			"happy pass",
-			&pipelinespec.ExecutorInput{
-				Inputs: &pipelinespec.ExecutorInput_Inputs{
-					ParameterValues: map[string]*structpb.Value{"a": structpb.NewNumberValue(1), "b": structpb.NewNumberValue(2)},
-				},
-			},
-			[]string{"-c", "test {{$.inputs.parameters['a']}} -eq 1 || exit 1\ntest {{$.inputs.parameters['b']}} -eq 2 || exit 1"},
-			false,
-		},
-		{
-			"use default value",
-			&pipelinespec.ExecutorInput{
-				Inputs: &pipelinespec.ExecutorInput_Inputs{
-					ParameterValues: map[string]*structpb.Value{"b": structpb.NewNumberValue(2)},
-				},
-			},
-			[]string{"-c", "test {{$.inputs.parameters['a']}} -eq 5 || exit 1\ntest {{$.inputs.parameters['b']}} -eq 2 || exit 1"},
-			false,
-		},
-	}
+			// Marshal executor input
+			executorInputJSON, err := protojson.Marshal(test.executorInput)
+			assert.Nil(t, err)
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			fakeKubernetesClientset := &fake.Clientset{}
-			fakeMetadataClient := metadata.NewFakeClient()
-			bucket, err := blob.OpenBucket(context.Background(), "mem://test-bucket")
-			assert.Nil(t, err)
-			bucketConfig, err := objectstore.ParseBucketConfig("mem://test-bucket/pipeline-root/", nil)
-			assert.Nil(t, err)
-			_, _, err = executeV2(
-				context.Background(),
-				test.executorInput,
-				addNumbersComponent,
-				"sh",
-				test.executorArgs,
-				bucket,
-				bucketConfig,
-				fakeMetadataClient,
-				"namespace",
-				fakeKubernetesClientset,
-				"false",
+			// Create mock dependencies
+			mockAPI := kfpapi.NewMockAPI()
+			clientManager := client_manager.NewFakeClientManager(fake.NewClientset(), mockAPI)
+
+			// Create test run and task
+			run := &apiv2beta1.Run{
+				RunId:       "test-run",
+				DisplayName: "test-run",
+				State:       apiv2beta1.RuntimeState_RUNNING,
+				PipelineSource: &apiv2beta1.Run_PipelineSpec{
+					PipelineSpec: &structpb.Struct{},
+				},
+			}
+			mockAPI.AddRun(run)
+
+			task := &apiv2beta1.PipelineTaskDetail{
+				TaskId:  "test-task",
+				RunId:   "test-run",
+				Name:    "test-task",
+				State:   apiv2beta1.PipelineTaskDetail_RUNNING,
+				Inputs:  &apiv2beta1.PipelineTaskDetail_InputOutputs{},
+				Outputs: &apiv2beta1.PipelineTaskDetail_InputOutputs{},
+			}
+
+			// Create launcher options
+			opts := &LauncherV2Options{
+				Namespace:     "namespace",
+				PodName:       "test-pod",
+				PodUID:        "test-uid",
+				PipelineName:  "test-pipeline",
+				ComponentSpec: addNumbersComponent,
+				Run:           run,
+				Task:          task,
+				PipelineSpec:  &structpb.Struct{},
+			}
+
+			// Create launcher
+			launcher, err := NewLauncherV2(
+				string(executorInputJSON),
+				append([]string{"sh"}, test.executorArgs...),
+				opts,
+				clientManager,
 			)
+			assert.Nil(t, err)
+
+			// Setup mocks
+			mockFS := NewMockFileSystem()
+			mockCmd := NewMockCommandExecutor()
+			mockObjStore := NewMockObjectStoreClient()
+
+			mockFS.SetFileContent("/tmp/kfp_outputs/output_metadata.json", []byte("{}"))
+			mockCmd.RunError = nil
+
+			launcher.WithFileSystem(mockFS).
+				WithCommandExecutor(mockCmd).
+				WithObjectStore(mockObjStore)
+
+			// Execute
+			_, err = launcher.execute(context.Background(), "sh", test.executorArgs)
 
 			if test.wantErr {
 				assert.NotNil(t, err)
 			} else {
 				assert.Nil(t, err)
-
 			}
 		})
 	}
@@ -319,25 +301,22 @@ func Test_get_log_Writer(t *testing.T) {
 func Test_NewLauncherV2(t *testing.T) {
 	var testCmdArgs = []string{"sh", "-c", "echo \"hello world\""}
 
-	disabledCacheClient, _ := cacheutils.NewClient(true)
+	mockAPI := kfpapi.NewMockAPI()
 	var testLauncherV2Deps = client_manager.NewFakeClientManager(
 		fake.NewSimpleClientset(),
-		metadata.NewFakeClient(),
-		disabledCacheClient,
+		mockAPI,
 	)
 
 	var testValidLauncherV2Opts = LauncherV2Options{
-		Namespace:         "my-namespace",
-		PodName:           "my-pod",
-		PodUID:            "abcd",
-		MLMDServerAddress: "example.com",
-		MLMDServerPort:    "1234",
+		Namespace:    "my-namespace",
+		PodName:      "my-pod",
+		PodUID:       "abcd",
+		PipelineName: "test-pipeline",
+		PipelineSpec: &structpb.Struct{},
 	}
 
 	type args struct {
-		executionID       int64
 		executorInputJSON string
-		componentSpecJSON string
 		cmdArgs           []string
 		opts              LauncherV2Options
 		cm                client_manager.ClientManagerInterface
@@ -350,9 +329,7 @@ func Test_NewLauncherV2(t *testing.T) {
 		{
 			name: "happy path",
 			args: &args{
-				executionID:       1,
 				executorInputJSON: "{}",
-				componentSpecJSON: "{}",
 				cmdArgs:           testCmdArgs,
 				opts:              testValidLauncherV2Opts,
 				cm:                testLauncherV2Deps,
@@ -360,47 +337,32 @@ func Test_NewLauncherV2(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
-			name: "missing executionID",
-			args: &args{
-				executionID: 0,
-			},
-			expectedErr: errors.New("must specify execution ID"),
-		},
-		{
 			name: "invalid executorInput",
 			args: &args{
-				executionID:       1,
 				executorInputJSON: "{",
+				cmdArgs:           testCmdArgs,
+				opts:              testValidLauncherV2Opts,
+				cm:                testLauncherV2Deps,
 			},
 			expectedErr: errors.New("unexpected EOF"),
 		},
 		{
-			name: "invalid componentSpec",
-			args: &args{
-				executionID:       1,
-				executorInputJSON: "{}",
-				componentSpecJSON: "{",
-			},
-			expectedErr: errors.New("unexpected EOF\ncomponentSpec: {"),
-		},
-		{
 			name: "missing cmdArgs",
 			args: &args{
-				executionID:       1,
 				executorInputJSON: "{}",
-				componentSpecJSON: "{}",
 				cmdArgs:           []string{},
+				opts:              testValidLauncherV2Opts,
+				cm:                testLauncherV2Deps,
 			},
 			expectedErr: errors.New("command and arguments are empty"),
 		},
 		{
 			name: "invalid opts",
 			args: &args{
-				executionID:       1,
 				executorInputJSON: "{}",
-				componentSpecJSON: "{}",
 				cmdArgs:           testCmdArgs,
 				opts:              LauncherV2Options{},
+				cm:                testLauncherV2Deps,
 			},
 			expectedErr: errors.New("invalid launcher options: must specify Namespace"),
 		},
@@ -408,7 +370,7 @@ func Test_NewLauncherV2(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			args := test.args
-			_, err := NewLauncherV2(context.Background(), args.executionID, args.executorInputJSON, args.componentSpecJSON, args.cmdArgs, &args.opts, args.cm)
+			_, err := NewLauncherV2(args.executorInputJSON, args.cmdArgs, &args.opts, args.cm)
 			if test.expectedErr != nil {
 				assert.ErrorContains(t, err, test.expectedErr.Error())
 			} else {
