@@ -102,35 +102,30 @@ func CapturePodLogsForUnsuccessfulTasks(k8Client *kubernetes.Clientset, testCont
 	for _, task := range taskDetails {
 		if task.State != nil {
 			switch *task.State {
-			case run_model.V2beta1RuntimeStateSUCCEEDED:
+			case run_model.PipelineTaskDetailTaskStateSUCCEEDED:
 				{
 					logger.Log("SUCCEEDED - Task %s for run %s has finished successfully", task.DisplayName, task.RunID)
 				}
-			case run_model.V2beta1RuntimeStateRUNNING:
+			case run_model.PipelineTaskDetailTaskStateRUNNING:
 				{
 					logger.Log("RUNNING - Task %s for Run %s is running", task.DisplayName, task.RunID)
 
 				}
-			case run_model.V2beta1RuntimeStateSKIPPED:
+			case run_model.PipelineTaskDetailTaskStateSKIPPED:
 				{
 					logger.Log("SKIPPED - Task %s for Run %s skipped", task.DisplayName, task.RunID)
 				}
-			case run_model.V2beta1RuntimeStateCANCELED:
+			case run_model.PipelineTaskDetailTaskStateCACHED:
 				{
-					logger.Log("CANCELED - Task %s for Run %s canceled", task.DisplayName, task.RunID)
+					logger.Log("CACHED - Task %s for Run %s cached", task.DisplayName, task.RunID)
 				}
-			case run_model.V2beta1RuntimeStateFAILED:
+			case run_model.PipelineTaskDetailTaskStateFAILED:
 				{
 					logger.Log("%s - Task %s for Run %s did not complete successfully", *task.State, task.DisplayName, task.RunID)
 					for _, childTask := range task.ChildTasks {
-						podName := childTask.PodName
-						if podName != "" {
-							logger.Log("Capturing pod logs for task %s, with pod name %s", task.DisplayName, podName)
-							podLog := testutil.ReadPodLogs(k8Client, *config.Namespace, podName, nil, &testContext.TestStartTimeUTC, config.PodLogLimit)
-							logger.Log("Pod logs captured for task %s in pod %s", task.DisplayName, podName)
-							logger.Log("Attaching pod logs to the report")
-							ginkgo.AddReportEntry(fmt.Sprintf("Failing '%s' Component Log", task.DisplayName), podLog)
-							logger.Log("Attached pod logs to the report")
+						taskID := childTask.TaskID
+						if taskID != "" {
+							logger.Log("Task %s has child task with ID %s", task.DisplayName, taskID)
 						}
 					}
 					failedTasks[task.DisplayName] = string(*task.State)
