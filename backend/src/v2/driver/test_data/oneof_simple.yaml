@@ -378,7 +378,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -396,7 +396,7 @@ deploymentSpec:
           \ Output[Artifact]):\n    with open(animal_artifact.path, \"r\") as f:\n\
           \        data = f.read()\n    assert data == \"dog\"\n    with open(analysis_output.path,\
           \ \"w\") as f:\n        f.write(f'done_analyzing')\n\n"
-        image: python:3.9
+        image: python:3.11
     exec-analyze-animal-2:
       container:
         args:
@@ -409,7 +409,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -427,7 +427,7 @@ deploymentSpec:
           \ Output[Artifact]):\n    with open(animal_artifact.path, \"r\") as f:\n\
           \        data = f.read()\n    assert data == \"dog\"\n    with open(analysis_output.path,\
           \ \"w\") as f:\n        f.write(f'done_analyzing')\n\n"
-        image: python:3.9
+        image: python:3.11
     exec-check-animal:
       container:
         args:
@@ -440,7 +440,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -456,7 +456,7 @@ deploymentSpec:
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef check_animal(animal_input: Input[Artifact]):\n    with open(animal_input.path,\
           \ \"r\") as f:\n        data = f.read()\n    assert data == \"dog\"\n\n"
-        image: python:3.9
+        image: python:3.11
     exec-create-dataset:
       container:
         args:
@@ -469,7 +469,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -488,7 +488,7 @@ deploymentSpec:
           \    with open(output_dataset.path, \"w\") as f:\n        f.write(condition_to_activate)\n\
           \    with open(condition_out, 'w') as f:\n        f.write(condition_to_activate)\n\
           \n"
-        image: python:3.9
+        image: python:3.11
     exec-give-animal:
       container:
         args:
@@ -501,7 +501,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -520,7 +520,7 @@ deploymentSpec:
           r\") as f:\n        data = f.read()\n    assert data == \"second\"\n   \
           \ with open(output_animal.path, \"w\") as f:\n        f.write(want_animal)\n\
           \n"
-        image: python:3.9
+        image: python:3.11
     exec-give-animal-2:
       container:
         args:
@@ -533,7 +533,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -552,7 +552,7 @@ deploymentSpec:
           r\") as f:\n        data = f.read()\n    assert data == \"second\"\n   \
           \ with open(output_animal.path, \"w\") as f:\n        f.write(want_animal)\n\
           \n"
-        image: python:3.9
+        image: python:3.11
     exec-give-animal-3:
       container:
         args:
@@ -565,7 +565,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -584,7 +584,7 @@ deploymentSpec:
           r\") as f:\n        data = f.read()\n    assert data == \"second\"\n   \
           \ with open(output_animal.path, \"w\") as f:\n        f.write(want_animal)\n\
           \n"
-        image: python:3.9
+        image: python:3.11
 pipelineInfo:
   name: primary-pipeline
 root:
@@ -611,4 +611,4 @@ root:
         taskInfo:
           name: secondary-pipeline
 schemaVersion: 2.1.0
-sdkVersion: kfp-2.14.2
+sdkVersion: kfp-2.14.6

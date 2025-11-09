@@ -72,7 +72,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -92,7 +92,7 @@ deploymentSpec:
           \ \"w\") as f:\n        f.write(f'{{\"values\": {data}}}')\n    if data\
           \ == '3':\n        print(\"Failing 3rd task\")\n        exit(1)\n    print(\"\
           task succeeded: \" + data)\n\n"
-        image: python:3.9
+        image: python:3.11
     exec-process-dataset:
       container:
         args:
@@ -105,7 +105,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -124,7 +124,7 @@ deploymentSpec:
           \        data_out = f\"{model_id_in}\"\n        f.write(data_out)\n    \
           \    print(data_out)\n    output_artifact.metadata[\"model_id\"] = model_id_in\n\
           \n"
-        image: python:3.9
+        image: python:3.11
 pipelineInfo:
   name: primary-pipeline
 root:
@@ -140,4 +140,4 @@ root:
         taskInfo:
           name: for-loop-2
 schemaVersion: 2.1.0
-sdkVersion: kfp-2.14.2
+sdkVersion: kfp-2.14.6

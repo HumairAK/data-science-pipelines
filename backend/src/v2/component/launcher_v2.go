@@ -502,6 +502,8 @@ func (l *LauncherV2) execute(
 		writer = os.Stdout
 	}
 
+	defer glog.Flush()
+
 	// If a custom CA path is input, append to system CA and save to a temp file for executor access.
 	if l.options.CaCertPath != "" {
 		var caBundleTmpPath string
@@ -528,7 +530,6 @@ func (l *LauncherV2) execute(
 	if err := l.cmdExecutor.Run(ctx, cmd, args, os.Stdin, writer, writer); err != nil {
 		return nil, err
 	}
-	defer glog.Flush()
 
 	return l.getExecutorOutputFile(l.executorInput.GetOutputs().GetOutputFile())
 }

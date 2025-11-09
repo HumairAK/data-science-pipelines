@@ -14,8 +14,8 @@
 #    pull_secret_3: str [Default: 'pull-secret-3']
 #    pvc_name_suffix_input: str [Default: '-pvc-1']
 #    secret_param: str [Default: 'secret-2']
-#    tolerations_dict_input: dict [Default: {'key': 'some_foo_key6', 'value': 'value3', 'operator': 'Equal', 'effect': 'NoSchedule'}]
-#    tolerations_list_input: list [Default: [{'key': 'some_foo_key4', 'value': 'value2', 'operator': 'Equal', 'effect': 'NoSchedule'}, {'key': 'some_foo_key5', 'operator': 'Exists', 'effect': 'NoExecute'}]]
+#    tolerations_dict_input: dict [Default: {'effect': 'NoSchedule', 'key': 'some_foo_key6', 'value': 'value3', 'operator': 'Equal'}]
+#    tolerations_list_input: list [Default: [{'effect': 'NoSchedule', 'key': 'some_foo_key4', 'value': 'value2', 'operator': 'Equal'}, {'effect': 'NoExecute', 'key': 'some_foo_key5', 'operator': 'Exists'}]]
 components:
   comp-assert-values:
     executorLabel: exec-assert-values
@@ -152,7 +152,7 @@ deploymentSpec:
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
           \ python3 -m pip install --quiet --no-warn-script-location 'kubernetes'\
-          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -245,7 +245,7 @@ deploymentSpec:
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
           \ python3 -m pip install --quiet --no-warn-script-location 'kubernetes'\
-          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -273,7 +273,7 @@ deploymentSpec:
           \                return True\n        return False\n\n    # Check toleration\n\
           \    assert has_toleration('some_foo_key4', 'NoSchedule', 'Equal', 'value2')\n\
           \    assert has_toleration('some_foo_key5', 'NoExecute', 'Exists')\n\n"
-        image: python:3.9
+        image: python:3.11
     exec-assert-values-two:
       container:
         args:
@@ -287,7 +287,7 @@ deploymentSpec:
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
           \ python3 -m pip install --quiet --no-warn-script-location 'kubernetes'\
-          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -320,7 +320,7 @@ deploymentSpec:
           \    assert len(required_terms) == 1\n    match_expressions = required_terms[0].match_expressions\n\
           \    assert len(match_expressions) == 1\n    assert has_match_expression(match_expressions,\
           \ \"kubernetes.io/os\", \"In\", [\"linux\"])\n\n"
-        image: python:3.9
+        image: python:3.11
     exec-cfg-name-generator:
       container:
         args:
@@ -333,7 +333,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -350,7 +350,7 @@ deploymentSpec:
           \ *\n\ndef cfg_name_generator(some_output: OutputPath(str)):\n    configmap_name\
           \ = \"cfg-3\"\n    with open(some_output, 'w') as f:\n        f.write(configmap_name)\n\
           \n"
-        image: python:3.9
+        image: python:3.11
     exec-createpvc:
       container:
         image: argostub/createpvc
@@ -369,7 +369,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -387,7 +387,7 @@ deploymentSpec:
           \ memory_request_out: OutputPath(str)):\n    with open(cpu_request_out,\
           \ 'w') as f:\n        f.write('100m')\n    with open(memory_request_out,\
           \ 'w') as f:\n        f.write('500Mi')\n\n"
-        image: python:3.9
+        image: python:3.11
     exec-get-access-mode:
       container:
         args:
@@ -400,7 +400,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -417,7 +417,7 @@ deploymentSpec:
           \ *\n\ndef get_access_mode(access_mode: OutputPath(List[str])):\n    import\
           \ json\n    with open(access_mode, 'w') as f:\n        f.write(json.dumps([\"\
           ReadWriteOnce\"]))\n\n"
-        image: python:3.9
+        image: python:3.11
     exec-get-node-affinity:
       container:
         args:
@@ -430,7 +430,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -455,7 +455,7 @@ deploymentSpec:
           \                             }\n                            ]\n       \
           \                 }\n                    ]\n                }\n        \
           \    }\n        ))\n\n"
-        image: python:3.9
+        image: python:3.11
     exec-secret-name-generator:
       container:
         args:
@@ -468,7 +468,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -485,7 +485,7 @@ deploymentSpec:
           \ *\n\ndef secret_name_generator(some_output: OutputPath(str)):\n    secret_name\
           \ = \"secret-3\"\n    with open(some_output, 'w') as f:\n        f.write(secret_name)\n\
           \n"
-        image: python:3.9
+        image: python:3.11
 pipelineInfo:
   name: primary-pipeline
 root:
@@ -695,7 +695,7 @@ root:
         isOptional: true
         parameterType: LIST
 schemaVersion: 2.1.0
-sdkVersion: kfp-2.14.2
+sdkVersion: kfp-2.14.6
 ---
 platforms:
   kubernetes:

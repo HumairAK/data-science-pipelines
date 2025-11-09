@@ -177,7 +177,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -195,7 +195,7 @@ deploymentSpec:
           \ Output[Artifact]):\n    with open(analyze_artifact_input.path, \"r\")\
           \ as f:\n        data = f.read()\n    with open(analyze_output_artifact.path,\
           \ \"w\") as f:\n        f.write(f'{{\"values\": {data}}}')\n\n"
-        image: python:3.9
+        image: python:3.11
     exec-analyze-artifact-list:
       container:
         args:
@@ -208,7 +208,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -234,7 +234,7 @@ deploymentSpec:
           \ These should not be required to be sorted to maintain backwards compatibility\n\
           \    assert sorted(actual_values) == sorted(expected_values)\n    assert\
           \ sorted(actual_metadata) == sorted(expected_metadata)\n\n"
-        image: python:3.9
+        image: python:3.11
     exec-analyze-artifact-list-2:
       container:
         args:
@@ -247,7 +247,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -273,7 +273,7 @@ deploymentSpec:
           \ These should not be required to be sorted to maintain backwards compatibility\n\
           \    assert sorted(actual_values) == sorted(expected_values)\n    assert\
           \ sorted(actual_metadata) == sorted(expected_metadata)\n\n"
-        image: python:3.9
+        image: python:3.11
     exec-create-dataset:
       container:
         args:
@@ -286,7 +286,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -304,7 +304,7 @@ deploymentSpec:
           \ \"w\") as f:\n        f.write('cat')\n    output_dataset.metadata[\"item_count\"\
           ] = 5\n    output_dataset.metadata[\"description\"] = \"A simple dataset\
           \ with integers\"\n\n"
-        image: python:3.9
+        image: python:3.11
     exec-process-dataset:
       container:
         args:
@@ -317,7 +317,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -337,7 +337,7 @@ deploymentSpec:
           \ open(output_artifact.path, \"w\") as f:\n        data_out = f\"{data}-{model_id_in}\"\
           \n        f.write(data_out)\n        print(data_out)\n    output_artifact.metadata[\"\
           model_id\"] = model_id_in\n\n"
-        image: python:3.9
+        image: python:3.11
 pipelineInfo:
   name: primary-pipeline
 root:
@@ -364,4 +364,4 @@ root:
         taskInfo:
           name: secondary-pipeline
 schemaVersion: 2.1.0
-sdkVersion: kfp-2.14.2
+sdkVersion: kfp-2.14.6

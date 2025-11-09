@@ -51,7 +51,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -69,7 +69,7 @@ deploymentSpec:
           \ Output[Artifact]):\n    with open(data_input.path, \"r\") as f:\n    \
           \    data = f.read()\n    assert data == \"very_bad\"\n    with open(output_artifact.path,\
           \ \"w\") as f:\n        f.write(f'done_analyzing')\n\n"
-        image: python:3.9
+        image: python:3.11
     exec-create-dataset:
       container:
         args:
@@ -82,7 +82,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -100,7 +100,7 @@ deploymentSpec:
           \ \"w\") as f:\n        f.write('hurricane')\n    output_dataset.metadata[\"\
           category\"] = 5\n    output_dataset.metadata[\"description\"] = \"A simple\
           \ dataset\"\n\n"
-        image: python:3.9
+        image: python:3.11
     exec-process-dataset:
       container:
         args:
@@ -113,7 +113,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -131,7 +131,7 @@ deploymentSpec:
           \ Output[Artifact]):\n    with open(input_dataset.path, \"r\") as f:\n \
           \       data = f.read()\n    assert data == \"hurricane\"\n    with open(output_artifact.path,\
           \ \"w\") as f:\n        f.write(f'very_bad')\n\n"
-        image: python:3.9
+        image: python:3.11
 pipelineInfo:
   name: primary-pipeline
 root:
@@ -172,4 +172,4 @@ root:
         taskInfo:
           name: process-dataset
 schemaVersion: 2.1.0
-sdkVersion: kfp-2.14.2
+sdkVersion: kfp-2.14.6

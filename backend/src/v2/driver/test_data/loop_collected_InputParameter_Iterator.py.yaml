@@ -178,7 +178,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -195,7 +195,7 @@ deploymentSpec:
           \ *\n\ndef create_file(file: Output[Artifact], content: str):\n    print(f'Creating\
           \ file with content: {content}')\n    with open(file.path, 'w') as f:\n\
           \        f.write(content)\n\n"
-        image: python:3.9
+        image: python:3.11
     exec-read-single-file:
       container:
         args:
@@ -208,7 +208,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -226,7 +226,7 @@ deploymentSpec:
           \ print(f'Reading file: {file.path}')\n    with open(file.path, 'r') as\
           \ f:\n        data = f.read()\n        print(data)\n        assert expected\
           \ == data\n    return data\n\n"
-        image: python:3.9
+        image: python:3.11
     exec-read-values:
       container:
         args:
@@ -239,7 +239,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -257,8 +257,8 @@ deploymentSpec:
           \  for v in values:\n        collect.append(v)\n    print(collect)\n   \
           \ # TODO(HumairAK): These should not be required to be sorted to maintain\
           \ backwards compatibility\n    assert sorted(collect) == sorted(['s1', 's2',\
-          \ 's3', 's4', 's5', 's6'])\n    return 'values read'\n\n"
-        image: python:3.9
+          \ 's3', 's4'])\n    return 'values read'\n\n"
+        image: python:3.11
     exec-read-values-2:
       container:
         args:
@@ -271,7 +271,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -289,8 +289,8 @@ deploymentSpec:
           \  for v in values:\n        collect.append(v)\n    print(collect)\n   \
           \ # TODO(HumairAK): These should not be required to be sorted to maintain\
           \ backwards compatibility\n    assert sorted(collect) == sorted(['s1', 's2',\
-          \ 's3', 's4', 's5', 's6'])\n    return 'values read'\n\n"
-        image: python:3.9
+          \ 's3', 's4'])\n    return 'values read'\n\n"
+        image: python:3.11
     exec-split-ids:
       container:
         args:
@@ -303,7 +303,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.6'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -319,7 +319,7 @@ deploymentSpec:
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef split_ids(model_ids: str) -> list:\n    return model_ids.split(',')\n\
           \n"
-        image: python:3.9
+        image: python:3.11
 pipelineInfo:
   name: primary-pipeline
 root:
@@ -347,8 +347,8 @@ root:
           parameters:
             model_ids:
               runtimeValue:
-                constant: s1,s2,s3,s4,s5,s6
+                constant: s1,s2,s3,s4
         taskInfo:
           name: secondary-pipeline
 schemaVersion: 2.1.0
-sdkVersion: kfp-2.14.2
+sdkVersion: kfp-2.14.6
