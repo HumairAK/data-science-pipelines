@@ -646,6 +646,9 @@ func createPVCTask(
 			taskToCreate.StatusMetadata = &apiV2beta1.PipelineTaskDetail_StatusMetadata{
 				Message: err.Error(),
 			}
+		} else {
+			// K8s ops drivers do not have executors, we can mark them completed at the driver stage.
+			taskToCreate.State = apiV2beta1.PipelineTaskDetail_SUCCEEDED
 		}
 		if taskCreated {
 			_, updateErr := clientManager.KFPAPIClient().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
@@ -663,6 +666,7 @@ func createPVCTask(
 				err = errors.Join(err, fmt.Errorf("failed to create task: %w", createErr))
 			}
 		}
+		// Do not need to propagate statuses, this will be handled in the defer for Container().
 	}()
 
 	inputs := execution.ExecutorInput.Inputs
@@ -830,6 +834,9 @@ func deletePVCTask(
 			taskToCreate.StatusMetadata = &apiV2beta1.PipelineTaskDetail_StatusMetadata{
 				Message: err.Error(),
 			}
+		} else {
+			// K8s ops drivers do not have executors, we can mark them completed at the driver stage.
+			taskToCreate.State = apiV2beta1.PipelineTaskDetail_SUCCEEDED
 		}
 		if taskCreated {
 			_, updateErr := clientManager.KFPAPIClient().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
@@ -847,6 +854,7 @@ func deletePVCTask(
 				err = errors.Join(err, fmt.Errorf("failed to create task: %w", createErr))
 			}
 		}
+		// Do not need to propagate statuses, this will be handled in the defer for Container().
 	}()
 
 	inputs := execution.ExecutorInput.Inputs

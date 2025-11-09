@@ -35,7 +35,7 @@ def submit_pipeline(pipeline_path: str, run_name: str, run_desc: str = "") -> di
 
 if __name__ == "__main__":
     # Example usage
-    PIPELINE_PATH = "nested_naming_conflicts.py.yaml"
+    PIPELINE_PATH = "pipeline_with_volume.yaml"
     RUN_NAME = "Run-Test"
     RUN_DESC = "Some Description"
 
