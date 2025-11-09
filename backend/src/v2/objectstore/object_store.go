@@ -39,16 +39,22 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func OpenBucket(ctx context.Context, k8sClient kubernetes.Interface, namespace string, config *Config) (bucket *blob.Bucket, err error) {
+func OpenBucket(
+	ctx context.Context,
+	k8sClient kubernetes.Interface,
+	namespace string,
+	config *Config,
+	sessionInfo *SessionInfo,
+) (bucket *blob.Bucket, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("Failed to open bucket %q: %w", config.BucketName, err)
 		}
 	}()
-	if config.SessionInfo != nil {
-		switch config.SessionInfo.Provider {
+	if sessionInfo != nil {
+		switch sessionInfo.Provider {
 		case "minio", "s3":
-			s3Client, err1 := createS3BucketSession(ctx, namespace, config.SessionInfo, k8sClient)
+			s3Client, err1 := createS3BucketSession(ctx, namespace, sessionInfo, k8sClient)
 			if err1 != nil {
 				return nil, fmt.Errorf("Failed to retrieve credentials for bucket %s: %w", config.BucketName, err1)
 			}
@@ -63,7 +69,7 @@ func OpenBucket(ctx context.Context, k8sClient kubernetes.Interface, namespace s
 				return blob.PrefixedBucket(openedBucket, config.Prefix), nil
 			}
 		case "gs":
-			client, err1 := getGCSTokenClient(ctx, namespace, config.SessionInfo, k8sClient)
+			client, err1 := getGCSTokenClient(ctx, namespace, sessionInfo, k8sClient)
 			if err1 != nil {
 				return nil, err1
 			}
@@ -126,6 +132,7 @@ func UploadBlob(ctx context.Context, bucket *blob.Bucket, localPath, blobPath st
 
 func DownloadBlob(ctx context.Context, bucket *blob.Bucket, localDir, blobDir string) error {
 	iter := bucket.List(&blob.ListOptions{Prefix: blobDir})
+	downloadedBlob := false
 	for {
 		obj, err := iter.Next(ctx)
 		if err != nil {
@@ -148,7 +155,11 @@ func DownloadBlob(ctx context.Context, bucket *blob.Bucket, localDir, blobDir st
 			if err := downloadFile(ctx, bucket, obj.Key, filepath.Join(localDir, relativePath)); err != nil {
 				return err
 			}
+			downloadedBlob = true
 		}
+	}
+	if downloadedBlob == false {
+		return fmt.Errorf("no blob found in remote storage %q", blobDir)
 	}
 	return nil
 }

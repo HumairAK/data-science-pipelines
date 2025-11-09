@@ -150,3 +150,23 @@ lint:
 .PHONY: format
 format:
 	golangci-lint fmt
+
+
+# TODO(Humair): This is not meant to be committed
+.PHONY: tmp-dev-kind-cluster
+tmp-dev-kind-cluster:
+	${CONTAINER_ENGINE} build -t ${IMG_TAG_WEBHOOK_PROXY} -f $(CURDIR)/../tools/kind/Dockerfile.webhook-proxy $(CURDIR)/../tools/kind
+	-kind create cluster --name $(KIND_NAME) --config $(CURDIR)/../tools/kind/kind-config.yaml
+	kubectl config use-context kind-$(KIND_NAME)
+	kind get kubeconfig --name $(KIND_NAME) > $(CURDIR)/../kubeconfig_$(KIND_NAME)
+	@if [ "${CONTAINER_ENGINE}" = "docker" ]; then \
+		kind --name ${KIND_NAME} load docker-image ${IMG_TAG_WEBHOOK_PROXY}; \
+	else \
+		bash -c "kind load --name ${KIND_NAME} image-archive <( ${CONTAINER_ENGINE} save ${IMG_TAG_WEBHOOK_PROXY})"; \
+	fi
+	$(MAKE) install-cert-manager
+	kubectl apply -k $(CURDIR)/../manifests/kustomize/cluster-scoped-resources
+	kubectl wait --for condition=established --timeout=1m crd/applications.app.k8s.io
+	kubectl apply -k $(CURDIR)/../manifests/kustomize/env/dev-kind-humair
+	kubectl apply -f $(CURDIR)/../tools/kind/webhook-proxy.yaml
+	kubectl -n kubeflow wait --for condition=Available --timeout=10m deployment/mysql

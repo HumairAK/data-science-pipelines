@@ -1,0 +1,61 @@
+{
+  "inputs": {
+    "parameterValues": {
+      "message": "faefafemessage"
+    }
+  },
+  "outputs": {
+    "parameters": {
+      "output_bool_parameter_path": {
+        "outputFile": "/tmp/kfp/outputs/output_bool_parameter_path"
+      },
+      "output_dict_parameter_path": {
+        "outputFile": "/tmp/kfp/outputs/output_dict_parameter_path"
+      },
+      "output_list_parameter_path": {
+        "outputFile": "/tmp/kfp/outputs/output_list_parameter_path"
+      },
+      "output_parameter_path": {
+        "outputFile": "/tmp/kfp/outputs/output_parameter_path"
+      }
+    },
+    "artifacts": {
+      "executor-logs": {
+        "artifacts": [
+          {
+            "name": "executor-logs",
+            "type": {
+              "schemaTitle": "system.Artifact"
+            },
+            "uri": "minio://mlpipeline/v2/artifacts/tutorial-data-passing-2/92695077-f8d6-40a4-b135-1f2f47a8238e/preprocess/2e1a319d-230d-4ba8-935e-f44303069cb8/executor-logs"
+          }
+        ]
+      },
+      "output_dataset_one": {
+        "artifacts": [
+          {
+            "name": "output_dataset_one",
+            "type": {
+              "schemaTitle": "system.Dataset",
+              "schemaVersion": "0.0.1"
+            },
+            "uri": "minio://mlpipeline/v2/artifacts/tutorial-data-passing-2/92695077-f8d6-40a4-b135-1f2f47a8238e/preprocess/2e1a319d-230d-4ba8-935e-f44303069cb8/output_dataset_one"
+          }
+        ]
+      },
+      "output_dataset_two_path": {
+        "artifacts": [
+          {
+            "name": "output_dataset_two_path",
+            "type": {
+              "schemaTitle": "system.Dataset",
+              "schemaVersion": "0.0.1"
+            },
+            "uri": "minio://mlpipeline/v2/artifacts/tutorial-data-passing-2/92695077-f8d6-40a4-b135-1f2f47a8238e/preprocess/2e1a319d-230d-4ba8-935e-f44303069cb8/output_dataset_two_path"
+          }
+        ]
+      }
+    },
+    "outputFile": "/minio/mlpipeline/v2/artifacts/tutorial-data-passing-2/92695077-f8d6-40a4-b135-1f2f47a8238e/preprocess/2e1a319d-230d-4ba8-935e-f44303069cb8/output_metadata.json"
+  }
+}

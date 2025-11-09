@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cfg-1
+data:
+  cfgKey1: "value1"
+  cfgKey2: "value2"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cfg-2
+data:
+  cfgKey3: "value3"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cfg-3
+data:
+  cfgKey4: "value4"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-1
+type: Opaque
+data:
+  secretKey1: dmFsdWUx  # base64 encoded "value1"
+  secretKey2: dmFsdWUy  # base64 encoded "value2"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-2
+type: Opaque
+data:
+  secretKey3: dmFsdWUz  # base64 encoded "value3"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-3
+type: Opaque
+data:
+  secretKey4: dmFsdWU0  # base64 encoded "value4"
+---
+# Image pull secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pull-secret-1
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: eyJhdXRocyI6eyJyZWdpc3RyeS5leGFtcGxlLmNvbSI6eyJ1c2VybmFtZSI6InVzZXIiLCJwYXNzd29yZCI6InBhc3N3b3JkIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwiYXV0aCI6ImRYTmxjanB3WVhOemQyOXlaQT09In19fQ==
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pull-secret-2
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: eyJhdXRocyI6eyJyZWdpc3RyeS5leGFtcGxlLmNvbSI6eyJ1c2VybmFtZSI6InVzZXIiLCJwYXNzd29yZCI6InBhc3N3b3JkIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwiYXV0aCI6ImRYTmxjanB3WVhOemQyOXlaQT09In19fQ==
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pull-secret-3
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: eyJhdXRocyI6eyJyZWdpc3RyeS5leGFtcGxlLmNvbSI6eyJ1c2VybmFtZSI6InVzZXIiLCJwYXNzd29yZCI6InBhc3N3b3JkIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwiYXV0aCI6ImRYTmxjanB3WVhOemQyOXlaQT09In19fQ==
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pull-secret-4
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: eyJhdXRocyI6eyJyZWdpc3RyeS5leGFtcGxlLmNvbSI6eyJ1c2VybmFtZSI6InVzZXIiLCJwYXNzd29yZCI6InBhc3N3b3JkIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwiYXV0aCI6ImRYTmxjanB3WVhOemQyOXlaQT09In19fQ==
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pipeline-pvc-1
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Mi
