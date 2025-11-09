@@ -66,11 +66,11 @@ def takeMetricInput(metric_in: Input[Metrics]):
 
 @dsl.pipeline(name='metrics-visualization-pipeline')
 def metrics_visualization_pipeline():
-    # wine_classification_op = wine_classification()
-    # iris_sgdclassifier_op = iris_sgdclassifier(test_samples_fraction=0.3)
+    wine_classification_op = wine_classification()
+    iris_sgdclassifier_op = iris_sgdclassifier(test_samples_fraction=0.3)
     digit_classification_op = digit_classification()
-    # html_visualization_op = html_visualization()
-    # markdown_visualization_op = markdown_visualization()
+    html_visualization_op = html_visualization()
+    markdown_visualization_op = markdown_visualization()
 
     takeMetricInput(metric_in=digit_classification_op.outputs['metrics_out'])
 
