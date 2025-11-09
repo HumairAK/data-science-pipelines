@@ -320,8 +320,7 @@ func TestExample_CustomCommandOutput(t *testing.T) {
 	// Check that the artifact was uploaded with correct URI
 	uploads := launcherExec.MockObjStore.GetUploadCallsForKey("output_dataset")
 	require.Len(t, uploads, 1)
-	assert.Contains(t, uploads[0].RemoteURI, "s3://",
-		"Artifact URI should use s3:// scheme")
+	assert.Contains(t, uploads[0].RemoteURI, "s3://", "Artifact URI should use s3:// scheme")
 
 	// Clean up scope
 	_, ok := tc.ScopePath.Pop()
