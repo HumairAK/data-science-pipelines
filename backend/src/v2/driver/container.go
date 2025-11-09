@@ -105,7 +105,7 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 		}
 
 		fullView := apiV2beta1.GetRunRequest_FULL
-	refreshedRun, getRunErr := clientManager.KFPAPIClient().GetRun(ctx, &apiV2beta1.GetRunRequest{RunId: opts.Run.GetRunId(), View: &fullView})
+		refreshedRun, getRunErr := clientManager.KFPAPIClient().GetRun(ctx, &apiV2beta1.GetRunRequest{RunId: opts.Run.GetRunId(), View: &fullView})
 		if getRunErr != nil {
 			glog.Errorf("failed to refresh run: %w", getRunErr)
 			return
@@ -118,9 +118,7 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 		}
 	}()
 
-	// ######################################
-	// ### RESOLVE INPUTS ###
-	// ######################################
+	// Resolve inputs
 	inputs, _, driverErr := resolver.ResolveInputs(ctx, opts)
 	if driverErr != nil {
 		return nil, driverErr
@@ -159,16 +157,12 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 		opts.PublishLogs = "false"
 	}
 
-	// ######################################
-	// ### TASK REQUEST ###
-	// ######################################
+	// If this is an iteration runtime task, set the iteration index.
 	if iterationIndex != nil {
 		taskToCreate.TypeAttributes = &apiV2beta1.PipelineTaskDetail_TypeAttributes{IterationIndex: util.Int64Pointer(int64(*iterationIndex))}
 	}
 
-	// ######################################
-	// ### HANDLE K8S OP ###
-	// ######################################
+	// Handle Kubernetes-specific tasks such as pvc-creation or pvc-deletion
 	if isKubernetesPlatformOp {
 		return execution, kubernetesPlatformOps(ctx, clientManager, execution, taskToCreate, &opts)
 	}
@@ -181,9 +175,7 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 		}
 	}
 
-	// ######################################
-	// ### CACHE ###
-	// ######################################
+	// Generate a fingerprint and check if we have a cache hit.
 	var fingerPrint string
 	var cachedTask *apiV2beta1.PipelineTaskDetail
 	if !opts.CacheDisabled {
@@ -263,10 +255,6 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 		glog.Info("Cache disabled globally at the server level.")
 	}
 
-	// ######################################
-	// ### CREATE TASK ###
-	// ######################################
-
 	taskToCreate, driverErr = handleInputTaskParametersCreation(inputs.Parameters, taskToCreate)
 	if driverErr != nil {
 		return execution, driverErr
@@ -283,11 +271,13 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 	}
 	execution.TaskID = createdTask.TaskId
 
+	// Create ArtifactTasks for each Artifact Input.
 	driverErr = handleInputTaskArtifactsCreation(ctx, opts, inputs.Artifacts, createdTask, clientManager.KFPAPIClient())
 	if driverErr != nil {
 		return execution, driverErr
 	}
 
+	// If this Task is a condition branch and the condition was not met, skip it.
 	if !execution.WillTrigger() {
 		return execution, nil
 	}
@@ -317,12 +307,8 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 		)
 	}
 
-	// ######################################
-	// ### PodSpecPatch ###
-	// ######################################
-
+	// Generate pod spec patch.
 	taskConfig := &TaskConfig{}
-
 	podSpec, driverErr := initPodSpecPatch(
 		opts.Container,
 		opts.Component,
