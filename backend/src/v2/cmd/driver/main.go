@@ -215,8 +215,6 @@ func drive() (err error) {
 	if *driverType != ROOT_DAG {
 		if *taskName != "" {
 			resolvedTaskName = *taskName
-		} else if taskSpec != nil && taskSpec.GetTaskInfo() != nil && taskSpec.GetTaskInfo().GetName() != "" {
-			resolvedTaskName = taskSpec.GetTaskInfo().GetName()
 		} else {
 			return fmt.Errorf("task name for non Root dag could not be resolved")
 		}
