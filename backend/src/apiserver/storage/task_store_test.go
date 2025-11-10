@@ -677,7 +677,7 @@ func TestHydrateArtifactsForTask_GetAndList(t *testing.T) {
 	artIn, err := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      0,
-		Uri:       strPTR("s3://bucket/in"),
+		URI:       strPTR("s3://bucket/in"),
 		Name:      "in-art",
 	})
 	assert.NoError(t, err)
@@ -685,7 +685,7 @@ func TestHydrateArtifactsForTask_GetAndList(t *testing.T) {
 	artOut, err := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      0,
-		Uri:       strPTR("s3://bucket/out"),
+		URI:       strPTR("s3://bucket/out"),
 		Name:      "out-art",
 	})
 	assert.NoError(t, err)

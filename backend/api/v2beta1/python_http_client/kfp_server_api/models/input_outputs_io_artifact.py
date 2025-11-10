@@ -33,78 +33,102 @@ class InputOutputsIOArtifact(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'parameter_name': 'str',
-        'value': 'V2beta1Artifact',
-        'producer': 'InputOutputsIOProducer'
+        'artifacts': 'list[V2beta1Artifact]',
+        'type': 'V2beta1IOType',
+        'artifact_key': 'str',
+        'producer': 'V2beta1IOProducer'
     }
 
     attribute_map = {
-        'parameter_name': 'parameter_name',
-        'value': 'value',
+        'artifacts': 'artifacts',
+        'type': 'type',
+        'artifact_key': 'artifact_key',
         'producer': 'producer'
     }
 
-    def __init__(self, parameter_name=None, value=None, producer=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, artifacts=None, type=None, artifact_key=None, producer=None, local_vars_configuration=None):  # noqa: E501
         """InputOutputsIOArtifact - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._parameter_name = None
-        self._value = None
+        self._artifacts = None
+        self._type = None
+        self._artifact_key = None
         self._producer = None
         self.discriminator = None
 
-        if parameter_name is not None:
-            self.parameter_name = parameter_name
-        if value is not None:
-            self.value = value
+        if artifacts is not None:
+            self.artifacts = artifacts
+        if type is not None:
+            self.type = type
+        if artifact_key is not None:
+            self.artifact_key = artifact_key
         if producer is not None:
             self.producer = producer
 
     @property
-    def parameter_name(self):
-        """Gets the parameter_name of this InputOutputsIOArtifact.  # noqa: E501
+    def artifacts(self):
+        """Gets the artifacts of this InputOutputsIOArtifact.  # noqa: E501
 
-        Optional, this is only included on Runtime Tasks when the parameter name is known.  # noqa: E501
 
-        :return: The parameter_name of this InputOutputsIOArtifact.  # noqa: E501
-        :rtype: str
+        :return: The artifacts of this InputOutputsIOArtifact.  # noqa: E501
+        :rtype: list[V2beta1Artifact]
         """
-        return self._parameter_name
+        return self._artifacts
 
-    @parameter_name.setter
-    def parameter_name(self, parameter_name):
-        """Sets the parameter_name of this InputOutputsIOArtifact.
+    @artifacts.setter
+    def artifacts(self, artifacts):
+        """Sets the artifacts of this InputOutputsIOArtifact.
 
-        Optional, this is only included on Runtime Tasks when the parameter name is known.  # noqa: E501
 
-        :param parameter_name: The parameter_name of this InputOutputsIOArtifact.  # noqa: E501
-        :type parameter_name: str
+        :param artifacts: The artifacts of this InputOutputsIOArtifact.  # noqa: E501
+        :type artifacts: list[V2beta1Artifact]
         """
 
-        self._parameter_name = parameter_name
+        self._artifacts = artifacts
 
     @property
-    def value(self):
-        """Gets the value of this InputOutputsIOArtifact.  # noqa: E501
+    def type(self):
+        """Gets the type of this InputOutputsIOArtifact.  # noqa: E501
 
 
-        :return: The value of this InputOutputsIOArtifact.  # noqa: E501
-        :rtype: V2beta1Artifact
+        :return: The type of this InputOutputsIOArtifact.  # noqa: E501
+        :rtype: V2beta1IOType
         """
-        return self._value
+        return self._type
 
-    @value.setter
-    def value(self, value):
-        """Sets the value of this InputOutputsIOArtifact.
+    @type.setter
+    def type(self, type):
+        """Sets the type of this InputOutputsIOArtifact.
 
 
-        :param value: The value of this InputOutputsIOArtifact.  # noqa: E501
-        :type value: V2beta1Artifact
+        :param type: The type of this InputOutputsIOArtifact.  # noqa: E501
+        :type type: V2beta1IOType
         """
 
-        self._value = value
+        self._type = type
+
+    @property
+    def artifact_key(self):
+        """Gets the artifact_key of this InputOutputsIOArtifact.  # noqa: E501
+
+
+        :return: The artifact_key of this InputOutputsIOArtifact.  # noqa: E501
+        :rtype: str
+        """
+        return self._artifact_key
+
+    @artifact_key.setter
+    def artifact_key(self, artifact_key):
+        """Sets the artifact_key of this InputOutputsIOArtifact.
+
+
+        :param artifact_key: The artifact_key of this InputOutputsIOArtifact.  # noqa: E501
+        :type artifact_key: str
+        """
+
+        self._artifact_key = artifact_key
 
     @property
     def producer(self):
@@ -112,7 +136,7 @@ class InputOutputsIOArtifact(object):
 
 
         :return: The producer of this InputOutputsIOArtifact.  # noqa: E501
-        :rtype: InputOutputsIOProducer
+        :rtype: V2beta1IOProducer
         """
         return self._producer
 
@@ -122,7 +146,7 @@ class InputOutputsIOArtifact(object):
 
 
         :param producer: The producer of this InputOutputsIOArtifact.  # noqa: E501
-        :type producer: InputOutputsIOProducer
+        :type producer: V2beta1IOProducer
         """
 
         self._producer = producer

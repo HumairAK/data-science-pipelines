@@ -1,3 +1,4 @@
+// Package common provides common utilities for the KFP v2 driver.
 package common
 
 import (
@@ -60,28 +61,28 @@ type Options struct {
 func (o Options) Info() string {
 	msg := fmt.Sprintf("pipelineName=%v, runID=%v", o.PipelineName, o.Run.GetRunId())
 	if o.Task.GetTaskInfo().GetName() != "" {
-		msg = msg + fmt.Sprintf(", taskDisplayName=%q", o.Task.GetTaskInfo().GetName())
+		msg += fmt.Sprintf(", taskDisplayName=%q", o.Task.GetTaskInfo().GetName())
 	}
 	if o.TaskName != "" {
-		msg = msg + fmt.Sprintf(", taskName=%q", o.TaskName)
+		msg += fmt.Sprintf(", taskName=%q", o.TaskName)
 	}
 	if o.Task.GetComponentRef().GetName() != "" {
-		msg = msg + fmt.Sprintf(", component=%q", o.Task.GetComponentRef().GetName())
+		msg += fmt.Sprintf(", component=%q", o.Task.GetComponentRef().GetName())
 	}
 	if o.ParentTask != nil {
-		msg = msg + fmt.Sprintf(", dagExecutionID=%v", o.ParentTask.GetParentTaskId())
+		msg += fmt.Sprintf(", dagExecutionID=%v", o.ParentTask.GetParentTaskId())
 	}
 	if o.IterationIndex >= 0 {
-		msg = msg + fmt.Sprintf(", iterationIndex=%v", o.IterationIndex)
+		msg += fmt.Sprintf(", iterationIndex=%v", o.IterationIndex)
 	}
 	if o.RuntimeConfig != nil {
-		msg = msg + ", runtimeConfig" // this only means runtimeConfig is not empty
+		msg += ", runtimeConfig" // this only means runtimeConfig is not empty
 	}
 	if o.Component.GetImplementation() != nil {
-		msg = msg + ", componentSpec" // this only means componentSpec is not empty
+		msg += ", componentSpec" // this only means componentSpec is not empty
 	}
 	if o.KubernetesExecutorConfig != nil {
-		msg = msg + ", KubernetesExecutorConfig" // this only means KubernetesExecutorConfig is not empty
+		msg += ", KubernetesExecutorConfig" // this only means KubernetesExecutorConfig is not empty
 	}
 	return msg
 }
@@ -129,7 +130,7 @@ func extractInputParameterFromChannel(inputChannel string) (string, error) {
 	}
 }
 
-// inputParamConstant convert and return value as a RuntimeValue
+// InputParamConstant convert and return value as a RuntimeValue
 func InputParamConstant(value string) *pipelinespec.TaskInputsSpec_InputParameterSpec {
 	return &pipelinespec.TaskInputsSpec_InputParameterSpec{
 		Kind: &pipelinespec.TaskInputsSpec_InputParameterSpec_RuntimeValue{
@@ -142,7 +143,7 @@ func InputParamConstant(value string) *pipelinespec.TaskInputsSpec_InputParamete
 	}
 }
 
-// inputParamComponent convert and return value as a ComponentInputParameter
+// InputParamComponent convert and return value as a ComponentInputParameter
 func InputParamComponent(value string) *pipelinespec.TaskInputsSpec_InputParameterSpec {
 	return &pipelinespec.TaskInputsSpec_InputParameterSpec{
 		Kind: &pipelinespec.TaskInputsSpec_InputParameterSpec_ComponentInputParameter{
@@ -151,7 +152,7 @@ func InputParamComponent(value string) *pipelinespec.TaskInputsSpec_InputParamet
 	}
 }
 
-// inputParamTaskOutput convert and return producerTask & outputParamKey
+// InputParamTaskOutput convert and return producerTask & outputParamKey
 // as a TaskOutputParameter.
 func InputParamTaskOutput(producerTask, outputParamKey string) *pipelinespec.TaskInputsSpec_InputParameterSpec {
 	return &pipelinespec.TaskInputsSpec_InputParameterSpec{

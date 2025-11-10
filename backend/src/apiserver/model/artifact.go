@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package model contains data models for the KFP API server.
 package model
 
 import apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
@@ -23,7 +24,7 @@ type Artifact struct {
 	UUID            string       `gorm:"column:UUID; not null; primaryKey; type:varchar(191);"`
 	Namespace       string       `gorm:"column:Namespace; not null; type:varchar(63); index:idx_type_namespace,priority:1;"`
 	Type            ArtifactType `gorm:"column:Type; default:null; index:idx_type_namespace,priority:2;"`
-	Uri             *string      `gorm:"column:Uri; type:text;"`
+	URI             *string      `gorm:"column:URI; type:text;"`
 	Name            string       `gorm:"column:Name; type:varchar(128); default:null;"`
 	Description     string       `gorm:"column:Description; type:text; default:null;"`
 	CreatedAtInSec  int64        `gorm:"column:CreatedAtInSec; not null; default:0; index:idx_artifact_created_timestamp;"`
@@ -62,7 +63,7 @@ var artifactAPIToModelFieldMap = map[string]string{
 	"id":           "UUID",
 	"namespace":    "Namespace",
 	"type":         "Type",
-	"uri":          "Uri",
+	"uri":          "URI",
 	"name":         "Name",
 	"description":  "Description",
 	"created_at":   "CreatedAtInSec",
@@ -86,8 +87,8 @@ func (a Artifact) GetFieldValue(name string) interface{} {
 		return a.Namespace
 	case "Type":
 		return a.Type
-	case "Uri":
-		return a.Uri
+	case "URI":
+		return a.URI
 	case "Name":
 		return a.Name
 	case "Description":

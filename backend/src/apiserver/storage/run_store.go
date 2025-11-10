@@ -65,7 +65,7 @@ type RunStoreInterface interface {
 	// GetRun fetches a run.
 	// If hydrateTasks is true, full task details are loaded (expensive operation).
 	// If hydrateTasks is false, only task count is populated (lightweight operation).
-	GetRun(runId string, hydrateTasks bool) (*model.Run, error)
+	GetRun(runID string, hydrateTasks bool) (*model.Run, error)
 
 	// ListRuns fetches runs with specified options.
 	// If hydrateTasks is true, full task details are loaded (expensive operation).
@@ -237,11 +237,11 @@ func (s *RunStore) buildSelectRunsQuery(selectCount bool, opts *list.Options,
 // GetRun Get the run manifest from Workflow CRD.
 // If hydrateTasks is true, full task details are loaded (expensive operation).
 // If hydrateTasks is false, only task count is populated (lightweight operation).
-func (s *RunStore) GetRun(runId string, hydrateTasks bool) (*model.Run, error) {
+func (s *RunStore) GetRun(runID string, hydrateTasks bool) (*model.Run, error) {
 	sql, args, err := s.addMetricsResourceReferencesAndTasks(
 		sq.Select(runColumns...).
 			From("run_details").
-			Where(sq.Eq{"UUID": runId}).
+			Where(sq.Eq{"UUID": runID}).
 			Limit(1), nil).
 		ToSql()
 	if err != nil {
@@ -258,11 +258,11 @@ func (s *RunStore) GetRun(runId string, hydrateTasks bool) (*model.Run, error) {
 		return nil, util.NewInternalServerError(err, "Failed to get run: %v", err.Error())
 	}
 	if len(runs) == 0 {
-		return nil, util.NewResourceNotFoundError("Run", fmt.Sprint(runId))
+		return nil, util.NewResourceNotFoundError("Run", fmt.Sprint(runID))
 	}
 	if string(runs[0].WorkflowRuntimeManifest) == "" && string(runs[0].WorkflowSpecManifest) != "" {
 		// This can only happen when workflow reporting is failed.
-		return nil, util.NewResourceNotFoundError("Failed to get run: %s", runId)
+		return nil, util.NewResourceNotFoundError("Failed to get run: %s", runID)
 	}
 
 	// Either hydrate full task details or just populate task count
@@ -411,7 +411,7 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 			pipelineName, pipelineSpecManifest, workflowSpecManifest, parameters, pipelineRuntimeManifest,
 			workflowRuntimeManifest string
 		var createdAtInSec, scheduledAtInSec, finishedAtInSec, pipelineContextId, pipelineRunContextId sql.NullInt64
-		var metricsInString, resourceReferencesInString, runtimeParameters, pipelineRoot, jobId, state, stateHistory, pipelineVersionId sql.NullString
+		var metricsInString, resourceReferencesInString, runtimeParameters, pipelineRoot, jobID, state, stateHistory, pipelineVersionID sql.NullString
 		err := rows.Scan(
 			&uuid,
 			&experimentUUID,
@@ -426,7 +426,7 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 			&finishedAtInSec,
 			&conditions,
 			&pipelineId,
-			&pipelineVersionId,
+			&pipelineVersionID,
 			&pipelineName,
 			&pipelineSpecManifest,
 			&workflowSpecManifest,
@@ -435,7 +435,7 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 			&pipelineRoot,
 			&pipelineRuntimeManifest,
 			&workflowRuntimeManifest,
-			&jobId,
+			&jobID,
 			&state,
 			&stateHistory,
 			&pipelineContextId,
@@ -459,8 +459,8 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 			// throw internal exception if failed to parse the resource reference.
 			return nil, util.NewInternalServerError(err, "Failed to parse resource reference")
 		}
-		jId := jobId.String
-		pvId := pipelineVersionId.String
+		jID := jobID.String
+		pvID := pipelineVersionID.String
 		if len(resourceReferences) > 0 {
 			if experimentUUID == "" {
 				experimentUUID = model.GetRefIdFromResourceReferences(resourceReferences, model.ExperimentResourceType)
@@ -471,11 +471,11 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 			if pipelineId == "" {
 				pipelineId = model.GetRefIdFromResourceReferences(resourceReferences, model.PipelineResourceType)
 			}
-			if pvId == "" {
-				pvId = model.GetRefIdFromResourceReferences(resourceReferences, model.PipelineVersionResourceType)
+			if pvID == "" {
+				pvID = model.GetRefIdFromResourceReferences(resourceReferences, model.PipelineVersionResourceType)
 			}
-			if jId == "" {
-				jId = model.GetRefIdFromResourceReferences(resourceReferences, model.JobResourceType)
+			if jID == "" {
+				jID = model.GetRefIdFromResourceReferences(resourceReferences, model.JobResourceType)
 			}
 		}
 		runtimeConfig := parseRuntimeConfig(runtimeParameters, pipelineRoot)
@@ -495,7 +495,7 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 			Namespace:      namespace,
 			ServiceAccount: serviceAccount,
 			Description:    string(description),
-			RecurringRunId: jId,
+			RecurringRunId: jID,
 			RunDetails: model.RunDetails{
 				CreatedAtInSec:          createdAtInSec.Int64,
 				ScheduledAtInSec:        scheduledAtInSec.Int64,
@@ -512,7 +512,7 @@ func (s *RunStore) scanRowsToRuns(rows *sql.Rows) ([]*model.Run, error) {
 			ResourceReferences: resourceReferences,
 			PipelineSpec: model.PipelineSpec{
 				PipelineId:           pipelineId,
-				PipelineVersionId:    pvId,
+				PipelineVersionId:    pvID,
 				PipelineName:         pipelineName,
 				PipelineSpecManifest: model.LargeText(pipelineSpecManifest),
 				WorkflowSpecManifest: model.LargeText(workflowSpecManifest),

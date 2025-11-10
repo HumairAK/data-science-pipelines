@@ -1023,7 +1023,7 @@ func toApiRuntimeConfig(modelRuntime model.RuntimeConfig) *apiv2beta1.RuntimeCon
 
 // Converts API run metric to its internal representation.
 // Supports both v1beta1 and v2beta1 API.
-func toModelRunMetricV1(m interface{}, runId string) (*model.RunMetricV1, error) {
+func toModelRunMetricV1(m interface{}, runID string) (*model.RunMetricV1, error) {
 	var name, nodeId, format string
 	var val float64
 	switch apiRunMetric := m.(type) {
@@ -1036,7 +1036,7 @@ func toModelRunMetricV1(m interface{}, runId string) (*model.RunMetricV1, error)
 		return nil, util.NewUnknownApiVersionError("RunMetric", m)
 	}
 	modelMetric := &model.RunMetricV1{
-		RunUUID:     runId,
+		RunUUID:     runID,
 		Name:        name,
 		NodeID:      nodeId,
 		NumberValue: val,
@@ -1051,7 +1051,7 @@ func toModelRunMetricV1(m interface{}, runId string) (*model.RunMetricV1, error)
 
 // Converts internal run metric representation to its API counterpart.
 // Supports v1beta1 API.
-func toApiRunMetricV1(metric *model.RunMetricV1) *apiv1beta1.RunMetric {
+func toAPIRunMetricV1(metric *model.RunMetricV1) *apiv1beta1.RunMetric {
 	return &apiv1beta1.RunMetric{
 		Name:   metric.Name,
 		NodeId: metric.NodeID,
@@ -1064,10 +1064,10 @@ func toApiRunMetricV1(metric *model.RunMetricV1) *apiv1beta1.RunMetric {
 
 // Converts an array of internal run metric representations to an array of their API counterparts.
 // Supports v1beta1 API.
-func toApiRunMetricsV1(m []*model.RunMetricV1) []*apiv1beta1.RunMetric {
+func toAPIRunMetricsV1(m []*model.RunMetricV1) []*apiv1beta1.RunMetric {
 	apiMetrics := make([]*apiv1beta1.RunMetric, 0)
 	for _, metric := range m {
-		apiMetrics = append(apiMetrics, toApiRunMetricV1(metric))
+		apiMetrics = append(apiMetrics, toAPIRunMetricV1(metric))
 	}
 	return apiMetrics
 }
@@ -1341,7 +1341,7 @@ func toApiRunV1(r *model.Run) *apiv1beta1.Run {
 	}
 	var metrics []*apiv1beta1.RunMetric
 	if r.Metrics != nil {
-		metrics = toApiRunMetricsV1(r.Metrics)
+		metrics = toAPIRunMetricsV1(r.Metrics)
 	}
 	if len(metrics) == 0 {
 		metrics = nil
@@ -1418,15 +1418,15 @@ func toApiRunV1(r *model.Run) *apiv1beta1.Run {
 	specManifest := r.PipelineSpec.PipelineSpecManifest
 	wfManifest := r.PipelineSpec.WorkflowSpecManifest
 	return &apiv1beta1.Run{
-		CreatedAt:      timestamppb.New(time.Unix(r.RunDetails.CreatedAtInSec, 0)),
+		CreatedAt:      timestamppb.New(time.Unix(r.CreatedAtInSec, 0)),
 		Id:             r.UUID,
 		Metrics:        metrics,
 		Name:           r.DisplayName,
 		ServiceAccount: r.ServiceAccount,
 		StorageState:   apiv1beta1.Run_StorageState(apiv1beta1.Run_StorageState_value[string(r.StorageState.ToV1())]),
 		Description:    r.Description,
-		ScheduledAt:    timestamppb.New(time.Unix(r.RunDetails.ScheduledAtInSec, 0)),
-		FinishedAt:     timestamppb.New(time.Unix(r.RunDetails.FinishedAtInSec, 0)),
+		ScheduledAt:    timestamppb.New(time.Unix(r.ScheduledAtInSec, 0)),
+		FinishedAt:     timestamppb.New(time.Unix(r.FinishedAtInSec, 0)),
 		Status:         string(r.RunDetails.State.ToV1()),
 		PipelineSpec: &apiv1beta1.PipelineSpec{
 			PipelineId:       r.PipelineSpec.PipelineId,
@@ -1497,9 +1497,9 @@ func toApiRun(r *model.Run) *apiv2beta1.Run {
 		StorageState:   toApiRunStorageState(&r.StorageState),
 		State:          toApiRuntimeState(&r.RunDetails.State),
 		StateHistory:   toApiRuntimeStatuses(r.RunDetails.StateHistory),
-		CreatedAt:      timestamppb.New(time.Unix(r.RunDetails.CreatedAtInSec, 0)),
-		ScheduledAt:    timestamppb.New(time.Unix(r.RunDetails.ScheduledAtInSec, 0)),
-		FinishedAt:     timestamppb.New(time.Unix(r.RunDetails.FinishedAtInSec, 0)),
+		CreatedAt:      timestamppb.New(time.Unix(r.CreatedAtInSec, 0)),
+		ScheduledAt:    timestamppb.New(time.Unix(r.ScheduledAtInSec, 0)),
+		FinishedAt:     timestamppb.New(time.Unix(r.FinishedAtInSec, 0)),
 		RunDetails:     apiRd,
 		TaskCount:      taskCount,
 		Tasks:          apiTasks,
@@ -1558,7 +1558,7 @@ func generateAPITasks(tasks []*model.Task) ([]*apiv2beta1.PipelineTaskDetail, er
 	for _, task := range tasks {
 		childTasks := childrenMap[task.UUID]
 
-		apiTask, err := toApiTask(task, childTasks)
+		apiTask, err := toAPITask(task, childTasks)
 		if err != nil {
 			return nil, util.Wrap(err, "Failed to convert task to API format")
 		}
@@ -2011,7 +2011,7 @@ func toApiRecurringRun(j *model.Job) *apiv2beta1.RecurringRun {
 		ExperimentId:   j.ExperimentId,
 	}
 
-	if j.PipelineSpec.PipelineId == "" && j.PipelineSpec.PipelineVersionId == "" {
+	if j.PipelineId == "" && j.PipelineVersionId == "" {
 		spec, err := YamlStringToPipelineSpecStruct(string(j.PipelineSpecManifest))
 		if err != nil {
 			return &apiv2beta1.RecurringRun{
@@ -2220,7 +2220,7 @@ func toModelArtifact(a *apiv2beta1.Artifact) (*model.Artifact, error) {
 		UUID:        a.GetArtifactId(),
 		Namespace:   a.GetNamespace(),
 		Type:        model.ArtifactType(a.GetType()),
-		Uri:         a.Uri,
+		URI:         a.Uri,
 		Name:        a.GetName(),
 		Description: a.GetDescription(),
 		// NumberValue can be nil & nullable, so directly apply it
@@ -2251,7 +2251,7 @@ func toModelArtifact(a *apiv2beta1.Artifact) (*model.Artifact, error) {
 
 // Converts internal artifact representation to its API counterpart.
 // Supports v2beta1 API.
-func toApiArtifact(artifact *model.Artifact) (*apiv2beta1.Artifact, error) {
+func toAPIArtifact(artifact *model.Artifact) (*apiv2beta1.Artifact, error) {
 	if artifact == nil {
 		return nil, util.NewInvalidInputError("Artifact cannot be nil")
 	}
@@ -2260,7 +2260,7 @@ func toApiArtifact(artifact *model.Artifact) (*apiv2beta1.Artifact, error) {
 		ArtifactId:  artifact.UUID,
 		Namespace:   artifact.Namespace,
 		Type:        apiv2beta1.Artifact_ArtifactType(artifact.Type),
-		Uri:         artifact.Uri,
+		Uri:         artifact.URI,
 		Name:        artifact.Name,
 		Description: artifact.Description,
 		NumberValue: artifact.NumberValue,
@@ -2284,10 +2284,10 @@ func toApiArtifact(artifact *model.Artifact) (*apiv2beta1.Artifact, error) {
 
 // Converts an array of internal artifact representations to an array of their API counterparts.
 // Supports v2beta1 API.
-func toApiArtifacts(artifacts []*model.Artifact) []*apiv2beta1.Artifact {
+func toAPIArtifacts(artifacts []*model.Artifact) []*apiv2beta1.Artifact {
 	apiArtifacts := make([]*apiv2beta1.Artifact, 0)
 	for _, artifact := range artifacts {
-		apiArtifact, err := toApiArtifact(artifact)
+		apiArtifact, err := toAPIArtifact(artifact)
 		if err != nil {
 			return nil
 		}
@@ -2298,7 +2298,7 @@ func toApiArtifacts(artifacts []*model.Artifact) []*apiv2beta1.Artifact {
 
 // Converts internal artifact task representation to its API counterpart.
 // Supports v2beta1 API.
-func toApiArtifactTask(artifactTask *model.ArtifactTask) *apiv2beta1.ArtifactTask {
+func toAPIArtifactTask(artifactTask *model.ArtifactTask) *apiv2beta1.ArtifactTask {
 	if artifactTask == nil {
 		return &apiv2beta1.ArtifactTask{}
 	}
@@ -2329,10 +2329,10 @@ func toApiArtifactTask(artifactTask *model.ArtifactTask) *apiv2beta1.ArtifactTas
 
 // Converts an array of internal artifact task representations to an array of their API counterparts.
 // Supports v2beta1 API.
-func toApiArtifactTasks(artifactTasks []*model.ArtifactTask) []*apiv2beta1.ArtifactTask {
+func toAPIArtifactTasks(artifactTasks []*model.ArtifactTask) []*apiv2beta1.ArtifactTask {
 	apiArtifactTasks := make([]*apiv2beta1.ArtifactTask, 0)
 	for _, artifactTask := range artifactTasks {
-		apiArtifactTasks = append(apiArtifactTasks, toApiArtifactTask(artifactTask))
+		apiArtifactTasks = append(apiArtifactTasks, toAPIArtifactTask(artifactTask))
 	}
 	return apiArtifactTasks
 }
@@ -2478,7 +2478,7 @@ func toModelTask(apiTask *apiv2beta1.PipelineTaskDetail) (*model.Task, error) {
 // Supports v2beta1 API.
 // Note that child tasks are not stored in the tasks table so
 // they must be provided as an argument.
-func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.PipelineTaskDetail, error) {
+func toAPITask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.PipelineTaskDetail, error) {
 	if modelTask == nil {
 		return nil, util.NewInvalidInputError("Task cannot be nil")
 	}
@@ -2629,7 +2629,7 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 				apiArtifacts := make([]*apiv2beta1.Artifact, 0, len(hydratedGroup))
 				for _, h := range hydratedGroup {
 					if h.Value != nil {
-						apiArt, err := toApiArtifact(h.Value)
+						apiArt, err := toAPIArtifact(h.Value)
 						if err != nil {
 							return nil, err
 						}
@@ -2656,7 +2656,7 @@ func toApiTask(modelTask *model.Task, childTasks []*model.Task) (*apiv2beta1.Pip
 				for _, h := range hydratedGroup {
 					var apiArt *apiv2beta1.Artifact
 					if h.Value != nil {
-						apiArtConv, err := toApiArtifact(h.Value)
+						apiArtConv, err := toAPIArtifact(h.Value)
 						if err != nil {
 							return nil, err
 						}

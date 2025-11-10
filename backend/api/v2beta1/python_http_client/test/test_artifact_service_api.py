@@ -28,6 +28,20 @@ class TestArtifactServiceApi(unittest.TestCase):
     def tearDown(self):
         pass
 
+    def test_batch_create_artifact_tasks(self):
+        """Test case for batch_create_artifact_tasks
+
+        Creates multiple artifact-task relationships in bulk.  # noqa: E501
+        """
+        pass
+
+    def test_batch_create_artifacts(self):
+        """Test case for batch_create_artifacts
+
+        Creates multiple artifacts in bulk.  # noqa: E501
+        """
+        pass
+
     def test_create_artifact(self):
         """Test case for create_artifact
 
@@ -49,13 +63,6 @@ class TestArtifactServiceApi(unittest.TestCase):
         """
         pass
 
-    def test_get_metric(self):
-        """Test case for get_metric
-
-        Gets a metric by task ID and name.  # noqa: E501
-        """
-        pass
-
     def test_list_artifact_tasks(self):
         """Test case for list_artifact_tasks
 
@@ -67,20 +74,6 @@ class TestArtifactServiceApi(unittest.TestCase):
         """Test case for list_artifacts
 
         Finds all artifacts within the specified namespace.  # noqa: E501
-        """
-        pass
-
-    def test_list_metrics(self):
-        """Test case for list_metrics
-
-        Lists all metrics.  # noqa: E501
-        """
-        pass
-
-    def test_log_metric(self):
-        """Test case for log_metric
-
-        Logs a metric for a specific task.  # noqa: E501
         """
         pass
 

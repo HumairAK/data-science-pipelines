@@ -184,11 +184,11 @@ func (s *CacheTestSuite) TestCacheSingleRun() {
 
 	pipelineVersion := s.preparePipeline()
 
-	pipelineRunDetail, err := s.createRun(pipelineVersion)
+	_, err := s.createRun(pipelineVersion)
 	require.NoError(t, err)
 
 	// Create the second run
-	pipelineRunDetail, err = s.createRun(pipelineVersion)
+	pipelineRunDetail, err := s.createRun(pipelineVersion)
 	require.NoError(t, err)
 	require.NotNil(t, pipelineRunDetail)
 

@@ -63,9 +63,10 @@ func ResolveInputs(ctx context.Context, opts common.Options) (*InputMetadata, *i
 	var iterationCount *int
 	artifactIterator := opts.Task.GetArtifactIterator()
 	parameterIterator := opts.Task.GetParameterIterator()
-	if parameterIterator != nil && artifactIterator != nil {
+	switch {
+	case parameterIterator != nil && artifactIterator != nil:
 		return nil, nil, errors.New("cannot have both parameter and artifact iterators")
-	} else if parameterIterator != nil {
+	case parameterIterator != nil:
 		pm, count, err := resolveParameterIterator(opts, inputMetadata.Parameters)
 		if err != nil {
 			return nil, nil, err
@@ -75,7 +76,7 @@ func ResolveInputs(ctx context.Context, opts common.Options) (*InputMetadata, *i
 		}
 		iterationCount = count
 		inputMetadata.Parameters = append(inputMetadata.Parameters, pm...)
-	} else if artifactIterator != nil {
+	case artifactIterator != nil:
 		am, count, err := resolveArtifactIterator(opts, inputMetadata.Artifacts)
 		if err != nil {
 			return nil, nil, err

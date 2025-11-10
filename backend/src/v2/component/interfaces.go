@@ -118,10 +118,10 @@ func (c *ObjectStoreClient) DownloadArtifact(ctx context.Context, remoteURI, loc
 func (c *ObjectStoreClient) getBucket(
 	ctx context.Context,
 	artifactKey,
-	artifactUri string,
+	artifactURI string,
 	launcherConfig *config.Config,
 ) (*blob.Bucket, string, error) {
-	prefix, base, err := objectstore.SplitObjectURI(artifactUri)
+	prefix, base, err := objectstore.SplitObjectURI(artifactURI)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get base URI path for input artifact %q: %w", artifactKey, err)
 	}
@@ -141,6 +141,9 @@ func (c *ObjectStoreClient) getBucket(
 			return nil, "", fmt.Errorf("failed to get store session info for bucket %q: %w", bucketConfig.PrefixedBucket(), err)
 		}
 		newOpenBucket, err := objectstore.OpenBucket(ctx, c.launcher.clientManager.K8sClient(), c.launcher.options.Namespace, bucketConfig, &storeSessionInfo)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to open bucket %q: %w", bucketConfig.PrefixedBucket(), err)
+		}
 		c.launcher.openedBucketCache[bucketConfig.Hash()] = newOpenBucket
 		openedBucket = newOpenBucket
 	}

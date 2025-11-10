@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This package contains helper methods for using object stores.
+// Package objectstore contains helper methods for using object stores.
 package objectstore
 
 import (
@@ -26,7 +26,7 @@ import (
 	"strings"
 )
 
-// The endpoint uses Kubernetes service DNS name with namespace:
+// DefaultMinioEndpointInMultiUserMode uses Kubernetes service DNS name with namespace:
 // https://kubernetes.io/docs/concepts/services-networking/service/#dns
 const DefaultMinioEndpointInMultiUserMode = "minio-service.kubeflow:9000"
 
@@ -74,7 +74,7 @@ func (b *Config) bucketURL() string {
 		}
 	}
 
-	u = u + q
+	u += q
 	return u
 }
 
@@ -106,7 +106,7 @@ func ParseBucketPathToConfig(path string) (*Config, error) {
 
 	prefix := strings.TrimPrefix(ms[3], "/")
 	if len(prefix) > 0 && !strings.HasSuffix(prefix, "/") {
-		prefix = prefix + "/"
+		prefix += "/"
 	}
 
 	return &Config{

@@ -33,7 +33,7 @@ class PipelineTaskDetailInputOutputs(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'parameters': 'list[InputOutputsParameter]',
+        'parameters': 'list[InputOutputsIOParameter]',
         'artifacts': 'list[InputOutputsIOArtifact]'
     }
 
@@ -63,7 +63,7 @@ class PipelineTaskDetailInputOutputs(object):
 
 
         :return: The parameters of this PipelineTaskDetailInputOutputs.  # noqa: E501
-        :rtype: list[InputOutputsParameter]
+        :rtype: list[InputOutputsIOParameter]
         """
         return self._parameters
 
@@ -73,7 +73,7 @@ class PipelineTaskDetailInputOutputs(object):
 
 
         :param parameters: The parameters of this PipelineTaskDetailInputOutputs.  # noqa: E501
-        :type parameters: list[InputOutputsParameter]
+        :type parameters: list[InputOutputsIOParameter]
         """
 
         self._parameters = parameters
@@ -82,7 +82,7 @@ class PipelineTaskDetailInputOutputs(object):
     def artifacts(self):
         """Gets the artifacts of this PipelineTaskDetailInputOutputs.  # noqa: E501
 
-        Output Only. To create Artifacts for a task are created via ArtifactTasks.  # noqa: E501
+        Output Only. To create Artifacts for a task use ArtifactTasks to link artifacts to tasks.  # noqa: E501
 
         :return: The artifacts of this PipelineTaskDetailInputOutputs.  # noqa: E501
         :rtype: list[InputOutputsIOArtifact]
@@ -93,7 +93,7 @@ class PipelineTaskDetailInputOutputs(object):
     def artifacts(self, artifacts):
         """Sets the artifacts of this PipelineTaskDetailInputOutputs.
 
-        Output Only. To create Artifacts for a task are created via ArtifactTasks.  # noqa: E501
+        Output Only. To create Artifacts for a task use ArtifactTasks to link artifacts to tasks.  # noqa: E501
 
         :param artifacts: The artifacts of this PipelineTaskDetailInputOutputs.  # noqa: E501
         :type artifacts: list[InputOutputsIOArtifact]

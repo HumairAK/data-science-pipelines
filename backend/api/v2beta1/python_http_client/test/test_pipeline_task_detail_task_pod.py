@@ -38,7 +38,7 @@ class TestPipelineTaskDetailTaskPod(unittest.TestCase):
             return PipelineTaskDetailTaskPod(
                 name = '0', 
                 uid = '0', 
-                type = '0'
+                type = 'UNSPECIFIED'
             )
         else :
             return PipelineTaskDetailTaskPod(

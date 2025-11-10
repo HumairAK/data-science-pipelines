@@ -36,22 +36,25 @@ class TestInputOutputsIOArtifact(unittest.TestCase):
         # model = kfp_server_api.models.input_outputs_io_artifact.InputOutputsIOArtifact()  # noqa: E501
         if include_optional :
             return InputOutputsIOArtifact(
-                parameter_name = '0', 
-                value = kfp_server_api.models.note_to_be_confused_with_runtime_artifact_in_pipelinespec.Note to be confused with RuntimeArtifact in pipelinespec(
-                    artifact_id = '0', 
-                    name = '0', 
-                    description = '0', 
-                    type = 'TYPE_UNSPECIFIED', 
-                    uri = '0', 
-                    metadata = {
-                        'key' : None
-                        }, 
-                    number_value = 1.337, 
-                    created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                    namespace = '0', ), 
-                producer = kfp_server_api.models.input_outputs_io_producer.InputOutputsIOProducer(
+                artifacts = [
+                    kfp_server_api.models.note_to_be_confused_with_runtime_artifact_in_pipelinespec.Note to be confused with RuntimeArtifact in pipelinespec(
+                        artifact_id = '0', 
+                        name = '0', 
+                        description = '0', 
+                        type = 'TYPE_UNSPECIFIED', 
+                        uri = '0', 
+                        metadata = {
+                            'key' : None
+                            }, 
+                        number_value = 1.337, 
+                        created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        namespace = '0', )
+                    ], 
+                type = 'UNSPECIFIED', 
+                artifact_key = '0', 
+                producer = kfp_server_api.models.v2beta1_io_producer.v2beta1IOProducer(
                     task_name = '0', 
-                    key = '0', )
+                    iteration = '0', )
             )
         else :
             return InputOutputsIOArtifact(

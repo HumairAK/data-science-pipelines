@@ -73,7 +73,7 @@ type TaskStoreInterface interface {
 	UpdateTask(new *model.Task) (*model.Task, error)
 
 	// GetChildTasks Fetches all child tasks for a given task UUID.
-	GetChildTasks(taskId string) ([]*model.Task, error)
+	GetChildTasks(taskID string) ([]*model.Task, error)
 }
 
 type TaskStore struct {
@@ -94,7 +94,7 @@ func NewTaskStore(db *DB, time util.TimeInterface, uuid util.UUIDGeneratorInterf
 // scanTaskRow scans a single row into a model.Task. It expects the column order to match taskColumns.
 func scanTaskRow(rowscanner interface{ Scan(dest ...any) error }) (*model.Task, error) {
 	var uuid, namespace, runUUID, fingerprint string
-	var name, displayName, parentTaskId, pods, statusMetadata, stateHistory, inputParams, outputParams, typeAttrs, scopePath sql.NullString
+	var name, displayName, parentTaskID, pods, statusMetadata, stateHistory, inputParams, outputParams, typeAttrs, scopePath sql.NullString
 	var createdAtInSec, startedInSec, finishedInSec sql.NullInt64
 	var taskState, taskType int32
 	if err := rowscanner.Scan(
@@ -108,7 +108,7 @@ func scanTaskRow(rowscanner interface{ Scan(dest ...any) error }) (*model.Task, 
 		&fingerprint,
 		&name,
 		&displayName,
-		&parentTaskId,
+		&parentTaskID,
 		&taskState,
 		&statusMetadata,
 		&stateHistory,
@@ -163,8 +163,8 @@ func scanTaskRow(rowscanner interface{ Scan(dest ...any) error }) (*model.Task, 
 		}
 	}
 	var parentTaskIDNew *string
-	if parentTaskId.Valid {
-		parentTaskIDNew = &parentTaskId.String
+	if parentTaskID.Valid {
+		parentTaskIDNew = &parentTaskID.String
 	}
 	return &model.Task{
 		UUID:             uuid,
@@ -221,7 +221,7 @@ func hydrateArtifactsForTasks(db *DB, tasks []*model.Task) error {
 			"artifacts.UUID",
 			"artifacts.Namespace",
 			"artifacts.Type",
-			"artifacts.Uri",
+			"artifacts.URI",
 			"artifacts.Name",
 			"artifacts.CreatedAtInSec",
 			"artifacts.LastUpdateInSec",
@@ -279,7 +279,7 @@ func hydrateArtifactsForTasks(db *DB, tasks []*model.Task) error {
 			Metadata:        metaMap,
 		}
 		if artURI.Valid {
-			mArtifact.Uri = &artURI.String
+			mArtifact.URI = &artURI.String
 		}
 		if numberValue.Valid {
 			mArtifact.NumberValue = &numberValue.Float64
@@ -337,7 +337,7 @@ func iOTypeIsOutput(ioType apiv2beta1.IOType) (bool, error) {
 		apiv2beta1.IOType_COMPONENT_DEFAULT_INPUT:
 		return false, nil
 	default:
-		return false, fmt.Errorf("Unknown IOType %v", ioType)
+		return false, fmt.Errorf("unknown IOType %v", ioType)
 	}
 }
 
@@ -481,14 +481,14 @@ func (s *TaskStore) ListTasks(filterContext *model.FilterContext, opts *list.Opt
 	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.RunResourceType {
 		sqlBuilder = sqlBuilder.Where(sq.Eq{"RunUUID": filterContext.ReferenceKey.ID})
 	}
-	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.TaskResourceType {
-		sqlBuilder = sqlBuilder.Where(sq.Eq{"ParentTaskUUID": filterContext.ReferenceKey.ID})
+	if filterContext.ReferenceKey != nil && filterContext.Type == model.TaskResourceType {
+		sqlBuilder = sqlBuilder.Where(sq.Eq{"ParentTaskUUID": filterContext.ID})
 	}
-	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.NamespaceResourceType {
+	if filterContext.ReferenceKey != nil && filterContext.Type == model.NamespaceResourceType {
 		// Only add namespace filter if namespace is not empty
 		// Empty namespace in single-user mode means list all tasks
-		if filterContext.ReferenceKey.ID != "" {
-			sqlBuilder = sqlBuilder.Where(sq.Eq{"Namespace": filterContext.ReferenceKey.ID})
+		if filterContext.ID != "" {
+			sqlBuilder = sqlBuilder.Where(sq.Eq{"Namespace": filterContext.ID})
 		}
 	}
 	sqlBuilder = opts.AddFilterToSelect(sqlBuilder)
@@ -504,14 +504,14 @@ func (s *TaskStore) ListTasks(filterContext *model.FilterContext, opts *list.Opt
 	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.RunResourceType {
 		sqlBuilder = sqlBuilder.Where(sq.Eq{"RunUUID": filterContext.ReferenceKey.ID})
 	}
-	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.TaskResourceType {
-		sqlBuilder = sqlBuilder.Where(sq.Eq{"ParentTaskUUID": filterContext.ReferenceKey.ID})
+	if filterContext.ReferenceKey != nil && filterContext.Type == model.TaskResourceType {
+		sqlBuilder = sqlBuilder.Where(sq.Eq{"ParentTaskUUID": filterContext.ID})
 	}
-	if filterContext.ReferenceKey != nil && filterContext.ReferenceKey.Type == model.NamespaceResourceType {
+	if filterContext.ReferenceKey != nil && filterContext.Type == model.NamespaceResourceType {
 		// Only add namespace filter if namespace is not empty
 		// Empty namespace in single-user mode means list all tasks
-		if filterContext.ReferenceKey.ID != "" {
-			sqlBuilder = sqlBuilder.Where(sq.Eq{"Namespace": filterContext.ReferenceKey.ID})
+		if filterContext.ID != "" {
+			sqlBuilder = sqlBuilder.Where(sq.Eq{"Namespace": filterContext.ID})
 		}
 	}
 	sizeSql, sizeArgs, err := opts.AddFilterToSelect(sqlBuilder).ToSql()
@@ -580,7 +580,7 @@ func (s *TaskStore) ListTasks(filterContext *model.FilterContext, opts *list.Opt
 }
 
 func (s *TaskStore) GetTask(id string) (*model.Task, error) {
-	toSql, args, err := sq.
+	toSQL, args, err := sq.
 		Select(taskColumns...).
 		From("tasks").
 		Where(sq.Eq{"tasks.uuid": id}).
@@ -588,7 +588,7 @@ func (s *TaskStore) GetTask(id string) (*model.Task, error) {
 	if err != nil {
 		return nil, util.NewInternalServerError(err, "Failed to create query to get task: %v", err.Error())
 	}
-	r, err := s.db.Query(toSql, args...)
+	r, err := s.db.Query(toSQL, args...)
 	if err != nil {
 		return nil, util.NewInternalServerError(err, "Failed to get task: %v", err.Error())
 	}
@@ -886,18 +886,18 @@ func mergeParameters(old, new model.JSONSlice) (model.JSONSlice, error) {
 	return parameters, nil
 }
 
-func (s *TaskStore) GetChildTasks(taskId string) ([]*model.Task, error) {
-	toSql, args, err := sq.
+func (s *TaskStore) GetChildTasks(taskID string) ([]*model.Task, error) {
+	toSQL, args, err := sq.
 		Select(taskColumns...).
 		From("tasks").
-		Where(sq.Eq{"ParentTaskUUID": taskId}).
+		Where(sq.Eq{"ParentTaskUUID": taskID}).
 		ToSql()
 
 	if err != nil {
 		return nil, util.NewInternalServerError(err, "Failed to create query to get child tasks: %v", err.Error())
 	}
 
-	rows, err := s.db.Query(toSql, args...)
+	rows, err := s.db.Query(toSQL, args...)
 	if err != nil {
 		return nil, util.NewInternalServerError(err, "Failed to get child tasks: %v", err.Error())
 	}
@@ -908,18 +908,18 @@ func (s *TaskStore) GetChildTasks(taskId string) ([]*model.Task, error) {
 
 // GetTaskCountForRun returns the total count of tasks for a given run ID.
 // This is a lightweight operation that doesn't perform task hydration.
-func (s *TaskStore) GetTaskCountForRun(runId string) (int, error) {
-	sizeSql, sizeArgs, err := sq.
+func (s *TaskStore) GetTaskCountForRun(runID string) (int, error) {
+	sizeSQL, sizeArgs, err := sq.
 		Select("count(*)").
 		From("tasks").
-		Where(sq.Eq{"RunUUID": runId}).
+		Where(sq.Eq{"RunUUID": runID}).
 		ToSql()
 
 	if err != nil {
 		return 0, util.NewInternalServerError(err, "Failed to create task count query: %v", err.Error())
 	}
 
-	sizeRow, err := s.db.Query(sizeSql, sizeArgs...)
+	sizeRow, err := s.db.Query(sizeSQL, sizeArgs...)
 	if err != nil {
 		return 0, util.NewInternalServerError(err, "Failed to get task count: %v", err.Error())
 	}
@@ -969,16 +969,16 @@ func getLastTaskState(history model.JSONSlice) model.TaskStatus {
 // DeleteTasksForRun deletes all tasks associated with a specific run.
 // This should be called before deleting a run to avoid foreign key constraint violations.
 func (s *TaskStore) DeleteTasksForRun(tx *sql.Tx, runUUID string) error {
-	deleteSql, deleteArgs, err := sq.Delete(tableName).Where(sq.Eq{"RunUUID": runUUID}).ToSql()
+	deleteSQL, deleteArgs, err := sq.Delete(tableName).Where(sq.Eq{"RunUUID": runUUID}).ToSql()
 	if err != nil {
 		return util.NewInternalServerError(err, "Failed to create query to delete tasks for run: %s", runUUID)
 	}
 
 	var result sql.Result
 	if tx != nil {
-		result, err = tx.Exec(deleteSql, deleteArgs...)
+		result, err = tx.Exec(deleteSQL, deleteArgs...)
 	} else {
-		result, err = s.db.Exec(deleteSql, deleteArgs...)
+		result, err = s.db.Exec(deleteSQL, deleteArgs...)
 	}
 
 	if err != nil {

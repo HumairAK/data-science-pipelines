@@ -49,7 +49,7 @@ func TestExample_SingleTask(t *testing.T) {
 		"Task should be marked as SUCCEEDED")
 
 	// Clean up scope
-	_, ok := tc.ScopePath.Pop()
+	_, ok := tc.Pop()
 	require.True(t, ok)
 }
 
@@ -105,7 +105,7 @@ func TestExample_SimpleArtifactPassing(t *testing.T) {
 	require.Len(t, uploads, 1, "Launcher should have uploaded one artifact")
 
 	// Now we're done with the producer task, pop its scope
-	_, ok := tc.ScopePath.Pop()
+	_, ok := tc.Pop()
 	require.True(t, ok)
 
 	// Step 4: Run driver for consumer task
@@ -140,7 +140,7 @@ func TestExample_SimpleArtifactPassing(t *testing.T) {
 		"Launcher should have executed the component command once")
 
 	// Clean up scope
-	_, ok = tc.ScopePath.Pop()
+	_, ok = tc.Pop()
 	require.True(t, ok)
 }
 
@@ -180,7 +180,7 @@ func TestExample_ParameterPassing(t *testing.T) {
 	require.Equal(t, "10.0", outputParam.Value.GetStringValue())
 
 	// Clean up producer scope
-	_, ok := tc.ScopePath.Pop()
+	_, ok := tc.Pop()
 	require.True(t, ok)
 
 	// Refresh the run to get the updated producer task outputs
@@ -209,7 +209,7 @@ func TestExample_ParameterPassing(t *testing.T) {
 	require.Equal(t, 1, consumerLauncherExec.MockCmd.CallCount())
 
 	// Clean up consumer scope
-	_, ok = tc.ScopePath.Pop()
+	_, ok = tc.Pop()
 	require.True(t, ok)
 }
 
@@ -237,7 +237,7 @@ func TestExample_LoopIteration(t *testing.T) {
 	producerArtifactID := producerLauncherExec.Task.Outputs.Artifacts[0].Artifacts[0].ArtifactId
 
 	// Clean up producer scope
-	_, ok := tc.ScopePath.Pop()
+	_, ok := tc.Pop()
 	require.True(t, ok)
 
 	// Step 3: Run loop DAG driver
@@ -270,7 +270,7 @@ func TestExample_LoopIteration(t *testing.T) {
 		require.Equal(t, 1, iterLauncherExec.MockCmd.CallCount())
 
 		// Clean up iteration scope
-		_, ok = tc.ScopePath.Pop()
+		_, ok = tc.Pop()
 		require.True(t, ok)
 	}
 
@@ -324,6 +324,6 @@ func TestExample_CustomCommandOutput(t *testing.T) {
 	assert.Regexp(t, `^(minio|s3|gs)://`, uploads[0].RemoteURI, "Artifact URI should use a valid object store scheme")
 
 	// Clean up scope
-	_, ok := tc.ScopePath.Pop()
+	_, ok := tc.Pop()
 	require.True(t, ok)
 }

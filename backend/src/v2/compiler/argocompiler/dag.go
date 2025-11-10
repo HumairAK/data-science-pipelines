@@ -393,7 +393,7 @@ func (c *workflowCompiler) iteratorTask(name string, task *pipelinespec.Pipeline
 	return tasks, nil
 }
 
-func (c *workflowCompiler) iterationItemTask(name string, task *pipelinespec.PipelineTaskSpec, taskJson string, parentDagID string, taskName string) (tasks []wfapi.DAGTask, err error) {
+func (c *workflowCompiler) iterationItemTask(name string, task *pipelinespec.PipelineTaskSpec, taskJSON string, parentDagID string, taskName string) (tasks []wfapi.DAGTask, err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("iterationItem task: %w", err)
@@ -410,7 +410,7 @@ func (c *workflowCompiler) iterationItemTask(name string, task *pipelinespec.Pip
 	driverInputs := dagDriverInputs{
 		component:    componentSpecPlaceholder,
 		parentTaskID: parentDagID,
-		task:         taskJson, // TODO(Bobgy): avoid duplicating task JSON twice in the template.
+		task:         taskJSON, // TODO(Bobgy): avoid duplicating task JSON twice in the template.
 		taskName:     taskName, // Pass the task key for proper input resolution
 	}
 	driver, driverOutputs, err := c.dagDriverTask(driverArgoName, driverInputs)
@@ -425,9 +425,9 @@ func (c *workflowCompiler) iterationItemTask(name string, task *pipelinespec.Pip
 		c.templates[componentName].Inputs.Parameters,
 		wfapi.Parameter{Name: paramIterationIndex})
 
-	for i, t := range c.templates[componentName].DAG.Tasks {
+	for i := range c.templates[componentName].DAG.Tasks {
 		c.templates[componentName].DAG.Tasks[i].Arguments.Parameters = append(
-			t.Arguments.Parameters, wfapi.Parameter{
+			c.templates[componentName].DAG.Tasks[i].Arguments.Parameters, wfapi.Parameter{
 				Name:  paramIterationIndex,
 				Value: wfapi.AnyStringPtr(inputParameter(paramIterationIndex)),
 			},

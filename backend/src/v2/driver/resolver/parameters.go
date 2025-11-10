@@ -187,7 +187,7 @@ func ResolveInputParameter(
 				if opts.ParentTask == nil {
 					return nil, apiv2beta1.IOType_UNSPECIFIED, fmt.Errorf("parent task should not be nil")
 				}
-				v = structpb.NewStringValue(fmt.Sprintf("%s", opts.ParentTask.GetTaskId()))
+				v = structpb.NewStringValue(opts.ParentTask.GetTaskId())
 			default:
 				v = val
 			}
@@ -308,8 +308,7 @@ func resolveParameterIterator(
 ) ([]ParameterMetadata, *int, error) {
 	var value *structpb.Value
 	var iteratorInputDefinitionKey string
-	var iterator *pipelinespec.ParameterIteratorSpec
-	iterator = opts.Task.GetParameterIterator()
+	var iterator = opts.Task.GetParameterIterator()
 	switch iterator.GetItems().GetKind().(type) {
 	case *pipelinespec.ParameterIteratorSpec_ItemsSpec_InputParameter:
 		// This should be the key input into the for loop task
@@ -387,7 +386,7 @@ func resolveTaskFinalStatus(opts common.Options,
 	producerTaskUniqueName := getTaskNameWithTaskID(producerTaskAmbiguousName, opts.ParentTask.GetTaskId())
 	producer, ok := tasks[producerTaskUniqueName]
 
-	if len(opts.Task.DependentTasks) <= 0 {
+	if len(opts.Task.DependentTasks) == 0 {
 		return nil, fmt.Errorf("task %v has no dependent tasks", opts.Task.TaskInfo.GetName())
 	}
 	if !ok {
@@ -440,7 +439,7 @@ func getItems(value *structpb.Value) (items []*structpb.Value, err error) {
 	}
 }
 
-// Convert []*structpb.Value to a *structpb.Value_ListValue
+// ToListValue will convert []*structpb.Value to a *structpb.Value_ListValue
 func ToListValue(items []*structpb.Value) *structpb.Value {
 	listValue := structpb.Value{}
 	listValue.Kind = &structpb.Value_ListValue{
@@ -452,20 +451,20 @@ func ToListValue(items []*structpb.Value) *structpb.Value {
 }
 
 // ResolveParameterOrPipelineChannel resolves a parameter or pipeline channel value using the executor input.
-func ResolveParameterOrPipelineChannel(ParameterValueOrPipelineChannel string, executorInput *pipelinespec.ExecutorInput) (string, error) {
-	isMatch, isPipelineChannel, paramName := common.ParsePipelineParam(ParameterValueOrPipelineChannel)
+func ResolveParameterOrPipelineChannel(parameterValueOrPipelineChannel string, executorInput *pipelinespec.ExecutorInput) (string, error) {
+	isMatch, isPipelineChannel, paramName := common.ParsePipelineParam(parameterValueOrPipelineChannel)
 	if isMatch && isPipelineChannel {
 		value, ok := executorInput.GetInputs().GetParameterValues()[paramName]
 		if !ok {
-			return "", fmt.Errorf("pipeline channel %s not found in executorinput", ParameterValueOrPipelineChannel)
+			return "", fmt.Errorf("pipeline channel %s not found in executorinput", parameterValueOrPipelineChannel)
 		}
 		return value.GetStringValue(), nil
 	}
 
-	return ParameterValueOrPipelineChannel, nil
+	return parameterValueOrPipelineChannel, nil
 }
 
-func ResolveK8sJsonParameter[k8sResource any](
+func ResolveK8sJSONParameter[k8sResource any](
 	opts common.Options,
 	parameter *pipelinespec.TaskInputsSpec_InputParameterSpec,
 	params []*apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter,
@@ -531,7 +530,6 @@ func findParameterByProducerKeyInList(
 		return nil, fmt.Errorf("parameter with producer key %s not found", producerKey)
 	}
 
-	ioType := apiv2beta1.IOType_TASK_OUTPUT_INPUT
 	// This occurs in the parallelFor case, where multiple iterations resulted in the same
 	// producer key.
 	isCollection := len(parameterIOList) > 1
@@ -545,7 +543,7 @@ func findParameterByProducerKeyInList(
 			// Support for an iterator over list of parameters is not supported yet.
 			parameterValues = append(parameterValues, parameterIO.GetValue())
 		}
-		ioType = apiv2beta1.IOType_COLLECTED_INPUTS
+		ioType := apiv2beta1.IOType_COLLECTED_INPUTS
 		newParameterIO := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
 			Value:        ToListValue(parameterValues),
 			Type:         ioType,

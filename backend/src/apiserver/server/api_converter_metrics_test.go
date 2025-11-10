@@ -91,7 +91,7 @@ func TestToApiTask_MetricsGrouping(t *testing.T) {
 		},
 	}
 
-	apiTask, err := toApiTask(modelTask, nil)
+	apiTask, err := toAPITask(modelTask, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, apiTask)
 
@@ -158,7 +158,7 @@ func TestToApiTask_MetricsGrouping_DifferentProducers(t *testing.T) {
 		},
 	}
 
-	apiTask, err := toApiTask(modelTask, nil)
+	apiTask, err := toAPITask(modelTask, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, apiTask)
 
@@ -216,7 +216,7 @@ func TestToApiTask_MetricsGrouping_WithIterations(t *testing.T) {
 		},
 	}
 
-	apiTask, err := toApiTask(modelTask, nil)
+	apiTask, err := toAPITask(modelTask, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, apiTask)
 
@@ -253,7 +253,7 @@ func TestToApiTask_NonMetrics(t *testing.T) {
 					UUID: "artifact-1",
 					Name: "dataset1",
 					Type: model.ArtifactType(apiv2beta1.Artifact_Dataset),
-					Uri:  &uri1,
+					URI:  &uri1,
 				},
 				Producer: &model.IOProducer{
 					TaskName: "data-task",
@@ -266,7 +266,7 @@ func TestToApiTask_NonMetrics(t *testing.T) {
 					UUID: "artifact-2",
 					Name: "dataset2",
 					Type: model.ArtifactType(apiv2beta1.Artifact_Dataset),
-					Uri:  &uri2,
+					URI:  &uri2,
 				},
 				Producer: &model.IOProducer{
 					TaskName: "data-task",
@@ -275,7 +275,7 @@ func TestToApiTask_NonMetrics(t *testing.T) {
 		},
 	}
 
-	apiTask, err := toApiTask(modelTask, nil)
+	apiTask, err := toAPITask(modelTask, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, apiTask)
 

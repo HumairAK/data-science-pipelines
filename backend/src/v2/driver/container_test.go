@@ -31,27 +31,27 @@ func TestConvertArtifactsToArtifactList_MultipleMetrics(t *testing.T) {
 
 	artifacts := []*apiV2beta1.Artifact{
 		{
-			ArtifactId: "artifact-1",
-			Name:       "accuracy",
-			Type:       apiV2beta1.Artifact_Metric,
+			ArtifactId:  "artifact-1",
+			Name:        "accuracy",
+			Type:        apiV2beta1.Artifact_Metric,
 			NumberValue: &accuracy,
 			Metadata: map[string]*structpb.Value{
 				"accuracy": structpb.NewNumberValue(accuracy),
 			},
 		},
 		{
-			ArtifactId: "artifact-2",
-			Name:       "precision",
-			Type:       apiV2beta1.Artifact_Metric,
+			ArtifactId:  "artifact-2",
+			Name:        "precision",
+			Type:        apiV2beta1.Artifact_Metric,
 			NumberValue: &precision,
 			Metadata: map[string]*structpb.Value{
 				"precision": structpb.NewNumberValue(precision),
 			},
 		},
 		{
-			ArtifactId: "artifact-3",
-			Name:       "recall",
-			Type:       apiV2beta1.Artifact_Metric,
+			ArtifactId:  "artifact-3",
+			Name:        "recall",
+			Type:        apiV2beta1.Artifact_Metric,
 			NumberValue: &recall,
 			Metadata: map[string]*structpb.Value{
 				"recall": structpb.NewNumberValue(recall),
@@ -91,9 +91,9 @@ func TestConvertArtifactsToArtifactList_SingleMetric(t *testing.T) {
 
 	artifacts := []*apiV2beta1.Artifact{
 		{
-			ArtifactId: "artifact-1",
-			Name:       "accuracy",
-			Type:       apiV2beta1.Artifact_Metric,
+			ArtifactId:  "artifact-1",
+			Name:        "accuracy",
+			Type:        apiV2beta1.Artifact_Metric,
 			NumberValue: &accuracy,
 			Metadata: map[string]*structpb.Value{
 				"accuracy": structpb.NewNumberValue(accuracy),
@@ -160,9 +160,9 @@ func TestConvertArtifactsToArtifactList_MixedTypes(t *testing.T) {
 
 	artifacts := []*apiV2beta1.Artifact{
 		{
-			ArtifactId: "artifact-1",
-			Name:       "accuracy",
-			Type:       apiV2beta1.Artifact_Metric,
+			ArtifactId:  "artifact-1",
+			Name:        "accuracy",
+			Type:        apiV2beta1.Artifact_Metric,
 			NumberValue: &accuracy,
 		},
 		{
@@ -201,19 +201,19 @@ func TestConvertArtifactsToArtifactList_MetricsWithURIAndMetadata(t *testing.T) 
 
 	artifacts := []*apiV2beta1.Artifact{
 		{
-			ArtifactId: "artifact-1",
-			Name:       "accuracy",
-			Type:       apiV2beta1.Artifact_Metric,
-			Uri:        &uri,
+			ArtifactId:  "artifact-1",
+			Name:        "accuracy",
+			Type:        apiV2beta1.Artifact_Metric,
+			Uri:         &uri,
 			NumberValue: &accuracy,
 			Metadata: map[string]*structpb.Value{
 				"accuracy": structpb.NewNumberValue(accuracy),
 			},
 		},
 		{
-			ArtifactId: "artifact-2",
-			Name:       "precision",
-			Type:       apiV2beta1.Artifact_Metric,
+			ArtifactId:  "artifact-2",
+			Name:        "precision",
+			Type:        apiV2beta1.Artifact_Metric,
 			NumberValue: &precision,
 			Metadata: map[string]*structpb.Value{
 				"precision": structpb.NewNumberValue(precision),
@@ -246,16 +246,16 @@ func TestConvertArtifactsToArtifactList_MetricsNumberValueInMetadata(t *testing.
 	// Test with multiple metrics where one has no metadata field
 	artifacts := []*apiV2beta1.Artifact{
 		{
-			ArtifactId: "artifact-1",
-			Name:       "accuracy",
-			Type:       apiV2beta1.Artifact_Metric,
+			ArtifactId:  "artifact-1",
+			Name:        "accuracy",
+			Type:        apiV2beta1.Artifact_Metric,
 			NumberValue: &accuracy,
 			// No metadata field - NumberValue should still be included in merged metadata
 		},
 		{
-			ArtifactId: "artifact-2",
-			Name:       "precision",
-			Type:       apiV2beta1.Artifact_Metric,
+			ArtifactId:  "artifact-2",
+			Name:        "precision",
+			Type:        apiV2beta1.Artifact_Metric,
 			NumberValue: &precision,
 			Metadata: map[string]*structpb.Value{
 				"precision": structpb.NewNumberValue(precision),

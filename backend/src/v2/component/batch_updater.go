@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package component provides component launcher functionality for KFP v2.
 package component
 
 import (

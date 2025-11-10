@@ -37,31 +37,35 @@ class TestPipelineTaskDetailInputOutputs(unittest.TestCase):
         if include_optional :
             return PipelineTaskDetailInputOutputs(
                 parameters = [
-                    kfp_server_api.models.input_outputs_parameter.InputOutputsParameter(
-                        value = '0', 
-                        name = '0', 
-                        producer = kfp_server_api.models.input_outputs_io_producer.InputOutputsIOProducer(
+                    kfp_server_api.models.input_outputs_io_parameter.InputOutputsIOParameter(
+                        value = kfp_server_api.models.value.value(), 
+                        type = 'UNSPECIFIED', 
+                        parameter_key = '0', 
+                        producer = kfp_server_api.models.v2beta1_io_producer.v2beta1IOProducer(
                             task_name = '0', 
-                            key = '0', ), )
+                            iteration = '0', ), )
                     ], 
                 artifacts = [
-                    kfp_server_api.models.input_outputs_io_artifact.InputOutputsIOArtifact(
-                        parameter_name = '0', 
-                        value = kfp_server_api.models.note_to_be_confused_with_runtime_artifact_in_pipelinespec.Note to be confused with RuntimeArtifact in pipelinespec(
-                            artifact_id = '0', 
-                            name = '0', 
-                            description = '0', 
-                            type = 'TYPE_UNSPECIFIED', 
-                            uri = '0', 
-                            metadata = {
-                                'key' : None
-                                }, 
-                            number_value = 1.337, 
-                            created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                            namespace = '0', ), 
-                        producer = kfp_server_api.models.input_outputs_io_producer.InputOutputsIOProducer(
+                    kfp_server_api.models.align_structure_with_executor_input.Align structure with Executor Input(
+                        artifacts = [
+                            kfp_server_api.models.note_to_be_confused_with_runtime_artifact_in_pipelinespec.Note to be confused with RuntimeArtifact in pipelinespec(
+                                artifact_id = '0', 
+                                name = '0', 
+                                description = '0', 
+                                type = 'TYPE_UNSPECIFIED', 
+                                uri = '0', 
+                                metadata = {
+                                    'key' : None
+                                    }, 
+                                number_value = 1.337, 
+                                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                                namespace = '0', )
+                            ], 
+                        type = 'UNSPECIFIED', 
+                        artifact_key = '0', 
+                        producer = kfp_server_api.models.v2beta1_io_producer.v2beta1IOProducer(
                             task_name = '0', 
-                            key = '0', ), )
+                            iteration = '0', ), )
                     ]
             )
         else :

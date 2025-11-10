@@ -1919,7 +1919,7 @@ func TestToApiRunMetric(t *testing.T) {
 		Format:      "RAW",
 	}
 
-	actualAPIRunMetric := toApiRunMetricV1(modelRunMetric)
+	actualAPIRunMetric := toAPIRunMetricV1(modelRunMetric)
 
 	expectedAPIRunMetric := &apiv1beta1.RunMetric{
 		Name:   "metric-1",
@@ -1941,7 +1941,7 @@ func TestToApiRunMetric_UnknownFormat(t *testing.T) {
 		Format:      "NotExistValue",
 	}
 
-	actualAPIRunMetric := toApiRunMetricV1(modelRunMetric)
+	actualAPIRunMetric := toAPIRunMetricV1(modelRunMetric)
 
 	expectedAPIRunMetric := &apiv1beta1.RunMetric{
 		Name:   "metric-1",

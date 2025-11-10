@@ -69,16 +69,17 @@ func getPodResource(
 ) (*k8sres.Quantity, error) {
 	var resolved string
 
-	if new != "" {
+	switch {
+	case new != "":
 		var err error
 
 		resolved, err = resolver.ResolveParameterOrPipelineChannel(new, executorInput)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve executor input when retrieving pod resource: %w", err)
 		}
-	} else if old != 0 {
+	case old != 0:
 		resolved = fmt.Sprintf(oldFmtStr, old)
-	} else {
+	default:
 		return nil, nil
 	}
 

@@ -37,10 +37,9 @@ class V2beta1ArtifactTask(object):
         'artifact_id': 'str',
         'run_id': 'str',
         'task_id': 'str',
-        'type': 'V2beta1ArtifactTaskType',
-        'producer_task_name': 'str',
-        'producer_key': 'str',
-        'artifact_key': 'str'
+        'type': 'V2beta1IOType',
+        'producer': 'V2beta1IOProducer',
+        'key': 'str'
     }
 
     attribute_map = {
@@ -49,12 +48,11 @@ class V2beta1ArtifactTask(object):
         'run_id': 'run_id',
         'task_id': 'task_id',
         'type': 'type',
-        'producer_task_name': 'producer_task_name',
-        'producer_key': 'producer_key',
-        'artifact_key': 'artifact_key'
+        'producer': 'producer',
+        'key': 'key'
     }
 
-    def __init__(self, id=None, artifact_id=None, run_id=None, task_id=None, type=None, producer_task_name=None, producer_key=None, artifact_key=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, artifact_id=None, run_id=None, task_id=None, type=None, producer=None, key=None, local_vars_configuration=None):  # noqa: E501
         """V2beta1ArtifactTask - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -65,9 +63,8 @@ class V2beta1ArtifactTask(object):
         self._run_id = None
         self._task_id = None
         self._type = None
-        self._producer_task_name = None
-        self._producer_key = None
-        self._artifact_key = None
+        self._producer = None
+        self._key = None
         self.discriminator = None
 
         if id is not None:
@@ -80,12 +77,10 @@ class V2beta1ArtifactTask(object):
             self.task_id = task_id
         if type is not None:
             self.type = type
-        if producer_task_name is not None:
-            self.producer_task_name = producer_task_name
-        if producer_key is not None:
-            self.producer_key = producer_key
-        if artifact_key is not None:
-            self.artifact_key = artifact_key
+        if producer is not None:
+            self.producer = producer
+        if key is not None:
+            self.key = key
 
     @property
     def id(self):
@@ -179,7 +174,7 @@ class V2beta1ArtifactTask(object):
 
 
         :return: The type of this V2beta1ArtifactTask.  # noqa: E501
-        :rtype: V2beta1ArtifactTaskType
+        :rtype: V2beta1IOType
         """
         return self._type
 
@@ -189,79 +184,52 @@ class V2beta1ArtifactTask(object):
 
 
         :param type: The type of this V2beta1ArtifactTask.  # noqa: E501
-        :type type: V2beta1ArtifactTaskType
+        :type type: V2beta1IOType
         """
 
         self._type = type
 
     @property
-    def producer_task_name(self):
-        """Gets the producer_task_name of this V2beta1ArtifactTask.  # noqa: E501
+    def producer(self):
+        """Gets the producer of this V2beta1ArtifactTask.  # noqa: E501
 
-        The task that produced this artifact For example in the case of a pipeline channel that is an output artifact you might have as input something like the following in the IR:   taskOutputArtifact:     outputArtifactKey: output_dataset     producerTask: create-dataset These fields are used to track this lineage.  For outputs, the producer task is the component name of the task that produced the artifact.  # noqa: E501
 
-        :return: The producer_task_name of this V2beta1ArtifactTask.  # noqa: E501
-        :rtype: str
+        :return: The producer of this V2beta1ArtifactTask.  # noqa: E501
+        :rtype: V2beta1IOProducer
         """
-        return self._producer_task_name
+        return self._producer
 
-    @producer_task_name.setter
-    def producer_task_name(self, producer_task_name):
-        """Sets the producer_task_name of this V2beta1ArtifactTask.
+    @producer.setter
+    def producer(self, producer):
+        """Sets the producer of this V2beta1ArtifactTask.
 
-        The task that produced this artifact For example in the case of a pipeline channel that is an output artifact you might have as input something like the following in the IR:   taskOutputArtifact:     outputArtifactKey: output_dataset     producerTask: create-dataset These fields are used to track this lineage.  For outputs, the producer task is the component name of the task that produced the artifact.  # noqa: E501
 
-        :param producer_task_name: The producer_task_name of this V2beta1ArtifactTask.  # noqa: E501
-        :type producer_task_name: str
+        :param producer: The producer of this V2beta1ArtifactTask.  # noqa: E501
+        :type producer: V2beta1IOProducer
         """
 
-        self._producer_task_name = producer_task_name
+        self._producer = producer
 
     @property
-    def producer_key(self):
-        """Gets the producer_key of this V2beta1ArtifactTask.  # noqa: E501
+    def key(self):
+        """Gets the key of this V2beta1ArtifactTask.  # noqa: E501
 
-        For outputs, the key is the name of the parameter in the component spec (found in OutputDefinitions) used to output the artifact.  # noqa: E501
 
-        :return: The producer_key of this V2beta1ArtifactTask.  # noqa: E501
+        :return: The key of this V2beta1ArtifactTask.  # noqa: E501
         :rtype: str
         """
-        return self._producer_key
+        return self._key
 
-    @producer_key.setter
-    def producer_key(self, producer_key):
-        """Sets the producer_key of this V2beta1ArtifactTask.
+    @key.setter
+    def key(self, key):
+        """Sets the key of this V2beta1ArtifactTask.
 
-        For outputs, the key is the name of the parameter in the component spec (found in OutputDefinitions) used to output the artifact.  # noqa: E501
 
-        :param producer_key: The producer_key of this V2beta1ArtifactTask.  # noqa: E501
-        :type producer_key: str
+        :param key: The key of this V2beta1ArtifactTask.  # noqa: E501
+        :type key: str
         """
 
-        self._producer_key = producer_key
-
-    @property
-    def artifact_key(self):
-        """Gets the artifact_key of this V2beta1ArtifactTask.  # noqa: E501
-
-        The parameter name for the input/output artifact This maybe the same as the Artifact name if the artifact name is not specified. It is used to resolve artifact pipeline channels.  # noqa: E501
-
-        :return: The artifact_key of this V2beta1ArtifactTask.  # noqa: E501
-        :rtype: str
-        """
-        return self._artifact_key
-
-    @artifact_key.setter
-    def artifact_key(self, artifact_key):
-        """Sets the artifact_key of this V2beta1ArtifactTask.
-
-        The parameter name for the input/output artifact This maybe the same as the Artifact name if the artifact name is not specified. It is used to resolve artifact pipeline channels.  # noqa: E501
-
-        :param artifact_key: The artifact_key of this V2beta1ArtifactTask.  # noqa: E501
-        :type artifact_key: str
-        """
-
-        self._artifact_key = artifact_key
+        self._key = key
 
     def to_dict(self):
         """Returns the model properties as a dict"""

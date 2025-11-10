@@ -34,17 +34,15 @@ class PipelineTaskDetailChildTask(object):
     """
     openapi_types = {
         'task_id': 'str',
-        'name': 'str',
-        'pods': 'list[PipelineTaskDetailTaskPod]'
+        'name': 'str'
     }
 
     attribute_map = {
         'task_id': 'task_id',
-        'name': 'name',
-        'pods': 'pods'
+        'name': 'name'
     }
 
-    def __init__(self, task_id=None, name=None, pods=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, task_id=None, name=None, local_vars_configuration=None):  # noqa: E501
         """PipelineTaskDetailChildTask - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -52,15 +50,12 @@ class PipelineTaskDetailChildTask(object):
 
         self._task_id = None
         self._name = None
-        self._pods = None
         self.discriminator = None
 
         if task_id is not None:
             self.task_id = task_id
         if name is not None:
             self.name = name
-        if pods is not None:
-            self.pods = pods
 
     @property
     def task_id(self):
@@ -105,29 +100,6 @@ class PipelineTaskDetailChildTask(object):
         """
 
         self._name = name
-
-    @property
-    def pods(self):
-        """Gets the pods of this PipelineTaskDetailChildTask.  # noqa: E501
-
-        Name of the corresponding pod assigned by the orchestration engine. Also known as node_id.  # noqa: E501
-
-        :return: The pods of this PipelineTaskDetailChildTask.  # noqa: E501
-        :rtype: list[PipelineTaskDetailTaskPod]
-        """
-        return self._pods
-
-    @pods.setter
-    def pods(self, pods):
-        """Sets the pods of this PipelineTaskDetailChildTask.
-
-        Name of the corresponding pod assigned by the orchestration engine. Also known as node_id.  # noqa: E501
-
-        :param pods: The pods of this PipelineTaskDetailChildTask.  # noqa: E501
-        :type pods: list[PipelineTaskDetailTaskPod]
-        """
-
-        self._pods = pods
 
     def to_dict(self):
         """Returns the model properties as a dict"""

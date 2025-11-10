@@ -380,10 +380,10 @@ func TestListRuns_TotalSizeWithNoFilter(t *testing.T) {
 	opts, _ := list.NewOptions(&model.Run{}, 4, "", nil)
 
 	// No filter
-	runs, total_size, _, err := runStore.ListRuns(&model.FilterContext{}, opts, false)
+	runs, totalSize, _, err := runStore.ListRuns(&model.FilterContext{}, opts, false)
 	assert.Nil(t, err)
 	assert.Equal(t, 3, len(runs))
-	assert.Equal(t, 3, total_size)
+	assert.Equal(t, 3, totalSize)
 }
 
 func TestListRuns_TotalSizeWithFilter(t *testing.T) {
@@ -406,10 +406,10 @@ func TestListRuns_TotalSizeWithFilter(t *testing.T) {
 	}
 	newFilter, _ := filter.New(filterProto)
 	opts, _ := list.NewOptions(&model.Run{}, 4, "", newFilter)
-	runs, total_size, _, err := runStore.ListRuns(&model.FilterContext{}, opts, false)
+	runs, totalSize, _, err := runStore.ListRuns(&model.FilterContext{}, opts, false)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(runs))
-	assert.Equal(t, 2, total_size)
+	assert.Equal(t, 2, totalSize)
 }
 
 func TestListRuns_Pagination_Descend(t *testing.T) {
@@ -1188,10 +1188,10 @@ func TestListRuns_WithMetrics(t *testing.T) {
 
 	opts, err := list.NewOptions(&model.Run{}, 2, "id", nil)
 	assert.Nil(t, err)
-	runs, total_size, _, err := runStore.ListRuns(&model.FilterContext{}, opts, false)
+	runs, totalSize, _, err := runStore.ListRuns(&model.FilterContext{}, opts, false)
 	runs[0] = runs[0].ToV1()
 	runs[1] = runs[1].ToV1()
-	assert.Equal(t, 3, total_size)
+	assert.Equal(t, 3, totalSize)
 	assert.Nil(t, err)
 	for _, run := range expectedRuns {
 		sort.Sort(RunMetricSorter(run.Metrics))

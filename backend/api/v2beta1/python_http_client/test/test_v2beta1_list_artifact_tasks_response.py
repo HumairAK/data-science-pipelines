@@ -42,10 +42,11 @@ class TestV2beta1ListArtifactTasksResponse(unittest.TestCase):
                         artifact_id = '0', 
                         run_id = '0', 
                         task_id = '0', 
-                        type = 'INPUT', 
-                        producer_task_name = '0', 
-                        producer_key = '0', 
-                        artifact_key = '0', )
+                        type = 'UNSPECIFIED', 
+                        producer = kfp_server_api.models.v2beta1_io_producer.v2beta1IOProducer(
+                            task_name = '0', 
+                            iteration = '0', ), 
+                        key = '0', )
                     ], 
                 total_size = 56, 
                 next_page_token = '0'

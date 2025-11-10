@@ -230,13 +230,14 @@ func (l *ImportLauncher) ImportSpecToArtifact() (artifact *apiV2beta1.Artifact, 
 	// TODO(Humair): The logic here is very similar to how InputParameters are resolved in the driver's resolver package.
 	// We should consolidate this logic.
 	var artifactUri string
-	if importerSpec.GetArtifactUri().GetConstant() != nil {
+	switch {
+	case importerSpec.GetArtifactUri().GetConstant() != nil:
 		glog.Infof("Artifact URI as constant: %+v", importerSpec.GetArtifactUri().GetConstant())
 		artifactUri = importerSpec.GetArtifactUri().GetConstant().GetStringValue()
 		if artifactUri == "" {
 			return nil, fmt.Errorf("empty Artifact URI constant value")
 		}
-	} else if importerSpec.GetArtifactUri().GetRuntimeParameter() != "" {
+	case importerSpec.GetArtifactUri().GetRuntimeParameter() != "":
 		paramName := importerSpec.GetArtifactUri().GetRuntimeParameter()
 		taskInput, ok := l.opts.TaskSpec.GetInputs().GetParameters()[paramName]
 		if !ok {
@@ -257,7 +258,7 @@ func (l *ImportLauncher) ImportSpecToArtifact() (artifact *apiV2beta1.Artifact, 
 		if artifactUri == "" {
 			return nil, fmt.Errorf("empty artifact URI runtime value for parameter %s", paramName)
 		}
-	} else {
+	default:
 		return nil, fmt.Errorf("artifact uri not provided")
 	}
 

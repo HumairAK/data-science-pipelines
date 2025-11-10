@@ -31,7 +31,6 @@ import (
 	"github.com/golang/glog"
 	"gocloud.dev/blob"
 	"gocloud.dev/blob/gcsblob"
-	_ "gocloud.dev/blob/gcsblob"
 	"gocloud.dev/blob/s3blob"
 	"gocloud.dev/gcp"
 	"golang.org/x/oauth2/google"
@@ -56,7 +55,7 @@ func OpenBucket(
 		case "minio", "s3":
 			s3Client, err1 := createS3BucketSession(ctx, namespace, sessionInfo, k8sClient)
 			if err1 != nil {
-				return nil, fmt.Errorf("Failed to retrieve credentials for bucket %s: %w", config.BucketName, err1)
+				return nil, fmt.Errorf("failed to retrieve credentials for bucket %s: %w", config.BucketName, err1)
 			}
 			if s3Client != nil {
 				// Use s3blob.OpenBucketV2 with the configured S3 client to leverage retry logic
@@ -158,7 +157,7 @@ func DownloadBlob(ctx context.Context, bucket *blob.Bucket, localDir, blobDir st
 			downloadedBlob = true
 		}
 	}
-	if downloadedBlob == false {
+	if !downloadedBlob {
 		return fmt.Errorf("no blob found in remote storage %q", blobDir)
 	}
 	return nil
@@ -239,11 +238,11 @@ func getGCSTokenClient(ctx context.Context, namespace string, sessionInfo *Sessi
 	if err != nil {
 		return nil, err
 	}
-	tokenJson, ok := secret.Data[params.TokenKey]
-	if !ok || len(tokenJson) == 0 {
+	tokenJSON, ok := secret.Data[params.TokenKey]
+	if !ok || len(tokenJSON) == 0 {
 		return nil, fmt.Errorf("key '%s' not found or is empty", params.TokenKey)
 	}
-	creds, err := google.CredentialsFromJSON(ctx, tokenJson, "https://www.googleapis.com/auth/devstorage.read_write")
+	creds, err := google.CredentialsFromJSON(ctx, tokenJSON, "https://www.googleapis.com/auth/devstorage.read_write")
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +307,7 @@ func createS3BucketSession(ctx context.Context, namespace string, sessionInfo *S
 	}
 	s3Client := s3.NewFromConfig(s3Config, s3Options)
 	if s3Client == nil {
-		return nil, fmt.Errorf("Failed to create object store session, %v", err)
+		return nil, fmt.Errorf("failed to create object store session, %v", err)
 	}
 	return s3Client, nil
 }
@@ -324,7 +323,7 @@ func getS3BucketCredential(
 	defer func() {
 		if err != nil {
 			// wrap error before returning
-			err = fmt.Errorf("Failed to get Bucket credentials from secret name=%q namespace=%q: %w", secretName, namespace, err)
+			err = fmt.Errorf("failed to get bucket credentials from secret name=%q namespace=%q: %w", secretName, namespace, err)
 		}
 	}()
 	secret, err := clientSet.CoreV1().Secrets(namespace).Get(

@@ -28,6 +28,13 @@ class TestRunServiceApi(unittest.TestCase):
     def tearDown(self):
         pass
 
+    def test_batch_update_tasks(self):
+        """Test case for batch_update_tasks
+
+        Updates multiple tasks in bulk.  # noqa: E501
+        """
+        pass
+
     def test_create_task(self):
         """Test case for create_task
 

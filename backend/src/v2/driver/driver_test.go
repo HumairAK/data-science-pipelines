@@ -710,6 +710,7 @@ func Test_initPodSpecPatch_inputTaskFinalStatus(t *testing.T) {
 			},
 		},
 	}
+	require.NoError(t, err)
 
 	podSpec, err := initPodSpecPatch(containerSpec, componentSpec, executorInput, "27", "", "test", "0254beba-0be4-4065-8d97-7dc5e3adf300", "my-run-name", "1", "false", "false", nil, "", nil, "", false, "")
 	require.Nil(t, err)

@@ -383,7 +383,7 @@ func buildScopePath(
 	parentTask *go_client.PipelineTaskDetail,
 	taskName string,
 	kfpAPI kfpapi.API) (*util.ScopePath, error) {
-	pipelineSpecStruct, err := kfpAPI.FetchPipelineSpecFromRun(ctx, run.GetPipelineSpec(), run)
+	pipelineSpecStruct, err := kfpAPI.FetchPipelineSpecFromRun(ctx, run)
 	if err != nil {
 		return nil, err
 	}

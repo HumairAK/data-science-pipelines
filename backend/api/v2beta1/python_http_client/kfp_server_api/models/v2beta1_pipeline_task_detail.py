@@ -42,16 +42,17 @@ class V2beta1PipelineTaskDetail(object):
         'create_time': 'datetime',
         'start_time': 'datetime',
         'end_time': 'datetime',
-        'status': 'V2beta1RuntimeState',
-        'status_metadata': 'dict(str, object)',
-        'state_history': 'list[V2beta1RuntimeStatus]',
+        'state': 'PipelineTaskDetailTaskState',
+        'status_metadata': 'PipelineTaskDetailStatusMetadata',
+        'state_history': 'list[PipelineTaskDetailTaskStatus]',
         'type': 'PipelineTaskDetailTaskType',
         'type_attributes': 'PipelineTaskDetailTypeAttributes',
         'error': 'GooglerpcStatus',
         'parent_task_id': 'str',
         'child_tasks': 'list[PipelineTaskDetailChildTask]',
         'inputs': 'PipelineTaskDetailInputOutputs',
-        'outputs': 'PipelineTaskDetailInputOutputs'
+        'outputs': 'PipelineTaskDetailInputOutputs',
+        'scope_path': 'list[str]'
     }
 
     attribute_map = {
@@ -64,7 +65,7 @@ class V2beta1PipelineTaskDetail(object):
         'create_time': 'create_time',
         'start_time': 'start_time',
         'end_time': 'end_time',
-        'status': 'status',
+        'state': 'state',
         'status_metadata': 'status_metadata',
         'state_history': 'state_history',
         'type': 'type',
@@ -73,10 +74,11 @@ class V2beta1PipelineTaskDetail(object):
         'parent_task_id': 'parent_task_id',
         'child_tasks': 'child_tasks',
         'inputs': 'inputs',
-        'outputs': 'outputs'
+        'outputs': 'outputs',
+        'scope_path': 'scope_path'
     }
 
-    def __init__(self, name=None, display_name=None, task_id=None, run_id=None, pods=None, cache_fingerprint=None, create_time=None, start_time=None, end_time=None, status=None, status_metadata=None, state_history=None, type=None, type_attributes=None, error=None, parent_task_id=None, child_tasks=None, inputs=None, outputs=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, display_name=None, task_id=None, run_id=None, pods=None, cache_fingerprint=None, create_time=None, start_time=None, end_time=None, state=None, status_metadata=None, state_history=None, type=None, type_attributes=None, error=None, parent_task_id=None, child_tasks=None, inputs=None, outputs=None, scope_path=None, local_vars_configuration=None):  # noqa: E501
         """V2beta1PipelineTaskDetail - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -91,7 +93,7 @@ class V2beta1PipelineTaskDetail(object):
         self._create_time = None
         self._start_time = None
         self._end_time = None
-        self._status = None
+        self._state = None
         self._status_metadata = None
         self._state_history = None
         self._type = None
@@ -101,6 +103,7 @@ class V2beta1PipelineTaskDetail(object):
         self._child_tasks = None
         self._inputs = None
         self._outputs = None
+        self._scope_path = None
         self.discriminator = None
 
         if name is not None:
@@ -121,8 +124,8 @@ class V2beta1PipelineTaskDetail(object):
             self.start_time = start_time
         if end_time is not None:
             self.end_time = end_time
-        if status is not None:
-            self.status = status
+        if state is not None:
+            self.state = state
         if status_metadata is not None:
             self.status_metadata = status_metadata
         if state_history is not None:
@@ -141,6 +144,8 @@ class V2beta1PipelineTaskDetail(object):
             self.inputs = inputs
         if outputs is not None:
             self.outputs = outputs
+        if scope_path is not None:
+            self.scope_path = scope_path
 
     @property
     def name(self):
@@ -344,25 +349,25 @@ class V2beta1PipelineTaskDetail(object):
         self._end_time = end_time
 
     @property
-    def status(self):
-        """Gets the status of this V2beta1PipelineTaskDetail.  # noqa: E501
+    def state(self):
+        """Gets the state of this V2beta1PipelineTaskDetail.  # noqa: E501
 
 
-        :return: The status of this V2beta1PipelineTaskDetail.  # noqa: E501
-        :rtype: V2beta1RuntimeState
+        :return: The state of this V2beta1PipelineTaskDetail.  # noqa: E501
+        :rtype: PipelineTaskDetailTaskState
         """
-        return self._status
+        return self._state
 
-    @status.setter
-    def status(self, status):
-        """Sets the status of this V2beta1PipelineTaskDetail.
+    @state.setter
+    def state(self, state):
+        """Sets the state of this V2beta1PipelineTaskDetail.
 
 
-        :param status: The status of this V2beta1PipelineTaskDetail.  # noqa: E501
-        :type status: V2beta1RuntimeState
+        :param state: The state of this V2beta1PipelineTaskDetail.  # noqa: E501
+        :type state: PipelineTaskDetailTaskState
         """
 
-        self._status = status
+        self._state = state
 
     @property
     def status_metadata(self):
@@ -370,7 +375,7 @@ class V2beta1PipelineTaskDetail(object):
 
 
         :return: The status_metadata of this V2beta1PipelineTaskDetail.  # noqa: E501
-        :rtype: dict(str, object)
+        :rtype: PipelineTaskDetailStatusMetadata
         """
         return self._status_metadata
 
@@ -380,7 +385,7 @@ class V2beta1PipelineTaskDetail(object):
 
 
         :param status_metadata: The status_metadata of this V2beta1PipelineTaskDetail.  # noqa: E501
-        :type status_metadata: dict(str, object)
+        :type status_metadata: PipelineTaskDetailStatusMetadata
         """
 
         self._status_metadata = status_metadata
@@ -392,7 +397,7 @@ class V2beta1PipelineTaskDetail(object):
         A sequence of task statuses. This field keeps a record of state transitions.  # noqa: E501
 
         :return: The state_history of this V2beta1PipelineTaskDetail.  # noqa: E501
-        :rtype: list[V2beta1RuntimeStatus]
+        :rtype: list[PipelineTaskDetailTaskStatus]
         """
         return self._state_history
 
@@ -403,7 +408,7 @@ class V2beta1PipelineTaskDetail(object):
         A sequence of task statuses. This field keeps a record of state transitions.  # noqa: E501
 
         :param state_history: The state_history of this V2beta1PipelineTaskDetail.  # noqa: E501
-        :type state_history: list[V2beta1RuntimeStatus]
+        :type state_history: list[PipelineTaskDetailTaskStatus]
         """
 
         self._state_history = state_history
@@ -558,6 +563,29 @@ class V2beta1PipelineTaskDetail(object):
         """
 
         self._outputs = outputs
+
+    @property
+    def scope_path(self):
+        """Gets the scope_path of this V2beta1PipelineTaskDetail.  # noqa: E501
+
+        The scope of this task within the pipeline spec. Each entry represents either a Dag Task or a Container task. Note that Container task will are always the last entry in a scope_path.  # noqa: E501
+
+        :return: The scope_path of this V2beta1PipelineTaskDetail.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._scope_path
+
+    @scope_path.setter
+    def scope_path(self, scope_path):
+        """Sets the scope_path of this V2beta1PipelineTaskDetail.
+
+        The scope of this task within the pipeline spec. Each entry represents either a Dag Task or a Container task. Note that Container task will are always the last entry in a scope_path.  # noqa: E501
+
+        :param scope_path: The scope_path of this V2beta1PipelineTaskDetail.  # noqa: E501
+        :type scope_path: list[str]
+        """
+
+        self._scope_path = scope_path
 
     def to_dict(self):
         """Returns the model properties as a dict"""

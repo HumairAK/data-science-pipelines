@@ -185,7 +185,7 @@ func TestLoopArtifactPassing(t *testing.T) {
 
 	artifactListLauncher := tc.RunLauncher(analyzeArtifactListExecution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
 	require.NotNil(t, artifactListLauncher.Task)
-	analyzeArtifactListTask, err = tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: analyzeArtifactListTask.TaskId})
+	_, err = tc.ClientManager.KFPAPIClient().GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: analyzeArtifactListTask.TaskId})
 	require.NoError(t, err)
 	// Primary Pipeline tests
 
@@ -262,7 +262,7 @@ func TestParameterInputIterator(t *testing.T) {
 	require.NotNil(t, loopExecution.IterationCount)
 	require.Equal(t, 3, *loopExecution.IterationCount)
 
-	for index, _ := range []string{"1", "2", "3"} {
+	for index := range []string{"1", "2", "3"} {
 		index64 := util.Int64Pointer(int64(index))
 		createFileExecution, _ := tc.RunContainerDriver("create-file", parentTask, index64, false)
 		_ = tc.RunLauncher(createFileExecution, map[string][]byte{
@@ -337,7 +337,7 @@ func TestParameterInputIterator(t *testing.T) {
 		require.Equal(t, "for-loop-1", params.Producer.TaskName,
 			"Secondary pipeline parameter %d producer should be 'for-loop-1' (immediate child from secondary-pipeline's perspective)", i)
 		require.Nil(t, params.Producer.Iteration,
-			"Secondary pipeline parameter %d shouldn't propogate read-single-file", i)
+			"Secondary pipeline parameter %d shouldn't propagate read-single-file", i)
 	}
 	require.Equal(t, []string{"file-0", "file-1", "file-2"}, collectOutputs)
 }
@@ -379,8 +379,6 @@ func TestNestedDag(t *testing.T) {
 	cTask := cLauncherExec.Task
 
 	tc.ExitDag()
-	parentTask = pipelineBTask
-
 	tc.ExitDag()
 	parentTask = tc.RootTask
 
@@ -468,7 +466,6 @@ func TestOneOf(t *testing.T) {
 
 	// Run ConditionBranch
 	_, conditionBranch1Task := tc.RunDagDriver("condition-branches-1", parentTask)
-	parentTask = conditionBranch1Task
 
 	// Expect this condition to not be met
 	condition2Execution, _ := tc.RunDagDriver("condition-2", conditionBranch1Task)
@@ -502,9 +499,7 @@ func TestOneOf(t *testing.T) {
 	tc.RunLauncher(analyzeAnimal1Execution, map[string][]byte{"/tmp/kfp_outputs/output_metadata.json": []byte("{}")}, true)
 
 	tc.ExitDag()
-	parentTask = conditionBranch1Task
 	tc.ExitDag()
-	parentTask = secondaryPipelineTask
 	tc.ExitDag()
 	parentTask = tc.RootTask
 

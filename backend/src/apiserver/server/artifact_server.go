@@ -104,7 +104,7 @@ func (s *ArtifactServer) CreateArtifact(ctx context.Context, request *apiv2beta1
 		return nil, util.Wrap(err, "Failed to create artifact-task")
 	}
 
-	return toApiArtifact(artifact)
+	return toAPIArtifact(artifact)
 }
 
 // CreateArtifactsBulk creates multiple artifacts in bulk.
@@ -186,7 +186,7 @@ func (s *ArtifactServer) CreateArtifactsBulk(ctx context.Context, request *apiv2
 			return nil, util.Wrapf(err, "Failed to create artifact-task for artifact %d", i)
 		}
 
-		apiArtifact, err := toApiArtifact(artifact)
+		apiArtifact, err := toAPIArtifact(artifact)
 		if err != nil {
 			return nil, util.Wrapf(err, "Failed to convert artifact %d to API", i)
 		}
@@ -217,7 +217,7 @@ func (s *ArtifactServer) GetArtifact(ctx context.Context, request *apiv2beta1.Ge
 		return nil, util.Wrap(err, "Failed to authorize the request")
 	}
 
-	return toApiArtifact(artifact)
+	return toAPIArtifact(artifact)
 }
 
 // ListArtifacts finds all artifacts within the specified namespace.
@@ -250,7 +250,7 @@ func (s *ArtifactServer) ListArtifacts(ctx context.Context, request *apiv2beta1.
 	}
 
 	return &apiv2beta1.ListArtifactResponse{
-		Artifacts:     toApiArtifacts(artifacts),
+		Artifacts:     toAPIArtifacts(artifacts),
 		TotalSize:     int32(totalSize),
 		NextPageToken: nextPageToken,
 	}, nil
@@ -314,7 +314,7 @@ func (s *ArtifactServer) CreateArtifactTask(ctx context.Context, request *apiv2b
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to create artifact-task")
 	}
-	return toApiArtifactTask(created), nil
+	return toAPIArtifactTask(created), nil
 }
 
 // ListArtifactTasks lists artifact-task relationships.
@@ -354,7 +354,7 @@ func (s *ArtifactServer) ListArtifactTasks(ctx context.Context, request *apiv2be
 	}
 
 	return &apiv2beta1.ListArtifactTasksResponse{
-		ArtifactTasks: toApiArtifactTasks(artifactTasks),
+		ArtifactTasks: toAPIArtifactTasks(artifactTasks),
 		TotalSize:     int32(totalSize),
 		NextPageToken: nextPageToken,
 	}, nil
@@ -417,7 +417,7 @@ func (s *ArtifactServer) CreateArtifactTasksBulk(ctx context.Context, request *a
 	}
 
 	return &apiv2beta1.CreateArtifactTasksBulkResponse{
-		ArtifactTasks: toApiArtifactTasks(createdArtifactTasks),
+		ArtifactTasks: toAPIArtifactTasks(createdArtifactTasks),
 	}, nil
 }
 
@@ -587,20 +587,6 @@ func (s *ArtifactServer) validateCreateArtifactRequest(request *apiv2beta1.Creat
 	}
 	if request.GetProducerKey() == "" {
 		return util.NewInvalidInputError("Producer key is required")
-	}
-	return nil
-}
-
-func (s *ArtifactServer) validateLogMetricRequest(request *apiv2beta1.CreateArtifactRequest) error {
-	if request.GetArtifact().GetType() != apiv2beta1.Artifact_Metric ||
-		request.GetArtifact().GetType() != apiv2beta1.Artifact_ClassificationMetric ||
-		request.GetArtifact().GetType() != apiv2beta1.Artifact_SlicedClassificationMetric {
-		return util.NewInvalidInputError(
-			"Metric artifact must be of type %s, %s, or %s",
-			apiv2beta1.Artifact_Metric,
-			apiv2beta1.Artifact_ClassificationMetric,
-			apiv2beta1.Artifact_SlicedClassificationMetric,
-		)
 	}
 	return nil
 }

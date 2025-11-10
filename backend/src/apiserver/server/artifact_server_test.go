@@ -63,10 +63,10 @@ func TestArtifactServer_CreateArtifact_MultiUserCreateAndGet_Succeeds(t *testing
 
 	// Create task for the run
 	task, err := clientManager.TaskStore().CreateTask(&model.Task{
-		Namespace:    "ns1",
-		RunUUID:      runid1,
-		Name:         "test-task",
-		State:        1,
+		Namespace: "ns1",
+		RunUUID:   runid1,
+		Name:      "test-task",
+		State:     1,
 	})
 	assert.NoError(t, err)
 
@@ -135,10 +135,10 @@ func TestArtifactServer_CreateArtifact_WithIterationIndex(t *testing.T) {
 
 	// Create task for the run
 	task, err := clientManager.TaskStore().CreateTask(&model.Task{
-		Namespace:    "ns1",
-		RunUUID:      runid1,
-		Name:         "iteration-task",
-		State:        1,
+		Namespace: "ns1",
+		RunUUID:   runid1,
+		Name:      "iteration-task",
+		State:     1,
 	})
 	assert.NoError(t, err)
 
@@ -203,10 +203,10 @@ func TestArtifactServer_ListArtifacts_HappyPath(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	listTask, err := clientManager.TaskStore().CreateTask(&model.Task{
-		Namespace:    "ns1",
-		RunUUID:      runid1,
-		Name:         "t-list",
-		State:        1,
+		Namespace: "ns1",
+		RunUUID:   runid1,
+		Name:      "t-list",
+		State:     1,
 	})
 	assert.NoError(t, err)
 	_, err = s.CreateArtifact(ctxWithUser(),
@@ -284,10 +284,10 @@ func TestArtifactServer_SingleUserNamespaceEmpty(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	singleTask, err := clientManager.TaskStore().CreateTask(&model.Task{
-		Namespace:    "ns1",
-		RunUUID:      "single-run",
-		Name:         "t-single",
-		State:        1,
+		Namespace: "ns1",
+		RunUUID:   "single-run",
+		Name:      "t-single",
+		State:     1,
 	})
 	assert.NoError(t, err)
 	created, err := s.CreateArtifact(context.Background(), &apiv2beta1.CreateArtifactRequest{
@@ -360,20 +360,21 @@ func seedArtifactTasks(t *testing.T) (*ArtifactServer, *resource.FakeClientManag
 			State:            model.RuntimeStateRunning,
 		},
 	})
+	require.NoError(t, err)
 
 	// Tasks
 	t1, err := clientManager.TaskStore().CreateTask(&model.Task{
-		Namespace:    "ns1",
-		RunUUID:      serverRunID1,
-		Name:         "t1",
-		State:        1,
+		Namespace: "ns1",
+		RunUUID:   serverRunID1,
+		Name:      "t1",
+		State:     1,
 	})
 	assert.NoError(t, err)
 	t2, err := clientManager.TaskStore().CreateTask(&model.Task{
-		Namespace:    "ns1",
-		RunUUID:      serverRunID2,
-		Name:         "t2",
-		State:        1,
+		Namespace: "ns1",
+		RunUUID:   serverRunID2,
+		Name:      "t2",
+		State:     1,
 	})
 	assert.NoError(t, err)
 
@@ -381,7 +382,7 @@ func seedArtifactTasks(t *testing.T) (*ArtifactServer, *resource.FakeClientManag
 	art1, err := clientManager.ArtifactStore().CreateArtifact(&model.Artifact{
 		Namespace:   "ns1",
 		Type:        model.ArtifactType(apiv2beta1.Artifact_Artifact),
-		Uri:         strPTR("u"),
+		URI:         strPTR("u"),
 		Name:        "a1",
 		Description: "d1",
 	})
@@ -389,7 +390,7 @@ func seedArtifactTasks(t *testing.T) (*ArtifactServer, *resource.FakeClientManag
 	art2, err := clientManager.ArtifactStore().CreateArtifact(&model.Artifact{
 		Namespace:   "ns1",
 		Type:        model.ArtifactType(apiv2beta1.Artifact_Artifact),
-		Uri:         strPTR("u2"),
+		URI:         strPTR("u2"),
 		Name:        "a2",
 		Description: "d2",
 	})
@@ -525,18 +526,18 @@ func TestArtifactServer_CreateArtifactTasksBulk_Success(t *testing.T) {
 
 	// Create tasks
 	t1, err := clientManager.TaskStore().CreateTask(&model.Task{
-		Namespace:    "ns1",
-		RunUUID:      serverRunID1,
-		Name:         "task1",
-		State:        1,
+		Namespace: "ns1",
+		RunUUID:   serverRunID1,
+		Name:      "task1",
+		State:     1,
 	})
 	assert.NoError(t, err)
 
 	t2, err := clientManager.TaskStore().CreateTask(&model.Task{
-		Namespace:    "ns1",
-		RunUUID:      serverRunID1,
-		Name:         "task2",
-		State:        1,
+		Namespace: "ns1",
+		RunUUID:   serverRunID1,
+		Name:      "task2",
+		State:     1,
 	})
 	assert.NoError(t, err)
 
@@ -544,7 +545,7 @@ func TestArtifactServer_CreateArtifactTasksBulk_Success(t *testing.T) {
 	art1, err := clientManager.ArtifactStore().CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      model.ArtifactType(apiv2beta1.Artifact_Artifact),
-		Uri:       strPTR("uri1"),
+		URI:       strPTR("uri1"),
 		Name:      "artifact1",
 	})
 	assert.NoError(t, err)
@@ -552,7 +553,7 @@ func TestArtifactServer_CreateArtifactTasksBulk_Success(t *testing.T) {
 	art2, err := clientManager.ArtifactStore().CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      model.ArtifactType(apiv2beta1.Artifact_Artifact),
-		Uri:       strPTR("uri2"),
+		URI:       strPTR("uri2"),
 		Name:      "artifact2",
 	})
 	assert.NoError(t, err)
@@ -679,26 +680,26 @@ func TestArtifactServer_CreateArtifactsBulk_Success(t *testing.T) {
 
 	// Create three tasks for the run
 	task1, err := clientManager.TaskStore().CreateTask(&model.Task{
-		Namespace:    "ns1",
-		RunUUID:      runid1,
-		Name:         "task1",
-		State:        1,
+		Namespace: "ns1",
+		RunUUID:   runid1,
+		Name:      "task1",
+		State:     1,
 	})
 	assert.NoError(t, err)
 
 	task2, err := clientManager.TaskStore().CreateTask(&model.Task{
-		Namespace:    "ns1",
-		RunUUID:      runid1,
-		Name:         "task2",
-		State:        1,
+		Namespace: "ns1",
+		RunUUID:   runid1,
+		Name:      "task2",
+		State:     1,
 	})
 	assert.NoError(t, err)
 
 	task3, err := clientManager.TaskStore().CreateTask(&model.Task{
-		Namespace:    "ns1",
-		RunUUID:      runid1,
-		Name:         "task3",
-		State:        1,
+		Namespace: "ns1",
+		RunUUID:   runid1,
+		Name:      "task3",
+		State:     1,
 	})
 	assert.NoError(t, err)
 
@@ -825,10 +826,10 @@ func TestArtifactServer_CreateArtifactsBulk_WithIterationIndex(t *testing.T) {
 
 	// Create task for the run
 	task, err := clientManager.TaskStore().CreateTask(&model.Task{
-		Namespace:    "ns1",
-		RunUUID:      runid1,
-		Name:         "iteration-task",
-		State:        1,
+		Namespace: "ns1",
+		RunUUID:   runid1,
+		Name:      "iteration-task",
+		State:     1,
 	})
 	assert.NoError(t, err)
 
@@ -950,10 +951,10 @@ func TestArtifactServer_CreateArtifactsBulk_ValidationErrors(t *testing.T) {
 	assert.NoError(t, err)
 
 	task, err := clientManager.TaskStore().CreateTask(&model.Task{
-		Namespace:    "ns1",
-		RunUUID:      runid1,
-		Name:         "validation-task",
-		State:        1,
+		Namespace: "ns1",
+		RunUUID:   runid1,
+		Name:      "validation-task",
+		State:     1,
 	})
 	assert.NoError(t, err)
 
@@ -995,10 +996,10 @@ func TestArtifactServer_CreateArtifactsBulk_ValidationErrors(t *testing.T) {
 
 	// Test with wrong run ID
 	otherTask, err := clientManager.TaskStore().CreateTask(&model.Task{
-		Namespace:    "ns1",
-		RunUUID:      "other-run-id",
-		Name:         "other-task",
-		State:        1,
+		Namespace: "ns1",
+		RunUUID:   "other-run-id",
+		Name:      "other-task",
+		State:     1,
 	})
 	assert.NoError(t, err)
 

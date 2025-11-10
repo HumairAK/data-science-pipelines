@@ -15,12 +15,12 @@ const (
 	linkUUID1   = "123e4567-e89b-12d3-a456-426655441011"
 	linkUUID2   = "123e4567-e89b-12d3-a456-426655441012"
 	linkUUID3   = "123e4567-e89b-12d3-a456-426655441013"
-	artifactId1 = "123e4567-e89b-12d3-a456-426655441013"
-	artifactId2 = "123e4567-e89b-12d3-a456-426655441014"
-	taskId1     = "123e4567-e89b-12d3-a456-426655441015"
-	taskId2     = "123e4567-e89b-12d3-a456-426655441016"
-	runId1      = "123e4567-e89b-12d3-a456-426655441017"
-	runId2      = "123e4567-e89b-12d3-a456-426655441018"
+	artifactID1 = "123e4567-e89b-12d3-a456-426655441013"
+	artifactID2 = "123e4567-e89b-12d3-a456-426655441014"
+	taskID1     = "123e4567-e89b-12d3-a456-426655441015"
+	taskID2     = "123e4567-e89b-12d3-a456-426655441016"
+	runID1      = "123e4567-e89b-12d3-a456-426655441017"
+	runID2      = "123e4567-e89b-12d3-a456-426655441018"
 )
 
 // initializeArtifactTaskDeps sets up a fake DB and returns stores needed for artifact-task tests.
@@ -28,14 +28,14 @@ func initializeArtifactTaskDeps() (*DB, *ArtifactStore, *TaskStore, *RunStore, *
 	db := NewFakeDBOrFatal()
 	fakeTime := util.NewFakeTimeForEpoch()
 
-	artifactStore := NewArtifactStore(db, fakeTime, util.NewFakeUUIDGeneratorOrFatal(artifactId1, nil))
-	taskStore := NewTaskStore(db, fakeTime, util.NewFakeUUIDGeneratorOrFatal(taskId1, nil))
+	artifactStore := NewArtifactStore(db, fakeTime, util.NewFakeUUIDGeneratorOrFatal(artifactID1, nil))
+	taskStore := NewTaskStore(db, fakeTime, util.NewFakeUUIDGeneratorOrFatal(taskID1, nil))
 	runStore := NewRunStore(db, fakeTime)
 	linkStore := NewArtifactTaskStore(db, util.NewFakeUUIDGeneratorOrFatal(linkUUID1, nil))
 
 	// Seed runs to satisfy Task FK
-	_, _ = runStore.CreateRun(&model.Run{UUID: runId1, ExperimentId: "exp-1", K8SName: "r1", DisplayName: "r1", StorageState: model.StorageStateAvailable, Namespace: "ns1", RunDetails: model.RunDetails{CreatedAtInSec: 1, ScheduledAtInSec: 1, State: model.RuntimeStateRunning}})
-	_, _ = runStore.CreateRun(&model.Run{UUID: runId2, ExperimentId: "exp-2", K8SName: "r2", DisplayName: "r2", StorageState: model.StorageStateAvailable, Namespace: "ns2", RunDetails: model.RunDetails{CreatedAtInSec: 2, ScheduledAtInSec: 2, State: model.RuntimeStateSucceeded}})
+	_, _ = runStore.CreateRun(&model.Run{UUID: runID1, ExperimentId: "exp-1", K8SName: "r1", DisplayName: "r1", StorageState: model.StorageStateAvailable, Namespace: "ns1", RunDetails: model.RunDetails{CreatedAtInSec: 1, ScheduledAtInSec: 1, State: model.RuntimeStateRunning}})
+	_, _ = runStore.CreateRun(&model.Run{UUID: runID2, ExperimentId: "exp-2", K8SName: "r2", DisplayName: "r2", StorageState: model.StorageStateAvailable, Namespace: "ns2", RunDetails: model.RunDetails{CreatedAtInSec: 2, ScheduledAtInSec: 2, State: model.RuntimeStateSucceeded}})
 
 	return db, artifactStore, taskStore, runStore, linkStore
 }
@@ -51,20 +51,20 @@ func TestCreateArtifactTask_Success(t *testing.T) {
 	defer db.Close()
 
 	// Create an artifact and a task to link
-	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactId1, nil)
+	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactID1, nil)
 	art, err := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       strPTR("s3://b/p1"),
+		URI:       strPTR("s3://b/p1"),
 		Name:      "a1",
 		Metadata:  map[string]interface{}{"k": "v"},
 	})
 	assert.NoError(t, err)
 
-	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskId1, nil)
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskID1, nil)
 	task, err := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		RunUUID:          runId1,
+		RunUUID:          runID1,
 		Name:             "t1",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp1",
@@ -82,7 +82,7 @@ func TestCreateArtifactTask_Success(t *testing.T) {
 	link, err := linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID:  art.UUID,
 		TaskID:      task.UUID,
-		RunUUID:     runId1,
+		RunUUID:     runID1,
 		Type:        model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
 		ArtifactKey: "input-key",
 	})
@@ -106,30 +106,30 @@ func TestListArtifactTasks_Filters(t *testing.T) {
 	defer db.Close()
 
 	// Create 2 artifacts
-	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactId1, nil)
+	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactID1, nil)
 	art1, err := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       strPTR("u1"),
+		URI:       strPTR("u1"),
 		Name:      "a1",
 		Metadata:  map[string]interface{}{},
 	})
 	assert.NoError(t, err)
-	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactId2, nil)
+	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactID2, nil)
 	art2, err := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       strPTR("u2"),
+		URI:       strPTR("u2"),
 		Name:      "a2",
 		Metadata:  map[string]interface{}{},
 	})
 	assert.NoError(t, err)
 
 	// Create 2 tasks across 2 runs
-	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskId1, nil)
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskID1, nil)
 	t1, err := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		RunUUID:          runId1,
+		RunUUID:          runID1,
 		Name:             "t1",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-1",
@@ -141,10 +141,10 @@ func TestListArtifactTasks_Filters(t *testing.T) {
 		TypeAttrs:        map[string]interface{}{},
 	})
 	assert.NoError(t, err)
-	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskId2, nil)
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskID2, nil)
 	t2, err := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns2",
-		RunUUID:          runId2,
+		RunUUID:          runID2,
 		Name:             "t2",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p2", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-2",
@@ -162,7 +162,7 @@ func TestListArtifactTasks_Filters(t *testing.T) {
 	_, err = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID:  art1.UUID,
 		TaskID:      t1.UUID,
-		RunUUID:     runId1,
+		RunUUID:     runID1,
 		Type:        model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
 		ArtifactKey: "input1",
 	})
@@ -171,7 +171,7 @@ func TestListArtifactTasks_Filters(t *testing.T) {
 	_, err = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID:  art2.UUID,
 		TaskID:      t1.UUID,
-		RunUUID:     runId1,
+		RunUUID:     runID1,
 		Type:        model.IOType(apiv2beta1.IOType_OUTPUT),
 		ArtifactKey: "output1",
 	})
@@ -181,7 +181,7 @@ func TestListArtifactTasks_Filters(t *testing.T) {
 	_, err = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID:  art2.UUID,
 		TaskID:      t2.UUID,
-		RunUUID:     runId2,
+		RunUUID:     runID2,
 		Type:        model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
 		ArtifactKey: "input2",
 	})
@@ -208,8 +208,8 @@ func TestListArtifactTasks_Filters(t *testing.T) {
 	assert.Equal(t, 2, len(byArtifact)) // art2 is linked twice
 	assert.Equal(t, 2, totalArt)
 
-	// Filter by run runId2 (should return only links for tasks in run-2)
-	byRun, totalRun, _, err := linkStore.ListArtifactTasks([]*model.FilterContext{{ReferenceKey: &model.ReferenceKey{Type: model.RunResourceType, ID: runId2}}}, nil, opts)
+	// Filter by run runID2 (should return only links for tasks in run-2)
+	byRun, totalRun, _, err := linkStore.ListArtifactTasks([]*model.FilterContext{{ReferenceKey: &model.ReferenceKey{Type: model.RunResourceType, ID: runID2}}}, nil, opts)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(byRun))
 	assert.Equal(t, 1, totalRun)
@@ -223,29 +223,29 @@ func TestListArtifactsForTask_UsingArtifactTasks(t *testing.T) {
 	defer db.Close()
 
 	// Seed artifacts and a single task
-	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactId1, nil)
+	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactID1, nil)
 	art1, err := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       strPTR("u1"),
+		URI:       strPTR("u1"),
 		Name:      "a1",
 		Metadata:  map[string]interface{}{},
 	})
 	assert.NoError(t, err)
-	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactId2, nil)
+	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactID2, nil)
 	art2, err := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       strPTR("u2"),
+		URI:       strPTR("u2"),
 		Name:      "a2",
 		Metadata:  map[string]interface{}{},
 	})
 	assert.NoError(t, err)
 
-	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskId1, nil)
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskID1, nil)
 	t1, err := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		RunUUID:          runId1,
+		RunUUID:          runID1,
 		Name:             "t1",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-1",
@@ -263,7 +263,7 @@ func TestListArtifactsForTask_UsingArtifactTasks(t *testing.T) {
 	_, err = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID:  art1.UUID,
 		TaskID:      t1.UUID,
-		RunUUID:     runId1,
+		RunUUID:     runID1,
 		Type:        model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
 		ArtifactKey: "input1",
 	})
@@ -272,7 +272,7 @@ func TestListArtifactsForTask_UsingArtifactTasks(t *testing.T) {
 	_, err = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID:  art2.UUID,
 		TaskID:      t1.UUID,
-		RunUUID:     runId1,
+		RunUUID:     runID1,
 		Type:        model.IOType(apiv2beta1.IOType_OUTPUT),
 		ArtifactKey: "output1",
 	})
@@ -299,28 +299,28 @@ func TestListArtifactTasks_Pagination_PageSizeAndNextPageToken(t *testing.T) {
 	defer db.Close()
 
 	// Seed artifacts and a task
-	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactId1, nil)
+	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactID1, nil)
 	art1, _ := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       strPTR("u1"),
+		URI:       strPTR("u1"),
 		Name:      "a1",
 		Metadata:  map[string]interface{}{},
 	})
 
-	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactId2, nil)
+	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactID2, nil)
 	art2, _ := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       strPTR("u2"),
+		URI:       strPTR("u2"),
 		Name:      "a2",
 		Metadata:  map[string]interface{}{},
 	})
 
-	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskId1, nil)
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskID1, nil)
 	t1, _ := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		RunUUID:          runId1,
+		RunUUID:          runID1,
 		Name:             "t1",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-1",
@@ -337,7 +337,7 @@ func TestListArtifactTasks_Pagination_PageSizeAndNextPageToken(t *testing.T) {
 	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID:  art1.UUID,
 		TaskID:      t1.UUID,
-		RunUUID:     runId1,
+		RunUUID:     runID1,
 		Type:        model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
 		ArtifactKey: "input1",
 	})
@@ -346,7 +346,7 @@ func TestListArtifactTasks_Pagination_PageSizeAndNextPageToken(t *testing.T) {
 	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID:  art1.UUID,
 		TaskID:      t1.UUID,
-		RunUUID:     runId1,
+		RunUUID:     runID1,
 		Type:        model.IOType(apiv2beta1.IOType_OUTPUT),
 		ArtifactKey: "output1",
 	})
@@ -355,7 +355,7 @@ func TestListArtifactTasks_Pagination_PageSizeAndNextPageToken(t *testing.T) {
 	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID:  art2.UUID,
 		TaskID:      t1.UUID,
-		RunUUID:     runId1,
+		RunUUID:     runID1,
 		Type:        model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
 		ArtifactKey: "input2",
 	})
@@ -387,28 +387,28 @@ func TestListArtifactTasks_Pagination_WithFilter(t *testing.T) {
 	defer db.Close()
 
 	// Seed artifacts and tasks
-	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactId1, nil)
+	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactID1, nil)
 	art1, _ := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       strPTR("u1"),
+		URI:       strPTR("u1"),
 		Name:      "a1",
 		Metadata:  map[string]interface{}{},
 	})
 
-	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactId2, nil)
+	artifactStore.uuid = util.NewFakeUUIDGeneratorOrFatal(artifactID2, nil)
 	art2, _ := artifactStore.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       strPTR("u2"),
+		URI:       strPTR("u2"),
 		Name:      "a2",
 		Metadata:  map[string]interface{}{},
 	})
 
-	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskId1, nil)
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskID1, nil)
 	t1, _ := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns1",
-		RunUUID:          runId1,
+		RunUUID:          runID1,
 		Name:             "t1",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-1",
@@ -420,10 +420,10 @@ func TestListArtifactTasks_Pagination_WithFilter(t *testing.T) {
 		TypeAttrs:        map[string]interface{}{},
 	})
 
-	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskId2, nil)
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(taskID2, nil)
 	t2, _ := taskStore.CreateTask(&model.Task{
 		Namespace:        "ns2",
-		RunUUID:          runId2,
+		RunUUID:          runID2,
 		Name:             "t2",
 		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTaskDetail_EXECUTOR)),
 		Fingerprint:      "fp-2",
@@ -440,7 +440,7 @@ func TestListArtifactTasks_Pagination_WithFilter(t *testing.T) {
 	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID:  art1.UUID,
 		TaskID:      t1.UUID,
-		RunUUID:     runId1,
+		RunUUID:     runID1,
 		Type:        model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
 		ArtifactKey: "input1",
 	})
@@ -449,7 +449,7 @@ func TestListArtifactTasks_Pagination_WithFilter(t *testing.T) {
 	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID:  art2.UUID,
 		TaskID:      t1.UUID,
-		RunUUID:     runId1,
+		RunUUID:     runID1,
 		Type:        model.IOType(apiv2beta1.IOType_OUTPUT),
 		ArtifactKey: "output1",
 	})
@@ -458,7 +458,7 @@ func TestListArtifactTasks_Pagination_WithFilter(t *testing.T) {
 	_, _ = linkStore.CreateArtifactTask(&model.ArtifactTask{
 		ArtifactID:  art2.UUID,
 		TaskID:      t2.UUID,
-		RunUUID:     runId2,
+		RunUUID:     runID2,
 		Type:        model.IOType(apiv2beta1.IOType_COMPONENT_INPUT),
 		ArtifactKey: "input2",
 	})

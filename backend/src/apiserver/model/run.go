@@ -223,7 +223,7 @@ type Run struct {
 	StorageState   StorageState `gorm:"column:StorageState; not null;"`
 	ServiceAccount string       `gorm:"column:ServiceAccount; not null;"`
 
-	// Deprecated, kept here for v1 report metrics backwards compatibility
+	// Deprecated: kept here for v1 report metrics backwards compatibility
 	// Remove this field from this Struct (and tag the FK in RunMetric struct, so the FK is unaffected)
 	Metrics []*RunMetricV1 `gorm:"foreignKey:RunUUID;references:UUID;constraint:run_metrics_RunUUID_run_details_UUID_foreign,OnDelete:CASCADE,OnUpdate:CASCADE"` // This 'has-many' relation replaces the legacy AddForeignKey constraint previously defined in client_manager.go
 
@@ -338,8 +338,8 @@ type RunDetails struct {
 	TaskDetails []*Task `gorm:"-"`
 }
 
-// RunMetricV1
-// Deprecated, remove once v1 is removed.
+// RunMetricV1 represents a v1 run metric.
+// Deprecated: remove once v1 is removed.
 type RunMetricV1 struct {
 	RunUUID     string    `gorm:"column:RunUUID; not null; primaryKey; type:varchar(191);"`
 	NodeID      string    `gorm:"column:NodeID; not null; primaryKey; type:varchar(191);"`

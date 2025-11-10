@@ -493,8 +493,7 @@ func Test_executorInput_compileCmdAndArgs(t *testing.T) {
 		"--executor_input", "{{$}}",
 		"--function_to_execute", "sayHello",
 	}
-	cmd, args, err = compileCmdAndArgs(executorInput, cmd, args)
-
+	_, args, err = compileCmdAndArgs(executorInput, cmd, args)
 	assert.NoError(t, err)
 
 	var actualExecutorInput string

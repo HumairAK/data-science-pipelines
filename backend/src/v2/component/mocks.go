@@ -131,14 +131,14 @@ func (m *MockFileSystem) Stat(name string) (fs.FileInfo, error) {
 	return &mockFileInfo{name: name, size: int64(len(data))}, nil
 }
 
-// Helper method to set file content for testing
+// SetFileContent sets file content for testing.
 func (m *MockFileSystem) SetFileContent(name string, data []byte) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.files[name] = data
 }
 
-// Helper method to get file content for assertions
+// GetFileContent gets file content for assertions.
 func (m *MockFileSystem) GetFileContent(name string) ([]byte, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -191,7 +191,7 @@ func (m *MockCommandExecutor) Run(ctx context.Context, cmd string, args []string
 	return m.RunError
 }
 
-// Helper to get the number of times Run was called
+// CallCount returns the number of times Run was called.
 func (m *MockCommandExecutor) CallCount() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -267,14 +267,14 @@ func (m *MockObjectStoreClient) DownloadArtifact(ctx context.Context, remoteURI,
 	return nil
 }
 
-// Helper to set artifact content for testing
+// SetArtifact sets artifact content for testing.
 func (m *MockObjectStoreClient) SetArtifact(remoteURI string, data []byte) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.artifacts[remoteURI] = data
 }
 
-// Helper to check if artifact was uploaded
+// WasUploaded is a helper to check if artifact was uploaded
 func (m *MockObjectStoreClient) WasUploaded(remoteURI string) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -282,7 +282,7 @@ func (m *MockObjectStoreClient) WasUploaded(remoteURI string) bool {
 	return exists
 }
 
-// Helper to get upload calls for a specific artifact key
+// GetUploadCallsForKey is a helper to get upload calls for a specific artifact key
 func (m *MockObjectStoreClient) GetUploadCallsForKey(artifactKey string) []ArtifactCall {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -296,7 +296,7 @@ func (m *MockObjectStoreClient) GetUploadCallsForKey(artifactKey string) []Artif
 	return calls
 }
 
-// Helper to get download calls for a specific artifact key
+// GetDownloadCallsForKey is a helper to get download calls for a specific artifact key
 func (m *MockObjectStoreClient) GetDownloadCallsForKey(artifactKey string) []ArtifactCall {
 	m.mu.Lock()
 	defer m.mu.Unlock()

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package storage contains the implementation of the storage interface.
 package storage
 
 import (
@@ -135,7 +136,7 @@ func (s *ArtifactTaskStore) CreateArtifactTasks(artifactTasks []*model.ArtifactT
 			return nil, util.NewInternalServerError(err, "Failed to marshal producer JSON: %v", err.Error())
 		}
 
-		toSql, args, err := sq.
+		toSQL, args, err := sq.
 			Insert(artifactTaskTableName).
 			SetMap(
 				sq.Eq{
@@ -153,7 +154,7 @@ func (s *ArtifactTaskStore) CreateArtifactTasks(artifactTasks []*model.ArtifactT
 			return nil, util.NewInternalServerError(err, "Failed to create query to insert artifact-task: %v", err.Error())
 		}
 
-		_, err = tx.Exec(toSql, args...)
+		_, err = tx.Exec(toSQL, args...)
 		if err != nil {
 			return nil, util.NewInternalServerError(err, "Failed to add artifact-task: %v", err.Error())
 		}
@@ -217,13 +218,13 @@ func (s *ArtifactTaskStore) applyFilterContextsToQuery(sqlBuilder sq.SelectBuild
 			continue
 		}
 
-		switch filterContext.ReferenceKey.Type {
+		switch filterContext.Type {
 		case model.ArtifactResourceType:
-			artifactIDs = append(artifactIDs, filterContext.ReferenceKey.ID)
+			artifactIDs = append(artifactIDs, filterContext.ID)
 		case model.TaskResourceType:
-			taskIDs = append(taskIDs, filterContext.ReferenceKey.ID)
+			taskIDs = append(taskIDs, filterContext.ID)
 		case model.RunResourceType:
-			runIDs = append(runIDs, filterContext.ReferenceKey.ID)
+			runIDs = append(runIDs, filterContext.ID)
 		}
 	}
 
@@ -273,7 +274,7 @@ func (s *ArtifactTaskStore) ListArtifactTasks(filterContexts []*model.FilterCont
 
 	sqlBuilder = opts.AddFilterToSelect(sqlBuilder)
 
-	rowsSql, rowsArgs, err := opts.AddPaginationToSelect(sqlBuilder).ToSql()
+	rowsSQL, rowsArgs, err := opts.AddPaginationToSelect(sqlBuilder).ToSql()
 	if err != nil {
 		return errorF(err)
 	}
@@ -287,19 +288,19 @@ func (s *ArtifactTaskStore) ListArtifactTasks(filterContexts []*model.FilterCont
 		countBuilder = countBuilder.Where(sq.Eq{"artifact_tasks.Type": *ioType})
 	}
 
-	sizeSql, sizeArgs, err := opts.AddFilterToSelect(countBuilder).ToSql()
+	sizeSQL, sizeArgs, err := opts.AddFilterToSelect(countBuilder).ToSql()
 	if err != nil {
 		return errorF(err)
 	}
 
-	// Use a transaction to make sure we're returning the total_size of the same rows queried
+	// Use a transaction to make sure we're returning the totalSize of the same rows queried
 	tx, err := s.db.Begin()
 	if err != nil {
 		glog.Errorf("Failed to start transaction to list artifact-tasks")
 		return errorF(err)
 	}
 
-	rows, err := tx.Query(rowsSql, rowsArgs...)
+	rows, err := tx.Query(rowsSQL, rowsArgs...)
 	if err != nil {
 		tx.Rollback()
 		return errorF(err)
@@ -315,7 +316,7 @@ func (s *ArtifactTaskStore) ListArtifactTasks(filterContexts []*model.FilterCont
 	}
 	defer rows.Close()
 
-	sizeRow, err := tx.Query(sizeSql, sizeArgs...)
+	sizeRow, err := tx.Query(sizeSQL, sizeArgs...)
 	if err != nil {
 		tx.Rollback()
 		return errorF(err)
@@ -324,7 +325,7 @@ func (s *ArtifactTaskStore) ListArtifactTasks(filterContexts []*model.FilterCont
 		tx.Rollback()
 		return errorF(err)
 	}
-	total_size, err := list.ScanRowToTotalSize(sizeRow)
+	totalSize, err := list.ScanRowToTotalSize(sizeRow)
 	if err != nil {
 		tx.Rollback()
 		return errorF(err)
@@ -338,11 +339,11 @@ func (s *ArtifactTaskStore) ListArtifactTasks(filterContexts []*model.FilterCont
 	}
 
 	if len(artifactTasks) <= opts.PageSize {
-		return artifactTasks, total_size, "", nil
+		return artifactTasks, totalSize, "", nil
 	}
 
 	npt, err := opts.NextPageToken(artifactTasks[opts.PageSize])
-	return artifactTasks[:opts.PageSize], total_size, npt, err
+	return artifactTasks[:opts.PageSize], totalSize, npt, err
 }
 
 func (s *ArtifactTaskStore) GetArtifactTask(id string) (*model.ArtifactTask, error) {

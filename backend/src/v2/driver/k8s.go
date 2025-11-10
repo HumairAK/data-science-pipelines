@@ -142,7 +142,7 @@ func extendPodSpecPatch(
 		// value. In that case we avoid appending an empty selector to the pod spec.
 		skipNodeSelector := false
 		if kubernetesExecutorConfig.GetNodeSelector().GetNodeSelectorJson() != nil {
-			err := resolver.ResolveK8sJsonParameter(
+			err := resolver.ResolveK8sJSONParameter(
 				opts, kubernetesExecutorConfig.GetNodeSelector().GetNodeSelectorJson(),
 				inputParams, &nodeSelector)
 			if err != nil {
@@ -323,7 +323,7 @@ func extendPodSpecPatch(
 					"secret environment variable in executor config")
 			}
 
-			secretEnvVar.ValueFrom.SecretKeyRef.LocalObjectReference.Name = secretName
+			secretEnvVar.ValueFrom.SecretKeyRef.Name = secretName
 
 			if setOnPod[pipelinespec.TaskConfigPassthroughType_ENV] {
 				podSpec.Containers[0].Env = append(podSpec.Containers[0].Env, secretEnvVar)
@@ -419,7 +419,7 @@ func extendPodSpecPatch(
 					"configmap environment variable in executor config")
 			}
 
-			configMapEnvVar.ValueFrom.ConfigMapKeyRef.LocalObjectReference.Name = configMapName
+			configMapEnvVar.ValueFrom.ConfigMapKeyRef.Name = configMapName
 
 			if setOnPod[pipelinespec.TaskConfigPassthroughType_ENV] {
 				podSpec.Containers[0].Env = append(podSpec.Containers[0].Env, configMapEnvVar)
@@ -570,7 +570,7 @@ func extendPodSpecPatch(
 			}
 			if nodeAffinityTerm.GetNodeAffinityJson() != nil {
 				var k8sNodeAffinity json.RawMessage
-				err := resolver.ResolveK8sJsonParameter(
+				err := resolver.ResolveK8sJSONParameter(
 					opts,
 					nodeAffinityTerm.GetNodeAffinityJson(),
 					inputParams,
@@ -843,7 +843,7 @@ func createPVCTask(
 		err = fmt.Errorf("failed to create pvc: %w", err)
 		return err
 	}
-	glog.Infof("Created PVC %s\n", createdPVC.ObjectMeta.Name)
+	glog.Infof("Created PVC %s\n", createdPVC.Name)
 	taskToCreate.State = apiV2beta1.PipelineTaskDetail_SUCCEEDED
 	return nil
 }

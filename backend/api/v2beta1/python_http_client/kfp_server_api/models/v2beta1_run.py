@@ -52,6 +52,7 @@ class V2beta1Run(object):
         'recurring_run_id': 'str',
         'state_history': 'list[V2beta1RuntimeStatus]',
         'pipeline_reference': 'V2beta1PipelineVersionReference',
+        'task_count': 'int',
         'tasks': 'list[V2beta1PipelineTaskDetail]'
     }
 
@@ -75,10 +76,11 @@ class V2beta1Run(object):
         'recurring_run_id': 'recurring_run_id',
         'state_history': 'state_history',
         'pipeline_reference': 'pipeline_reference',
+        'task_count': 'task_count',
         'tasks': 'tasks'
     }
 
-    def __init__(self, experiment_id=None, run_id=None, display_name=None, storage_state=None, description=None, pipeline_version_id=None, pipeline_spec=None, pipeline_version_reference=None, runtime_config=None, service_account=None, created_at=None, scheduled_at=None, finished_at=None, state=None, error=None, run_details=None, recurring_run_id=None, state_history=None, pipeline_reference=None, tasks=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, experiment_id=None, run_id=None, display_name=None, storage_state=None, description=None, pipeline_version_id=None, pipeline_spec=None, pipeline_version_reference=None, runtime_config=None, service_account=None, created_at=None, scheduled_at=None, finished_at=None, state=None, error=None, run_details=None, recurring_run_id=None, state_history=None, pipeline_reference=None, task_count=None, tasks=None, local_vars_configuration=None):  # noqa: E501
         """V2beta1Run - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -103,6 +105,7 @@ class V2beta1Run(object):
         self._recurring_run_id = None
         self._state_history = None
         self._pipeline_reference = None
+        self._task_count = None
         self._tasks = None
         self.discriminator = None
 
@@ -144,6 +147,8 @@ class V2beta1Run(object):
             self.state_history = state_history
         if pipeline_reference is not None:
             self.pipeline_reference = pipeline_reference
+        if task_count is not None:
+            self.task_count = task_count
         if tasks is not None:
             self.tasks = tasks
 
@@ -569,6 +574,27 @@ class V2beta1Run(object):
         """
 
         self._pipeline_reference = pipeline_reference
+
+    @property
+    def task_count(self):
+        """Gets the task_count of this V2beta1Run.  # noqa: E501
+
+
+        :return: The task_count of this V2beta1Run.  # noqa: E501
+        :rtype: int
+        """
+        return self._task_count
+
+    @task_count.setter
+    def task_count(self, task_count):
+        """Sets the task_count of this V2beta1Run.
+
+
+        :param task_count: The task_count of this V2beta1Run.  # noqa: E501
+        :type task_count: int
+        """
+
+        self._task_count = task_count
 
     @property
     def tasks(self):

@@ -1,3 +1,4 @@
+// Package resolver provides parameter and artifact resolution for KFP v2 driver.
 package resolver
 
 import (
@@ -139,7 +140,7 @@ func resolveTaskOutputArtifact(
 // resolveArtifactIterator handles Artifact Iterator Input resolution
 func resolveArtifactIterator(
 	opts common.Options,
-	Artifacts []ArtifactMetadata,
+	artifacts []ArtifactMetadata,
 ) ([]ArtifactMetadata, *int, error) {
 	artifactIterator := opts.Task.GetArtifactIterator()
 	// This should be the key input into the for loop task
@@ -148,7 +149,7 @@ func resolveArtifactIterator(
 	// The key here should map to a ArtifactMetadata.Key that
 	// was resolved in the prior loop.
 	sourceInputArtifactKey := artifactIterator.GetItems().GetInputArtifact()
-	artifactIO, err := findArtifactByIOKey(sourceInputArtifactKey, Artifacts)
+	artifactIO, err := findArtifactByIOKey(sourceInputArtifactKey, artifacts)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -284,7 +285,6 @@ func findArtifactByProducerKeyInList(
 		return nil, fmt.Errorf("artifact with producer key %s not found", producerKey)
 	}
 
-	ioType := apiv2beta1.IOType_TASK_OUTPUT_INPUT
 	// This occurs in the parallelFor case, where multiple iterations resulted in the same
 	// producer key.
 	isCollection := len(artifactIOList) > 1
@@ -298,7 +298,7 @@ func findArtifactByProducerKeyInList(
 			// Support for an iterator over list of artifacts is not supported yet.
 			artifacts = append(artifacts, artifactIO.Artifacts[0])
 		}
-		ioType = apiv2beta1.IOType_COLLECTED_INPUTS
+		ioType := apiv2beta1.IOType_COLLECTED_INPUTS
 		newArtifactIO := &apiv2beta1.PipelineTaskDetail_InputOutputs_IOArtifact{
 			Artifacts:   artifacts,
 			Type:        ioType,

@@ -2422,7 +2422,7 @@ func TestCreateJobDifferentDefaultServiceAccountName_ThroughWorkflowSpecV2(t *te
 			},
 		},
 	}
-	expectedJob.PipelineSpec.PipelineName = job.PipelineSpec.PipelineName
+	expectedJob.PipelineName = job.PipelineName
 	require.Equal(t, expectedJob.ToV1(), job.ToV1())
 	fetchedJob, err := manager.GetJob(job.UUID)
 	require.Nil(t, err)
@@ -3241,6 +3241,7 @@ func TestReconcileSwfCrs(t *testing.T) {
 	swf.Spec.Workflow.Spec = nil
 	swf, err = swfClient.Update(ctx, swf)
 	require.Nil(t, swf.Spec.Workflow.Spec)
+	require.NoError(t, err)
 
 	err = manager.ReconcileSwfCrs(ctx)
 	require.Nil(t, err)

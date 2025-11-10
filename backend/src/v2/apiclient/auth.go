@@ -1,3 +1,4 @@
+// Package apiclient provides API client functionality for KFP v2.
 package apiclient
 
 import (
@@ -20,9 +21,9 @@ const (
 
 // tokenCache holds a cached token and its expiry time
 type tokenCache struct {
-	mu         sync.RWMutex
-	token      string
-	expiresAt  time.Time
+	mu        sync.RWMutex
+	token     string
+	expiresAt time.Time
 }
 
 var cache = &tokenCache{}

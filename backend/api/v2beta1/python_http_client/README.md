@@ -79,14 +79,14 @@ configuration = kfp_server_api.Configuration(
 with kfp_server_api.ApiClient(configuration) as api_client:
     # Create an instance of the API class
     api_instance = kfp_server_api.ArtifactServiceApi(api_client)
-    body = kfp_server_api.V2beta1CreateArtifactRequest() # V2beta1CreateArtifactRequest | 
+    body = kfp_server_api.V2beta1CreateArtifactTasksBulkRequest() # V2beta1CreateArtifactTasksBulkRequest | 
 
     try:
-        # Creates a new artifact.
-        api_response = api_instance.create_artifact(body)
+        # Creates multiple artifact-task relationships in bulk.
+        api_response = api_instance.batch_create_artifact_tasks(body)
         pprint(api_response)
     except ApiException as e:
-        print("Exception when calling ArtifactServiceApi->create_artifact: %s\n" % e)
+        print("Exception when calling ArtifactServiceApi->batch_create_artifact_tasks: %s\n" % e)
     
 ```
 
@@ -96,14 +96,13 @@ All URIs are relative to *http://localhost*
 
 Class | Method | HTTP request | Description
 ------------ | ------------- | ------------- | -------------
+*ArtifactServiceApi* | [**batch_create_artifact_tasks**](docs/ArtifactServiceApi.md#batch_create_artifact_tasks) | **POST** /apis/v2beta1/artifact_tasks:batchCreate | Creates multiple artifact-task relationships in bulk.
+*ArtifactServiceApi* | [**batch_create_artifacts**](docs/ArtifactServiceApi.md#batch_create_artifacts) | **POST** /apis/v2beta1/artifacts:batchCreate | Creates multiple artifacts in bulk.
 *ArtifactServiceApi* | [**create_artifact**](docs/ArtifactServiceApi.md#create_artifact) | **POST** /apis/v2beta1/artifacts | Creates a new artifact.
 *ArtifactServiceApi* | [**create_artifact_task**](docs/ArtifactServiceApi.md#create_artifact_task) | **POST** /apis/v2beta1/artifact_tasks | Creates an artifact-task relationship.
 *ArtifactServiceApi* | [**get_artifact**](docs/ArtifactServiceApi.md#get_artifact) | **GET** /apis/v2beta1/artifacts/{artifact_id} | Finds a specific Artifact by ID.
-*ArtifactServiceApi* | [**get_metric**](docs/ArtifactServiceApi.md#get_metric) | **GET** /apis/v2beta1/metrics/{artifact_id} | Gets a metric by task ID and name.
 *ArtifactServiceApi* | [**list_artifact_tasks**](docs/ArtifactServiceApi.md#list_artifact_tasks) | **GET** /apis/v2beta1/artifact_tasks | Lists artifact-task relationships.
 *ArtifactServiceApi* | [**list_artifacts**](docs/ArtifactServiceApi.md#list_artifacts) | **GET** /apis/v2beta1/artifacts | Finds all artifacts within the specified namespace.
-*ArtifactServiceApi* | [**list_metrics**](docs/ArtifactServiceApi.md#list_metrics) | **GET** /apis/v2beta1/metrics | Lists all metrics.
-*ArtifactServiceApi* | [**log_metric**](docs/ArtifactServiceApi.md#log_metric) | **POST** /apis/v2beta1/metrics | Logs a metric for a specific task.
 *AuthServiceApi* | [**auth_service_authorize**](docs/AuthServiceApi.md#auth_service_authorize) | **GET** /apis/v2beta1/auth | 
 *ExperimentServiceApi* | [**experiment_service_archive_experiment**](docs/ExperimentServiceApi.md#experiment_service_archive_experiment) | **POST** /apis/v2beta1/experiments/{experiment_id}:archive | Archives an experiment and the experiment&#39;s runs and recurring runs.
 *ExperimentServiceApi* | [**experiment_service_create_experiment**](docs/ExperimentServiceApi.md#experiment_service_create_experiment) | **POST** /apis/v2beta1/experiments | Creates a new experiment.
@@ -132,6 +131,7 @@ Class | Method | HTTP request | Description
 *RecurringRunServiceApi* | [**recurring_run_service_list_recurring_runs**](docs/RecurringRunServiceApi.md#recurring_run_service_list_recurring_runs) | **GET** /apis/v2beta1/recurringruns | Finds all recurring runs given experiment and namespace.  If experiment ID is not specified, find all recurring runs across all experiments.
 *ReportServiceApi* | [**report_service_report_scheduled_workflow**](docs/ReportServiceApi.md#report_service_report_scheduled_workflow) | **POST** /apis/v2beta1/scheduledworkflows | 
 *ReportServiceApi* | [**report_service_report_workflow**](docs/ReportServiceApi.md#report_service_report_workflow) | **POST** /apis/v2beta1/workflows | 
+*RunServiceApi* | [**batch_update_tasks**](docs/RunServiceApi.md#batch_update_tasks) | **POST** /apis/v2beta1/tasks:batchUpdate | Updates multiple tasks in bulk.
 *RunServiceApi* | [**create_task**](docs/RunServiceApi.md#create_task) | **POST** /apis/v2beta1/tasks | Creates a new task.
 *RunServiceApi* | [**get_task**](docs/RunServiceApi.md#get_task) | **GET** /apis/v2beta1/tasks/{task_id} | Gets a specific task by ID.
 *RunServiceApi* | [**list_tasks**](docs/RunServiceApi.md#list_tasks) | **GET** /apis/v2beta1/tasks | Lists tasks with optional filtering.
@@ -155,11 +155,14 @@ Class | Method | HTTP request | Description
  - [AuthorizeRequestVerb](docs/AuthorizeRequestVerb.md)
  - [GooglerpcStatus](docs/GooglerpcStatus.md)
  - [InputOutputsIOArtifact](docs/InputOutputsIOArtifact.md)
- - [InputOutputsIOProducer](docs/InputOutputsIOProducer.md)
- - [InputOutputsParameter](docs/InputOutputsParameter.md)
+ - [InputOutputsIOParameter](docs/InputOutputsIOParameter.md)
  - [PipelineTaskDetailChildTask](docs/PipelineTaskDetailChildTask.md)
  - [PipelineTaskDetailInputOutputs](docs/PipelineTaskDetailInputOutputs.md)
+ - [PipelineTaskDetailStatusMetadata](docs/PipelineTaskDetailStatusMetadata.md)
  - [PipelineTaskDetailTaskPod](docs/PipelineTaskDetailTaskPod.md)
+ - [PipelineTaskDetailTaskPodType](docs/PipelineTaskDetailTaskPodType.md)
+ - [PipelineTaskDetailTaskState](docs/PipelineTaskDetailTaskState.md)
+ - [PipelineTaskDetailTaskStatus](docs/PipelineTaskDetailTaskStatus.md)
  - [PipelineTaskDetailTaskType](docs/PipelineTaskDetailTaskType.md)
  - [PipelineTaskDetailTypeAttributes](docs/PipelineTaskDetailTypeAttributes.md)
  - [PredicateIntValues](docs/PredicateIntValues.md)
@@ -170,21 +173,28 @@ Class | Method | HTTP request | Description
  - [RecurringRunMode](docs/RecurringRunMode.md)
  - [V2beta1Artifact](docs/V2beta1Artifact.md)
  - [V2beta1ArtifactTask](docs/V2beta1ArtifactTask.md)
- - [V2beta1ArtifactTaskType](docs/V2beta1ArtifactTaskType.md)
  - [V2beta1CreateArtifactRequest](docs/V2beta1CreateArtifactRequest.md)
  - [V2beta1CreateArtifactTaskRequest](docs/V2beta1CreateArtifactTaskRequest.md)
+ - [V2beta1CreateArtifactTasksBulkRequest](docs/V2beta1CreateArtifactTasksBulkRequest.md)
+ - [V2beta1CreateArtifactTasksBulkResponse](docs/V2beta1CreateArtifactTasksBulkResponse.md)
+ - [V2beta1CreateArtifactsBulkRequest](docs/V2beta1CreateArtifactsBulkRequest.md)
+ - [V2beta1CreateArtifactsBulkResponse](docs/V2beta1CreateArtifactsBulkResponse.md)
  - [V2beta1CreatePipelineAndVersionRequest](docs/V2beta1CreatePipelineAndVersionRequest.md)
  - [V2beta1CronSchedule](docs/V2beta1CronSchedule.md)
  - [V2beta1Experiment](docs/V2beta1Experiment.md)
  - [V2beta1ExperimentStorageState](docs/V2beta1ExperimentStorageState.md)
  - [V2beta1Filter](docs/V2beta1Filter.md)
  - [V2beta1GetHealthzResponse](docs/V2beta1GetHealthzResponse.md)
+ - [V2beta1GetRunRequestViewMode](docs/V2beta1GetRunRequestViewMode.md)
+ - [V2beta1IOProducer](docs/V2beta1IOProducer.md)
+ - [V2beta1IOType](docs/V2beta1IOType.md)
  - [V2beta1ListArtifactResponse](docs/V2beta1ListArtifactResponse.md)
  - [V2beta1ListArtifactTasksResponse](docs/V2beta1ListArtifactTasksResponse.md)
  - [V2beta1ListExperimentsResponse](docs/V2beta1ListExperimentsResponse.md)
  - [V2beta1ListPipelineVersionsResponse](docs/V2beta1ListPipelineVersionsResponse.md)
  - [V2beta1ListPipelinesResponse](docs/V2beta1ListPipelinesResponse.md)
  - [V2beta1ListRecurringRunsResponse](docs/V2beta1ListRecurringRunsResponse.md)
+ - [V2beta1ListRunsRequestViewMode](docs/V2beta1ListRunsRequestViewMode.md)
  - [V2beta1ListRunsResponse](docs/V2beta1ListRunsResponse.md)
  - [V2beta1ListTasksResponse](docs/V2beta1ListTasksResponse.md)
  - [V2beta1PeriodicSchedule](docs/V2beta1PeriodicSchedule.md)
@@ -204,6 +214,8 @@ Class | Method | HTTP request | Description
  - [V2beta1RuntimeState](docs/V2beta1RuntimeState.md)
  - [V2beta1RuntimeStatus](docs/V2beta1RuntimeStatus.md)
  - [V2beta1Trigger](docs/V2beta1Trigger.md)
+ - [V2beta1UpdateTasksBulkRequest](docs/V2beta1UpdateTasksBulkRequest.md)
+ - [V2beta1UpdateTasksBulkResponse](docs/V2beta1UpdateTasksBulkResponse.md)
  - [V2beta1Url](docs/V2beta1Url.md)
  - [V2beta1Visualization](docs/V2beta1Visualization.md)
  - [V2beta1VisualizationType](docs/V2beta1VisualizationType.md)

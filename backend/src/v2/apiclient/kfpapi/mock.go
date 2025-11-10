@@ -1,3 +1,4 @@
+// Package kfpapi provides KFP API client implementation.
 package kfpapi
 
 import (
@@ -155,8 +156,8 @@ func (m *MockAPI) UpdateTasksBulk(_ context.Context, req *apiv2beta1.UpdateTasks
 }
 
 func (m *MockAPI) GetTask(_ context.Context, req *apiv2beta1.GetTaskRequest) (*apiv2beta1.PipelineTaskDetail, error) {
-	if task, exists := m.tasks[req.TaskId]; exists {
-		task = m.hydrateTask(m.tasks[req.TaskId])
+	if _, exists := m.tasks[req.TaskId]; exists {
+		task := m.hydrateTask(m.tasks[req.TaskId])
 		return task, nil
 	}
 
@@ -185,16 +186,16 @@ func (m *MockAPI) ListTasks(_ context.Context, req *apiv2beta1.ListTasksRequest)
 	}
 
 	// Filter by run ID if specified
-	if runId := req.GetRunId(); runId != "" {
+	if runID := req.GetRunId(); runID != "" {
 		for _, task := range m.tasks {
-			if task.RunId == runId {
+			if task.RunId == runID {
 				tasks = append(tasks, task)
 			}
 		}
-	} else if parentId := req.GetParentId(); parentId != "" {
+	} else if parentID := req.GetParentId(); parentID != "" {
 		// Filter by parent task ID
 		for _, task := range m.tasks {
-			if task.ParentTaskId != nil && *task.ParentTaskId == parentId {
+			if task.ParentTaskId != nil && *task.ParentTaskId == parentID {
 				tasks = append(tasks, task)
 			}
 		}
@@ -210,13 +211,14 @@ func (m *MockAPI) ListTasks(_ context.Context, req *apiv2beta1.ListTasksRequest)
 		var statusPredicate *apiv2beta1.Predicate
 		var fingerprintPredicate *apiv2beta1.Predicate
 
-		if predicates[0].Key == "status" && predicates[1].Key == "cache_fingerprint" {
+		switch {
+		case predicates[0].Key == "status" && predicates[1].Key == "cache_fingerprint":
 			statusPredicate = predicates[0]
 			fingerprintPredicate = predicates[1]
-		} else if predicates[1].Key == "status" && predicates[0].Key == "cache_fingerprint" {
+		case predicates[1].Key == "status" && predicates[0].Key == "cache_fingerprint":
 			statusPredicate = predicates[1]
 			fingerprintPredicate = predicates[0]
-		} else {
+		default:
 			return nil, fmt.Errorf("only cache filter supported in mock library: %s", req.GetFilter())
 		}
 
@@ -276,8 +278,8 @@ func (m *MockAPI) CreateArtifact(_ context.Context, req *apiv2beta1.CreateArtifa
 	}
 
 	// Generate ID for artifact task
-	atUuid, _ := uuid.NewRandom()
-	artifactTask.Id = atUuid.String()
+	atUUID, _ := uuid.NewRandom()
+	artifactTask.Id = atUUID.String()
 	m.artifactTasks[artifactTask.Id] = artifactTask
 
 	return artifact, nil
@@ -319,8 +321,8 @@ func (m *MockAPI) CreateArtifactsBulk(_ context.Context, req *apiv2beta1.CreateA
 		}
 
 		// Generate ID for artifact task
-		atUuid, _ := uuid.NewRandom()
-		artifactTask.Id = atUuid.String()
+		atUUID, _ := uuid.NewRandom()
+		artifactTask.Id = atUUID.String()
 		m.artifactTasks[artifactTask.Id] = artifactTask
 
 		response.Artifacts = append(response.Artifacts, artifact)
@@ -383,10 +385,12 @@ func (m *MockAPI) GetPipelineVersion(_ context.Context, req *apiv2beta1.GetPipel
 	return nil, fmt.Errorf("pipeline version not found: %s", key)
 }
 
-func (m *MockAPI) FetchPipelineSpecFromRun(_ context.Context, pipelineSpecStruct *structpb.Struct, run *apiv2beta1.Run) (*structpb.Struct, error) {
-	if run.GetPipelineSpec() != nil {
+func (m *MockAPI) FetchPipelineSpecFromRun(_ context.Context, run *apiv2beta1.Run) (*structpb.Struct, error) {
+	var pipelineSpecStruct *structpb.Struct
+	switch {
+	case run.GetPipelineSpec() != nil:
 		pipelineSpecStruct = run.GetPipelineSpec()
-	} else if run.GetPipelineVersionReference() != nil {
+	case run.GetPipelineVersionReference() != nil:
 		pvr := run.GetPipelineVersionReference()
 		pipeline, err := m.GetPipelineVersion(context.Background(), &apiv2beta1.GetPipelineVersionRequest{
 			PipelineId:        pvr.GetPipelineId(),
@@ -396,7 +400,7 @@ func (m *MockAPI) FetchPipelineSpecFromRun(_ context.Context, pipelineSpecStruct
 			return nil, err
 		}
 		pipelineSpecStruct = pipeline.GetPipelineSpec()
-	} else {
+	default:
 		return nil, fmt.Errorf("pipeline spec is not set")
 	}
 	if pipelineSpecStruct == nil {

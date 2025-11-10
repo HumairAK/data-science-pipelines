@@ -646,7 +646,7 @@ func (r *ResourceManager) ReconcileSwfCrs(ctx context.Context) error {
 
 		// If the pipeline isn't pinned, skip it. The runs API is used directly by the ScheduledWorkflow controller
 		// in this case with just the pipeline ID and optionally the pipeline version ID.
-		if jobs[i].PipelineSpec.PipelineSpecManifest == "" && jobs[i].PipelineSpec.WorkflowSpecManifest == "" {
+		if jobs[i].PipelineSpecManifest == "" && jobs[i].WorkflowSpecManifest == "" {
 			continue
 		}
 
@@ -709,10 +709,10 @@ func (r *ResourceManager) GetRun(runId string) (*model.Run, error) {
 // GetRunWithHydration fetches a run with optional task hydration.
 // If hydrateTasks is true, full task details are loaded (expensive operation).
 // If hydrateTasks is false, only task count is populated (lightweight operation).
-func (r *ResourceManager) GetRunWithHydration(runId string, hydrateTasks bool) (*model.Run, error) {
-	run, err := r.runStore.GetRun(runId, hydrateTasks)
+func (r *ResourceManager) GetRunWithHydration(runID string, hydrateTasks bool) (*model.Run, error) {
+	run, err := r.runStore.GetRun(runID, hydrateTasks)
 	if err != nil {
-		return nil, util.Wrapf(err, "Failed to fetch run %v", runId)
+		return nil, util.Wrapf(err, "Failed to fetch run %v", runID)
 	}
 	return run, nil
 }
@@ -856,23 +856,24 @@ func (r *ResourceManager) CreateTask(t *model.Task) (*model.Task, error) {
 
 // Fetches tasks with a given set of filtering and listing options.
 // namespaceSet indicates whether the namespace filter was explicitly set (even if empty).
-func (r *ResourceManager) ListTasks(runId, parentId, namespace string, opts *list.Options) ([]*model.Task, int, string, error) {
+func (r *ResourceManager) ListTasks(runID, parentID, namespace string, opts *list.Options) ([]*model.Task, int, string, error) {
 	var filterContext *model.FilterContext
 
-	if runId != "" {
+	switch {
+	case runID != "":
 		filterContext = &model.FilterContext{
-			ReferenceKey: &model.ReferenceKey{Type: model.RunResourceType, ID: runId},
+			ReferenceKey: &model.ReferenceKey{Type: model.RunResourceType, ID: runID},
 		}
-	} else if parentId != "" {
+	case parentID != "":
 		filterContext = &model.FilterContext{
-			ReferenceKey: &model.ReferenceKey{Type: model.TaskResourceType, ID: parentId},
+			ReferenceKey: &model.ReferenceKey{Type: model.TaskResourceType, ID: parentID},
 		}
-	} else if namespace != "" {
+	case namespace != "":
 		// Namespace filter is set (can be empty string in single-user mode)
 		filterContext = &model.FilterContext{
 			ReferenceKey: &model.ReferenceKey{Type: model.NamespaceResourceType, ID: namespace},
 		}
-	} else {
+	default:
 		filterContext = &model.FilterContext{}
 	}
 
@@ -1656,7 +1657,7 @@ func (r *ResourceManager) ReportMetric(metric *model.RunMetricV1) error {
 	return nil
 }
 
-// Updates a task entry.
+// UpdateTask updates a task entry.
 func (r *ResourceManager) UpdateTask(new *model.Task) (*model.Task, error) {
 	// Update task
 	return r.taskStore.UpdateTask(new)
@@ -2100,10 +2101,10 @@ func (r *ResourceManager) GetTask(taskId string) (*model.Task, error) {
 }
 
 // GetTaskChildren fetches all immediate child tasks of the given task UUID.
-func (r *ResourceManager) GetTaskChildren(taskId string) ([]*model.Task, error) {
-	children, err := r.taskStore.GetChildTasks(taskId)
+func (r *ResourceManager) GetTaskChildren(taskID string) ([]*model.Task, error) {
+	children, err := r.taskStore.GetChildTasks(taskID)
 	if err != nil {
-		return nil, util.Wrapf(err, "Failed to fetch children of task %v", taskId)
+		return nil, util.Wrapf(err, "Failed to fetch children of task %v", taskID)
 	}
 	return children, nil
 }
@@ -2136,10 +2137,10 @@ func (r *ResourceManager) CreateArtifactTasks(artifactTasks []*model.ArtifactTas
 }
 
 // GetArtifact Fetches an artifact with a given id.
-func (r *ResourceManager) GetArtifact(artifactId string) (*model.Artifact, error) {
-	artifact, err := r.artifactStore.GetArtifact(artifactId)
+func (r *ResourceManager) GetArtifact(artifactID string) (*model.Artifact, error) {
+	artifact, err := r.artifactStore.GetArtifact(artifactID)
 	if err != nil {
-		return nil, util.Wrapf(err, "Failed to fetch artifact %v", artifactId)
+		return nil, util.Wrapf(err, "Failed to fetch artifact %v", artifactID)
 	}
 	return artifact, nil
 }

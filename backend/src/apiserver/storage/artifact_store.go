@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package storage provides the storage layer for the API server.
 package storage
 
 import (
@@ -31,7 +32,7 @@ var artifactColumns = []string{
 	"UUID",
 	"Namespace",
 	"Type",
-	"Uri",
+	"URI",
 	"Name",
 	"Description",
 	"CreatedAtInSec",
@@ -96,7 +97,7 @@ func (s *ArtifactStore) CreateArtifact(artifact *model.Artifact) (*model.Artifac
 				"UUID":            newArtifact.UUID,
 				"Namespace":       newArtifact.Namespace,
 				"Type":            newArtifact.Type,
-				"Uri":             newArtifact.Uri,
+				"URI":             newArtifact.URI,
 				"Name":            newArtifact.Name,
 				"Description":     newArtifact.Description,
 				"CreatedAtInSec":  newArtifact.CreatedAtInSec,
@@ -170,7 +171,7 @@ func (s *ArtifactStore) scanRows(rows *sql.Rows) ([]*model.Artifact, error) {
 		}
 
 		if uri.Valid {
-			artifact.Uri = &uri.String
+			artifact.URI = &uri.String
 		}
 		artifacts = append(artifacts, artifact)
 	}
@@ -187,15 +188,14 @@ func (s *ArtifactStore) ListArtifacts(filterContext *model.FilterContext, opts *
 
 	// Apply namespace filtering if provided
 	if filterContext != nil && filterContext.ReferenceKey != nil {
-		switch filterContext.ReferenceKey.Type {
-		case model.NamespaceResourceType:
-			sqlBuilder = sqlBuilder.Where(sq.Eq{"Namespace": filterContext.ReferenceKey.ID})
+		if filterContext.Type == model.NamespaceResourceType {
+			sqlBuilder = sqlBuilder.Where(sq.Eq{"Namespace": filterContext.ID})
 		}
 	}
 
 	sqlBuilder = opts.AddFilterToSelect(sqlBuilder)
 
-	rowsSql, rowsArgs, err := opts.AddPaginationToSelect(sqlBuilder).ToSql()
+	rowsSQL, rowsArgs, err := opts.AddPaginationToSelect(sqlBuilder).ToSql()
 	if err != nil {
 		return errorF(err)
 	}
@@ -203,24 +203,23 @@ func (s *ArtifactStore) ListArtifacts(filterContext *model.FilterContext, opts *
 	// SQL for getting total size
 	countBuilder := sq.Select("count(*)").From(artifactTableName)
 	if filterContext != nil && filterContext.ReferenceKey != nil {
-		switch filterContext.ReferenceKey.Type {
-		case model.NamespaceResourceType:
-			countBuilder = countBuilder.Where(sq.Eq{"Namespace": filterContext.ReferenceKey.ID})
+		if filterContext.Type == model.NamespaceResourceType {
+			countBuilder = countBuilder.Where(sq.Eq{"Namespace": filterContext.ID})
 		}
 	}
-	sizeSql, sizeArgs, err := opts.AddFilterToSelect(countBuilder).ToSql()
+	sizeSQL, sizeArgs, err := opts.AddFilterToSelect(countBuilder).ToSql()
 	if err != nil {
 		return errorF(err)
 	}
 
-	// Use a transaction to make sure we're returning the total_size of the same rows queried
+	// Use a transaction to make sure we're returning the totalSize of the same rows queried
 	tx, err := s.db.Begin()
 	if err != nil {
 		glog.Errorf("Failed to start transaction to list artifacts")
 		return errorF(err)
 	}
 
-	rows, err := tx.Query(rowsSql, rowsArgs...)
+	rows, err := tx.Query(rowsSQL, rowsArgs...)
 	if err != nil {
 		tx.Rollback()
 		return errorF(err)
@@ -236,7 +235,7 @@ func (s *ArtifactStore) ListArtifacts(filterContext *model.FilterContext, opts *
 	}
 	defer rows.Close()
 
-	sizeRow, err := tx.Query(sizeSql, sizeArgs...)
+	sizeRow, err := tx.Query(sizeSQL, sizeArgs...)
 	if err != nil {
 		tx.Rollback()
 		return errorF(err)
@@ -245,7 +244,7 @@ func (s *ArtifactStore) ListArtifacts(filterContext *model.FilterContext, opts *
 		tx.Rollback()
 		return errorF(err)
 	}
-	total_size, err := list.ScanRowToTotalSize(sizeRow)
+	totalSize, err := list.ScanRowToTotalSize(sizeRow)
 	if err != nil {
 		tx.Rollback()
 		return errorF(err)
@@ -259,11 +258,11 @@ func (s *ArtifactStore) ListArtifacts(filterContext *model.FilterContext, opts *
 	}
 
 	if len(artifacts) <= opts.PageSize {
-		return artifacts, total_size, "", nil
+		return artifacts, totalSize, "", nil
 	}
 
 	npt, err := opts.NextPageToken(artifacts[opts.PageSize])
-	return artifacts[:opts.PageSize], total_size, npt, err
+	return artifacts[:opts.PageSize], totalSize, npt, err
 }
 
 func (s *ArtifactStore) GetArtifact(id string) (*model.Artifact, error) {

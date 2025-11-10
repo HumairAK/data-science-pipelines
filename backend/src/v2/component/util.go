@@ -62,7 +62,7 @@ func textToPbValue(text string, t pipelinespec.ParameterType_ParameterTypeEnum) 
 		}
 		return structpb.NewNumberValue(float64(i)), nil
 	case pipelinespec.ParameterType_NUMBER_DOUBLE:
-		f, err := strconv.ParseFloat(strings.TrimSpace(text), 0)
+		f, err := strconv.ParseFloat(strings.TrimSpace(text), 64)
 		if err != nil {
 			return nil, msg(err)
 		}
@@ -107,27 +107,9 @@ var artifactTypeSchemaToArtifactTypeMap = map[string]apiV2beta1.Artifact_Artifac
 	"system.Markdown":                    apiV2beta1.Artifact_Markdown,
 }
 
-var artifactTypeToArtifactTypeSchemaMap = map[apiV2beta1.Artifact_ArtifactType]string{
-	apiV2beta1.Artifact_Artifact:                   "system.Artifact",
-	apiV2beta1.Artifact_Dataset:                    "system.Dataset",
-	apiV2beta1.Artifact_Model:                      "system.Model",
-	apiV2beta1.Artifact_Metric:                     "system.Metrics",
-	apiV2beta1.Artifact_ClassificationMetric:       "system.ClassificationMetrics",
-	apiV2beta1.Artifact_SlicedClassificationMetric: "system.SlicedClassificationMetrics",
-	apiV2beta1.Artifact_HTML:                       "system.HTML",
-	apiV2beta1.Artifact_Markdown:                   "system.Markdown",
-}
-
 func artifactTypeSchemaToArtifactType(typeSchema string) (apiV2beta1.Artifact_ArtifactType, error) {
 	if artifactType, ok := artifactTypeSchemaToArtifactTypeMap[typeSchema]; ok {
 		return artifactType, nil
 	}
 	return apiV2beta1.Artifact_TYPE_UNSPECIFIED, fmt.Errorf("unknown artifact type: %s", typeSchema)
-}
-
-func artifactTypeToArtifactTypeSchema(artifactType apiV2beta1.Artifact_ArtifactType) (string, error) {
-	if typeSchema, ok := artifactTypeToArtifactTypeSchemaMap[artifactType]; ok {
-		return typeSchema, nil
-	}
-	return "", fmt.Errorf("unknown artifact type: %v", artifactType)
 }

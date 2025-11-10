@@ -93,19 +93,20 @@ func DAG(ctx context.Context, opts common.Options, clientManager client_manager.
 	// In the future the KFP Sdk should add a Task Type enum to the task Info proto
 	// to assist with inferring type. For now, we infer the type based on attribute
 	// heuristics.
-	if iterationCount != nil {
+	switch {
+	case iterationCount != nil:
 		count := int64(*iterationCount)
 		taskToCreate.TypeAttributes = &gc.PipelineTaskDetail_TypeAttributes{IterationCount: &count}
 		taskToCreate.Type = gc.PipelineTaskDetail_LOOP
 		taskToCreate.DisplayName = "Loop"
 		execution.IterationCount = util.IntPointer(int(count))
-	} else if condition != "" {
+	case condition != "":
 		taskToCreate.Type = gc.PipelineTaskDetail_CONDITION_BRANCH
 		taskToCreate.DisplayName = "Condition Branch"
-	} else if strings.HasPrefix(opts.TaskName, "condition") && !strings.HasPrefix(opts.TaskName, "condition-branch") {
+	case strings.HasPrefix(opts.TaskName, "condition") && !strings.HasPrefix(opts.TaskName, "condition-branch"):
 		taskToCreate.Type = gc.PipelineTaskDetail_CONDITION
 		taskToCreate.DisplayName = "Condition"
-	} else {
+	default:
 		taskToCreate.Type = gc.PipelineTaskDetail_DAG
 	}
 

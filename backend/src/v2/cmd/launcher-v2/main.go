@@ -108,7 +108,7 @@ func run() error {
 	}
 
 	// Build scope path
-	pipelineSpecStruct, err := kfpAPI.FetchPipelineSpecFromRun(ctx, pipelineRun.GetPipelineSpec(), pipelineRun)
+	pipelineSpecStruct, err := kfpAPI.FetchPipelineSpecFromRun(ctx, pipelineRun)
 	if err != nil {
 		return err
 	}

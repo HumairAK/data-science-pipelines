@@ -35,7 +35,7 @@ class PipelineTaskDetailTaskPod(object):
     openapi_types = {
         'name': 'str',
         'uid': 'str',
-        'type': 'str'
+        'type': 'PipelineTaskDetailTaskPodType'
     }
 
     attribute_map = {
@@ -110,7 +110,7 @@ class PipelineTaskDetailTaskPod(object):
 
 
         :return: The type of this PipelineTaskDetailTaskPod.  # noqa: E501
-        :rtype: str
+        :rtype: PipelineTaskDetailTaskPodType
         """
         return self._type
 
@@ -120,7 +120,7 @@ class PipelineTaskDetailTaskPod(object):
 
 
         :param type: The type of this PipelineTaskDetailTaskPod.  # noqa: E501
-        :type type: str
+        :type type: PipelineTaskDetailTaskPodType
         """
 
         self._type = type

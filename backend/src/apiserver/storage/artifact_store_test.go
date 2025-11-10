@@ -41,7 +41,7 @@ func TestCreateArtifact_Success(t *testing.T) {
 	art := &model.Artifact{
 		Namespace: "ns1",
 		Type:      model.ArtifactType(apiv2beta1.Artifact_Artifact),
-		Uri:       strPTR("s3://bucket/path/file"),
+		URI:       strPTR("s3://bucket/path/file"),
 		Name:      "model.pt",
 		Metadata:  model.JSONData(map[string]interface{}{"k": "v"}),
 	}
@@ -53,7 +53,7 @@ func TestCreateArtifact_Success(t *testing.T) {
 	assert.Equal(t, created.CreatedAtInSec, created.LastUpdateInSec)
 	assert.Equal(t, "ns1", created.Namespace)
 	assert.Equal(t, model.ArtifactType(apiv2beta1.Artifact_Artifact), created.Type)
-	assert.Equal(t, "s3://bucket/path/file", *created.Uri)
+	assert.Equal(t, "s3://bucket/path/file", *created.URI)
 	assert.Equal(t, "model.pt", created.Name)
 	assert.Equal(t, "v", created.Metadata["k"])
 
@@ -65,7 +65,7 @@ func TestCreateArtifact_Success(t *testing.T) {
 	assert.Equal(t, created.LastUpdateInSec, fetched.LastUpdateInSec)
 	assert.Equal(t, created.Namespace, fetched.Namespace)
 	assert.Equal(t, created.Type, fetched.Type)
-	assert.Equal(t, created.Uri, fetched.Uri)
+	assert.Equal(t, created.URI, fetched.URI)
 	assert.Equal(t, created.Name, fetched.Name)
 	assert.Equal(t, created.Metadata, fetched.Metadata)
 }
@@ -86,7 +86,7 @@ func TestListArtifacts_BasicFiltersAndPagination(t *testing.T) {
 	_, err := store.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      1,
-		Uri:       strPTR("u1"),
+		URI:       strPTR("u1"),
 		Name:      "a1",
 		Metadata:  map[string]interface{}{"m": 1},
 	})
@@ -96,7 +96,7 @@ func TestListArtifacts_BasicFiltersAndPagination(t *testing.T) {
 	_, err = store.CreateArtifact(&model.Artifact{
 		Namespace: "ns1",
 		Type:      2,
-		Uri:       strPTR("u2"),
+		URI:       strPTR("u2"),
 		Name:      "a2",
 		Metadata:  map[string]interface{}{"m": 2},
 	})
@@ -106,7 +106,7 @@ func TestListArtifacts_BasicFiltersAndPagination(t *testing.T) {
 	_, err = store.CreateArtifact(&model.Artifact{
 		Namespace: "ns2",
 		Type:      1,
-		Uri:       strPTR("u3"),
+		URI:       strPTR("u3"),
 		Name:      "a3",
 		Metadata:  map[string]interface{}{"m": 3},
 	})

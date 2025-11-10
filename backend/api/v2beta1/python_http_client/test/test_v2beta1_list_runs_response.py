@@ -79,18 +79,19 @@ class TestV2beta1ListRunsResponse(unittest.TestCase):
                                         kfp_server_api.models.pipeline_task_detail_task_pod.PipelineTaskDetailTaskPod(
                                             name = '0', 
                                             uid = '0', 
-                                            type = '0', )
+                                            type = 'UNSPECIFIED', )
                                         ], 
                                     cache_fingerprint = '0', 
                                     create_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                                     start_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                                     end_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                                    status = 'RUNTIME_STATE_UNSPECIFIED', 
-                                    status_metadata = {
-                                        'key' : None
-                                        }, 
+                                    status_metadata = kfp_server_api.models.pipeline_task_detail_status_metadata.PipelineTaskDetailStatusMetadata(
+                                        message = '0', 
+                                        custom_properties = {
+                                            'key' : None
+                                            }, ), 
                                     state_history = [
-                                        kfp_server_api.models.v2beta1_runtime_status.v2beta1RuntimeStatus(
+                                        kfp_server_api.models.pipeline_task_detail_task_status.PipelineTaskDetailTaskStatus(
                                             update_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), )
                                         ], 
                                     type = 'ROOT', 
@@ -99,30 +100,26 @@ class TestV2beta1ListRunsResponse(unittest.TestCase):
                                         iteration_count = '0', ), 
                                     parent_task_id = '0', 
                                     child_tasks = [
-                                        kfp_server_api.models.pipeline_task_detail_child_task.PipelineTaskDetailChildTask(
+                                        kfp_server_api.models.a_dependent_task_that_requires_this_one_to_succeed/
+represented_by_either_task_id_or_pod_name/
+todo(humair_ak):_do_we_need_this_if_we_have_parent_task_id?.A dependent task that requires this one to succeed.
+Represented by either task_id or pod_name.
+TODO(HumairAK): Do we need this if we have parent_task_id?(
                                             task_id = '0', 
                                             name = '0', )
                                         ], 
                                     inputs = kfp_server_api.models.pipeline_task_detail_input_outputs.PipelineTaskDetailInputOutputs(
                                         artifacts = [
-                                            kfp_server_api.models.input_outputs_io_artifact.InputOutputsIOArtifact(
-                                                parameter_name = '0', 
-                                                value = kfp_server_api.models.note_to_be_confused_with_runtime_artifact_in_pipelinespec.Note to be confused with RuntimeArtifact in pipelinespec(
-                                                    artifact_id = '0', 
-                                                    name = '0', 
-                                                    description = '0', 
-                                                    uri = '0', 
-                                                    metadata = {
-                                                        'key' : None
-                                                        }, 
-                                                    number_value = 1.337, 
-                                                    created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                                                    namespace = '0', ), 
-                                                producer = kfp_server_api.models.input_outputs_io_producer.InputOutputsIOProducer(
+                                            kfp_server_api.models.align_structure_with_executor_input.Align structure with Executor Input(
+                                                artifact_key = '0', 
+                                                producer = kfp_server_api.models.v2beta1_io_producer.v2beta1IOProducer(
                                                     task_name = '0', 
-                                                    key = '0', ), )
+                                                    iteration = '0', ), )
                                             ], ), 
-                                    outputs = kfp_server_api.models.pipeline_task_detail_input_outputs.PipelineTaskDetailInputOutputs(), )
+                                    outputs = kfp_server_api.models.pipeline_task_detail_input_outputs.PipelineTaskDetailInputOutputs(), 
+                                    scope_path = [
+                                        '0'
+                                        ], )
                                 ], ), 
                         recurring_run_id = '0', 
                         state_history = [
@@ -132,6 +129,7 @@ class TestV2beta1ListRunsResponse(unittest.TestCase):
                         pipeline_reference = kfp_server_api.models.v2beta1_pipeline_version_reference.v2beta1PipelineVersionReference(
                             pipeline_id = '0', 
                             pipeline_version_id = '0', ), 
+                        task_count = 56, 
                         tasks = [
                             kfp_server_api.models.v2beta1_pipeline_task_detail.v2beta1PipelineTaskDetail(
                                 name = '0', 
@@ -142,9 +140,6 @@ class TestV2beta1ListRunsResponse(unittest.TestCase):
                                 create_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                                 start_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                                 end_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                                status_metadata = {
-                                    'key' : None
-                                    }, 
                                 parent_task_id = '0', )
                             ], )
                     ], 

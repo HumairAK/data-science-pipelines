@@ -13,9 +13,9 @@ Name | Type | Description | Notes
 **create_time** | **datetime** | Creation time of a task. | [optional] 
 **start_time** | **datetime** | Starting time of a task. | [optional] 
 **end_time** | **datetime** | Completion time of a task. | [optional] 
-**status** | [**V2beta1RuntimeState**](V2beta1RuntimeState.md) |  | [optional] 
-**status_metadata** | **dict(str, object)** |  | [optional] 
-**state_history** | [**list[V2beta1RuntimeStatus]**](V2beta1RuntimeStatus.md) | A sequence of task statuses. This field keeps a record of state transitions. | [optional] 
+**state** | [**PipelineTaskDetailTaskState**](PipelineTaskDetailTaskState.md) |  | [optional] 
+**status_metadata** | [**PipelineTaskDetailStatusMetadata**](PipelineTaskDetailStatusMetadata.md) |  | [optional] 
+**state_history** | [**list[PipelineTaskDetailTaskStatus]**](PipelineTaskDetailTaskStatus.md) | A sequence of task statuses. This field keeps a record of state transitions. | [optional] 
 **type** | [**PipelineTaskDetailTaskType**](PipelineTaskDetailTaskType.md) |  | [optional] 
 **type_attributes** | [**PipelineTaskDetailTypeAttributes**](PipelineTaskDetailTypeAttributes.md) |  | [optional] 
 **error** | [**GooglerpcStatus**](GooglerpcStatus.md) |  | [optional] 
@@ -23,6 +23,7 @@ Name | Type | Description | Notes
 **child_tasks** | [**list[PipelineTaskDetailChildTask]**](PipelineTaskDetailChildTask.md) | Sequence of dependent tasks. | [optional] 
 **inputs** | [**PipelineTaskDetailInputOutputs**](PipelineTaskDetailInputOutputs.md) |  | [optional] 
 **outputs** | [**PipelineTaskDetailInputOutputs**](PipelineTaskDetailInputOutputs.md) |  | [optional] 
+**scope_path** | **list[str]** | The scope of this task within the pipeline spec. Each entry represents either a Dag Task or a Container task. Note that Container task will are always the last entry in a scope_path. | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

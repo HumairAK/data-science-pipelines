@@ -1229,7 +1229,9 @@ func (l *LauncherV2) downloadArtifacts(ctx context.Context) error {
 
 func compileCmdAndArgs(executorInput *pipelinespec.ExecutorInput, cmd string, args []string) (string, []string, error) {
 	placeholders, err := getPlaceholders(executorInput)
-
+	if err != nil {
+		return "", nil, err
+	}
 	executorInputJSON, err := protojson.Marshal(executorInput)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to convert ExecutorInput into JSON: %w", err)

@@ -74,7 +74,7 @@ func getFingerPrintsAndID(
 	opts *common.Options,
 	pvcNames []string) (fingerprint string, task *apiv2beta1.PipelineTaskDetail, err error) {
 
-	if opts.CacheDisabled || !execution.WillTrigger() || opts.Task.GetCachingOptions().GetEnableCache() == false {
+	if opts.CacheDisabled || !execution.WillTrigger() || !opts.Task.GetCachingOptions().GetEnableCache() {
 		return "", nil, nil
 	}
 

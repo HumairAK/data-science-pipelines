@@ -50,9 +50,9 @@ class TestV2beta1CreateArtifactRequest(unittest.TestCase):
                     namespace = '0', ), 
                 run_id = '0', 
                 task_id = '0', 
-                type = 'INPUT', 
-                producer_task_name = '0', 
-                producer_key = '0'
+                producer_key = '0', 
+                iteration_index = '0', 
+                type = 'UNSPECIFIED'
             )
         else :
             return V2beta1CreateArtifactRequest(

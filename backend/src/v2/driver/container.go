@@ -458,14 +458,14 @@ func convertArtifactsToArtifactList(artifacts []*apiV2beta1.Artifact) (*pipeline
 		mergedMetadata := make(map[string]*structpb.Value)
 		var firstName string
 		var firstURI string
-		var firstArtifactId string
+		var firstArtifactID string
 
 		for i, artifact := range artifacts {
 			// Use first artifact's common fields
 			if i == 0 {
 				firstName = artifact.GetName()
 				firstURI = artifact.GetUri()
-				firstArtifactId = artifact.GetArtifactId()
+				firstArtifactID = artifact.GetArtifactId()
 			}
 
 			// Merge metadata fields: each artifact's metadata contains the metric key/value
@@ -488,7 +488,7 @@ func convertArtifactsToArtifactList(artifacts []*apiV2beta1.Artifact) (*pipeline
 		// Create single RuntimeArtifact with merged metadata
 		mergedRuntimeArtifact := &pipelinespec.RuntimeArtifact{
 			Name:       firstName,
-			ArtifactId: firstArtifactId,
+			ArtifactId: firstArtifactID,
 			Type: &pipelinespec.ArtifactTypeSchema{
 				Kind: &pipelinespec.ArtifactTypeSchema_SchemaTitle{
 					SchemaTitle: apiV2beta1.Artifact_Metric.String(),

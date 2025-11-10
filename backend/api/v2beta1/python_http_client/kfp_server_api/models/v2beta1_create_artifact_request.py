@@ -36,21 +36,21 @@ class V2beta1CreateArtifactRequest(object):
         'artifact': 'V2beta1Artifact',
         'run_id': 'str',
         'task_id': 'str',
-        'type': 'V2beta1ArtifactTaskType',
-        'producer_task_name': 'str',
-        'producer_key': 'str'
+        'producer_key': 'str',
+        'iteration_index': 'str',
+        'type': 'V2beta1IOType'
     }
 
     attribute_map = {
         'artifact': 'artifact',
         'run_id': 'run_id',
         'task_id': 'task_id',
-        'type': 'type',
-        'producer_task_name': 'producer_task_name',
-        'producer_key': 'producer_key'
+        'producer_key': 'producer_key',
+        'iteration_index': 'iteration_index',
+        'type': 'type'
     }
 
-    def __init__(self, artifact=None, run_id=None, task_id=None, type=None, producer_task_name=None, producer_key=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, artifact=None, run_id=None, task_id=None, producer_key=None, iteration_index=None, type=None, local_vars_configuration=None):  # noqa: E501
         """V2beta1CreateArtifactRequest - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -59,9 +59,9 @@ class V2beta1CreateArtifactRequest(object):
         self._artifact = None
         self._run_id = None
         self._task_id = None
-        self._type = None
-        self._producer_task_name = None
         self._producer_key = None
+        self._iteration_index = None
+        self._type = None
         self.discriminator = None
 
         if artifact is not None:
@@ -70,12 +70,12 @@ class V2beta1CreateArtifactRequest(object):
             self.run_id = run_id
         if task_id is not None:
             self.task_id = task_id
-        if type is not None:
-            self.type = type
-        if producer_task_name is not None:
-            self.producer_task_name = producer_task_name
         if producer_key is not None:
             self.producer_key = producer_key
+        if iteration_index is not None:
+            self.iteration_index = iteration_index
+        if type is not None:
+            self.type = type
 
     @property
     def artifact(self):
@@ -125,6 +125,7 @@ class V2beta1CreateArtifactRequest(object):
     def task_id(self):
         """Gets the task_id of this V2beta1CreateArtifactRequest.  # noqa: E501
 
+        The Task that is associated with the creation of this artifact.  # noqa: E501
 
         :return: The task_id of this V2beta1CreateArtifactRequest.  # noqa: E501
         :rtype: str
@@ -135,54 +136,13 @@ class V2beta1CreateArtifactRequest(object):
     def task_id(self, task_id):
         """Sets the task_id of this V2beta1CreateArtifactRequest.
 
+        The Task that is associated with the creation of this artifact.  # noqa: E501
 
         :param task_id: The task_id of this V2beta1CreateArtifactRequest.  # noqa: E501
         :type task_id: str
         """
 
         self._task_id = task_id
-
-    @property
-    def type(self):
-        """Gets the type of this V2beta1CreateArtifactRequest.  # noqa: E501
-
-
-        :return: The type of this V2beta1CreateArtifactRequest.  # noqa: E501
-        :rtype: V2beta1ArtifactTaskType
-        """
-        return self._type
-
-    @type.setter
-    def type(self, type):
-        """Sets the type of this V2beta1CreateArtifactRequest.
-
-
-        :param type: The type of this V2beta1CreateArtifactRequest.  # noqa: E501
-        :type type: V2beta1ArtifactTaskType
-        """
-
-        self._type = type
-
-    @property
-    def producer_task_name(self):
-        """Gets the producer_task_name of this V2beta1CreateArtifactRequest.  # noqa: E501
-
-
-        :return: The producer_task_name of this V2beta1CreateArtifactRequest.  # noqa: E501
-        :rtype: str
-        """
-        return self._producer_task_name
-
-    @producer_task_name.setter
-    def producer_task_name(self, producer_task_name):
-        """Sets the producer_task_name of this V2beta1CreateArtifactRequest.
-
-
-        :param producer_task_name: The producer_task_name of this V2beta1CreateArtifactRequest.  # noqa: E501
-        :type producer_task_name: str
-        """
-
-        self._producer_task_name = producer_task_name
 
     @property
     def producer_key(self):
@@ -204,6 +164,48 @@ class V2beta1CreateArtifactRequest(object):
         """
 
         self._producer_key = producer_key
+
+    @property
+    def iteration_index(self):
+        """Gets the iteration_index of this V2beta1CreateArtifactRequest.  # noqa: E501
+
+
+        :return: The iteration_index of this V2beta1CreateArtifactRequest.  # noqa: E501
+        :rtype: str
+        """
+        return self._iteration_index
+
+    @iteration_index.setter
+    def iteration_index(self, iteration_index):
+        """Sets the iteration_index of this V2beta1CreateArtifactRequest.
+
+
+        :param iteration_index: The iteration_index of this V2beta1CreateArtifactRequest.  # noqa: E501
+        :type iteration_index: str
+        """
+
+        self._iteration_index = iteration_index
+
+    @property
+    def type(self):
+        """Gets the type of this V2beta1CreateArtifactRequest.  # noqa: E501
+
+
+        :return: The type of this V2beta1CreateArtifactRequest.  # noqa: E501
+        :rtype: V2beta1IOType
+        """
+        return self._type
+
+    @type.setter
+    def type(self, type):
+        """Sets the type of this V2beta1CreateArtifactRequest.
+
+
+        :param type: The type of this V2beta1CreateArtifactRequest.  # noqa: E501
+        :type type: V2beta1IOType
+        """
+
+        self._type = type
 
     def to_dict(self):
         """Returns the model properties as a dict"""

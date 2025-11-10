@@ -43,7 +43,7 @@ type API interface {
 
 	// Pipeline version operations
 	GetPipelineVersion(ctx context.Context, req *gc.GetPipelineVersionRequest) (*gc.PipelineVersion, error)
-	FetchPipelineSpecFromRun(ctx context.Context, pipelineSpecStruct *structpb.Struct, run *gc.Run) (*structpb.Struct, error)
+	FetchPipelineSpecFromRun(ctx context.Context, run *gc.Run) (*structpb.Struct, error)
 
 	// Propagate status updates up the DAG
 	UpdateStatuses(ctx context.Context, run *gc.Run, pipelineSpec *structpb.Struct, currentTask *gc.PipelineTaskDetail) error
@@ -153,7 +153,8 @@ func (k *clientAdapter) GetPipelineVersion(ctx context.Context, req *gc.GetPipel
 	return k.c.Pipeline.GetPipelineVersion(ctx, req)
 }
 
-func (k *clientAdapter) FetchPipelineSpecFromRun(ctx context.Context, pipelineSpecStruct *structpb.Struct, run *gc.Run) (*structpb.Struct, error) {
+func (k *clientAdapter) FetchPipelineSpecFromRun(ctx context.Context, run *gc.Run) (*structpb.Struct, error) {
+	var pipelineSpecStruct *structpb.Struct
 	if run.GetPipelineSpec() != nil {
 		pipelineSpecStruct = run.GetPipelineSpec()
 	} else if run.GetPipelineVersionReference() != nil {
