@@ -14,7 +14,7 @@ var paramError = func(paramSpec *pipelinespec.TaskInputsSpec_InputParameterSpec,
 	return fmt.Errorf("resolving input parameter with spec %s: %w", paramSpec, err)
 }
 
-var ErrResolvedInputNull = errors.New("the resolved input is null")
+var ErrResolvedParameterNull = errors.New("the resolved input is null")
 
 type ParameterMetadata struct {
 	// This is the key of the parameter in this task's inputs.

@@ -36,8 +36,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var ErrResolvedParameterNull = errors.New("the resolved input parameter is null")
-
 var accessModeMap = map[string]k8score.PersistentVolumeAccessMode{
 	"ReadWriteOnce":    k8score.ReadWriteOnce,
 	"ReadOnlyMany":     k8score.ReadOnlyMany,
@@ -148,7 +146,7 @@ func extendPodSpecPatch(
 				opts, kubernetesExecutorConfig.GetNodeSelector().GetNodeSelectorJson(),
 				inputParams, &nodeSelector)
 			if err != nil {
-				if errors.Is(err, ErrResolvedParameterNull) {
+				if errors.Is(err, resolver.ErrResolvedParameterNull) {
 					skipNodeSelector = true
 				} else {
 					return fmt.Errorf("failed to resolve node selector: %w", err)
@@ -180,7 +178,7 @@ func extendPodSpecPatch(
 				if toleration.TolerationJson != nil {
 					resolvedParam, _, err := resolver.ResolveInputParameter(opts, toleration.GetTolerationJson(), inputParams)
 					if err != nil {
-						if errors.Is(err, ErrResolvedParameterNull) {
+						if errors.Is(err, resolver.ErrResolvedParameterNull) {
 							continue // Skip applying the patch for this null/optional parameter
 						}
 						return fmt.Errorf("failed to resolve toleration: %w", err)
@@ -251,7 +249,7 @@ func extendPodSpecPatch(
 		if secretAsVolume.SecretNameParameter != nil {
 			resolvedSecretName, err := resolver.ResolveInputParameterStr(opts, secretAsVolume.SecretNameParameter, inputParams)
 			if err != nil {
-				if errors.Is(err, ErrResolvedParameterNull) {
+				if errors.Is(err, resolver.ErrResolvedParameterNull) {
 					continue
 				}
 				return fmt.Errorf("failed to resolve secret name: %w", err)
@@ -312,7 +310,7 @@ func extendPodSpecPatch(
 			if secretAsEnv.SecretNameParameter != nil {
 				resolvedSecretName, err := resolver.ResolveInputParameterStr(opts, secretAsEnv.SecretNameParameter, inputParams)
 				if err != nil {
-					if errors.Is(err, ErrResolvedParameterNull) {
+					if errors.Is(err, resolver.ErrResolvedParameterNull) {
 						continue
 					}
 					return fmt.Errorf("failed to resolve secret name: %w", err)
@@ -344,7 +342,7 @@ func extendPodSpecPatch(
 			resolvedConfigMapName, err := resolver.ResolveInputParameterStr(opts,
 				configMapAsVolume.ConfigMapNameParameter, inputParams)
 			if err != nil {
-				if errors.Is(err, ErrResolvedParameterNull) {
+				if errors.Is(err, resolver.ErrResolvedParameterNull) {
 					continue
 				}
 				return fmt.Errorf("failed to resolve configmap name: %w", err)
@@ -408,7 +406,7 @@ func extendPodSpecPatch(
 				resolvedConfigMapName, err := resolver.ResolveInputParameterStr(opts,
 					configMapAsEnv.ConfigMapNameParameter, inputParams)
 				if err != nil {
-					if errors.Is(err, ErrResolvedParameterNull) {
+					if errors.Is(err, resolver.ErrResolvedParameterNull) {
 						continue
 					}
 					return fmt.Errorf("failed to resolve configmap name: %w", err)
@@ -440,7 +438,7 @@ func extendPodSpecPatch(
 			resolvedSecretName, err := resolver.ResolveInputParameterStr(opts,
 				imagePullSecret.SecretNameParameter, inputParams)
 			if err != nil {
-				if errors.Is(err, ErrResolvedParameterNull) {
+				if errors.Is(err, resolver.ErrResolvedParameterNull) {
 					continue
 				}
 				return fmt.Errorf("failed to resolve image pull secret name: %w", err)
@@ -579,7 +577,7 @@ func extendPodSpecPatch(
 					&k8sNodeAffinity,
 				)
 				if err != nil {
-					if errors.Is(err, ErrResolvedParameterNull) {
+					if errors.Is(err, resolver.ErrResolvedParameterNull) {
 						continue
 					}
 					return fmt.Errorf("failed to resolve node affinity json: %w", err)

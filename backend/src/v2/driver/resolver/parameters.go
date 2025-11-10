@@ -30,7 +30,7 @@ func resolveParameters(opts common.Options) ([]ParameterMetadata, error) {
 
 		v, ioType, err := ResolveInputParameter(opts, paramSpec, opts.ParentTask.Inputs.GetParameters())
 		if err != nil {
-			if !errors.Is(err, ErrResolvedInputNull) {
+			if !errors.Is(err, ErrResolvedParameterNull) {
 				return nil, err
 			}
 			componentParam, ok := opts.Component.GetInputDefinitions().GetParameters()[key]
@@ -216,13 +216,13 @@ func resolveParameterComponentInputParameter(
 			if !common.IsLoopArgument(paramName) {
 				// This can occur when a runtime config has a "None" optional value.
 				// In this case we return "nil" and have the callee handle the
-				// ErrResolvedInputNull case.
+				// ErrResolvedParameterNull case.
 				val := param.GetValue()
 				if val == nil {
-					return nil, ErrResolvedInputNull
+					return nil, ErrResolvedParameterNull
 				}
 				if _, isNull := val.GetKind().(*structpb.Value_NullValue); isNull {
-					return nil, ErrResolvedInputNull
+					return nil, ErrResolvedParameterNull
 				}
 				return param, nil
 			}
@@ -232,7 +232,7 @@ func resolveParameterComponentInputParameter(
 			}
 		}
 	}
-	return nil, ErrResolvedInputNull
+	return nil, ErrResolvedParameterNull
 }
 
 // resolveParameterIterator handles parameter Iterator Input resolution
