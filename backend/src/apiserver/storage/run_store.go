@@ -755,6 +755,12 @@ func (s *RunStore) DeleteRun(id string) error {
 	if err != nil {
 		return util.NewInternalServerError(err, "Failed to create a new transaction to delete run")
 	}
+	// Delete tasks first to avoid foreign key constraint violations
+	err = s.taskStore.DeleteTasksForRun(tx, id)
+	if err != nil {
+		tx.Rollback()
+		return util.NewInternalServerError(err, "Failed to delete tasks for run %v", id)
+	}
 	_, err = tx.Exec(runSql, runArgs...)
 	if err != nil {
 		tx.Rollback()

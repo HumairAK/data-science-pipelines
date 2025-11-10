@@ -965,3 +965,32 @@ func getLastTaskState(history model.JSONSlice) model.TaskStatus {
 	lastEntry := histProtos[len(histProtos)-1]
 	return model.TaskStatus(lastEntry.GetState())
 }
+
+// DeleteTasksForRun deletes all tasks associated with a specific run.
+// This should be called before deleting a run to avoid foreign key constraint violations.
+func (s *TaskStore) DeleteTasksForRun(tx *sql.Tx, runUUID string) error {
+	deleteSql, deleteArgs, err := sq.Delete(tableName).Where(sq.Eq{"RunUUID": runUUID}).ToSql()
+	if err != nil {
+		return util.NewInternalServerError(err, "Failed to create query to delete tasks for run: %s", runUUID)
+	}
+
+	var result sql.Result
+	if tx != nil {
+		result, err = tx.Exec(deleteSql, deleteArgs...)
+	} else {
+		result, err = s.db.Exec(deleteSql, deleteArgs...)
+	}
+
+	if err != nil {
+		return util.NewInternalServerError(err, "Failed to delete tasks for run %s from table", runUUID)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		glog.Warningf("Failed to get rows affected when deleting tasks for run %s: %v", runUUID, err)
+	} else {
+		glog.V(4).Infof("Deleted %d tasks for run %s", rowsAffected, runUUID)
+	}
+
+	return nil
+}
