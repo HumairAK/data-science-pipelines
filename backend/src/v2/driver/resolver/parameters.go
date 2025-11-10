@@ -35,8 +35,29 @@ func resolveParameters(opts common.Options) ([]ParameterMetadata, error) {
 			}
 			componentParam, ok := opts.Component.GetInputDefinitions().GetParameters()[key]
 			if ok && componentParam != nil && componentParam.IsOptional {
-				// If the resolved parameter was null and the component input parameter is optional, just skip setting
-				// it and the launcher will handle defaults.
+				// If the resolved parameter was null and the component input parameter is optional,
+				// check if there's a default value we should use
+				if componentParam.GetDefaultValue() != nil {
+					// Add parameter with default value
+					pm := ParameterMetadata{
+						Key:                key,
+						InputParameterSpec: paramSpec,
+						ParameterIO: &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+							Value:        componentParam.GetDefaultValue(),
+							Type:         apiv2beta1.IOType_COMPONENT_DEFAULT_INPUT,
+							ParameterKey: key,
+							Producer: &apiv2beta1.IOProducer{
+								TaskName: opts.ParentTask.GetName(),
+							},
+						},
+					}
+					if opts.IterationIndex >= 0 {
+						pm.ParameterIO.Producer.Iteration = util.Int64Pointer(int64(opts.IterationIndex))
+					}
+					parameters = append(parameters, pm)
+					continue
+				}
+				// No default value, skip it
 				continue
 			}
 			return nil, err
@@ -61,6 +82,51 @@ func resolveParameters(opts common.Options) ([]ParameterMetadata, error) {
 			pm.ParameterIO.Producer.Iteration = util.Int64Pointer(int64(opts.IterationIndex))
 		}
 		parameters = append(parameters, pm)
+	}
+
+	// Check for parameters in the Component's InputDefinitions that aren't in the task's inputs
+	// and add them with their default values if they have one
+	if opts.Component.GetInputDefinitions() != nil {
+		// Build a map of existing parameter keys
+		existingParams := make(map[string]bool)
+		for key := range opts.Task.GetInputs().GetParameters() {
+			existingParams[key] = true
+		}
+
+		// Find default parameters that aren't already in the task
+		for name, paramSpec := range opts.Component.GetInputDefinitions().GetParameters() {
+			// Skip if parameter is already in the task's inputs or doesn't have a default value
+			if existingParams[name] || paramSpec.GetDefaultValue() == nil {
+				continue
+			}
+
+			// Skip TASK_CONFIG parameters
+			if paramSpec.GetParameterType() == pipelinespec.ParameterType_TASK_CONFIG {
+				continue
+			}
+
+			// Only add if it's optional
+			if !paramSpec.IsOptional {
+				continue
+			}
+
+			// Add parameter with default value
+			pm := ParameterMetadata{
+				Key: name,
+				ParameterIO: &apiv2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
+					Value:        paramSpec.GetDefaultValue(),
+					Type:         apiv2beta1.IOType_COMPONENT_DEFAULT_INPUT,
+					ParameterKey: name,
+					Producer: &apiv2beta1.IOProducer{
+						TaskName: opts.ParentTask.GetName(),
+					},
+				},
+			}
+			if opts.IterationIndex >= 0 {
+				pm.ParameterIO.Producer.Iteration = util.Int64Pointer(int64(opts.IterationIndex))
+			}
+			parameters = append(parameters, pm)
+		}
 	}
 
 	return parameters, nil

@@ -34,7 +34,6 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
 	"gocloud.dev/blob"
 	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -260,12 +259,6 @@ func (l *LauncherV2) Execute(ctx context.Context) (executionErr error) {
 	}
 	l.launcherConfig = launcherConfig
 
-	// Add default parameter values to task inputs if they're not already present
-	// This makes the full set of input parameters visible in the task for inspection
-	if executionErr = l.addDefaultParametersToTask(ctx); executionErr != nil {
-		return fmt.Errorf("failed to add default parameters to task: %w", executionErr)
-	}
-
 	if executionErr = l.prepareOutputFolders(l.executorInput); executionErr != nil {
 		return fmt.Errorf("failed to prepare output folders: %w", executionErr)
 	}
@@ -312,16 +305,8 @@ func (o *LauncherV2Options) validate() error {
 // executeV2 handles placeholder substitution for inputs, calls execute to
 // execute end user logic, and uploads the resulting output Artifacts.
 func (l *LauncherV2) executeV2(ctx context.Context) (*pipelinespec.ExecutorOutput, error) {
-	// Add parameter default values to executorInput, if there is not already a user input.
-	// This process is done in the launcher because we let the component resolve default values internally.
-	// Variable executorInputWithDefault is a copy so we don't alter the original data.
-	executorInputWithDefault, err := addDefaultParams(l.executorInput, l.options.ComponentSpec)
-	if err != nil {
-		return nil, err
-	}
-
 	// Fill in placeholders with runtime values.
-	compiledCmd, compiledArgs, err := compileCmdAndArgs(executorInputWithDefault, l.command, l.args)
+	compiledCmd, compiledArgs, err := compileCmdAndArgs(l.executorInput, l.command, l.args)
 	if err != nil {
 		return nil, err
 	}
@@ -1465,91 +1450,6 @@ func (l *LauncherV2) prepareOutputFolders(executorInput *pipelinespec.ExecutorIn
 				return fmt.Errorf("unable to create directory %q for output artifact %q: %w", filepath.Dir(localPath), name, err)
 			}
 		}
-	}
-
-	return nil
-}
-
-// Adds default parameter values if there is no user provided value
-func addDefaultParams(
-	executorInput *pipelinespec.ExecutorInput,
-	component *pipelinespec.ComponentSpec,
-) (*pipelinespec.ExecutorInput, error) {
-	// Make a deep copy so we don't alter the original data
-	executorInputWithDefaultMsg := proto.Clone(executorInput)
-	executorInputWithDefault, ok := executorInputWithDefaultMsg.(*pipelinespec.ExecutorInput)
-	if !ok {
-		return nil, fmt.Errorf("bug: cloned executor input message does not have expected type")
-	}
-
-	if executorInputWithDefault.GetInputs().GetParameterValues() == nil {
-		executorInputWithDefault.Inputs.ParameterValues = make(map[string]*structpb.Value)
-	}
-	for name, value := range component.GetInputDefinitions().GetParameters() {
-		_, hasInput := executorInputWithDefault.GetInputs().GetParameterValues()[name]
-		if value.GetDefaultValue() != nil && !hasInput {
-			executorInputWithDefault.GetInputs().GetParameterValues()[name] = value.GetDefaultValue()
-		}
-	}
-	return executorInputWithDefault, nil
-}
-
-// addDefaultParametersToTask adds default parameter values to the task's inputs
-// if they're not already present. This makes the full set of input parameters
-// visible in the task for inspection and testing.
-func (l *LauncherV2) addDefaultParametersToTask(ctx context.Context) error {
-	// Check if we have default parameters to add
-	if l.options.ComponentSpec == nil || l.options.ComponentSpec.GetInputDefinitions() == nil {
-		return nil
-	}
-
-	// Get the current task to check what parameters it already has
-	currentTask, err := l.clientManager.KFPAPIClient().GetTask(ctx, &apiV2beta1.GetTaskRequest{
-		TaskId: l.options.Task.GetTaskId(),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to get task for adding default parameters: %w", err)
-	}
-
-	// Build a map of existing parameter keys
-	existingParams := make(map[string]bool)
-	if currentTask.Inputs != nil {
-		for _, param := range currentTask.Inputs.GetParameters() {
-			existingParams[param.ParameterKey] = true
-		}
-	}
-
-	// Find default parameters that aren't already in the task
-	var defaultParams []*apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter
-	for name, paramSpec := range l.options.ComponentSpec.GetInputDefinitions().GetParameters() {
-		// Only add if it has a default value and isn't already present
-		if paramSpec.GetDefaultValue() != nil && !existingParams[name] {
-			defaultParam := &apiV2beta1.PipelineTaskDetail_InputOutputs_IOParameter{
-				ParameterKey: name,
-				Value:        paramSpec.GetDefaultValue(),
-				Type:         apiV2beta1.IOType_COMPONENT_DEFAULT_INPUT,
-			}
-			defaultParams = append(defaultParams, defaultParam)
-		}
-	}
-
-	// If we have default parameters to add, update the task
-	if len(defaultParams) > 0 {
-		if currentTask.Inputs == nil {
-			currentTask.Inputs = &apiV2beta1.PipelineTaskDetail_InputOutputs{}
-		}
-		currentTask.Inputs.Parameters = append(currentTask.Inputs.Parameters, defaultParams...)
-
-		_, err = l.clientManager.KFPAPIClient().UpdateTask(ctx, &apiV2beta1.UpdateTaskRequest{
-			TaskId: currentTask.GetTaskId(),
-			Task:   currentTask,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to update task with default parameters: %w", err)
-		}
-
-		// Update our local copy of the task
-		l.options.Task = currentTask
 	}
 
 	return nil

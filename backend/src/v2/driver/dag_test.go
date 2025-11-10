@@ -1069,6 +1069,58 @@ func TestContainerComponentInputsAndRuntimeConstants(t *testing.T) {
 	require.Equal(t, "output_text", artifact.Name)
 }
 
+func TestNestedPipelineOptionalInputChildLevel(t *testing.T) {
+	// This test validates that when a DAG task (nested pipeline) has optional inputs with defaults,
+	// and the parent only provides some of those inputs, the child tasks still receive the defaults
+	// for the inputs that weren't provided.
+	tc := NewTestContextWithRootExecuted(
+		t,
+		&pipelinespec.PipelineJob_RuntimeConfig{},
+		"test_data/nested_pipeline_opt_input_child_level_compiled.yaml",
+	)
+	parentTask := tc.RootTask
+
+	// Run the nested pipeline driver - it should receive 3 inputs from root and use defaults for the other 3
+	nestedPipelineExecution, nestedPipelineTask := tc.RunDagDriver("nested-pipeline", parentTask)
+	require.NotNil(t, nestedPipelineExecution)
+	require.NotNil(t, nestedPipelineTask)
+	require.Equal(t, apiv2beta1.PipelineTaskDetail_RUNNING, nestedPipelineTask.State)
+
+	// The nested pipeline task should have ALL 6 inputs (3 from parent + 3 defaults)
+	require.NotNil(t, nestedPipelineTask.Inputs)
+	require.NotNil(t, nestedPipelineTask.Inputs.Parameters)
+
+	inputParams := make(map[string]*structpb.Value)
+	for _, param := range nestedPipelineTask.Inputs.Parameters {
+		inputParams[param.ParameterKey] = param.Value
+	}
+
+	// Verify all 6 parameters are present
+	require.Contains(t, inputParams, "nestedInputBool1", "nestedInputBool1 should be present")
+	require.Contains(t, inputParams, "nestedInputBool2", "nestedInputBool2 should be present (from default)")
+	require.Contains(t, inputParams, "nestedInputInt1", "nestedInputInt1 should be present")
+	require.Contains(t, inputParams, "nestedInputInt2", "nestedInputInt2 should be present (from default)")
+	require.Contains(t, inputParams, "nestedInputStr1", "nestedInputStr1 should be present")
+	require.Contains(t, inputParams, "nestedInputStr2", "nestedInputStr2 should be present (from default)")
+
+	// Verify the values are correct
+	// From parent (root pipeline)
+	require.Equal(t, true, inputParams["nestedInputBool1"].GetBoolValue(),
+		"nestedInputBool1 should be true (from parent)")
+	require.Equal(t, 1.0, inputParams["nestedInputInt1"].GetNumberValue(),
+		"nestedInputInt1 should be 1.0 (from parent)")
+	require.Equal(t, "Input - pipeline", inputParams["nestedInputStr1"].GetStringValue(),
+		"nestedInputStr1 should be 'Input - pipeline' (from parent)")
+
+	// From defaults (not provided by parent)
+	require.Equal(t, false, inputParams["nestedInputBool2"].GetBoolValue(),
+		"nestedInputBool2 should be false (from default)")
+	require.Equal(t, 0.0, inputParams["nestedInputInt2"].GetNumberValue(),
+		"nestedInputInt2 should be 0.0 (from default)")
+	require.Equal(t, "Input 2 - nested pipeline", inputParams["nestedInputStr2"].GetStringValue(),
+		"nestedInputStr2 should be 'Input 2 - nested pipeline' (from default)")
+}
+
 // Add a test that will ensure a task is skipped when a task condition is not met
 func TestSkippedTask(t *testing.T) {}
 
