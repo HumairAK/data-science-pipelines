@@ -4,9 +4,16 @@
 check-diff:
 	/bin/bash -c 'if [[ -n "$$(git status --porcelain)" ]]; then \
 		echo "ERROR: Generated files are out of date"; \
-		echo "Please regenerate using make clean all for api and kubernetes_platform"; \
+		echo ""; \
+		echo "Please regenerate the files using the following commands:"; \
+		echo "  - Backend API (Go clients): cd backend/api && make generate"; \
+		echo "  - Frontend API (TypeScript clients): cd frontend && make generate-swagger-clients"; \
+		echo "  - Kubernetes Platform: cd kubernetes_platform && make python-dev"; \
+		echo "  - K8s CRDs: cd backend/src/crd/kubernetes && make generate manifests"; \
+		echo ""; \
 		echo "Changes found in the following files:"; \
 		git status; \
+		echo ""; \
 		echo "Diff of changes:"; \
 		git diff; \
 		exit 1; \
