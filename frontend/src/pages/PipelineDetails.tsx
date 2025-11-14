@@ -350,7 +350,7 @@ class PipelineDetails extends Page<{}, PipelineDetailsState> {
         // Experiment ID and pipeline version id are preserved.
         if (origin.isRecurring) {
           origin.v1RecurringRun = await Apis.jobServiceApi.jobServiceGetJob(origin.recurringRunId!);
-          origin.v2RecurringRun = await Apis.recurringRunServiceApi.getRecurringRun(
+          origin.v2RecurringRun = await Apis.recurringRunServiceApi.recurringRunServiceGetRecurringRun(
             origin.recurringRunId!,
           );
         } else {

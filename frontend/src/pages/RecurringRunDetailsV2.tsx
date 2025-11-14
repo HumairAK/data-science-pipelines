@@ -140,7 +140,7 @@ class RecurringRunDetailsV2 extends Page<{}, RecurringRunConfigState> {
 
     let run: V2beta1RecurringRun;
     try {
-      run = await Apis.recurringRunServiceApi.getRecurringRun(recurringRunId);
+      run = await Apis.recurringRunServiceApi.recurringRunServiceGetRecurringRun(recurringRunId);
     } catch (err) {
       const errorMessage = await errorToMessage(err);
       await this.showPageError(

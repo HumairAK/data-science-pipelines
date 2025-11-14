@@ -352,7 +352,7 @@ function NewRunV2(props: NewRunV2Props) {
     return Apis.runServiceApiV2.runServiceCreateRun(run);
   });
   const newRecurringRunMutation = useMutation((recurringRun: V2beta1RecurringRun) => {
-    return Apis.recurringRunServiceApi.createRecurringRun(recurringRun);
+    return Apis.recurringRunServiceApi.recurringRunServiceCreateRecurringRun(recurringRun);
   });
 
   const startRun = () => {

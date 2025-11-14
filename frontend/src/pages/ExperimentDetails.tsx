@@ -323,7 +323,7 @@ export class ExperimentDetails extends Page<{}, ExperimentDetailsState> {
       // Fetch this experiment's jobs
       try {
         // TODO: get ALL jobs in the experiment
-        const recurringRuns = await Apis.recurringRunServiceApi.listRecurringRuns(
+        const recurringRuns = await Apis.recurringRunServiceApi.recurringRunServiceListRecurringRuns(
           undefined,
           100,
           '',

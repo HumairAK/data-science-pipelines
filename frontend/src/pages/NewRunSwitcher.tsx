@@ -62,7 +62,7 @@ function NewRunSwitcher(props: PageProps) {
       if (!originalRecurringRunId) {
         throw new Error('Recurring Run ID is missing');
       }
-      return Apis.recurringRunServiceApi.getRecurringRun(originalRecurringRunId);
+      return Apis.recurringRunServiceApi.recurringRunServiceGetRecurringRun(originalRecurringRunId);
     },
     { enabled: !!originalRecurringRunId, staleTime: Infinity },
   );

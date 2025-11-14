@@ -42,7 +42,7 @@ export default function RecurringRunDetailsRouter(props: PageProps) {
       if (!recurringRunId) {
         throw new Error('Recurring run ID is missing');
       }
-      return Apis.recurringRunServiceApi.getRecurringRun(recurringRunId);
+      return Apis.recurringRunServiceApi.recurringRunServiceGetRecurringRun(recurringRunId);
     },
     { enabled: !!recurringRunId, staleTime: Infinity },
   );
