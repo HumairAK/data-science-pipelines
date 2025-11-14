@@ -63,7 +63,7 @@ export default function RecurringRunDetailsRouter(props: PageProps) {
       if (!pipelineId || !pipelineVersionId) {
         return '';
       }
-      const pipelineVersion = await Apis.pipelineServiceApiV2.getPipelineVersion(
+      const pipelineVersion = await Apis.pipelineServiceApiV2.pipelineServiceGetPipelineVersion(
         pipelineId,
         pipelineVersionId,
       );

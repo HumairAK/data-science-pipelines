@@ -283,7 +283,7 @@ export class ExperimentDetails extends Page<{}, ExperimentDetailsState> {
     const experimentId = this.props.match.params[RouteParams.experimentId];
 
     try {
-      const experiment = await Apis.experimentServiceApiV2.getExperiment(experimentId);
+      const experiment = await Apis.experimentServiceApiV2.experimentServiceGetExperiment(experimentId);
       const pageTitle =
         experiment.display_name || this.props.match.params[RouteParams.experimentId];
 

@@ -154,7 +154,7 @@ class RecurringRunDetailsV2 extends Page<{}, RecurringRunConfigState> {
     let experiment: V2beta1Experiment | undefined;
     if (relatedExperimentId) {
       try {
-        experiment = await Apis.experimentServiceApiV2.getExperiment(relatedExperimentId);
+        experiment = await Apis.experimentServiceApiV2.experimentServiceGetExperiment(relatedExperimentId);
       } catch (err) {
         const errorMessage = await errorToMessage(err);
         await this.showPageError(
