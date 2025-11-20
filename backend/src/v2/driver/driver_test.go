@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"testing"
 
+	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
@@ -286,7 +287,7 @@ func Test_initPodSpecPatch_acceleratorConfig(t *testing.T) {
 				"",
 				"ml-pipeline.kubeflow",
 				"8887",
-				)
+			)
 			if tt.wantErr {
 				assert.Nil(t, podSpec)
 				assert.NotNil(t, err)
@@ -410,7 +411,7 @@ func Test_initPodSpecPatch_resource_placeholders(t *testing.T) {
 		"",
 		"ml-pipeline.kubeflow",
 		"8887",
-		)
+	)
 	assert.Nil(t, err)
 	assert.Len(t, podSpec.Containers, 1)
 
@@ -465,7 +466,7 @@ func Test_initPodSpecPatch_legacy_resources(t *testing.T) {
 		"",
 		"ml-pipeline.kubeflow",
 		"8887",
-		)
+	)
 	assert.Nil(t, err)
 	assert.Len(t, podSpec.Containers, 1)
 
@@ -522,7 +523,7 @@ func Test_initPodSpecPatch_modelcar_input_artifact(t *testing.T) {
 		"",
 		"ml-pipeline.kubeflow",
 		"8887",
-		)
+	)
 	assert.Nil(t, err)
 
 	assert.Len(t, podSpec.InitContainers, 1)
@@ -582,7 +583,7 @@ func Test_initPodSpecPatch_publishLogs(t *testing.T) {
 		"",
 		"ml-pipeline.kubeflow",
 		"8887",
-		)
+	)
 	assert.Nil(t, err)
 	cmd := podSpec.Containers[0].Command
 	assert.Contains(t, cmd, "--publish_logs")
@@ -714,7 +715,7 @@ func Test_initPodSpecPatch_resourceRequests(t *testing.T) {
 				"",
 				"ml-pipeline.kubeflow",
 				"8887",
-				)
+			)
 			assert.Nil(t, err)
 			assert.NotEmpty(t, podSpec)
 			podSpecString, err := json.Marshal(podSpec)
@@ -757,7 +758,7 @@ func Test_initPodSpecPatch_TaskConfig_ForwardsResourcesOnly(t *testing.T) {
 	executorInput := &pipelinespec.ExecutorInput{}
 
 	taskCfg := &TaskConfig{}
-	podSpec, err := initPodSpecPatch(containerSpec, componentSpec, executorInput, "27", "", "test", "0254beba-0be4-4065-8d97-7dc5e3adf300", "my-run-name", "1", "false", "false", taskCfg, "", nil, "", false, "", "ml-pipeline.kubeflow", "8887",)
+	podSpec, err := initPodSpecPatch(containerSpec, componentSpec, executorInput, "27", "", "test", "0254beba-0be4-4065-8d97-7dc5e3adf300", "my-run-name", "1", "false", "false", taskCfg, "", nil, "", false, "", "ml-pipeline.kubeflow", "8887")
 	assert.Nil(t, err)
 	assert.NotNil(t, podSpec)
 	assert.Len(t, podSpec.Containers, 1)
@@ -1219,7 +1220,7 @@ func TestWorkspaceMount_TriggeredByArtifactMetadata(t *testing.T) {
 		"",
 		"ml-pipeline.kubeflow",
 		"8887",
-		)
+	)
 	assert.Nil(t, err)
 
 	// Expect workspace volume mounted
@@ -1533,7 +1534,7 @@ func Test_initPodSpecPatch_mlPipelineServerConfig(t *testing.T) {
 		"",
 		customAddress,
 		customPort,
-		)
+	)
 	assert.Nil(t, err)
 	assert.NotNil(t, podSpec)
 
@@ -1557,84 +1558,88 @@ func Test_initPodSpecPatch_mlPipelineServerConfig(t *testing.T) {
 }
 
 func Test_validateNonRoot(t *testing.T) {
+	validOpts := func() common.Options {
+		return common.Options{
+			PipelineName: "pipeline-1",
+			Run:          &apiv2beta1.Run{RunId: "run-1"},
+			Component:    &pipelinespec.ComponentSpec{},
+			Task:         &pipelinespec.PipelineTaskSpec{TaskInfo: &pipelinespec.PipelineTaskInfo{Name: "task-1"}},
+			ParentTask:   &apiv2beta1.PipelineTaskDetail{TaskId: "parent-task", ScopePath: "root"},
+		}
+	}
 	tests := []struct {
 		name    string
-		opts    Options
+		opts    common.Options
 		wantErr bool
 		errMsg  string
 	}{
 		{
-			name: "missing pipeline name returns error",
-			opts: Options{
-				PipelineName: "",
-			},
+			name:    "missing pipeline name returns error",
+			opts:    common.Options{},
 			wantErr: true,
 			errMsg:  "pipeline name is required",
 		},
 		{
-			name: "missing run ID returns error",
-			opts: Options{
-				PipelineName: "pipeline-1",
-				RunID:        "",
-			},
+			name:    "missing run ID returns error",
+			opts:    common.Options{PipelineName: "pipeline-1"},
 			wantErr: true,
 			errMsg:  "KFP run ID is required",
 		},
 		{
 			name: "nil component spec returns error",
-			opts: Options{
+			opts: common.Options{
 				PipelineName: "pipeline-1",
-				RunID:        "run-1",
-				Component:    nil,
+				Run:          &apiv2beta1.Run{RunId: "run-1"},
 			},
 			wantErr: true,
 			errMsg:  "component spec is required",
 		},
 		{
 			name: "missing task name returns error",
-			opts: Options{
+			opts: common.Options{
 				PipelineName: "pipeline-1",
-				RunID:        "run-1",
+				Run:          &apiv2beta1.Run{RunId: "run-1"},
 				Component:    &pipelinespec.ComponentSpec{},
-				Task:         nil,
 			},
 			wantErr: true,
 			errMsg:  "task spec is required",
 		},
 		{
 			name: "runtime config present returns error",
-			opts: Options{
-				PipelineName:   "pipeline-1",
-				RunID:          "run-1",
-				Component:      &pipelinespec.ComponentSpec{},
-				Task:           &pipelinespec.PipelineTaskSpec{TaskInfo: &pipelinespec.PipelineTaskInfo{Name: "task-1"}},
-				RuntimeConfig:  &pipelinespec.PipelineJob_RuntimeConfig{},
-				DAGExecutionID: 1,
-			},
+			opts: func() common.Options {
+				opts := validOpts()
+				opts.RuntimeConfig = &pipelinespec.PipelineJob_RuntimeConfig{}
+				return opts
+			}(),
 			wantErr: true,
 			errMsg:  "runtime config is unnecessary",
 		},
 		{
-			name: "zero DAG execution ID returns error",
-			opts: Options{
-				PipelineName:   "pipeline-1",
-				RunID:          "run-1",
-				Component:      &pipelinespec.ComponentSpec{},
-				Task:           &pipelinespec.PipelineTaskSpec{TaskInfo: &pipelinespec.PipelineTaskInfo{Name: "task-1"}},
-				DAGExecutionID: 0,
+			name: "missing parent task returns error",
+			opts: common.Options{
+				PipelineName: "pipeline-1",
+				Run:          &apiv2beta1.Run{RunId: "run-1"},
+				Component:    &pipelinespec.ComponentSpec{},
+				Task:         &pipelinespec.PipelineTaskSpec{TaskInfo: &pipelinespec.PipelineTaskInfo{Name: "task-1"}},
 			},
 			wantErr: true,
-			errMsg:  "DAG execution ID is required",
+			errMsg:  "parent task scope path is required for DAG",
 		},
 		{
-			name: "valid non-root options pass validation",
-			opts: Options{
-				PipelineName:   "pipeline-1",
-				RunID:          "run-1",
-				Component:      &pipelinespec.ComponentSpec{},
-				Task:           &pipelinespec.PipelineTaskSpec{TaskInfo: &pipelinespec.PipelineTaskInfo{Name: "task-1"}},
-				DAGExecutionID: 1,
+			name: "missing parent task id returns error",
+			opts: common.Options{
+				PipelineName: "pipeline-1",
+				Run:          &apiv2beta1.Run{RunId: "run-1"},
+				Component:    &pipelinespec.ComponentSpec{},
+				Task:         &pipelinespec.PipelineTaskSpec{TaskInfo: &pipelinespec.PipelineTaskInfo{Name: "task-1"}},
+				ParentTask:   &apiv2beta1.PipelineTaskDetail{ScopePath: "root"},
 			},
+			wantErr: true,
+			errMsg:  "parent task is required",
+		},
+		{
+			name:    "valid non-root options pass validation",
+			opts:    validOpts(),
 			wantErr: false,
 		},
 	}

@@ -81,8 +81,7 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 		Type:         apiV2beta1.PipelineTaskDetail_RUNTIME,
 		State:        apiV2beta1.PipelineTaskDetail_RUNNING,
 		ParentTaskId: util.StringPointer(opts.ParentTask.TaskId),
-		ScopePath:    opts.ScopePath.StringPath(),
-		StartTime:    timestamppb.Now(),
+		ScopePath:    opts.ScopePath.DotNotation(),
 		CreateTime:   timestamppb.Now(),
 		Pods: []*apiV2beta1.PipelineTaskDetail_TaskPod{
 			{
@@ -411,6 +410,7 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 func pipelineTaskInputsToExecutorInputs(inputMetadata *resolver.InputMetadata) (*pipelinespec.ExecutorInput, error) {
 	parameters := make(map[string]*structpb.Value)
 	artifacts := make(map[string]*pipelinespec.ArtifactList)
+
 	for _, p := range inputMetadata.Parameters {
 		if p.ParameterIO.GetValue() == nil {
 			return nil, fmt.Errorf("parameter %s has no value", p.Key)
@@ -432,13 +432,15 @@ func pipelineTaskInputsToExecutorInputs(inputMetadata *resolver.InputMetadata) (
 			parameters[p.Key] = p.ParameterIO.GetValue()
 		}
 	}
+
 	for _, a := range inputMetadata.Artifacts {
-		artifactsList, err := convertArtifactsToArtifactList(a.ArtifactIO.GetArtifacts())
+		artifactsList, err := convertArtifactsToArtifactList(a.ArtifactIO.GetArtifacts(), a.DownloadedToWorkSpace)
 		if err != nil {
 			return nil, err
 		}
 		artifacts[a.Key] = artifactsList
 	}
+
 	executorInput := &pipelinespec.ExecutorInput{
 		Inputs: &pipelinespec.ExecutorInput_Inputs{
 			ParameterValues: parameters,
@@ -448,7 +450,7 @@ func pipelineTaskInputsToExecutorInputs(inputMetadata *resolver.InputMetadata) (
 	return executorInput, nil
 }
 
-func convertArtifactsToArtifactList(artifacts []*apiV2beta1.Artifact) (*pipelinespec.ArtifactList, error) {
+func convertArtifactsToArtifactList(artifacts []*apiV2beta1.Artifact, downloadedToWorkspace bool) (*pipelinespec.ArtifactList, error) {
 	if len(artifacts) == 0 {
 		return &pipelinespec.ArtifactList{}, nil
 	}
@@ -526,6 +528,15 @@ func convertArtifactsToArtifactList(artifacts []*apiV2beta1.Artifact) (*pipeline
 		runtimeArtifact, err := convertArtifactToRuntimeArtifact(artifact)
 		if err != nil {
 			return nil, err
+		}
+		if downloadedToWorkspace {
+			if runtimeArtifact.Metadata == nil {
+				runtimeArtifact.Metadata = &structpb.Struct{
+					Fields: make(map[string]*structpb.Value),
+				}
+			}
+
+			runtimeArtifact.Metadata.Fields[common.WorkspaceMetadataField] = structpb.NewBoolValue(true)
 		}
 		runtimeArtifacts = append(runtimeArtifacts, runtimeArtifact)
 	}

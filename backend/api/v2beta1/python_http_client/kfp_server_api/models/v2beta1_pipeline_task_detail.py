@@ -40,7 +40,6 @@ class V2beta1PipelineTaskDetail(object):
         'pods': 'list[PipelineTaskDetailTaskPod]',
         'cache_fingerprint': 'str',
         'create_time': 'datetime',
-        'start_time': 'datetime',
         'end_time': 'datetime',
         'state': 'PipelineTaskDetailTaskState',
         'status_metadata': 'PipelineTaskDetailStatusMetadata',
@@ -52,7 +51,7 @@ class V2beta1PipelineTaskDetail(object):
         'child_tasks': 'list[PipelineTaskDetailChildTask]',
         'inputs': 'PipelineTaskDetailInputOutputs',
         'outputs': 'PipelineTaskDetailInputOutputs',
-        'scope_path': 'list[str]'
+        'scope_path': 'str'
     }
 
     attribute_map = {
@@ -63,7 +62,6 @@ class V2beta1PipelineTaskDetail(object):
         'pods': 'pods',
         'cache_fingerprint': 'cache_fingerprint',
         'create_time': 'create_time',
-        'start_time': 'start_time',
         'end_time': 'end_time',
         'state': 'state',
         'status_metadata': 'status_metadata',
@@ -78,7 +76,7 @@ class V2beta1PipelineTaskDetail(object):
         'scope_path': 'scope_path'
     }
 
-    def __init__(self, name=None, display_name=None, task_id=None, run_id=None, pods=None, cache_fingerprint=None, create_time=None, start_time=None, end_time=None, state=None, status_metadata=None, state_history=None, type=None, type_attributes=None, error=None, parent_task_id=None, child_tasks=None, inputs=None, outputs=None, scope_path=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, display_name=None, task_id=None, run_id=None, pods=None, cache_fingerprint=None, create_time=None, end_time=None, state=None, status_metadata=None, state_history=None, type=None, type_attributes=None, error=None, parent_task_id=None, child_tasks=None, inputs=None, outputs=None, scope_path=None, local_vars_configuration=None):  # noqa: E501
         """V2beta1PipelineTaskDetail - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -91,7 +89,6 @@ class V2beta1PipelineTaskDetail(object):
         self._pods = None
         self._cache_fingerprint = None
         self._create_time = None
-        self._start_time = None
         self._end_time = None
         self._state = None
         self._status_metadata = None
@@ -120,8 +117,6 @@ class V2beta1PipelineTaskDetail(object):
             self.cache_fingerprint = cache_fingerprint
         if create_time is not None:
             self.create_time = create_time
-        if start_time is not None:
-            self.start_time = start_time
         if end_time is not None:
             self.end_time = end_time
         if state is not None:
@@ -301,29 +296,6 @@ class V2beta1PipelineTaskDetail(object):
         """
 
         self._create_time = create_time
-
-    @property
-    def start_time(self):
-        """Gets the start_time of this V2beta1PipelineTaskDetail.  # noqa: E501
-
-        Starting time of a task.  # noqa: E501
-
-        :return: The start_time of this V2beta1PipelineTaskDetail.  # noqa: E501
-        :rtype: datetime
-        """
-        return self._start_time
-
-    @start_time.setter
-    def start_time(self, start_time):
-        """Sets the start_time of this V2beta1PipelineTaskDetail.
-
-        Starting time of a task.  # noqa: E501
-
-        :param start_time: The start_time of this V2beta1PipelineTaskDetail.  # noqa: E501
-        :type start_time: datetime
-        """
-
-        self._start_time = start_time
 
     @property
     def end_time(self):
@@ -568,10 +540,9 @@ class V2beta1PipelineTaskDetail(object):
     def scope_path(self):
         """Gets the scope_path of this V2beta1PipelineTaskDetail.  # noqa: E501
 
-        The scope of this task within the pipeline spec. Each entry represents either a Dag Task or a Container task. Note that Container task will are always the last entry in a scope_path.  # noqa: E501
 
         :return: The scope_path of this V2beta1PipelineTaskDetail.  # noqa: E501
-        :rtype: list[str]
+        :rtype: str
         """
         return self._scope_path
 
@@ -579,10 +550,9 @@ class V2beta1PipelineTaskDetail(object):
     def scope_path(self, scope_path):
         """Sets the scope_path of this V2beta1PipelineTaskDetail.
 
-        The scope of this task within the pipeline spec. Each entry represents either a Dag Task or a Container task. Note that Container task will are always the last entry in a scope_path.  # noqa: E501
 
         :param scope_path: The scope_path of this V2beta1PipelineTaskDetail.  # noqa: E501
-        :type scope_path: list[str]
+        :type scope_path: str
         """
 
         self._scope_path = scope_path

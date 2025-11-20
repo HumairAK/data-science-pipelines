@@ -62,15 +62,14 @@ type V2beta1PipelineTaskDetail struct {
 	RunID string `json:"run_id,omitempty"`
 
 	// The scope of this task within the
-	// pipeline spec. Each entry represents
-	// either a Dag Task or a Container task.
+	// pipeline spec. Each entry (delimited by
+	// a dot "."), represents either a Dag
+	// Task or a Container task.
 	// Note that Container task will are
 	// always the last entry in a scope_path.
-	ScopePath []string `json:"scope_path"`
-
-	// Starting time of a task.
-	// Format: date-time
-	StartTime strfmt.DateTime `json:"start_time,omitempty"`
+	// Example of a scope_path:
+	// "root.primary-pipeline.secondary-pipeline.task"
+	ScopePath string `json:"scope_path,omitempty"`
 
 	// state
 	State *PipelineTaskDetailTaskState `json:"state,omitempty"`
@@ -121,10 +120,6 @@ func (m *V2beta1PipelineTaskDetail) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validatePods(formats); err != nil {
-		res = append(res, err)
-	}
-
-	if err := m.validateStartTime(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -282,18 +277,6 @@ func (m *V2beta1PipelineTaskDetail) validatePods(formats strfmt.Registry) error 
 			}
 		}
 
-	}
-
-	return nil
-}
-
-func (m *V2beta1PipelineTaskDetail) validateStartTime(formats strfmt.Registry) error {
-	if swag.IsZero(m.StartTime) { // not required
-		return nil
-	}
-
-	if err := validate.FormatOf("start_time", "body", "date-time", m.StartTime.String(), formats); err != nil {
-		return err
 	}
 
 	return nil

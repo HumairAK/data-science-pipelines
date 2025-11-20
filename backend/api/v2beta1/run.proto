@@ -226,7 +226,7 @@ message Run {
     // Pipeline spec.
     google.protobuf.Struct pipeline_spec = 7;
 
-    // Reference to a pipeline containing pipeline_id and optionally the pipeline_version_id.
+  // Reference to a pipeline containing pipeline_id and optionally the pipeline_version_id.
     PipelineVersionReference pipeline_version_reference = 18;
   }
 
@@ -297,21 +297,20 @@ enum RuntimeState {
   // Entity completed successfully.
   SUCCEEDED = 3;
 
-  // Entity has been skipped. For example, due to caching.
-  SKIPPED = 4;
-
+  // Values 4 and 5 were intentionally retired to preserve compatibility after
+  // removing unused run-level states from the API.
   // Entity execution has failed.
-  FAILED = 5;
+  FAILED = 6;
 
   // Entity is being canceled. From this state, an entity may only
   // change its state to SUCCEEDED, FAILED or CANCELED.
-  CANCELING = 6;
+  CANCELING = 7;
 
   // Entity has been canceled.
-  CANCELED = 7;
+  CANCELED = 8;
 
   // Entity has been paused. It can be resumed.
-  PAUSED = 8;
+  PAUSED = 9;
 }
 
 // Timestamped representation of a runtime state with an optional error.
@@ -372,11 +371,8 @@ message PipelineTaskDetail {
   // Creation time of a task.
   google.protobuf.Timestamp create_time = 7;
 
-  // Starting time of a task.
-  google.protobuf.Timestamp start_time = 8;
-
   // Completion time of a task.
-  google.protobuf.Timestamp end_time = 9;
+  google.protobuf.Timestamp end_time = 8;
 
   // Runtime state of a Task
   enum TaskState {
@@ -397,7 +393,7 @@ message PipelineTaskDetail {
 
     CACHED = 5;
   }
-  TaskState state = 10;
+  TaskState state = 9;
 
 
   message StatusMetadata {
@@ -409,7 +405,7 @@ message PipelineTaskDetail {
     // This is currently not utilized by KFP backend.
     map<string, google.protobuf.Value> custom_properties = 2;
   }
-  StatusMetadata status_metadata = 11;
+  StatusMetadata status_metadata = 10;
 
   // Timestamped representation of a Task state with an optional error.
   message TaskStatus {
@@ -420,7 +416,7 @@ message PipelineTaskDetail {
 
   // A sequence of task statuses. This field keeps a record
   // of state transitions.
-  repeated TaskStatus state_history = 12;
+  repeated TaskStatus state_history = 11;
 
   enum TaskType {
     // Root task is the top ancestor task to all tasks in the pipeline run
@@ -445,24 +441,26 @@ message PipelineTaskDetail {
     // a driver.
     DAG = 7;
   }
-  TaskType type = 13;
+  TaskType type = 12;
 
   message TypeAttributes {
     // Optional. Applies to type Runtime that is an iteration
     optional int64 iteration_index = 1;
     // Optional. Applies to type LOOP
     optional int64 iteration_count = 2;
+    // Optional. Applies to type IMPORTER
+    optional bool download_to_workspace = 3;
   }
 
-  TypeAttributes type_attributes = 14;
+  TypeAttributes type_attributes = 13;
 
   // The error that occurred during task execution.
   // Only populated when the task is in FAILED or CANCELED state.
-  google.rpc.Status error = 15;
+  google.rpc.Status error = 14;
 
   // ID of the parent task if the task is within a component scope.
   // Empty if the task is at the root level.
-  optional string parent_task_id = 16;
+  optional string parent_task_id = 15;
 
   // A dependent task that requires this one to succeed.
   // Represented by either task_id or pod_name.
@@ -473,7 +471,7 @@ message PipelineTaskDetail {
   }
 
   // Sequence of dependent tasks.
-  repeated ChildTask child_tasks = 17;
+  repeated ChildTask child_tasks = 16;
 
   message InputOutputs {
     message IOParameter {
@@ -501,15 +499,18 @@ message PipelineTaskDetail {
     // ArtifactTasks to link artifacts to tasks.
     repeated IOArtifact artifacts = 2;
   }
-  InputOutputs inputs = 18;
-  InputOutputs outputs = 19;
+  InputOutputs inputs = 17;
+  InputOutputs outputs = 18;
 
   // The scope of this task within the
-  // pipeline spec. Each entry represents
-  // either a Dag Task or a Container task.
+  // pipeline spec. Each entry (delimited by
+  // a dot "."), represents either a Dag
+  // Task or a Container task.
   // Note that Container task will are
   // always the last entry in a scope_path.
-  repeated string scope_path = 20;
+  // Example of a scope_path:
+  // "root.primary-pipeline.secondary-pipeline.task"
+  string scope_path = 19;
 }
 
 // Runtime information of a pipeline task executor.
@@ -653,7 +654,6 @@ message DeleteRunRequest {
   // The ID of the run to be deleted.
   string run_id = 2;
 }
-
 
 message RetryRunRequest {
  // The ID of the parent experiment.

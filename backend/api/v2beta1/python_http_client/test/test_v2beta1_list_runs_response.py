@@ -83,7 +83,6 @@ class TestV2beta1ListRunsResponse(unittest.TestCase):
                                         ], 
                                     cache_fingerprint = '0', 
                                     create_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                                    start_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                                     end_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                                     status_metadata = kfp_server_api.models.pipeline_task_detail_status_metadata.PipelineTaskDetailStatusMetadata(
                                         message = '0', 
@@ -97,7 +96,8 @@ class TestV2beta1ListRunsResponse(unittest.TestCase):
                                     type = 'ROOT', 
                                     type_attributes = kfp_server_api.models.pipeline_task_detail_type_attributes.PipelineTaskDetailTypeAttributes(
                                         iteration_index = '0', 
-                                        iteration_count = '0', ), 
+                                        iteration_count = '0', 
+                                        download_to_workspace = True, ), 
                                     parent_task_id = '0', 
                                     child_tasks = [
                                         kfp_server_api.models.pipeline_task_detail_child_task.PipelineTaskDetailChildTask(
@@ -113,9 +113,7 @@ class TestV2beta1ListRunsResponse(unittest.TestCase):
                                                     iteration = '0', ), )
                                             ], ), 
                                     outputs = kfp_server_api.models.pipeline_task_detail_input_outputs.PipelineTaskDetailInputOutputs(), 
-                                    scope_path = [
-                                        '0'
-                                        ], )
+                                    scope_path = '0', )
                                 ], ), 
                         recurring_run_id = '0', 
                         state_history = [
@@ -134,9 +132,9 @@ class TestV2beta1ListRunsResponse(unittest.TestCase):
                                 run_id = '0', 
                                 cache_fingerprint = '0', 
                                 create_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                                start_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                                 end_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                                parent_task_id = '0', )
+                                parent_task_id = '0', 
+                                scope_path = '0', )
                             ], )
                     ], 
                 total_size = 56, 

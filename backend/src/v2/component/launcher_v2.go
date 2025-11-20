@@ -32,12 +32,14 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
+	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"gocloud.dev/blob"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"k8s.io/client-go/kubernetes"
 )
 
 type LauncherV2Options struct {
@@ -61,7 +63,7 @@ type LauncherV2Options struct {
 	MLPipelineTLSEnabled bool
 	MLPipelineServerAddress,
 	MLPipelineServerPort,
-	CaCertPath           string
+	CaCertPath string
 }
 
 type LauncherV2 struct {
@@ -885,7 +887,7 @@ func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
 
 	for parentTask != nil {
 		// Get the parent's component spec to check outputDefinitions
-		parentScopePath, err := util.ScopePathFromStringPath(l.pipelineSpec, parentTask.GetScopePath())
+		parentScopePath, err := util.ScopePathFromDotNotation(l.pipelineSpec, parentTask.GetScopePath())
 		if err != nil {
 			return fmt.Errorf("failed to get scope path for parent task %s: %w", parentTask.GetTaskId(), err)
 		}
@@ -1148,15 +1150,11 @@ func findMatchingParentOutputKeyForChild(
 			continue
 		}
 		// Found the child task in parent's DAG
-		// Check the task's output selectors
-		if dagTask.GetComponentRef() != nil {
-			// Look at the parent's output definitions to find which one uses this task's output
-			for parentOutputKey := range parentOutputDefs.GetArtifacts() {
-				// Check if this parent output is sourced from the child task
-				// The parent output may be directly from task output or from an artifact selector
-				if artifactSelectorMatches(parentComponentSpec, parentOutputKey, childTaskName, childOutputKey) {
-					return parentOutputKey
-				}
+		// Look at the parent's output definitions to find which one uses this task's output.
+		for parentOutputKey := range parentOutputDefs.GetArtifacts() {
+			// The parent output may be directly from task output or from an artifact selector.
+			if artifactSelectorMatches(parentComponentSpec, parentOutputKey, childTaskName, childOutputKey) {
+				return parentOutputKey
 			}
 		}
 	}
@@ -1183,14 +1181,10 @@ func findMatchingParentOutputKeyForChildParameter(
 		}
 
 		// Found the child task in parent's DAG
-		// Check the task's output selectors
-		if dagTask.GetComponentRef() != nil {
-			// Look at the parent's output definitions to find which one uses this task's parameter output
-			for parentOutputKey := range parentOutputDefs.GetParameters() {
-				// Check if this parent output is sourced from the child task
-				if parameterSelectorMatches(parentComponentSpec, parentOutputKey, childTaskName, childOutputKey) {
-					return parentOutputKey
-				}
+		// Look at the parent's output definitions to find which one uses this task's parameter output.
+		for parentOutputKey := range parentOutputDefs.GetParameters() {
+			if parameterSelectorMatches(parentComponentSpec, parentOutputKey, childTaskName, childOutputKey) {
+				return parentOutputKey
 			}
 		}
 	}
@@ -1351,7 +1345,7 @@ func (l *LauncherV2) downloadArtifacts(ctx context.Context) error {
 		for _, artifact := range artifactList.Artifacts {
 			// Skip downloading if the artifact is flagged as already present in the workspace
 			if artifact.GetMetadata() != nil {
-				if v, ok := artifact.GetMetadata().GetFields()["_kfp_workspace"]; ok && v.GetBoolValue() {
+				if v, ok := artifact.GetMetadata().GetFields()[common.WorkspaceMetadataField]; ok && v.GetBoolValue() {
 					continue
 				}
 			}
@@ -1432,7 +1426,7 @@ func getPlaceholders(executorInput *pipelinespec.ExecutorInput) (placeholders ma
 		// If the artifact is marked as already in the workspace, map to the workspace path
 		// with the same shape as LocalPathForURI, but rebased under the workspace mount.
 		if inputArtifact.GetMetadata() != nil {
-			if v, ok := inputArtifact.GetMetadata().GetFields()["_kfp_workspace"]; ok && v.GetBoolValue() {
+			if v, ok := inputArtifact.GetMetadata().GetFields()[common.WorkspaceMetadataField]; ok && v.GetBoolValue() {
 				localPath, lerr := LocalWorkspacePathForURI(inputArtifact.Uri)
 				if lerr != nil {
 					return nil, fmt.Errorf("failed to get local workspace path for input artifact %q: %w", name, lerr)
@@ -1598,7 +1592,6 @@ func retrieveArtifactPath(artifact *pipelinespec.RuntimeArtifact) (string, error
 	}
 }
 
-
 // LocalWorkspacePathForURI returns the local workspace path for a given artifact URI.
 // It preserves the same path shape as LocalPathForURI, but rebases it under the
 // workspace artifacts directory: /kfp-workspace/.artifacts/...
@@ -1641,4 +1634,26 @@ func (l *LauncherV2) prepareOutputFolders(executorInput *pipelinespec.ExecutorIn
 	}
 
 	return nil
+}
+
+// ObjectStoreDependencies interface implementation for LauncherV2
+
+func (l *LauncherV2) GetOpenedBucketCache() map[string]*blob.Bucket {
+	return l.openedBucketCache
+}
+
+func (l *LauncherV2) SetOpenedBucket(key string, bucket *blob.Bucket) {
+	l.openedBucketCache[key] = bucket
+}
+
+func (l *LauncherV2) GetLauncherConfig() *config.Config {
+	return l.launcherConfig
+}
+
+func (l *LauncherV2) GetK8sClient() kubernetes.Interface {
+	return l.clientManager.K8sClient()
+}
+
+func (l *LauncherV2) GetNamespace() string {
+	return l.options.Namespace
 }

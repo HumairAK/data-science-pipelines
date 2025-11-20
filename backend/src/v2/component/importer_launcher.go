@@ -9,15 +9,22 @@ import (
 
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	apiV2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
+	"github.com/kubeflow/pipelines/backend/src/v2/config"
+	"gocloud.dev/blob"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/golang/glog"
 )
 
 type ImportLauncher struct {
-	opts          LauncherV2Options
-	clientManager client_manager.ClientManagerInterface
+	opts              LauncherV2Options
+	clientManager     client_manager.ClientManagerInterface
+	objectStore       ObjectStoreClientInterface
+	openedBucketCache map[string]*blob.Bucket
+	launcherConfig    *config.Config
 }
 
 func NewImporterLauncher(
@@ -33,10 +40,13 @@ func NewImporterLauncher(
 	if err != nil {
 		return nil, err
 	}
-	return &ImportLauncher{
-		opts:          *launcherV2Opts,
-		clientManager: clientManager,
-	}, nil
+	launcher := &ImportLauncher{
+		opts:              *launcherV2Opts,
+		clientManager:     clientManager,
+		openedBucketCache: make(map[string]*blob.Bucket),
+	}
+	launcher.objectStore = NewObjectStoreClient(launcher)
+	return launcher, nil
 }
 
 func (l *ImportLauncher) Execute(ctx context.Context) (executionErr error) {
@@ -45,10 +55,25 @@ func (l *ImportLauncher) Execute(ctx context.Context) (executionErr error) {
 			executionErr = fmt.Errorf("failed to execute importer component: %w", executionErr)
 		}
 	}()
+
+	// Close any open buckets in the cache
+	defer func() {
+		for _, bucket := range l.openedBucketCache {
+			_ = bucket.Close()
+		}
+	}()
+
+	// Fetch Launcher config
+	launcherConfig, executionErr := config.FetchLauncherConfigMap(ctx, l.clientManager.K8sClient(), l.opts.Namespace)
+	if executionErr != nil {
+		return fmt.Errorf("failed to get launcher configmap: %w", executionErr)
+	}
+	l.launcherConfig = launcherConfig
+
 	kfpAPI := l.clientManager.KFPAPIClient()
 
 	downloadToWorkspace := false
-	if l.importer.GetDownloadToWorkspace() {
+	if l.opts.ImporterSpec.GetDownloadToWorkspace() {
 		downloadToWorkspace = true
 	}
 
@@ -62,11 +87,10 @@ func (l *ImportLauncher) Execute(ctx context.Context) (executionErr error) {
 			ParentTaskId: &parentTaskID,
 			Type:         apiV2beta1.PipelineTaskDetail_IMPORTER,
 			State:        apiV2beta1.PipelineTaskDetail_RUNNING,
-			ScopePath:    l.opts.ScopePath.StringPath(),
-			StartTime:    timestamppb.Now(),
+			ScopePath:    l.opts.ScopePath.DotNotation(),
 			CreateTime:   timestamppb.Now(),
 			TypeAttributes: &apiV2beta1.PipelineTaskDetail_TypeAttributes{
-				DownloadToWorkspace: downloadToWorkspace,
+				DownloadToWorkspace: util.BoolPointer(downloadToWorkspace),
 			},
 			Pods: []*apiV2beta1.PipelineTaskDetail_TaskPod{
 				{
@@ -289,7 +313,7 @@ func (l *ImportLauncher) ImportSpecToArtifact() (artifact *apiV2beta1.Artifact, 
 	}
 	if strings.HasPrefix(artifactUri, "oci://") {
 		// OCI artifacts are not supported when workspace is used
-		if l.importer.GetDownloadToWorkspace() {
+		if l.opts.ImporterSpec.GetDownloadToWorkspace() {
 			return nil, fmt.Errorf("importer workspace download does not support OCI registries")
 		}
 
@@ -300,26 +324,20 @@ func (l *ImportLauncher) ImportSpecToArtifact() (artifact *apiV2beta1.Artifact, 
 	}
 
 	// Download the artifact into the workspace
-	if l.importer.GetDownloadToWorkspace() {
-		bucketConfig, err := l.resolveBucketConfigForURI(ctx, artifactUri)
-		if err != nil {
-			return nil, err
-		}
+	if l.opts.ImporterSpec.GetDownloadToWorkspace() {
 		localPath, err := LocalWorkspacePathForURI(artifactUri)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get local path for uri %q: %w", artifactUri, err)
 		}
-		blobKey, err := bucketConfig.KeyFromURI(artifactUri)
+		// Get the artifact output key from the component spec
+		artifactKey, err := l.getArtifactOutputKey()
 		if err != nil {
-			return nil, fmt.Errorf("failed to derive blob key from uri %q while downloading artifact into workspace: %w", artifactUri, err)
+			return nil, fmt.Errorf("failed to get artifact output key: %w", err)
 		}
-		bucket, err := objectstore.OpenBucket(ctx, l.k8sClient, l.launcherV2Options.Namespace, bucketConfig)
+		ctx := context.Background()
+		glog.Infof("Downloading artifact %q (artifact key %q) to workspace path %q", artifactUri, artifactKey, localPath)
+		err = l.objectStore.DownloadArtifact(ctx, artifactUri, localPath, artifactKey)
 		if err != nil {
-			return nil, fmt.Errorf("failed to open bucket for uri %q: %w", artifactUri, err)
-		}
-		defer bucket.Close()
-		glog.Infof("Downloading artifact %q (blob key %q) to workspace path %q", artifactUri, blobKey, localPath)
-		if err := objectstore.DownloadBlob(ctx, bucket, localPath, blobKey); err != nil {
 			return nil, fmt.Errorf("failed to download artifact to workspace: %w", err)
 		}
 	}
@@ -361,4 +379,26 @@ func inferArtifactName(uri string) (string, error) {
 	// For URLs without a scheme, e.g. "bucket/path/to/file.txt"
 	cleaned := strings.TrimSuffix(uri, "/")
 	return path.Base(cleaned), nil
+}
+
+// ObjectStoreDependencies interface implementation for ImportLauncher
+
+func (l *ImportLauncher) GetOpenedBucketCache() map[string]*blob.Bucket {
+	return l.openedBucketCache
+}
+
+func (l *ImportLauncher) SetOpenedBucket(key string, bucket *blob.Bucket) {
+	l.openedBucketCache[key] = bucket
+}
+
+func (l *ImportLauncher) GetLauncherConfig() *config.Config {
+	return l.launcherConfig
+}
+
+func (l *ImportLauncher) GetK8sClient() kubernetes.Interface {
+	return l.clientManager.K8sClient()
+}
+
+func (l *ImportLauncher) GetNamespace() string {
+	return l.opts.Namespace
 }

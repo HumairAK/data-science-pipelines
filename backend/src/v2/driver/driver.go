@@ -22,6 +22,7 @@ import (
 
 	"github.com/kubeflow/pipelines/backend/src/apiserver/config/proxy"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/resolver"
 
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
@@ -425,7 +426,7 @@ func needsWorkspaceMount(executorInput *pipelinespec.ExecutorInput) bool {
 		// first artifact is used, as the list is expected to contain a single artifact
 		artifact := artifactList.Artifacts[0]
 		if artifact.Metadata != nil {
-			if workspaceVal, ok := artifact.Metadata.Fields["_kfp_workspace"]; ok {
+			if workspaceVal, ok := artifact.Metadata.Fields[common.WorkspaceMetadataField]; ok {
 				if boolVal, ok := workspaceVal.GetKind().(*structpb.Value_BoolValue); ok && boolVal.BoolValue {
 					return true
 				}
@@ -506,6 +507,18 @@ func addModelcarsToPodSpec(
 
 		image := strings.TrimPrefix(inputArtifact.Uri, "oci://")
 
+		// Match the main container hardening so /proc/<pid>/root access works under shareProcessNamespace.
+		allowPrivilegeEscalation := false
+		modelcarSecurityContext := &k8score.SecurityContext{
+			AllowPrivilegeEscalation: &allowPrivilegeEscalation,
+			Capabilities: &k8score.Capabilities{
+				Drop: []k8score.Capability{"ALL"},
+			},
+			SeccompProfile: &k8score.SeccompProfile{
+				Type: k8score.SeccompProfileTypeRuntimeDefault,
+			},
+		}
+
 		podSpec.InitContainers = append(
 			podSpec.InitContainers,
 			k8score.Container{
@@ -523,6 +536,7 @@ func addModelcarsToPodSpec(
 						" exit 1)",
 				},
 				Env:                      userEnvVar,
+				SecurityContext:          modelcarSecurityContext,
 				TerminationMessagePolicy: k8score.TerminationMessageFallbackToLogsOnError,
 			},
 		)
@@ -557,6 +571,7 @@ func addModelcarsToPodSpec(
 				ImagePullPolicy: "IfNotPresent",
 				Env:             userEnvVar,
 				VolumeMounts:    []k8score.VolumeMount{emptyDirVolumeMount},
+				SecurityContext: modelcarSecurityContext,
 				Command: []string{
 					"sh",
 					"-c",

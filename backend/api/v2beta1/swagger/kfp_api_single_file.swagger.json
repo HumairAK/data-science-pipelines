@@ -3353,6 +3353,10 @@
           "type": "string",
           "format": "int64",
           "title": "Optional. Applies to type LOOP"
+        },
+        "download_to_workspace": {
+          "type": "boolean",
+          "title": "Optional. Applies to type IMPORTER"
         }
       }
     },
@@ -3448,11 +3452,6 @@
           "format": "date-time",
           "description": "Creation time of a task."
         },
-        "start_time": {
-          "type": "string",
-          "format": "date-time",
-          "description": "Starting time of a task."
-        },
         "end_time": {
           "type": "string",
           "format": "date-time",
@@ -3501,11 +3500,8 @@
           "$ref": "#/definitions/PipelineTaskDetailInputOutputs"
         },
         "scope_path": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "The scope of this task within the\npipeline spec. Each entry represents\neither a Dag Task or a Container task.\nNote that Container task will are\nalways the last entry in a scope_path."
+          "type": "string",
+          "title": "The scope of this task within the\npipeline spec. Each entry (delimited by\na dot \".\"), represents either a Dag\nTask or a Container task.\nNote that Container task will are\nalways the last entry in a scope_path.\nExample of a scope_path:\n\"root.primary-pipeline.secondary-pipeline.task\""
         }
       },
       "description": "Runtime information of a task execution."
@@ -3651,14 +3647,13 @@
         "PENDING",
         "RUNNING",
         "SUCCEEDED",
-        "SKIPPED",
         "FAILED",
         "CANCELING",
         "CANCELED",
         "PAUSED"
       ],
       "default": "RUNTIME_STATE_UNSPECIFIED",
-      "description": "Describes the runtime state of an entity.\n\n - RUNTIME_STATE_UNSPECIFIED: Default value. This value is not used.\n - PENDING: Service is preparing to execute an entity.\n - RUNNING: Entity execution is in progress.\n - SUCCEEDED: Entity completed successfully.\n - SKIPPED: Entity has been skipped. For example, due to caching.\n - FAILED: Entity execution has failed.\n - CANCELING: Entity is being canceled. From this state, an entity may only\nchange its state to SUCCEEDED, FAILED or CANCELED.\n - CANCELED: Entity has been canceled.\n - PAUSED: Entity has been paused. It can be resumed."
+      "description": "Describes the runtime state of an entity.\n\n - RUNTIME_STATE_UNSPECIFIED: Default value. This value is not used.\n - PENDING: Service is preparing to execute an entity.\n - RUNNING: Entity execution is in progress.\n - SUCCEEDED: Entity completed successfully.\n - FAILED: Entity execution has failed.\n - CANCELING: Entity is being canceled. From this state, an entity may only\nchange its state to SUCCEEDED, FAILED or CANCELED.\n - CANCELED: Entity has been canceled.\n - PAUSED: Entity has been paused. It can be resumed."
     },
     "v2beta1RuntimeStatus": {
       "type": "object",
