@@ -97,7 +97,7 @@ typing-extensions==4.7.1
     # via
     #   importlib-metadata
     #   kfp
-urllib3==1.26.16
+urllib3==2.6.0
     # via
     #   google-auth
     #   kfp
