@@ -53,7 +53,7 @@ kubernetes==26.1.0
     # via kfp
 oauthlib==3.2.2
     # via requests-oauthlib
-protobuf==3.20.3
+protobuf==6.33.5
     # via
     #   google-api-core
     #   googleapis-common-protos
