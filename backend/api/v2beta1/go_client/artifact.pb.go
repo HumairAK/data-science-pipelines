@@ -235,7 +235,7 @@ type CreateArtifactRequest struct {
 	//	...
 	//
 	// here the producer_key == "my_output"
-	// Note that producer_task_name == task_name
+	// Note that IOProducer.task_name is the same as task_name.
 	ProducerKey string `protobuf:"bytes,5,opt,name=producer_key,json=producerKey,proto3" json:"producer_key,omitempty"`
 	// If the producing task is in a parallelFor iteration
 	// this field designates the iteration index
@@ -466,7 +466,7 @@ type ListArtifactRequest struct {
 	// Ascending by default.
 	SortBy string `protobuf:"bytes,4,opt,name=sort_by,json=sortBy,proto3" json:"sort_by,omitempty"`
 	// A url-encoded, JSON-serialized filter protocol buffer (see
-	// [filter.proto](https://github.com/kubeflow/artifacts/blob/master/backend/api/filter.proto)).
+	// [filter.proto](https://github.com/kubeflow/pipelines/blob/master/backend/api/v2beta1/filter.proto)).
 	Filter        string `protobuf:"bytes,5,opt,name=filter,proto3" json:"filter,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -603,11 +603,12 @@ func (x *ListArtifactResponse) GetNextPageToken() string {
 
 type ListArtifactTasksRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Optional, filter artifact task by a set of task_ids
+	// At least one of task_ids, run_ids, or artifact_ids is required.
+	// Optional, filter artifact task by a set of task_ids.
 	TaskIds []string `protobuf:"bytes,1,rep,name=task_ids,json=taskIds,proto3" json:"task_ids,omitempty"`
-	// Optional, filter artifact task by a set of run_ids
+	// Optional, filter artifact task by a set of run_ids.
 	RunIds []string `protobuf:"bytes,2,rep,name=run_ids,json=runIds,proto3" json:"run_ids,omitempty"`
-	// Optional, filter artifact task by a set of artifact_ids
+	// Optional, filter artifact task by a set of artifact_ids.
 	ArtifactIds []string `protobuf:"bytes,3,rep,name=artifact_ids,json=artifactIds,proto3" json:"artifact_ids,omitempty"`
 	// Optional. Only list artifact tasks that have artifacts of this type.
 	Type          IOType `protobuf:"varint,4,opt,name=type,proto3,enum=kubeflow.pipelines.backend.api.v2beta1.IOType" json:"type,omitempty"`

@@ -148,6 +148,7 @@ class V2beta1CreateArtifactRequest(object):
     def producer_key(self):
         """Gets the producer_key of this V2beta1CreateArtifactRequest.  # noqa: E501
 
+        The outgoing parameter name of this Artifact within this task's component spec. For example: def preprocess(my_output: dsl.Outputs[dsl.Artifact]):   ... here the producer_key == \"my_output\" Note that IOProducer.task_name is the same as task_name.  # noqa: E501
 
         :return: The producer_key of this V2beta1CreateArtifactRequest.  # noqa: E501
         :rtype: str
@@ -158,6 +159,7 @@ class V2beta1CreateArtifactRequest(object):
     def producer_key(self, producer_key):
         """Sets the producer_key of this V2beta1CreateArtifactRequest.
 
+        The outgoing parameter name of this Artifact within this task's component spec. For example: def preprocess(my_output: dsl.Outputs[dsl.Artifact]):   ... here the producer_key == \"my_output\" Note that IOProducer.task_name is the same as task_name.  # noqa: E501
 
         :param producer_key: The producer_key of this V2beta1CreateArtifactRequest.  # noqa: E501
         :type producer_key: str

@@ -32,13 +32,11 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/config"
-	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"gocloud.dev/blob"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -559,6 +557,28 @@ func getLogWriter(artifacts map[string]*pipelinespec.ArtifactList) (writer io.Wr
 // This method should only be used in tests.
 func (l *LauncherV2) ExecuteForTesting(ctx context.Context) (*pipelinespec.ExecutorOutput, error) {
 	return l.executeV2(ctx)
+}
+
+// ObjectStoreDependencies interface implementation for LauncherV2
+
+func (l *LauncherV2) GetOpenedBucketCache() map[string]*blob.Bucket {
+	return l.openedBucketCache
+}
+
+func (l *LauncherV2) SetOpenedBucket(key string, bucket *blob.Bucket) {
+	l.openedBucketCache[key] = bucket
+}
+
+func (l *LauncherV2) GetLauncherConfig() *config.Config {
+	return l.launcherConfig
+}
+
+func (l *LauncherV2) GetK8sClient() kubernetes.Interface {
+	return l.clientManager.K8sClient()
+}
+
+func (l *LauncherV2) GetNamespace() string {
+	return l.options.Namespace
 }
 
 // execute downloads input artifacts, prepares the execution environment,
@@ -1150,11 +1170,15 @@ func findMatchingParentOutputKeyForChild(
 			continue
 		}
 		// Found the child task in parent's DAG
-		// Look at the parent's output definitions to find which one uses this task's output.
-		for parentOutputKey := range parentOutputDefs.GetArtifacts() {
-			// The parent output may be directly from task output or from an artifact selector.
-			if artifactSelectorMatches(parentComponentSpec, parentOutputKey, childTaskName, childOutputKey) {
-				return parentOutputKey
+		// Check the task's output selectors
+		if dagTask.GetComponentRef() != nil {
+			// Look at the parent's output definitions to find which one uses this task's output
+			for parentOutputKey := range parentOutputDefs.GetArtifacts() {
+				// Check if this parent output is sourced from the child task
+				// The parent output may be directly from task output or from an artifact selector
+				if artifactSelectorMatches(parentComponentSpec, parentOutputKey, childTaskName, childOutputKey) {
+					return parentOutputKey
+				}
 			}
 		}
 	}
@@ -1181,10 +1205,14 @@ func findMatchingParentOutputKeyForChildParameter(
 		}
 
 		// Found the child task in parent's DAG
-		// Look at the parent's output definitions to find which one uses this task's parameter output.
-		for parentOutputKey := range parentOutputDefs.GetParameters() {
-			if parameterSelectorMatches(parentComponentSpec, parentOutputKey, childTaskName, childOutputKey) {
-				return parentOutputKey
+		// Check the task's output selectors
+		if dagTask.GetComponentRef() != nil {
+			// Look at the parent's output definitions to find which one uses this task's parameter output
+			for parentOutputKey := range parentOutputDefs.GetParameters() {
+				// Check if this parent output is sourced from the child task
+				if parameterSelectorMatches(parentComponentSpec, parentOutputKey, childTaskName, childOutputKey) {
+					return parentOutputKey
+				}
 			}
 		}
 	}
@@ -1271,50 +1299,6 @@ func artifactSelectorMatches(
 	return false
 }
 
-func uploadOutputArtifactsWithRetry(
-	ctx context.Context,
-	executorInput *pipelinespec.ExecutorInput,
-	executorOutput *pipelinespec.ExecutorOutput,
-	opts uploadOutputArtifactsOptions,
-	componentSucceeded bool,
-	openBucketConfig *OpenBucketConfig,
-	maxAttempts int,
-) ([]*metadata.OutputArtifact, error) {
-	glog.Infof("Executing uploadOutputArtifacts attempt: 1")
-	outputArtifacts, err := uploadOutputArtifacts(ctx, executorInput, executorOutput, opts, componentSucceeded)
-
-	if err == nil {
-		return outputArtifacts, nil
-	}
-	finalErr := err
-
-	for retryCount := 1; retryCount < maxAttempts; retryCount++ {
-		glog.Warningf("Failed to upload output artifacts: %v", err)
-		glog.Info("Refreshing credentials before retrying artifacts upload.")
-		opts.bucket, err = objectstore.OpenBucket(
-			openBucketConfig.ctx,
-			openBucketConfig.k8sClient,
-			openBucketConfig.namespace,
-			openBucketConfig.config,
-		)
-		if err != nil {
-			glog.Infof("Failed to refresh credentials: %v", err)
-			finalErr = err
-			continue
-		}
-
-		glog.Infof("Executing uploadOutputArtifacts attempt: %d", retryCount+1)
-		outputArtifacts, err := uploadOutputArtifacts(ctx, executorInput, executorOutput, opts, componentSucceeded)
-
-		if err == nil {
-			return outputArtifacts, nil
-		}
-		finalErr = err
-	}
-	glog.Errorf("All upload artifact attempts failed: %v", finalErr)
-	return nil, finalErr
-}
-
 // waitForModelcar assumes the Modelcar has already been validated by the init container on the launcher
 // pod. This waits for the Modelcar as a sidecar container to be ready.
 func waitForModelcar(artifactURI string, localPath string) error {
@@ -1345,7 +1329,7 @@ func (l *LauncherV2) downloadArtifacts(ctx context.Context) error {
 		for _, artifact := range artifactList.Artifacts {
 			// Skip downloading if the artifact is flagged as already present in the workspace
 			if artifact.GetMetadata() != nil {
-				if v, ok := artifact.GetMetadata().GetFields()[common.WorkspaceMetadataField]; ok && v.GetBoolValue() {
+				if v, ok := artifact.GetMetadata().GetFields()["_kfp_workspace"]; ok && v.GetBoolValue() {
 					continue
 				}
 			}
@@ -1426,7 +1410,7 @@ func getPlaceholders(executorInput *pipelinespec.ExecutorInput) (placeholders ma
 		// If the artifact is marked as already in the workspace, map to the workspace path
 		// with the same shape as LocalPathForURI, but rebased under the workspace mount.
 		if inputArtifact.GetMetadata() != nil {
-			if v, ok := inputArtifact.GetMetadata().GetFields()[common.WorkspaceMetadataField]; ok && v.GetBoolValue() {
+			if v, ok := inputArtifact.GetMetadata().GetFields()["_kfp_workspace"]; ok && v.GetBoolValue() {
 				localPath, lerr := LocalWorkspacePathForURI(inputArtifact.Uri)
 				if lerr != nil {
 					return nil, fmt.Errorf("failed to get local workspace path for input artifact %q: %w", name, lerr)
@@ -1634,26 +1618,4 @@ func (l *LauncherV2) prepareOutputFolders(executorInput *pipelinespec.ExecutorIn
 	}
 
 	return nil
-}
-
-// ObjectStoreDependencies interface implementation for LauncherV2
-
-func (l *LauncherV2) GetOpenedBucketCache() map[string]*blob.Bucket {
-	return l.openedBucketCache
-}
-
-func (l *LauncherV2) SetOpenedBucket(key string, bucket *blob.Bucket) {
-	l.openedBucketCache[key] = bucket
-}
-
-func (l *LauncherV2) GetLauncherConfig() *config.Config {
-	return l.launcherConfig
-}
-
-func (l *LauncherV2) GetK8sClient() kubernetes.Interface {
-	return l.clientManager.K8sClient()
-}
-
-func (l *LauncherV2) GetNamespace() string {
-	return l.options.Namespace
 }

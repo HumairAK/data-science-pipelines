@@ -20,7 +20,10 @@ import (
 //   - PENDING: Service is preparing to execute an entity.
 //   - RUNNING: Entity execution is in progress.
 //   - SUCCEEDED: Entity completed successfully.
-//   - FAILED: Entity execution has failed.
+//   - FAILED: Values 4 and 5 were intentionally retired to preserve compatibility after
+//
+// removing unused run-level states from the API.
+// Entity execution has failed.
 //   - CANCELING: Entity is being canceled. From this state, an entity may only
 //
 // change its state to SUCCEEDED, FAILED or CANCELED.

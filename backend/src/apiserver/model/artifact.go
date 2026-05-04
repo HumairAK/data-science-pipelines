@@ -72,11 +72,11 @@ var artifactAPIToModelFieldMap = map[string]string{
 	"number_value": "NumberValue",
 }
 
-func (a Artifact) GetField(name string) (string, bool) {
+func (a Artifact) GetField(name string) (string, string, bool) {
 	if field, ok := artifactAPIToModelFieldMap[name]; ok {
-		return field, true
+		return field, field, true
 	}
-	return "", false
+	return "", "", false
 }
 
 func (a Artifact) GetFieldValue(name string) interface{} {

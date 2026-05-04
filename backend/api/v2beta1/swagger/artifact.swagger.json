@@ -41,7 +41,7 @@
         "parameters": [
           {
             "name": "task_ids",
-            "description": "Optional, filter artifact task by a set of task_ids",
+            "description": "At least one of task_ids, run_ids, or artifact_ids is required.\nOptional, filter artifact task by a set of task_ids.",
             "in": "query",
             "required": false,
             "type": "array",
@@ -52,7 +52,7 @@
           },
           {
             "name": "run_ids",
-            "description": "Optional, filter artifact task by a set of run_ids",
+            "description": "Optional, filter artifact task by a set of run_ids.",
             "in": "query",
             "required": false,
             "type": "array",
@@ -63,7 +63,7 @@
           },
           {
             "name": "artifact_ids",
-            "description": "Optional, filter artifact task by a set of artifact_ids",
+            "description": "Optional, filter artifact task by a set of artifact_ids.",
             "in": "query",
             "required": false,
             "type": "array",
@@ -239,7 +239,7 @@
           },
           {
             "name": "filter",
-            "description": "A url-encoded, JSON-serialized filter protocol buffer (see\n[filter.proto](https://github.com/kubeflow/artifacts/blob/master/backend/api/filter.proto)).",
+            "description": "A url-encoded, JSON-serialized filter protocol buffer (see\n[filter.proto](https://github.com/kubeflow/pipelines/blob/master/backend/api/v2beta1/filter.proto)).",
             "in": "query",
             "required": false,
             "type": "string"
@@ -497,7 +497,7 @@
         },
         "producer_key": {
           "type": "string",
-          "title": "The outgoing parameter name of this Artifact within this task's component spec.\nFor example:\ndef preprocess(my_output: dsl.Outputs[dsl.Artifact]):\n  ...\nhere the producer_key == \"my_output\"\nNote that producer_task_name == task_name"
+          "description": "The outgoing parameter name of this Artifact within this task's component spec.\nFor example:\ndef preprocess(my_output: dsl.Outputs[dsl.Artifact]):\n  ...\nhere the producer_key == \"my_output\"\nNote that IOProducer.task_name is the same as task_name."
         },
         "iteration_index": {
           "type": "string",

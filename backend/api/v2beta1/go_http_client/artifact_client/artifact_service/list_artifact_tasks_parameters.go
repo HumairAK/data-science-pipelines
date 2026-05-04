@@ -64,7 +64,7 @@ type ListArtifactTasksParams struct {
 
 	/* ArtifactIds.
 
-	   Optional, filter artifact task by a set of artifact_ids
+	   Optional, filter artifact task by a set of artifact_ids.
 	*/
 	ArtifactIds []string
 
@@ -81,7 +81,7 @@ type ListArtifactTasksParams struct {
 
 	/* RunIds.
 
-	   Optional, filter artifact task by a set of run_ids
+	   Optional, filter artifact task by a set of run_ids.
 	*/
 	RunIds []string
 
@@ -90,7 +90,8 @@ type ListArtifactTasksParams struct {
 
 	/* TaskIds.
 
-	   Optional, filter artifact task by a set of task_ids
+	     At least one of task_ids, run_ids, or artifact_ids is required.
+	Optional, filter artifact task by a set of task_ids.
 	*/
 	TaskIds []string
 

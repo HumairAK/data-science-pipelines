@@ -69,11 +69,11 @@ var artifactTaskAPIToModelFieldMap = map[string]string{
 	"key":         "ArtifactKey",
 }
 
-func (at ArtifactTask) GetField(name string) (string, bool) {
+func (at ArtifactTask) GetField(name string) (string, string, bool) {
 	if field, ok := artifactTaskAPIToModelFieldMap[name]; ok {
-		return field, true
+		return field, field, true
 	}
-	return "", false
+	return "", "", false
 }
 
 func (at ArtifactTask) GetFieldValue(name string) interface{} {

@@ -671,11 +671,11 @@ class ArtifactServiceApi(object):
         >>> thread = api.list_artifact_tasks(async_req=True)
         >>> result = thread.get()
 
-        :param task_ids: Optional, filter artifact task by a set of task_ids
+        :param task_ids: At least one of task_ids, run_ids, or artifact_ids is required. Optional, filter artifact task by a set of task_ids.
         :type task_ids: list[str]
-        :param run_ids: Optional, filter artifact task by a set of run_ids
+        :param run_ids: Optional, filter artifact task by a set of run_ids.
         :type run_ids: list[str]
-        :param artifact_ids: Optional, filter artifact task by a set of artifact_ids
+        :param artifact_ids: Optional, filter artifact task by a set of artifact_ids.
         :type artifact_ids: list[str]
         :param type: Optional. Only list artifact tasks that have artifacts of this type.   - UNSPECIFIED: For validation  - COMPONENT_DEFAULT_INPUT: This is used for inputs that are provided via default parameters in the component input definitions  - TASK_OUTPUT_INPUT: This is used for inputs that are provided via upstream tasks. In the sdk this appears as: TaskInputsSpec.kind.task_output_parameter & TaskInputsSpec.kind.task_output_artifact  - COMPONENT_INPUT: Used for inputs that are passed from parent tasks.  - RUNTIME_VALUE_INPUT: Hardcoded values passed as arguments to the task.  - COLLECTED_INPUTS: Used for dsl.Collected Usage of this type indicates that all Artifacts within the IOArtifact.artifacts are inputs collected from sub tasks with ITERATOR_OUTPUT outputs.  - ITERATOR_INPUT: In a for loop task, introduced via ParallelFor, this type is used to indicate whether this resolved input belongs to a parameterIterator or artifactIterator. In such a case the \"artifacts\" field for IOArtifact.artifacts is the list of resolved items for this parallelFor.  - ITERATOR_INPUT_RAW: Hardcoded iterator parameters. Raw Iterator inputs have no producer  - ITERATOR_OUTPUT: When an output is produced by a Runtime Iteration Task This value is use to differentiate between standard inputs  - OUTPUT: All other output types fall under this type.  - ONE_OF_OUTPUT: An output of a Conditions branch.
         :type type: str
@@ -713,11 +713,11 @@ class ArtifactServiceApi(object):
         >>> thread = api.list_artifact_tasks_with_http_info(async_req=True)
         >>> result = thread.get()
 
-        :param task_ids: Optional, filter artifact task by a set of task_ids
+        :param task_ids: At least one of task_ids, run_ids, or artifact_ids is required. Optional, filter artifact task by a set of task_ids.
         :type task_ids: list[str]
-        :param run_ids: Optional, filter artifact task by a set of run_ids
+        :param run_ids: Optional, filter artifact task by a set of run_ids.
         :type run_ids: list[str]
-        :param artifact_ids: Optional, filter artifact task by a set of artifact_ids
+        :param artifact_ids: Optional, filter artifact task by a set of artifact_ids.
         :type artifact_ids: list[str]
         :param type: Optional. Only list artifact tasks that have artifacts of this type.   - UNSPECIFIED: For validation  - COMPONENT_DEFAULT_INPUT: This is used for inputs that are provided via default parameters in the component input definitions  - TASK_OUTPUT_INPUT: This is used for inputs that are provided via upstream tasks. In the sdk this appears as: TaskInputsSpec.kind.task_output_parameter & TaskInputsSpec.kind.task_output_artifact  - COMPONENT_INPUT: Used for inputs that are passed from parent tasks.  - RUNTIME_VALUE_INPUT: Hardcoded values passed as arguments to the task.  - COLLECTED_INPUTS: Used for dsl.Collected Usage of this type indicates that all Artifacts within the IOArtifact.artifacts are inputs collected from sub tasks with ITERATOR_OUTPUT outputs.  - ITERATOR_INPUT: In a for loop task, introduced via ParallelFor, this type is used to indicate whether this resolved input belongs to a parameterIterator or artifactIterator. In such a case the \"artifacts\" field for IOArtifact.artifacts is the list of resolved items for this parallelFor.  - ITERATOR_INPUT_RAW: Hardcoded iterator parameters. Raw Iterator inputs have no producer  - ITERATOR_OUTPUT: When an output is produced by a Runtime Iteration Task This value is use to differentiate between standard inputs  - OUTPUT: All other output types fall under this type.  - ONE_OF_OUTPUT: An output of a Conditions branch.
         :type type: str
@@ -849,7 +849,7 @@ class ArtifactServiceApi(object):
         :type page_size: int
         :param sort_by: Sorting order in form of \"field_name\", \"field_name asc\" or \"field_name desc\". Ascending by default.
         :type sort_by: str
-        :param filter: A url-encoded, JSON-serialized filter protocol buffer (see [filter.proto](https://github.com/kubeflow/artifacts/blob/master/backend/api/filter.proto)).
+        :param filter: A url-encoded, JSON-serialized filter protocol buffer (see [filter.proto](https://github.com/kubeflow/pipelines/blob/master/backend/api/v2beta1/filter.proto)).
         :type filter: str
         :param async_req: Whether to execute the request asynchronously.
         :type async_req: bool, optional
@@ -885,7 +885,7 @@ class ArtifactServiceApi(object):
         :type page_size: int
         :param sort_by: Sorting order in form of \"field_name\", \"field_name asc\" or \"field_name desc\". Ascending by default.
         :type sort_by: str
-        :param filter: A url-encoded, JSON-serialized filter protocol buffer (see [filter.proto](https://github.com/kubeflow/artifacts/blob/master/backend/api/filter.proto)).
+        :param filter: A url-encoded, JSON-serialized filter protocol buffer (see [filter.proto](https://github.com/kubeflow/pipelines/blob/master/backend/api/v2beta1/filter.proto)).
         :type filter: str
         :param async_req: Whether to execute the request asynchronously.
         :type async_req: bool, optional

@@ -53,6 +53,8 @@ const (
 	RuntimeState_RUNNING RuntimeState = 2
 	// Entity completed successfully.
 	RuntimeState_SUCCEEDED RuntimeState = 3
+	// Values 4 and 5 were intentionally retired to preserve compatibility after
+	// removing unused run-level states from the API.
 	// Entity execution has failed.
 	RuntimeState_FAILED RuntimeState = 6
 	// Entity is being canceled. From this state, an entity may only

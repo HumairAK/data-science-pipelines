@@ -43,9 +43,6 @@ replacements:
     - spec.dnsNames.1
     - spec.dnsNames.2
     - spec.dnsNames.3
-    - spec.dnsNames.8
-    - spec.dnsNames.9
-    - spec.dnsNames.10
     options:
       delimiter: .
       index: 1

@@ -30,7 +30,7 @@ type V2beta1CreateArtifactRequest struct {
 	// def preprocess(my_output: dsl.Outputs[dsl.Artifact]):
 	//   ...
 	// here the producer_key == "my_output"
-	// Note that producer_task_name == task_name
+	// Note that IOProducer.task_name is the same as task_name.
 	ProducerKey string `json:"producer_key,omitempty"`
 
 	// An artifact is always created in the context of a
