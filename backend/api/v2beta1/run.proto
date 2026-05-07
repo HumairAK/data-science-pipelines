@@ -339,8 +339,10 @@ message RunDetails {
   int64 pipeline_run_context_id = 2;
 
   // Deprecated: use top-level task APIs and Run.tasks instead.
-  // This legacy field remains for backward compatibility only and
-  // will be removed in the next major API version.
+  // This legacy field remains in the schema for backward wire compatibility
+  // only. As part of the next major release, the backend intentionally stops
+  // populating this field and returns task data only through the top-level
+  // task APIs and Run.tasks. It will be removed in the next major API version.
   repeated PipelineTaskDetail task_details = 3 [deprecated = true];
 }
 
