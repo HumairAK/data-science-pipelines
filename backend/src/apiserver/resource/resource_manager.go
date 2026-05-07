@@ -2339,6 +2339,29 @@ func (r *ResourceManager) CreateArtifact(artifact *model.Artifact) (*model.Artif
 	return newArtifact, nil
 }
 
+// CreateArtifactWithTask atomically creates an artifact row and its output link.
+// The artifact APIs surface a single logical create operation, so this method keeps
+// the artifact and artifact_task tables in sync and prevents orphaned artifacts if
+// the second insert fails after the artifact row has been written.
+func (r *ResourceManager) CreateArtifactWithTask(artifact *model.Artifact, artifactTask *model.ArtifactTask) (*model.Artifact, *model.ArtifactTask, error) {
+	newArtifact, newArtifactTask, err := r.artifactStore.CreateArtifactWithTask(artifact, artifactTask)
+	if err != nil {
+		return nil, nil, util.Wrap(err, "Failed to create artifact and artifact-task")
+	}
+	return newArtifact, newArtifactTask, nil
+}
+
+// CreateArtifactsWithTasks atomically creates a bulk set of artifacts and output links.
+// The slices are index-aligned, and the method is intentionally all-or-nothing so a
+// later artifact_task failure cannot leave earlier artifacts committed without links.
+func (r *ResourceManager) CreateArtifactsWithTasks(artifacts []*model.Artifact, artifactTasks []*model.ArtifactTask) ([]*model.Artifact, []*model.ArtifactTask, error) {
+	createdArtifacts, createdArtifactTasks, err := r.artifactStore.CreateArtifactsWithTasks(artifacts, artifactTasks)
+	if err != nil {
+		return nil, nil, util.Wrap(err, "Failed to create artifacts and artifact-tasks")
+	}
+	return createdArtifacts, createdArtifactTasks, nil
+}
+
 // ListArtifacts Fetches artifacts with given filtering and listing options.
 func (r *ResourceManager) ListArtifacts(filterContexts []*model.FilterContext, opts *list.Options) ([]*model.Artifact, int, string, error) {
 	// Use the first filter context for now (artifacts are typically filtered by namespace)

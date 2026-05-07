@@ -71,9 +71,13 @@ func NewArtifactTaskStore(db *DB, uuid util.UUIDGeneratorInterface) *ArtifactTas
 }
 
 func (s *ArtifactTaskStore) CreateArtifactTask(artifactTask *model.ArtifactTask) (*model.ArtifactTask, error) {
+	return createArtifactTaskWithExecutor(s.db.Exec, s.uuid, artifactTask)
+}
+
+func createArtifactTaskWithExecutor(exec func(string, ...any) (sql.Result, error), uuid util.UUIDGeneratorInterface, artifactTask *model.ArtifactTask) (*model.ArtifactTask, error) {
 	// Set up UUID for artifact-task relationship.
 	newArtifactTask := *artifactTask
-	id, err := s.uuid.NewRandom()
+	id, err := uuid.NewRandom()
 	if err != nil {
 		return nil, util.NewInternalServerError(err, "Failed to create an artifact-task id")
 	}
@@ -104,7 +108,7 @@ func (s *ArtifactTaskStore) CreateArtifactTask(artifactTask *model.ArtifactTask)
 			err.Error())
 	}
 
-	_, err = s.db.Exec(sql, args...)
+	_, err = exec(sql, args...)
 	if err != nil {
 		return nil, util.NewInternalServerError(err, "Failed to add artifact-task to artifact_tasks table: %v",
 			err.Error())

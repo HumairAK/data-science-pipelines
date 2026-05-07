@@ -67,11 +67,6 @@ func (s *ArtifactServer) CreateArtifact(ctx context.Context, request *apiv2beta1
 	// Set the validated namespace
 	modelArtifact.Namespace = namespace
 
-	artifact, err := s.resourceManager.CreateArtifact(modelArtifact)
-	if err != nil {
-		return nil, util.Wrap(err, "Failed to create artifact")
-	}
-
 	// Build the IOProducer with task name
 	producer := &apiv2beta1.IOProducer{
 		TaskName: task.Name,
@@ -82,9 +77,8 @@ func (s *ArtifactServer) CreateArtifact(ctx context.Context, request *apiv2beta1
 	}
 
 	artifactTask := &apiv2beta1.ArtifactTask{
-		ArtifactId: artifact.UUID,
-		TaskId:     task.UUID,
-		RunId:      task.RunUUID,
+		TaskId: task.UUID,
+		RunId:  task.RunUUID,
 		// An artifact at creation is an output of the associated task.
 		Type:     apiv2beta1.IOType_OUTPUT,
 		Producer: producer,
@@ -96,9 +90,9 @@ func (s *ArtifactServer) CreateArtifact(ctx context.Context, request *apiv2beta1
 		return nil, util.Wrap(err, "Failed to convert artifact_task")
 	}
 
-	_, err = s.resourceManager.CreateArtifactTask(modelAT)
+	artifact, _, err := s.resourceManager.CreateArtifactWithTask(modelArtifact, modelAT)
 	if err != nil {
-		return nil, util.Wrap(err, "Failed to create artifact-task")
+		return nil, util.Wrap(err, "Failed to create artifact and artifact-task")
 	}
 
 	return toAPIArtifact(artifact)
@@ -110,9 +104,8 @@ func (s *ArtifactServer) CreateArtifactsBulk(ctx context.Context, request *apiv2
 		return nil, util.NewInvalidInputError("CreateArtifactsBulkRequest must contain at least one artifact")
 	}
 
-	response := &apiv2beta1.CreateArtifactsBulkResponse{
-		Artifacts: make([]*apiv2beta1.Artifact, 0, len(request.GetArtifacts())),
-	}
+	modelArtifacts := make([]*model.Artifact, 0, len(request.GetArtifacts()))
+	modelArtifactTasks := make([]*model.ArtifactTask, 0, len(request.GetArtifacts()))
 
 	// Validate and create each artifact
 	for i, artifactReq := range request.GetArtifacts() {
@@ -146,11 +139,6 @@ func (s *ArtifactServer) CreateArtifactsBulk(ctx context.Context, request *apiv2
 		// Set the validated namespace
 		modelArtifact.Namespace = namespace
 
-		artifact, err := s.resourceManager.CreateArtifact(modelArtifact)
-		if err != nil {
-			return nil, util.Wrapf(err, "Failed to create artifact %d", i)
-		}
-
 		// Build the IOProducer with task name
 		producer := &apiv2beta1.IOProducer{
 			TaskName: task.Name,
@@ -161,9 +149,8 @@ func (s *ArtifactServer) CreateArtifactsBulk(ctx context.Context, request *apiv2
 		}
 
 		artifactTask := &apiv2beta1.ArtifactTask{
-			ArtifactId: artifact.UUID,
-			TaskId:     task.UUID,
-			RunId:      task.RunUUID,
+			TaskId: task.UUID,
+			RunId:  task.RunUUID,
 			// An artifact at creation is an output of the associated task.
 			Type:     apiv2beta1.IOType_OUTPUT,
 			Producer: producer,
@@ -174,12 +161,19 @@ func (s *ArtifactServer) CreateArtifactsBulk(ctx context.Context, request *apiv2
 		if err != nil {
 			return nil, util.Wrapf(err, "Failed to convert artifact_task for artifact %d", i)
 		}
+		modelArtifacts = append(modelArtifacts, modelArtifact)
+		modelArtifactTasks = append(modelArtifactTasks, modelAT)
+	}
 
-		_, err = s.resourceManager.CreateArtifactTask(modelAT)
-		if err != nil {
-			return nil, util.Wrapf(err, "Failed to create artifact-task for artifact %d", i)
-		}
+	createdArtifacts, _, err := s.resourceManager.CreateArtifactsWithTasks(modelArtifacts, modelArtifactTasks)
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to create artifacts and artifact-tasks")
+	}
 
+	response := &apiv2beta1.CreateArtifactsBulkResponse{
+		Artifacts: make([]*apiv2beta1.Artifact, 0, len(createdArtifacts)),
+	}
+	for i, artifact := range createdArtifacts {
 		apiArtifact, err := toAPIArtifact(artifact)
 		if err != nil {
 			return nil, util.Wrapf(err, "Failed to convert artifact %d to API", i)

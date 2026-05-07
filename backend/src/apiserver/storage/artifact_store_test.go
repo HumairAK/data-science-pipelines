@@ -15,6 +15,7 @@
 package storage
 
 import (
+	"database/sql"
 	"testing"
 
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
@@ -22,7 +23,9 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/list"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 )
 
@@ -169,4 +172,91 @@ func TestListArtifacts_BasicFiltersAndPagination(t *testing.T) {
 	assert.Equal(t, 1, len(page2))
 	assert.Equal(t, 3, total5)
 	assert.Equal(t, "", token2)
+}
+
+func TestCreateArtifactWithTask_RollsBackArtifactOnLinkFailure(t *testing.T) {
+	db, store := initializeArtifactStore()
+	defer db.Close()
+
+	store.createArtifactTaskInTransaction = func(tx *sql.Tx, artifactTask *model.ArtifactTask) (*model.ArtifactTask, error) {
+		return nil, errors.New("injected artifact-task failure")
+	}
+
+	_, _, err := store.CreateArtifactWithTask(
+		&model.Artifact{
+			Namespace: "ns1",
+			Type:      model.ArtifactType(apiv2beta1.Artifact_Model),
+			Name:      "should-rollback",
+		},
+		&model.ArtifactTask{
+			TaskID:      "task-id",
+			RunUUID:     "run-id",
+			Type:        model.IOType(apiv2beta1.IOType_OUTPUT),
+			ArtifactKey: "output",
+			Producer: model.JSONData{
+				"taskName": "task-name",
+			},
+		},
+	)
+	require.Error(t, err)
+
+	var artifactCount int
+	row := db.QueryRow("SELECT count(*) FROM artifacts")
+	require.NoError(t, row.Scan(&artifactCount))
+	assert.Equal(t, 0, artifactCount)
+}
+
+func TestCreateArtifactsWithTasks_RollsBackWholeBatchOnFailure(t *testing.T) {
+	db, store := initializeArtifactStore()
+	defer db.Close()
+
+	callCount := 0
+	store.createArtifactTaskInTransaction = func(tx *sql.Tx, artifactTask *model.ArtifactTask) (*model.ArtifactTask, error) {
+		callCount++
+		if callCount == 2 {
+			return nil, errors.New("injected artifact-task failure")
+		}
+		return createArtifactTaskWithExecutor(tx.Exec, store.uuid, artifactTask)
+	}
+
+	_, _, err := store.CreateArtifactsWithTasks(
+		[]*model.Artifact{
+			{
+				Namespace: "ns1",
+				Type:      model.ArtifactType(apiv2beta1.Artifact_Model),
+				Name:      "first-artifact",
+			},
+			{
+				Namespace: "ns1",
+				Type:      model.ArtifactType(apiv2beta1.Artifact_Model),
+				Name:      "second-artifact",
+			},
+		},
+		[]*model.ArtifactTask{
+			{
+				TaskID:      "task-id-1",
+				RunUUID:     "run-id-1",
+				Type:        model.IOType(apiv2beta1.IOType_OUTPUT),
+				ArtifactKey: "first-output",
+				Producer: model.JSONData{
+					"taskName": "task-1",
+				},
+			},
+			{
+				TaskID:      "task-id-2",
+				RunUUID:     "run-id-2",
+				Type:        model.IOType(apiv2beta1.IOType_OUTPUT),
+				ArtifactKey: "second-output",
+				Producer: model.JSONData{
+					"taskName": "task-2",
+				},
+			},
+		},
+	)
+	require.Error(t, err)
+
+	var artifactCount int
+	row := db.QueryRow("SELECT count(*) FROM artifacts")
+	require.NoError(t, row.Scan(&artifactCount))
+	assert.Equal(t, 0, artifactCount)
 }

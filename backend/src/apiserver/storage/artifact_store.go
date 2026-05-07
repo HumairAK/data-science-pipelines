@@ -49,6 +49,12 @@ type ArtifactStoreInterface interface {
 	// CreateArtifact creates an artifact entry in the database.
 	CreateArtifact(artifact *model.Artifact) (*model.Artifact, error)
 
+	// CreateArtifactWithTask atomically creates an artifact row and its output link.
+	CreateArtifactWithTask(artifact *model.Artifact, artifactTask *model.ArtifactTask) (*model.Artifact, *model.ArtifactTask, error)
+
+	// CreateArtifactsWithTasks atomically creates a batch of artifacts and output links.
+	CreateArtifactsWithTasks(artifacts []*model.Artifact, artifactTasks []*model.ArtifactTask) ([]*model.Artifact, []*model.ArtifactTask, error)
+
 	// GetArtifact fetches an artifact with a given id.
 	GetArtifact(id string) (*model.Artifact, error)
 
@@ -59,21 +65,30 @@ type ArtifactStoreInterface interface {
 }
 
 type ArtifactStore struct {
-	db   *DB
-	time util.TimeInterface
-	uuid util.UUIDGeneratorInterface
+	db                              *DB
+	time                            util.TimeInterface
+	uuid                            util.UUIDGeneratorInterface
+	createArtifactTaskInTransaction func(tx *sql.Tx, artifactTask *model.ArtifactTask) (*model.ArtifactTask, error)
 }
 
 // NewArtifactStore creates a new ArtifactStore.
 func NewArtifactStore(db *DB, time util.TimeInterface, uuid util.UUIDGeneratorInterface) *ArtifactStore {
-	return &ArtifactStore{
+	store := &ArtifactStore{
 		db:   db,
 		time: time,
 		uuid: uuid,
 	}
+	store.createArtifactTaskInTransaction = func(tx *sql.Tx, artifactTask *model.ArtifactTask) (*model.ArtifactTask, error) {
+		return createArtifactTaskWithExecutor(tx.Exec, store.uuid, artifactTask)
+	}
+	return store
 }
 
 func (s *ArtifactStore) CreateArtifact(artifact *model.Artifact) (*model.Artifact, error) {
+	return s.createArtifactWithExecutor(s.db.Exec, artifact)
+}
+
+func (s *ArtifactStore) createArtifactWithExecutor(exec func(string, ...any) (sql.Result, error), artifact *model.Artifact) (*model.Artifact, error) {
 	// Set up UUID for artifact.
 	newArtifact := *artifact
 	id, err := s.uuid.NewRandom()
@@ -115,13 +130,88 @@ func (s *ArtifactStore) CreateArtifact(artifact *model.Artifact) (*model.Artifac
 			err.Error())
 	}
 
-	_, err = s.db.Exec(sql, args...)
+	_, err = exec(sql, args...)
 	if err != nil {
 		return nil, util.NewInternalServerError(err, "Failed to add artifact to artifact table: %v",
 			err.Error())
 	}
 
 	return &newArtifact, nil
+}
+
+// CreateArtifactWithTask atomically creates an artifact row and its output link.
+// Keeping this transaction inside storage preserves the store-first boundary and
+// prevents callers from reaching into the raw DB just to keep `artifacts` and
+// `artifact_tasks` in sync for one logical API operation.
+func (s *ArtifactStore) CreateArtifactWithTask(artifact *model.Artifact, artifactTask *model.ArtifactTask) (*model.Artifact, *model.ArtifactTask, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, nil, util.NewInternalServerError(err, "Failed to start transaction for creating artifact and artifact-task")
+	}
+	defer func() {
+		if rbErr := tx.Rollback(); rbErr != nil && !errors.Is(rbErr, sql.ErrTxDone) {
+			glog.Warningf("Failed to rollback artifact create transaction: %v", rbErr)
+		}
+	}()
+
+	newArtifact, err := s.createArtifactWithExecutor(tx.Exec, artifact)
+	if err != nil {
+		return nil, nil, util.Wrap(err, "Failed to create artifact")
+	}
+
+	artifactTaskCopy := *artifactTask
+	artifactTaskCopy.ArtifactID = newArtifact.UUID
+	newArtifactTask, err := s.createArtifactTaskInTransaction(tx, &artifactTaskCopy)
+	if err != nil {
+		return nil, nil, util.Wrap(err, "Failed to create artifact-task relationship")
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, nil, util.NewInternalServerError(err, "Failed to commit transaction for creating artifact and artifact-task")
+	}
+	return newArtifact, newArtifactTask, nil
+}
+
+// CreateArtifactsWithTasks atomically creates a batch of artifacts and output links.
+// This method is intentionally all-or-nothing so a later artifact-task failure
+// cannot leave earlier artifacts committed without their matching link rows.
+func (s *ArtifactStore) CreateArtifactsWithTasks(artifacts []*model.Artifact, artifactTasks []*model.ArtifactTask) ([]*model.Artifact, []*model.ArtifactTask, error) {
+	if len(artifacts) != len(artifactTasks) {
+		return nil, nil, util.NewInvalidInputError("artifacts and artifactTasks must have the same length")
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, nil, util.NewInternalServerError(err, "Failed to start transaction for bulk artifact creation")
+	}
+	defer func() {
+		if rbErr := tx.Rollback(); rbErr != nil && !errors.Is(rbErr, sql.ErrTxDone) {
+			glog.Warningf("Failed to rollback bulk artifact create transaction: %v", rbErr)
+		}
+	}()
+
+	createdArtifacts := make([]*model.Artifact, 0, len(artifacts))
+	createdArtifactTasks := make([]*model.ArtifactTask, 0, len(artifactTasks))
+	for index, artifact := range artifacts {
+		newArtifact, err := s.createArtifactWithExecutor(tx.Exec, artifact)
+		if err != nil {
+			return nil, nil, util.Wrapf(err, "Failed to create artifact %d", index)
+		}
+		createdArtifacts = append(createdArtifacts, newArtifact)
+
+		artifactTaskCopy := *artifactTasks[index]
+		artifactTaskCopy.ArtifactID = newArtifact.UUID
+		newArtifactTask, err := s.createArtifactTaskInTransaction(tx, &artifactTaskCopy)
+		if err != nil {
+			return nil, nil, util.Wrapf(err, "Failed to create artifact-task relationship %d", index)
+		}
+		createdArtifactTasks = append(createdArtifactTasks, newArtifactTask)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, nil, util.NewInternalServerError(err, "Failed to commit transaction for bulk artifact creation")
+	}
+	return createdArtifacts, createdArtifactTasks, nil
 }
 
 func (s *ArtifactStore) scanRows(rows *sql.Rows) ([]*model.Artifact, error) {
