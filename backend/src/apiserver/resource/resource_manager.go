@@ -2285,6 +2285,15 @@ func (r *ResourceManager) GetTaskChildren(taskID string) ([]*model.Task, error) 
 	return children, nil
 }
 
+// GetTaskChildrenByParentIDs fetches child task summaries for a batch of parent task IDs.
+func (r *ResourceManager) GetTaskChildrenByParentIDs(parentTaskIDs []string) (map[string][]*model.Task, error) {
+	childrenByParent, err := r.taskStore.GetChildTasksByParentIDs(parentTaskIDs)
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to fetch children for parent task batch")
+	}
+	return childrenByParent, nil
+}
+
 // ListArtifactTasks Fetches artifact tasks with given filtering and listing options.
 func (r *ResourceManager) ListArtifactTasks(filterContexts []*model.FilterContext, ioType *model.IOType, opts *list.Options) ([]*model.ArtifactTask, int, string, error) {
 	artifactTasks, totalSize, nextPageToken, err := r.artifactTaskStore.ListArtifactTasks(filterContexts, ioType, opts)

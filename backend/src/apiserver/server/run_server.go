@@ -913,12 +913,18 @@ func (s *RunServer) ListTasks(ctx context.Context, request *apiv2beta1.ListTasks
 		return nil, util.Wrap(err, "Failed to list tasks")
 	}
 
+	taskIDs := make([]string, 0, len(tasks))
+	for _, task := range tasks {
+		taskIDs = append(taskIDs, task.UUID)
+	}
+	childTasksByParent, err := s.resourceManager.GetTaskChildrenByParentIDs(taskIDs)
+	if err != nil {
+		return nil, util.Wrap(err, "Failed to get task children")
+	}
+
 	apiTasks := make([]*apiv2beta1.PipelineTask, len(tasks))
 	for i, task := range tasks {
-		taskChildren, err := s.resourceManager.GetTaskChildren(task.UUID)
-		if err != nil {
-			return nil, util.Wrap(err, "Failed to get task children")
-		}
+		taskChildren := childTasksByParent[task.UUID]
 		taskChildren = filterTaskChildrenByRun(taskChildren, task.RunUUID)
 		apiTasks[i], err = toAPITask(task, taskChildren)
 		if err != nil {

@@ -317,6 +317,49 @@ func TestListTasks_ByParent(t *testing.T) {
 	assert.Equal(t, child.GetTaskId(), resp.GetTasks()[0].GetTaskId())
 }
 
+func TestListTasks_ByRunIncludesChildTasks(t *testing.T) {
+	cm, rm, runID := seedOneRun(t)
+	defer cm.Close()
+	server := createRunServer(rm)
+
+	parent, err := server.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+		Task: &apiv2beta1.PipelineTask{
+			RunId: runID,
+			Name:  "parent",
+		},
+	})
+	assert.NoError(t, err)
+
+	child, err := server.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+		Task: &apiv2beta1.PipelineTask{
+			RunId:        runID,
+			Name:         "child",
+			ParentTaskId: strPTR(parent.GetTaskId()),
+		},
+	})
+	assert.NoError(t, err)
+
+	resp, err := server.ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
+		ParentFilter: &apiv2beta1.ListTasksRequest_RunId{RunId: runID},
+		PageSize:     50,
+	})
+	assert.NoError(t, err)
+
+	var parentTask *apiv2beta1.PipelineTask
+	for _, task := range resp.GetTasks() {
+		if task.GetTaskId() == parent.GetTaskId() {
+			parentTask = task
+			break
+		}
+	}
+	if assert.NotNil(t, parentTask) {
+		if assert.Len(t, parentTask.GetChildTasks(), 1) {
+			assert.Equal(t, child.GetTaskId(), parentTask.GetChildTasks()[0].GetTaskId())
+			assert.Equal(t, child.GetName(), parentTask.GetChildTasks()[0].GetName())
+		}
+	}
+}
+
 func TestCreateTask_RejectsParentFromDifferentRun(t *testing.T) {
 	clients, manager, run1ID := seedOneRun(t)
 	defer clients.Close()

@@ -78,6 +78,9 @@ type TaskStoreInterface interface {
 
 	// GetChildTasks Fetches all child tasks for a given task UUID.
 	GetChildTasks(taskID string) ([]*model.Task, error)
+
+	// GetChildTasksByParentIDs fetches child task summaries for a batch of parent task IDs.
+	GetChildTasksByParentIDs(parentTaskIDs []string) (map[string][]*model.Task, error)
 }
 
 type TaskStore struct {
@@ -999,6 +1002,64 @@ func (s *TaskStore) GetChildTasks(taskID string) ([]*model.Task, error) {
 	defer rows.Close()
 
 	return s.scanRows(rows)
+}
+
+func (s *TaskStore) GetChildTasksByParentIDs(parentTaskIDs []string) (map[string][]*model.Task, error) {
+	childTasksByParent := make(map[string][]*model.Task)
+	if len(parentTaskIDs) == 0 {
+		return childTasksByParent, nil
+	}
+
+	dedupedParentTaskIDs := make([]string, 0, len(parentTaskIDs))
+	seenParentTaskIDs := make(map[string]struct{}, len(parentTaskIDs))
+	for _, parentTaskID := range parentTaskIDs {
+		if parentTaskID == "" {
+			continue
+		}
+		if _, seen := seenParentTaskIDs[parentTaskID]; seen {
+			continue
+		}
+		seenParentTaskIDs[parentTaskID] = struct{}{}
+		dedupedParentTaskIDs = append(dedupedParentTaskIDs, parentTaskID)
+	}
+	if len(dedupedParentTaskIDs) == 0 {
+		return childTasksByParent, nil
+	}
+
+	rowsSQL, rowsArgs, err := sq.
+		Select("UUID", "RunUUID", "Name", "ParentTaskUUID").
+		From("tasks").
+		Where(sq.Eq{"ParentTaskUUID": dedupedParentTaskIDs}).
+		ToSql()
+	if err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to create query to get child task summaries: %v", err.Error())
+	}
+
+	rows, err := s.db.Query(rowsSQL, rowsArgs...)
+	if err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to get child task summaries: %v", err.Error())
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var uuid, runUUID, name string
+		var parentTaskID sql.NullString
+		if err := rows.Scan(&uuid, &runUUID, &name, &parentTaskID); err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to scan child task summary: %v", err.Error())
+		}
+		if !parentTaskID.Valid {
+			continue
+		}
+		childTasksByParent[parentTaskID.String] = append(childTasksByParent[parentTaskID.String], &model.Task{
+			UUID:    uuid,
+			RunUUID: runUUID,
+			Name:    name,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to iterate child task summaries: %v", err.Error())
+	}
+	return childTasksByParent, nil
 }
 
 // GetTaskCountForRun returns the total count of tasks for a given run ID.
