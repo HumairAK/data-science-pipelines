@@ -975,6 +975,12 @@ func (r *ResourceManager) ListTasks(runID, parentID, namespace string, opts *lis
 	var filterContext *model.FilterContext
 
 	switch {
+	case runID != "" && parentID != "":
+		tasks, totalSize, nextPageToken, err := r.taskStore.ListTasksForParentRun(parentID, runID, opts)
+		if err != nil {
+			return nil, 0, "", util.Wrap(err, "Failed to list tasks")
+		}
+		return tasks, totalSize, nextPageToken, nil
 	case runID != "":
 		filterContext = &model.FilterContext{
 			ReferenceKey: &model.ReferenceKey{Type: model.RunResourceType, ID: runID},

@@ -70,6 +70,9 @@ type TaskStoreInterface interface {
 	// ListTasks Fetches tasks for given filtering and listing options.
 	ListTasks(filterContext *model.FilterContext, opts *list.Options) ([]*model.Task, int, string, error)
 
+	// ListTasksForParentRun fetches tasks for a specific parent task scoped to a run.
+	ListTasksForParentRun(parentTaskID, runID string, opts *list.Options) ([]*model.Task, int, string, error)
+
 	// UpdateTask Updates an existing task entry in the database.
 	UpdateTask(new *model.Task) (*model.Task, error)
 
@@ -568,6 +571,88 @@ func (s *TaskStore) ListTasks(filterContext *model.FilterContext, opts *list.Opt
 		return errorF(err)
 	}
 	return page, total_size, npt, err
+}
+
+func (s *TaskStore) ListTasksForParentRun(parentTaskID, runID string, opts *list.Options) ([]*model.Task, int, string, error) {
+	errorF := func(err error) ([]*model.Task, int, string, error) {
+		return nil, 0, "", util.NewInternalServerError(err, "Failed to list tasks: %v", err)
+	}
+
+	sqlBuilder := sq.Select(taskColumns...).From("tasks").
+		Where(sq.Eq{"RunUUID": runID}).
+		Where(sq.Eq{"ParentTaskUUID": parentTaskID})
+	sqlBuilder = opts.AddFilterToSelect(sqlBuilder)
+
+	rowsSQL, rowsArgs, err := opts.AddPaginationToSelect(sqlBuilder).ToSql()
+	if err != nil {
+		return errorF(err)
+	}
+
+	countBuilder := sq.Select("count(*)").From("tasks").
+		Where(sq.Eq{"RunUUID": runID}).
+		Where(sq.Eq{"ParentTaskUUID": parentTaskID})
+	sizeSQL, sizeArgs, err := opts.AddFilterToSelect(countBuilder).ToSql()
+	if err != nil {
+		return errorF(err)
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		glog.Errorf("Failed to start transaction to list tasks by parent and run")
+		return errorF(err)
+	}
+
+	rows, err := tx.Query(rowsSQL, rowsArgs...)
+	if err != nil {
+		tx.Rollback()
+		return errorF(err)
+	}
+	if err := rows.Err(); err != nil {
+		tx.Rollback()
+		return errorF(err)
+	}
+	tasks, err := s.scanRows(rows)
+	if err != nil {
+		tx.Rollback()
+		return errorF(err)
+	}
+	defer rows.Close()
+
+	sizeRow, err := tx.Query(sizeSQL, sizeArgs...)
+	if err != nil {
+		tx.Rollback()
+		return errorF(err)
+	}
+	if err := sizeRow.Err(); err != nil {
+		tx.Rollback()
+		return errorF(err)
+	}
+	totalSize, err := list.ScanRowToTotalSize(sizeRow)
+	if err != nil {
+		tx.Rollback()
+		return errorF(err)
+	}
+	defer sizeRow.Close()
+
+	err = tx.Commit()
+	if err != nil {
+		glog.Errorf("Failed to commit transaction to list tasks by parent and run")
+		return errorF(err)
+	}
+
+	if len(tasks) <= opts.PageSize {
+		if err := hydrateArtifactsForTasks(s.db, tasks); err != nil {
+			return errorF(err)
+		}
+		return tasks, totalSize, "", nil
+	}
+
+	npt, err := opts.NextPageToken(tasks[opts.PageSize])
+	page := tasks[:opts.PageSize]
+	if err := hydrateArtifactsForTasks(s.db, page); err != nil {
+		return errorF(err)
+	}
+	return page, totalSize, npt, err
 }
 
 func (s *TaskStore) GetTask(id string) (*model.Task, error) {

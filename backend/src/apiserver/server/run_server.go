@@ -668,6 +668,9 @@ func (s *RunServer) CreateTask(ctx context.Context, request *apiv2beta1.CreateTa
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to convert task to model")
 	}
+	if err := s.validateParentTaskOwnership(modelTask.ParentTaskUUID, modelTask.RunUUID); err != nil {
+		return nil, util.Wrap(err, "Failed to validate parent task")
+	}
 	createdTask, err := s.resourceManager.CreateTask(modelTask)
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to create task")
@@ -716,6 +719,9 @@ func (s *RunServer) UpdateTask(ctx context.Context, request *apiv2beta1.UpdateTa
 	}
 	modelTask.UUID = taskID // Always use the path parameter task ID
 	modelTask.RunUUID = existingTask.RunUUID
+	if err := s.validateParentTaskOwnership(modelTask.ParentTaskUUID, modelTask.RunUUID); err != nil {
+		return nil, util.Wrap(err, "Failed to validate parent task")
+	}
 	updatedTask, err := s.resourceManager.UpdateTask(modelTask)
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to update task")
@@ -725,6 +731,7 @@ func (s *RunServer) UpdateTask(ctx context.Context, request *apiv2beta1.UpdateTa
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to get task children")
 	}
+	taskChildren = filterTaskChildrenByRun(taskChildren, updatedTask.RunUUID)
 	return toAPITask(updatedTask, taskChildren)
 }
 
@@ -773,6 +780,9 @@ func (s *RunServer) UpdateTasksBulk(ctx context.Context, request *apiv2beta1.Upd
 		}
 		modelTask.UUID = taskID // Always use the map key task ID
 		modelTask.RunUUID = existingTask.RunUUID
+		if err := s.validateParentTaskOwnership(modelTask.ParentTaskUUID, modelTask.RunUUID); err != nil {
+			return nil, util.Wrapf(err, "Failed to validate parent task for task %s", taskID)
+		}
 
 		updatedTask, err := s.resourceManager.UpdateTask(modelTask)
 		if err != nil {
@@ -783,6 +793,7 @@ func (s *RunServer) UpdateTasksBulk(ctx context.Context, request *apiv2beta1.Upd
 		if err != nil {
 			return nil, util.Wrapf(err, "Failed to get task children for task %s", taskID)
 		}
+		taskChildren = filterTaskChildrenByRun(taskChildren, updatedTask.RunUUID)
 
 		apiTask, err := toAPITask(updatedTask, taskChildren)
 		if err != nil {
@@ -816,6 +827,7 @@ func (s *RunServer) GetTask(ctx context.Context, request *apiv2beta1.GetTaskRequ
 	if err != nil {
 		return nil, util.Wrap(err, "Failed to get task children")
 	}
+	childTasks = filterTaskChildrenByRun(childTasks, task.RunUUID)
 	return toAPITask(task, childTasks)
 }
 
@@ -861,6 +873,7 @@ func (s *RunServer) ListTasks(ctx context.Context, request *apiv2beta1.ListTasks
 		if err != nil {
 			return nil, util.Wrap(err, "Failed to get parent task for authorization")
 		}
+		runID = parentTask.RunUUID
 		err = s.canAccessRun(ctx, parentTask.RunUUID, &authorizationv1.ResourceAttributes{Verb: common.RbacResourceVerbList})
 		if err != nil {
 			return nil, util.Wrap(err, "Failed to authorize task listing")
@@ -906,6 +919,7 @@ func (s *RunServer) ListTasks(ctx context.Context, request *apiv2beta1.ListTasks
 		if err != nil {
 			return nil, util.Wrap(err, "Failed to get task children")
 		}
+		taskChildren = filterTaskChildrenByRun(taskChildren, task.RunUUID)
 		apiTasks[i], err = toAPITask(task, taskChildren)
 		if err != nil {
 			return nil, util.Wrap(err, "Failed to convert task to API")
@@ -917,6 +931,35 @@ func (s *RunServer) ListTasks(ctx context.Context, request *apiv2beta1.ListTasks
 		NextPageToken: nextPageToken,
 		TotalSize:     int32(totalSize),
 	}, nil
+}
+
+func (s *RunServer) validateParentTaskOwnership(parentTaskID *string, runID string) error {
+	if parentTaskID == nil || *parentTaskID == "" {
+		return nil
+	}
+
+	parentTask, err := s.resourceManager.GetTask(*parentTaskID)
+	if err != nil {
+		return util.Wrap(err, "Failed to get parent task")
+	}
+	if parentTask.RunUUID != runID {
+		return util.NewInvalidInputError("parent_task_id must belong to the same run as the task")
+	}
+	return nil
+}
+
+func filterTaskChildrenByRun(childTasks []*model.Task, runID string) []*model.Task {
+	if len(childTasks) == 0 {
+		return childTasks
+	}
+
+	filtered := make([]*model.Task, 0, len(childTasks))
+	for _, childTask := range childTasks {
+		if childTask != nil && childTask.RunUUID == runID {
+			filtered = append(filtered, childTask)
+		}
+	}
+	return filtered
 }
 
 // canAccessRun verifies if the current user has access to a specified run utilizing the provided resource attributes.

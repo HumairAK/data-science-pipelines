@@ -21,6 +21,7 @@ import (
 
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/common"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/resource"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -267,6 +268,122 @@ func TestListTasks_ByParent(t *testing.T) {
 	assert.Equal(t, int32(1), resp.GetTotalSize())
 	assert.Equal(t, 1, len(resp.GetTasks()))
 	assert.Equal(t, child.GetTaskId(), resp.GetTasks()[0].GetTaskId())
+}
+
+func TestCreateTask_RejectsParentFromDifferentRun(t *testing.T) {
+	clients, manager, run1ID := seedOneRun(t)
+	defer clients.Close()
+
+	run2, err := manager.CreateRun(context.Background(), &model.Run{
+		DisplayName: "run-2",
+		PipelineSpec: model.PipelineSpec{
+			WorkflowSpecManifest: model.LargeText(testWorkflow.ToStringForStore()),
+		},
+	})
+	assert.NoError(t, err)
+
+	runSrv := createRunServer(manager)
+	parent, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+		Task: &apiv2beta1.PipelineTask{
+			RunId: run1ID,
+			Name:  "parent",
+		},
+	})
+	assert.NoError(t, err)
+
+	_, err = runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+		Task: &apiv2beta1.PipelineTask{
+			RunId:        run2.UUID,
+			Name:         "child",
+			ParentTaskId: strPTR(parent.GetTaskId()),
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "parent_task_id must belong to the same run")
+}
+
+func TestUpdateTask_RejectsParentFromDifferentRun(t *testing.T) {
+	clients, manager, run1ID := seedOneRun(t)
+	defer clients.Close()
+
+	run2, err := manager.CreateRun(context.Background(), &model.Run{
+		DisplayName: "run-2",
+		PipelineSpec: model.PipelineSpec{
+			WorkflowSpecManifest: model.LargeText(testWorkflow.ToStringForStore()),
+		},
+	})
+	assert.NoError(t, err)
+
+	runSrv := createRunServer(manager)
+	parent, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+		Task: &apiv2beta1.PipelineTask{
+			RunId: run1ID,
+			Name:  "parent",
+		},
+	})
+	assert.NoError(t, err)
+	child, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+		Task: &apiv2beta1.PipelineTask{
+			RunId: run2.UUID,
+			Name:  "child",
+		},
+	})
+	assert.NoError(t, err)
+
+	_, err = runSrv.UpdateTask(context.Background(), &apiv2beta1.UpdateTaskRequest{
+		TaskId: child.GetTaskId(),
+		Task: &apiv2beta1.PipelineTask{
+			TaskId:       child.GetTaskId(),
+			RunId:        run2.UUID,
+			Name:         "child",
+			ParentTaskId: strPTR(parent.GetTaskId()),
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "parent_task_id must belong to the same run")
+}
+
+func TestParentScopedReadsIgnoreChildrenFromOtherRuns(t *testing.T) {
+	clients, manager, run1ID := seedOneRun(t)
+	defer clients.Close()
+
+	run2, err := manager.CreateRun(context.Background(), &model.Run{
+		DisplayName: "run-2",
+		PipelineSpec: model.PipelineSpec{
+			WorkflowSpecManifest: model.LargeText(testWorkflow.ToStringForStore()),
+		},
+	})
+	assert.NoError(t, err)
+
+	runSrv := createRunServer(manager)
+	parent, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+		Task: &apiv2beta1.PipelineTask{
+			RunId: run1ID,
+			Name:  "parent",
+		},
+	})
+	assert.NoError(t, err)
+
+	// Seed inconsistent data directly to make sure read paths stay scoped even if
+	// a bad parent reference already exists in storage.
+	_, err = manager.CreateTask(&model.Task{
+		RunUUID:        run2.UUID,
+		Name:           "cross-run-child",
+		ParentTaskUUID: strPTR(parent.GetTaskId()),
+	})
+	assert.NoError(t, err)
+
+	resp, err := runSrv.ListTasks(context.Background(), &apiv2beta1.ListTasksRequest{
+		ParentFilter: &apiv2beta1.ListTasksRequest_ParentId{ParentId: parent.GetTaskId()},
+		PageSize:     50,
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, int32(0), resp.GetTotalSize())
+	assert.Len(t, resp.GetTasks(), 0)
+
+	gotParent, err := runSrv.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: parent.GetTaskId()})
+	assert.NoError(t, err)
+	assert.Len(t, gotParent.GetChildTasks(), 0)
 }
 
 func TestUpdateTasksBulk_Success(t *testing.T) {
