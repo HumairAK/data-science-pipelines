@@ -74,9 +74,6 @@ class TestV2beta1ListTasksResponse(unittest.TestCase):
                             iteration_index = '0', 
                             iteration_count = '0', 
                             download_to_workspace = True, ), 
-                        error = kfp_server_api.models.googlerpc_status.googlerpcStatus(
-                            code = 56, 
-                            message = '0', ), 
                         parent_task_id = '0', 
                         child_tasks = [
                             kfp_server_api.models.v2beta1_pipeline_task_child_task.v2beta1PipelineTaskChildTask(

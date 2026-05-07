@@ -3475,10 +3475,6 @@
         "type_attributes": {
           "$ref": "#/definitions/PipelineTaskTypeAttributes"
         },
-        "error": {
-          "$ref": "#/definitions/googlerpcStatus",
-          "description": "The error that occurred during task execution.\nOnly populated when the task is in FAILED or CANCELED state."
-        },
         "parent_task_id": {
           "type": "string",
           "description": "ID of the parent task if the task is within a component scope.\nEmpty if the task is at the root level."
@@ -3766,7 +3762,7 @@
             "type": "object",
             "$ref": "#/definitions/v2beta1PipelineTaskDetail"
           },
-          "description": "Deprecated: use top-level task APIs and Run.tasks instead.\nThis legacy field remains for backward compatibility only and\nwill be removed in the next major API version."
+          "description": "Deprecated: use top-level task APIs and Run.tasks instead.\nThis legacy field remains in the schema for backward wire compatibility\nonly. As part of the next major release, the backend intentionally stops\npopulating this field and returns task data only through the top-level\ntask APIs and Run.tasks. It will be removed in the next major API version."
         }
       },
       "description": "Runtime details of a run."

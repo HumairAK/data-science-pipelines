@@ -17,7 +17,6 @@ Name | Type | Description | Notes
 **state_history** | [**list[PipelineTaskTaskStatus]**](PipelineTaskTaskStatus.md) | A sequence of task statuses. This field keeps a record of state transitions. | [optional] 
 **type** | [**PipelineTaskTaskType**](PipelineTaskTaskType.md) |  | [optional] 
 **type_attributes** | [**PipelineTaskTypeAttributes**](PipelineTaskTypeAttributes.md) |  | [optional] 
-**error** | [**GooglerpcStatus**](GooglerpcStatus.md) |  | [optional] 
 **parent_task_id** | **str** | ID of the parent task if the task is within a component scope. Empty if the task is at the root level. | [optional] 
 **child_tasks** | [**list[V2beta1PipelineTaskChildTask]**](V2beta1PipelineTaskChildTask.md) | Sequence of dependent tasks. | [optional] 
 **inputs** | [**PipelineTaskInputOutputs**](PipelineTaskInputOutputs.md) |  | [optional] 

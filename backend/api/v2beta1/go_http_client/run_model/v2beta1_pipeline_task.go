@@ -38,10 +38,6 @@ type V2beta1PipelineTask struct {
 	// Format: date-time
 	EndTime strfmt.DateTime `json:"end_time,omitempty"`
 
-	// The error that occurred during task execution.
-	// Only populated when the task is in FAILED or CANCELED state.
-	Error *GooglerpcStatus `json:"error,omitempty"`
-
 	// inputs
 	Inputs *PipelineTaskInputOutputs `json:"inputs,omitempty"`
 
@@ -104,10 +100,6 @@ func (m *V2beta1PipelineTask) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateEndTime(formats); err != nil {
-		res = append(res, err)
-	}
-
-	if err := m.validateError(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -194,25 +186,6 @@ func (m *V2beta1PipelineTask) validateEndTime(formats strfmt.Registry) error {
 
 	if err := validate.FormatOf("end_time", "body", "date-time", m.EndTime.String(), formats); err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func (m *V2beta1PipelineTask) validateError(formats strfmt.Registry) error {
-	if swag.IsZero(m.Error) { // not required
-		return nil
-	}
-
-	if m.Error != nil {
-		if err := m.Error.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("error")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
-				return ce.ValidateName("error")
-			}
-			return err
-		}
 	}
 
 	return nil
@@ -392,10 +365,6 @@ func (m *V2beta1PipelineTask) ContextValidate(ctx context.Context, formats strfm
 		res = append(res, err)
 	}
 
-	if err := m.contextValidateError(ctx, formats); err != nil {
-		res = append(res, err)
-	}
-
 	if err := m.contextValidateInputs(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -454,27 +423,6 @@ func (m *V2beta1PipelineTask) contextValidateChildTasks(ctx context.Context, for
 			}
 		}
 
-	}
-
-	return nil
-}
-
-func (m *V2beta1PipelineTask) contextValidateError(ctx context.Context, formats strfmt.Registry) error {
-
-	if m.Error != nil {
-
-		if swag.IsZero(m.Error) { // not required
-			return nil
-		}
-
-		if err := m.Error.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("error")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
-				return ce.ValidateName("error")
-			}
-			return err
-		}
 	}
 
 	return nil

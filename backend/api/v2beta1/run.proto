@@ -527,13 +527,9 @@ message PipelineTask {
 
   TypeAttributes type_attributes = 13;
 
-  // The error that occurred during task execution.
-  // Only populated when the task is in FAILED or CANCELED state.
-  google.rpc.Status error = 14;
-
   // ID of the parent task if the task is within a component scope.
   // Empty if the task is at the root level.
-  optional string parent_task_id = 15;
+  optional string parent_task_id = 14;
 
   // A dependent task that requires this one to succeed.
   // Represented by task_id.
@@ -544,7 +540,7 @@ message PipelineTask {
   }
 
   // Sequence of dependent tasks.
-  repeated ChildTask child_tasks = 16;
+  repeated ChildTask child_tasks = 15;
 
   message InputOutputs {
     message IOParameter {
@@ -572,8 +568,8 @@ message PipelineTask {
     // ArtifactTasks to link artifacts to tasks.
     repeated IOArtifact artifacts = 2;
   }
-  InputOutputs inputs = 17;
-  InputOutputs outputs = 18;
+  InputOutputs inputs = 16;
+  InputOutputs outputs = 17;
 
   // The scope of this task within the
   // pipeline spec. Each entry (delimited by
@@ -583,7 +579,7 @@ message PipelineTask {
   // always the last entry in a scope_path.
   // Example of a scope_path:
   // "root.primary-pipeline.secondary-pipeline.task"
-  string scope_path = 19;
+  string scope_path = 18;
 }
 
 // Runtime information of a pipeline task executor.

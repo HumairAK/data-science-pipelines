@@ -46,7 +46,6 @@ class V2beta1PipelineTask(object):
         'state_history': 'list[PipelineTaskTaskStatus]',
         'type': 'PipelineTaskTaskType',
         'type_attributes': 'PipelineTaskTypeAttributes',
-        'error': 'GooglerpcStatus',
         'parent_task_id': 'str',
         'child_tasks': 'list[V2beta1PipelineTaskChildTask]',
         'inputs': 'PipelineTaskInputOutputs',
@@ -68,7 +67,6 @@ class V2beta1PipelineTask(object):
         'state_history': 'state_history',
         'type': 'type',
         'type_attributes': 'type_attributes',
-        'error': 'error',
         'parent_task_id': 'parent_task_id',
         'child_tasks': 'child_tasks',
         'inputs': 'inputs',
@@ -76,7 +74,7 @@ class V2beta1PipelineTask(object):
         'scope_path': 'scope_path'
     }
 
-    def __init__(self, name=None, display_name=None, task_id=None, run_id=None, pods=None, cache_fingerprint=None, create_time=None, end_time=None, state=None, status_metadata=None, state_history=None, type=None, type_attributes=None, error=None, parent_task_id=None, child_tasks=None, inputs=None, outputs=None, scope_path=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, display_name=None, task_id=None, run_id=None, pods=None, cache_fingerprint=None, create_time=None, end_time=None, state=None, status_metadata=None, state_history=None, type=None, type_attributes=None, parent_task_id=None, child_tasks=None, inputs=None, outputs=None, scope_path=None, local_vars_configuration=None):  # noqa: E501
         """V2beta1PipelineTask - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -95,7 +93,6 @@ class V2beta1PipelineTask(object):
         self._state_history = None
         self._type = None
         self._type_attributes = None
-        self._error = None
         self._parent_task_id = None
         self._child_tasks = None
         self._inputs = None
@@ -129,8 +126,6 @@ class V2beta1PipelineTask(object):
             self.type = type
         if type_attributes is not None:
             self.type_attributes = type_attributes
-        if error is not None:
-            self.error = error
         if parent_task_id is not None:
             self.parent_task_id = parent_task_id
         if child_tasks is not None:
@@ -426,27 +421,6 @@ class V2beta1PipelineTask(object):
         """
 
         self._type_attributes = type_attributes
-
-    @property
-    def error(self):
-        """Gets the error of this V2beta1PipelineTask.  # noqa: E501
-
-
-        :return: The error of this V2beta1PipelineTask.  # noqa: E501
-        :rtype: GooglerpcStatus
-        """
-        return self._error
-
-    @error.setter
-    def error(self, error):
-        """Sets the error of this V2beta1PipelineTask.
-
-
-        :param error: The error of this V2beta1PipelineTask.  # noqa: E501
-        :type error: GooglerpcStatus
-        """
-
-        self._error = error
 
     @property
     def parent_task_id(self):
