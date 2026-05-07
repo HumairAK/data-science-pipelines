@@ -420,6 +420,13 @@ func (s *TaskStore) CreateTask(task *model.Task) (*model.Task, error) {
 		return nil, util.NewInternalServerError(err, "Failed to marshal output parameters in a new task")
 	}
 
+	statusMetadataString := ""
+	if statusMetadata, err := json.Marshal(newTask.StatusMetadata); err == nil {
+		statusMetadataString = string(statusMetadata)
+	} else {
+		return nil, util.NewInternalServerError(err, "Failed to marshal status metadata in a new task")
+	}
+
 	typeAttrsString := ""
 	if typeAttrs, err := json.Marshal(newTask.TypeAttrs); err == nil {
 		typeAttrsString = string(typeAttrs)
@@ -440,9 +447,11 @@ func (s *TaskStore) CreateTask(task *model.Task) (*model.Task, error) {
 				"FinishedInSec":    newTask.FinishedInSec,
 				"Fingerprint":      newTask.Fingerprint,
 				"Name":             newTask.Name,
+				"DisplayName":      newTask.DisplayName,
 				"ParentTaskUUID":   newTask.ParentTaskUUID,
 				"ScopePath":        newTask.ScopePath,
 				"State":            newTask.State,
+				"StatusMetadata":   statusMetadataString,
 				"StateHistory":     stateHistoryString,
 				"InputParameters":  inputParamsString,
 				"OutputParameters": outputParamsString,

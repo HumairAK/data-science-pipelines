@@ -120,6 +120,38 @@ func TestTask_Create_Update_Get_List(t *testing.T) {
 	assert.True(t, found)
 }
 
+func TestTask_Create_PersistsDisplayNameAndStatusMetadata(t *testing.T) {
+	clients, manager, runID := seedOneRun(t)
+	defer clients.Close()
+
+	runSrv := createRunServer(manager)
+	statusMetadata := &apiv2beta1.PipelineTask_StatusMetadata{
+		Message: "task failed",
+		CustomProperties: map[string]*structpb.Value{
+			"reason": structpb.NewStringValue("oom"),
+		},
+	}
+
+	created, err := runSrv.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+		Task: &apiv2beta1.PipelineTask{
+			RunId:          runID,
+			Name:           "trainer",
+			DisplayName:    "Trainer Display",
+			State:          apiv2beta1.PipelineTask_FAILED,
+			StatusMetadata: statusMetadata,
+		},
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, "Trainer Display", created.GetDisplayName())
+	assert.Equal(t, "task failed", created.GetStatusMetadata().GetMessage())
+
+	got, err := runSrv.GetTask(context.Background(), &apiv2beta1.GetTaskRequest{TaskId: created.GetTaskId()})
+	assert.NoError(t, err)
+	assert.Equal(t, "Trainer Display", got.GetDisplayName())
+	assert.Equal(t, "task failed", got.GetStatusMetadata().GetMessage())
+	assert.Equal(t, "oom", got.GetStatusMetadata().GetCustomProperties()["reason"].GetStringValue())
+}
+
 func TestTask_RunHydration_WithInputsOutputs_ArtifactsAndMetrics(t *testing.T) {
 	// Multi-user on to exercise auth paths, but use helper ctx for headers.
 	viper.Set(common.MultiUserMode, "true")
