@@ -26,12 +26,27 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/types/known/structpb"
+	authzv1 "k8s.io/api/authorization/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Helper to create a simple run via resource manager and return its ID.
 func seedOneRun(t *testing.T) (*resource.FakeClientManager, *resource.ResourceManager, string) {
 	clients, manager, run := initWithOneTimeRunV2(t)
 	return clients, manager, run.UUID
+}
+
+type recordingSubjectAccessReviewClient struct {
+	lastReview *authzv1.SubjectAccessReview
+}
+
+func (c *recordingSubjectAccessReviewClient) Create(_ context.Context, sar *authzv1.SubjectAccessReview, _ metav1.CreateOptions) (*authzv1.SubjectAccessReview, error) {
+	c.lastReview = sar
+	return &authzv1.SubjectAccessReview{
+		Status: authzv1.SubjectAccessReviewStatus{
+			Allowed: true,
+		},
+	}, nil
 }
 
 func TestTask_Create_Update_Get_List(t *testing.T) {
@@ -742,6 +757,30 @@ func TestListTasks_ByNamespace(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int32(0), resp2.GetTotalSize())
 	assert.Equal(t, 0, len(resp2.GetTasks()))
+}
+
+func TestListTasks_ByNamespaceUsesListVerb(t *testing.T) {
+	viper.Set(common.MultiUserMode, "true")
+	t.Cleanup(func() { viper.Set(common.MultiUserMode, "false") })
+
+	clients, manager, run := initWithOneTimeRunV2(t)
+	defer clients.Close()
+
+	recorder := &recordingSubjectAccessReviewClient{}
+	clients.SubjectAccessReviewClientFake = recorder
+	manager = resource.NewResourceManager(clients, &resource.ResourceManagerOptions{CollectMetrics: false})
+	runSrv := createRunServer(manager)
+
+	_, err := runSrv.ListTasks(ctxWithUser(), &apiv2beta1.ListTasksRequest{
+		ParentFilter: &apiv2beta1.ListTasksRequest_Namespace{
+			Namespace: run.Namespace,
+		},
+		PageSize: 50,
+	})
+	assert.NoError(t, err)
+	if assert.NotNil(t, recorder.lastReview) {
+		assert.Equal(t, common.RbacResourceVerbList, recorder.lastReview.Spec.ResourceAttributes.Verb)
+	}
 }
 
 func TestListTasks_MutualExclusivity(t *testing.T) {

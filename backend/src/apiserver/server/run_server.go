@@ -886,7 +886,7 @@ func (s *RunServer) ListTasks(ctx context.Context, request *apiv2beta1.ListTasks
 			}
 			resourceAttributes := &authorizationv1.ResourceAttributes{
 				Namespace: namespace,
-				Verb:      common.RbacResourceVerbGet,
+				Verb:      common.RbacResourceVerbList,
 				Group:     common.RbacPipelinesGroup,
 				Version:   common.RbacPipelinesVersion,
 				Resource:  common.RbacResourceTypeRuns,
