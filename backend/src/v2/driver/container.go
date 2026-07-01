@@ -299,22 +299,13 @@ func Container(ctx context.Context, opts common.Options, clientManager client_ma
 					return execution, fmt.Errorf("failed to create artifact tasks: %w", err)
 				}
 			}
-			if err := component.PropagateOutputsUpDAGForTask(ctx, component.LauncherV2Options{
-				Namespace:     opts.Namespace,
-				Run:           opts.Run,
-				ParentTask:    opts.ParentTask,
-				Task:          createdTask,
-				ComponentSpec: opts.Component,
-				TaskSpec:      opts.Task,
-				ScopePath:     opts.ScopePath,
-				PipelineSpec:  opts.ScopePath.GetPipelineSpecStruct(),
-				IterationIndex: func() *int64 {
-					if iterationIndex == nil {
-						return nil
-					}
-					return util.Int64Pointer(int64(*iterationIndex))
-				}(),
-			}, clientManager, opts.ScopePath.GetPipelineSpecStruct()); err != nil {
+			if err := component.PropagateOutputsUpDAGForTask(ctx, component.OutputPropagationOptions{
+				Run:          opts.Run,
+				Task:         createdTask,
+				ParentTask:   opts.ParentTask,
+				ScopePath:    opts.ScopePath,
+				PipelineSpec: opts.ScopePath.GetPipelineSpecStruct(),
+			}, clientManager); err != nil {
 				return execution, fmt.Errorf("failed to propagate cached task outputs: %w", err)
 			}
 			execution.TaskID = createdTask.TaskId

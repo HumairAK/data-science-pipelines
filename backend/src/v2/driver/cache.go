@@ -38,6 +38,8 @@ func getFingerPrint(opts common.Options, executorInput *pipelinespec.ExecutorInp
 	userCmdArgs := make([]string, 0, len(opts.Container.Command)+len(opts.Container.Args))
 	userCmdArgs = append(userCmdArgs, opts.Container.Command...)
 	userCmdArgs = append(userCmdArgs, opts.Container.Args...)
+	// Fold pipeline identity into the fingerprint so namespace-wide cache lookups
+	// do not accidentally reuse results across different pipelines.
 	userCmdArgs = append(userCmdArgs, fmt.Sprintf("__kfp_pipeline_name=%s", opts.PipelineName))
 
 	// Deduplicate PVC names and sort them to ensure consistent fingerprint generation.

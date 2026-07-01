@@ -282,6 +282,9 @@ func updateStatuses(ctx context.Context, run *gc.Run, kfpAPIClient API, pipeline
 			}
 		}
 
+		// Propagate FAILED immediately instead of waiting for every expected child
+		// to exist; in fail-fast/sequential DAGs, downstream siblings may never be
+		// created after the first failure.
 		if anyFailed {
 			if err := evaluateAndUpdateParentStatus(ctx, run, parentTask, kfpAPIClient); err != nil {
 				return fmt.Errorf("failed to evaluate parent task %s status: %w", parentTask.GetTaskId(), err)

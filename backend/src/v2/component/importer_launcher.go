@@ -234,7 +234,13 @@ func (l *ImportLauncher) Execute(ctx context.Context) (executionErr error) {
 		Artifacts: []*apiV2beta1.PipelineTask_InputOutputs_IOArtifact{outputIO},
 	}
 	l.opts.Task = createdTask
-	if executionErr = PropagateOutputsUpDAGForTask(ctx, l.opts, l.clientManager, l.opts.PipelineSpec); executionErr != nil {
+	if executionErr = PropagateOutputsUpDAGForTask(ctx, OutputPropagationOptions{
+		Run:          l.opts.Run,
+		Task:         l.opts.Task,
+		ParentTask:   l.opts.ParentTask,
+		ScopePath:    l.opts.ScopePath,
+		PipelineSpec: l.opts.PipelineSpec,
+	}, l.clientManager); executionErr != nil {
 		return executionErr
 	}
 
@@ -317,6 +323,9 @@ func (l *ImportLauncher) ImportSpecToArtifact() (artifact *apiV2beta1.Artifact, 
 		var ioParam *apiV2beta1.PipelineTask_InputOutputs_IOParameter
 		for _, inputParam := range l.opts.ParentTask.GetInputs().GetParameters() {
 			if inputParam.ParameterKey == componentInput {
+				// Loop parents can carry multiple values for the same logical input
+				// key, one per producing iteration, so importer runtime parameters
+				// must select the value from the current iteration.
 				if l.opts.IterationIndex != nil {
 					if inputParam.GetProducer() == nil || inputParam.GetProducer().Iteration == nil ||
 						*inputParam.GetProducer().Iteration != *l.opts.IterationIndex {

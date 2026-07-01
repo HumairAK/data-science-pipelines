@@ -181,6 +181,18 @@ func (c *ObjectStoreClient) getBucket(
 	return newOpenBucket, base, nil
 }
 
+// resolveArtifactBucketConfig determines whether an artifact URI should inherit
+// the default pipeline root's query-string configuration before session info is
+// resolved from the launcher config.
+//
+// The returned objectstore.Config is the bucket config that will be used to
+// open the bucket, while the returned string is the lookup path passed to
+// Config.GetStoreSessionInfo(). Artifact URIs under the default pipeline root
+// inherit that root's query parameters so endpoint/region/from-env behavior is
+// preserved without persisting session info on tasks or artifacts. Artifact
+// URIs outside the pipeline root must either carry their own query parameters
+// or match an explicit provider override in launcher config; otherwise the URI
+// is rejected rather than silently reusing default secret-backed credentials.
 func resolveArtifactBucketConfig(
 	launcherConfig *config.Config,
 	prefix string,

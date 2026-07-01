@@ -69,6 +69,8 @@ func RootDAG(ctx context.Context, opts common.Options, clientManager client_mana
 			},
 		},
 	}
+	// A retried root driver should reuse the existing logical root task instead
+	// of creating a duplicate root entry for the same run and scope.
 	for _, existingTask := range opts.Run.GetTasks() {
 		if existingTask.GetType() == apiV2beta1.PipelineTask_ROOT &&
 			existingTask.GetScopePath() == pd.GetScopePath() &&

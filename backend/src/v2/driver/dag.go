@@ -130,6 +130,8 @@ func DAG(ctx context.Context, opts common.Options, clientManager client_manager.
 	if opts.ParentTask.GetTaskId() != "" {
 		taskToCreate.ParentTaskId = util.StringPointer(opts.ParentTask.GetTaskId())
 	}
+	// DAG tasks do not have a launcher stage to correct their final state later,
+	// so a false trigger must be persisted as SKIPPED at creation time.
 	if !execution.WillTrigger() {
 		taskToCreate.State = gc.PipelineTask_SKIPPED
 	}

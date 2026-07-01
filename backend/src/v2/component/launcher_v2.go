@@ -86,6 +86,14 @@ type LauncherV2 struct {
 	objectStore ObjectStoreClientInterface
 }
 
+type OutputPropagationOptions struct {
+	Run          *apiV2beta1.Run
+	Task         *apiV2beta1.PipelineTask
+	ParentTask   *apiV2beta1.PipelineTask
+	ScopePath    util.ScopePath
+	PipelineSpec *structpb.Struct
+}
+
 // NewLauncherV2 is a factory function that returns an instance of LauncherV2.
 func NewLauncherV2(
 	executorInputJSON string,
@@ -516,6 +524,12 @@ func qualifyExecutorLogsForRetry(
 	qualifyExecutorLogsURI(executorInput.GetOutputs().GetArtifacts(), retryIndex)
 }
 
+// retryIndexFromPodAnnotation reads the Argo node-name annotation on the current
+// pod and parses the 0-based retry index from it. Argo encodes the index as a
+// parenthesised suffix on the node name, e.g. "…executor(3)". This provides a
+// fallback when the KFP_RETRY_INDEX env var (set via {{retries}} in the Argo
+// template) is unavailable, which is the case when an older API server that
+// does not yet inject KFP_RETRY_INDEX is in use.
 func retryIndexFromPodAnnotation(ctx context.Context, k8sClient kubernetes.Interface, namespace, podName string) (string, error) {
 	pod, err := k8sClient.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
@@ -571,23 +585,47 @@ func (l *LauncherV2) ExecuteForTesting(ctx context.Context) (*pipelinespec.Execu
 	return l.executeV2(ctx)
 }
 
-func PropagateOutputsUpDAGForTask(
+func (l *LauncherV2) outputPropagationOptions() OutputPropagationOptions {
+	return OutputPropagationOptions{
+		Run:          l.options.Run,
+		Task:         l.options.Task,
+		ParentTask:   l.options.ParentTask,
+		ScopePath:    l.options.ScopePath,
+		PipelineSpec: l.pipelineSpec,
+	}
+}
+
+func propagateOutputsUpDAGWithBatchUpdater(
 	ctx context.Context,
-	opts LauncherV2Options,
+	opts OutputPropagationOptions,
 	clientManager client_manager.ClientManagerInterface,
-	pipelineSpec *structpb.Struct,
+	batchUpdater *BatchUpdater,
 ) error {
 	launcher := &LauncherV2{
-		options:           opts,
+		options: LauncherV2Options{
+			Run:        opts.Run,
+			Task:       opts.Task,
+			ParentTask: opts.ParentTask,
+			ScopePath:  opts.ScopePath,
+		},
 		clientManager:     clientManager,
-		pipelineSpec:      pipelineSpec,
-		batchUpdater:      NewBatchUpdater(),
+		pipelineSpec:      opts.PipelineSpec,
+		batchUpdater:      batchUpdater,
 		openedBucketCache: make(map[string]*blob.Bucket),
 	}
-	if err := launcher.propagateOutputsUpDAG(ctx); err != nil {
+	return propagateOutputsUpDAGWithLauncher(ctx, launcher)
+}
+
+func PropagateOutputsUpDAGForTask(
+	ctx context.Context,
+	opts OutputPropagationOptions,
+	clientManager client_manager.ClientManagerInterface,
+) error {
+	batchUpdater := NewBatchUpdater()
+	if err := propagateOutputsUpDAGWithBatchUpdater(ctx, opts, clientManager, batchUpdater); err != nil {
 		return err
 	}
-	return launcher.batchUpdater.Flush(ctx, clientManager.KFPAPIClient())
+	return batchUpdater.Flush(ctx, clientManager.KFPAPIClient())
 }
 
 // ObjectStoreDependencies interface implementation for LauncherV2
@@ -905,6 +943,8 @@ func determineIOType(
 		}
 	}
 
+	// Once we have propagated past the first parent boundary, keep the current
+	// IO type unless the next parent is a loop or condition branch above.
 	if !isFirstLevel {
 		return currentIOType
 	}
@@ -916,6 +956,10 @@ func determineIOType(
 // for parent DAGs that declare the current task's outputs in their outputDefinitions.
 // This enables output collection from child tasks (e.g., loop iterations) to parent DAGs.
 func (l *LauncherV2) propagateOutputsUpDAG(ctx context.Context) error {
+	return propagateOutputsUpDAGWithLauncher(ctx, l)
+}
+
+func propagateOutputsUpDAGWithLauncher(ctx context.Context, l *LauncherV2) error {
 	// If this task has no parent, nothing to propagate
 	if l.options.ParentTask == nil {
 		return nil
