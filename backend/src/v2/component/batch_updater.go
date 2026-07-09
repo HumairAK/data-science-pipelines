@@ -210,6 +210,7 @@ func (b *BatchUpdater) Flush(ctx context.Context, client kfpapi.API) error {
 			createdArtifactIndex++
 		}
 		b.actualArtifactCalls = 1 // Bulk call counts as 1
+		b.clearArtifacts()
 	}
 
 	// Step 2: Create artifact-tasks using existing bulk API
@@ -217,7 +218,13 @@ func (b *BatchUpdater) Flush(ctx context.Context, client kfpapi.API) error {
 		dedupedArtifactTasks := make([]*apiV2beta1.ArtifactTask, 0, len(b.artifactTasks))
 		seenArtifactTasks := make(map[string]struct{}, len(b.artifactTasks))
 		for _, artifactTask := range b.artifactTasks {
-			dedupeKey := fmt.Sprintf("%s|%s|%s", artifactTask.GetArtifactId(), artifactTask.GetTaskId(), artifactTask.GetKey())
+			dedupeKey := fmt.Sprintf(
+				"%s|%s|%d|%s",
+				artifactTask.GetArtifactId(),
+				artifactTask.GetTaskId(),
+				artifactTask.GetType(),
+				artifactTask.GetKey(),
+			)
 			if _, exists := seenArtifactTasks[dedupeKey]; exists {
 				continue
 			}
@@ -231,6 +238,7 @@ func (b *BatchUpdater) Flush(ctx context.Context, client kfpapi.API) error {
 			return fmt.Errorf("failed to create artifact-tasks in bulk: %w", err)
 		}
 		b.actualArtifactTaskCalls = 1 // Bulk call counts as 1
+		b.clearArtifactTasks()
 	}
 
 	// Step 3: Update tasks using bulk API after artifact links exist.
@@ -250,6 +258,7 @@ func (b *BatchUpdater) Flush(ctx context.Context, client kfpapi.API) error {
 			return fmt.Errorf("failed to update tasks in bulk: %w", err)
 		}
 		b.actualTaskUpdateCalls = 1 // Bulk call counts as 1
+		b.clearTaskUpdates()
 	}
 
 	// Log metrics
@@ -267,11 +276,23 @@ func (b *BatchUpdater) Flush(ctx context.Context, client kfpapi.API) error {
 
 // reset clears all queued updates (called after flush)
 func (b *BatchUpdater) reset() {
-	b.taskUpdates = make(map[string]*apiV2beta1.PipelineTask)
-	b.artifactTasks = make([]*apiV2beta1.ArtifactTask, 0)
-	b.artifacts = make([]*createArtifactRequest, 0)
+	b.clearTaskUpdates()
+	b.clearArtifactTasks()
+	b.clearArtifacts()
 
 	// Keep metrics across resets for the lifetime of the BatchUpdater
+}
+
+func (b *BatchUpdater) clearTaskUpdates() {
+	b.taskUpdates = make(map[string]*apiV2beta1.PipelineTask)
+}
+
+func (b *BatchUpdater) clearArtifactTasks() {
+	b.artifactTasks = make([]*apiV2beta1.ArtifactTask, 0)
+}
+
+func (b *BatchUpdater) clearArtifacts() {
+	b.artifacts = make([]*createArtifactRequest, 0)
 }
 
 // GetMetrics returns the current metrics

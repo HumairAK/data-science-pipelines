@@ -16,6 +16,7 @@ package component
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
@@ -26,6 +27,13 @@ import (
 type orderingMockAPI struct {
 	*kfpapi.MockAPI
 	order []string
+}
+
+type flakyArtifactTaskMockAPI struct {
+	*kfpapi.MockAPI
+	createArtifactsBulkCalls int
+	createArtifactTaskCalls  int
+	updateTasksBulkCalls     int
 }
 
 func (m *orderingMockAPI) CreateArtifactsBulk(ctx context.Context, req *apiv2beta1.CreateArtifactsBulkRequest) (*apiv2beta1.CreateArtifactsBulkResponse, error) {
@@ -40,6 +48,24 @@ func (m *orderingMockAPI) CreateArtifactTasks(ctx context.Context, req *apiv2bet
 
 func (m *orderingMockAPI) UpdateTasksBulk(ctx context.Context, req *apiv2beta1.UpdateTasksBulkRequest) (*apiv2beta1.UpdateTasksBulkResponse, error) {
 	m.order = append(m.order, "tasks")
+	return m.MockAPI.UpdateTasksBulk(ctx, req)
+}
+
+func (m *flakyArtifactTaskMockAPI) CreateArtifactsBulk(ctx context.Context, req *apiv2beta1.CreateArtifactsBulkRequest) (*apiv2beta1.CreateArtifactsBulkResponse, error) {
+	m.createArtifactsBulkCalls++
+	return m.MockAPI.CreateArtifactsBulk(ctx, req)
+}
+
+func (m *flakyArtifactTaskMockAPI) CreateArtifactTasks(ctx context.Context, req *apiv2beta1.CreateArtifactTasksBulkRequest) (*apiv2beta1.CreateArtifactTasksBulkResponse, error) {
+	m.createArtifactTaskCalls++
+	if m.createArtifactTaskCalls == 1 {
+		return nil, fmt.Errorf("transient artifact-task failure")
+	}
+	return m.MockAPI.CreateArtifactTasks(ctx, req)
+}
+
+func (m *flakyArtifactTaskMockAPI) UpdateTasksBulk(ctx context.Context, req *apiv2beta1.UpdateTasksBulkRequest) (*apiv2beta1.UpdateTasksBulkResponse, error) {
+	m.updateTasksBulkCalls++
 	return m.MockAPI.UpdateTasksBulk(ctx, req)
 }
 
@@ -69,6 +95,32 @@ func TestBatchUpdater_FlushDeduplicatesArtifactTasks(t *testing.T) {
 	resp, err := mockAPI.ListArtifactTasks(context.Background(), &apiv2beta1.ListArtifactTasksRequest{})
 	require.NoError(t, err)
 	require.Len(t, resp.ArtifactTasks, 1)
+}
+
+func TestBatchUpdater_FlushKeepsDistinctArtifactTasksForDifferentKeys(t *testing.T) {
+	mockAPI := kfpapi.NewMockAPI()
+	updater := NewBatchUpdater()
+
+	updater.QueueArtifactTask(&apiv2beta1.ArtifactTask{
+		ArtifactId: "artifact-1",
+		TaskId:     "task-1",
+		RunId:      "run-1",
+		Key:        "input-a",
+		Type:       apiv2beta1.IOType_COMPONENT_INPUT,
+	})
+	updater.QueueArtifactTask(&apiv2beta1.ArtifactTask{
+		ArtifactId: "artifact-1",
+		TaskId:     "task-1",
+		RunId:      "run-1",
+		Key:        "input-b",
+		Type:       apiv2beta1.IOType_COMPONENT_INPUT,
+	})
+
+	require.NoError(t, updater.Flush(context.Background(), mockAPI))
+
+	resp, err := mockAPI.ListArtifactTasks(context.Background(), &apiv2beta1.ListArtifactTasksRequest{})
+	require.NoError(t, err)
+	require.Len(t, resp.ArtifactTasks, 2)
 }
 
 func TestBatchUpdater_QueueTaskUpdateDoesNotSelfDuplicateOutputs(t *testing.T) {
@@ -128,4 +180,56 @@ func TestBatchUpdater_FlushCreatesArtifactLinksBeforeTerminalTaskUpdate(t *testi
 
 	require.NoError(t, updater.Flush(context.Background(), mockAPI))
 	require.Equal(t, []string{"artifacts", "artifact-tasks", "tasks"}, mockAPI.order)
+}
+
+func TestBatchUpdater_FlushRetriesOnlyFailedTail(t *testing.T) {
+	mockAPI := &flakyArtifactTaskMockAPI{MockAPI: kfpapi.NewMockAPI()}
+	updater := NewBatchUpdater()
+	_, err := mockAPI.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{
+		RunId: "run-1",
+		Task: &apiv2beta1.PipelineTask{
+			TaskId: "task-parent",
+			RunId:  "run-1",
+			Name:   "task-parent",
+			State:  apiv2beta1.PipelineTask_RUNNING,
+		},
+	})
+	require.NoError(t, err)
+
+	updater.QueueArtifact(&apiv2beta1.CreateArtifactRequest{
+		RunId:       "run-1",
+		TaskId:      "task-output",
+		ProducerKey: "model",
+		Artifact: &apiv2beta1.Artifact{
+			Name: "model",
+		},
+	})
+	updater.QueueArtifactTask(&apiv2beta1.ArtifactTask{
+		TaskId: "task-parent",
+		RunId:  "run-1",
+		Key:    "model",
+		Type:   apiv2beta1.IOType_OUTPUT,
+	})
+	updater.QueueTaskUpdate(&apiv2beta1.PipelineTask{
+		TaskId: "task-parent",
+		RunId:  "run-1",
+		State:  apiv2beta1.PipelineTask_SUCCEEDED,
+	})
+
+	err = updater.Flush(context.Background(), mockAPI)
+	require.Error(t, err)
+	require.Equal(t, 1, mockAPI.createArtifactsBulkCalls)
+	require.Equal(t, 1, mockAPI.createArtifactTaskCalls)
+	require.Equal(t, 0, mockAPI.updateTasksBulkCalls)
+	require.Empty(t, updater.artifacts)
+	require.Len(t, updater.artifactTasks, 1)
+	require.Len(t, updater.taskUpdates, 1)
+
+	require.NoError(t, updater.Flush(context.Background(), mockAPI))
+	require.Equal(t, 1, mockAPI.createArtifactsBulkCalls)
+	require.Equal(t, 2, mockAPI.createArtifactTaskCalls)
+	require.Equal(t, 1, mockAPI.updateTasksBulkCalls)
+	require.Empty(t, updater.artifacts)
+	require.Empty(t, updater.artifactTasks)
+	require.Empty(t, updater.taskUpdates)
 }
