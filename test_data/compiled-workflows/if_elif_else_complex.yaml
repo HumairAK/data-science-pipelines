@@ -286,7 +286,8 @@ spec:
     inputs:
       parameters:
       - name: parent-dag-task-id
-      - name: iteration-index
+      - default: "-1"
+        name: iteration-index
     metadata: {}
     name: comp-condition-3
     outputs: {}
@@ -350,6 +351,14 @@ spec:
         requests:
           cpu: 100m
           memory: 64Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       volumeMounts:
       - mountPath: /var/run/secrets/kfp
         name: kfp-launcher-token
@@ -385,6 +394,10 @@ spec:
         valueFrom:
           default: "true"
           path: /tmp/outputs/condition
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
     volumes:
     - name: kfp-launcher-token
       projected:
@@ -420,7 +433,8 @@ spec:
     inputs:
       parameters:
       - name: parent-dag-task-id
-      - name: iteration-index
+      - default: "-1"
+        name: iteration-index
     metadata: {}
     name: comp-condition-2
     outputs: {}
@@ -451,7 +465,8 @@ spec:
     inputs:
       parameters:
       - name: parent-dag-task-id
-      - name: iteration-index
+      - default: "-1"
+        name: iteration-index
     metadata: {}
     name: comp-for-loop-16
     outputs: {}
@@ -481,7 +496,8 @@ spec:
     inputs:
       parameters:
       - name: parent-dag-task-id
-      - name: iteration-index
+      - default: "-1"
+        name: iteration-index
     metadata: {}
     name: comp-for-loop-16-for-loop-16-iterator
     outputs: {}
@@ -498,7 +514,8 @@ spec:
     inputs:
       parameters:
       - name: parent-dag-task-id
-      - name: iteration-index
+      - default: "-1"
+        name: iteration-index
     metadata: {}
     name: comp-condition-14
     outputs: {}
@@ -551,7 +568,8 @@ spec:
     inputs:
       parameters:
       - name: parent-dag-task-id
-      - name: iteration-index
+      - default: "-1"
+        name: iteration-index
     metadata: {}
     name: comp-condition-13
     outputs: {}
@@ -582,7 +600,8 @@ spec:
     inputs:
       parameters:
       - name: parent-dag-task-id
-      - name: iteration-index
+      - default: "-1"
+        name: iteration-index
     metadata: {}
     name: comp-condition-6
     outputs: {}
@@ -613,7 +632,8 @@ spec:
     inputs:
       parameters:
       - name: parent-dag-task-id
-      - name: iteration-index
+      - default: "-1"
+        name: iteration-index
     metadata: {}
     name: comp-condition-7
     outputs: {}
@@ -666,7 +686,8 @@ spec:
     inputs:
       parameters:
       - name: parent-dag-task-id
-      - name: iteration-index
+      - default: "-1"
+        name: iteration-index
     metadata: {}
     name: comp-condition-branches-5
     outputs: {}
@@ -742,7 +763,8 @@ spec:
     inputs:
       parameters:
       - name: parent-dag-task-id
-      - name: iteration-index
+      - default: "-1"
+        name: iteration-index
     metadata: {}
     name: comp-condition-8
     outputs: {}
@@ -773,7 +795,8 @@ spec:
     inputs:
       parameters:
       - name: parent-dag-task-id
-      - name: iteration-index
+      - default: "-1"
+        name: iteration-index
     metadata: {}
     name: comp-condition-11
     outputs: {}
@@ -804,7 +827,8 @@ spec:
     inputs:
       parameters:
       - name: parent-dag-task-id
-      - name: iteration-index
+      - default: "-1"
+        name: iteration-index
     metadata: {}
     name: comp-condition-12
     outputs: {}
@@ -857,7 +881,8 @@ spec:
     inputs:
       parameters:
       - name: parent-dag-task-id
-      - name: iteration-index
+      - default: "-1"
+        name: iteration-index
     metadata: {}
     name: comp-condition-branches-10
     outputs: {}
@@ -933,7 +958,8 @@ spec:
     inputs:
       parameters:
       - name: parent-dag-task-id
-      - name: iteration-index
+      - default: "-1"
+        name: iteration-index
     metadata: {}
     name: comp-condition-9
     outputs: {}
@@ -1008,7 +1034,8 @@ spec:
     inputs:
       parameters:
       - name: parent-dag-task-id
-      - name: iteration-index
+      - default: "-1"
+        name: iteration-index
     metadata: {}
     name: comp-condition-branches-4
     outputs: {}
@@ -1083,7 +1110,8 @@ spec:
     inputs:
       parameters:
       - name: parent-dag-task-id
-      - name: iteration-index
+      - default: "-1"
+        name: iteration-index
     metadata: {}
     name: comp-for-loop-1
     outputs: {}

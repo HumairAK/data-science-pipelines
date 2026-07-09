@@ -291,7 +291,8 @@ spec:
     inputs:
       parameters:
       - name: parent-dag-task-id
-      - name: iteration-index
+      - default: "-1"
+        name: iteration-index
     metadata: {}
     name: comp-for-loop-2
     outputs: {}
@@ -355,6 +356,14 @@ spec:
         requests:
           cpu: 100m
           memory: 64Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       volumeMounts:
       - mountPath: /var/run/secrets/kfp
         name: kfp-launcher-token
@@ -390,6 +399,10 @@ spec:
         valueFrom:
           default: "true"
           path: /tmp/outputs/condition
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
     volumes:
     - name: kfp-launcher-token
       projected:
