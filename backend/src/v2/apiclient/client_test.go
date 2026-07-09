@@ -140,6 +140,13 @@ func TestConfigConnectParams_UsesGRPCDefaultsForUnsetFields(t *testing.T) {
 	}
 }
 
+func TestDefaultMaxCallRecvMsgSizeExceedsGRPCDefault(t *testing.T) {
+	const grpcDefaultRecvLimit = 4 * 1024 * 1024
+	if defaultMaxCallRecvMsgSize <= grpcDefaultRecvLimit {
+		t.Fatalf("defaultMaxCallRecvMsgSize = %d, want > %d", defaultMaxCallRecvMsgSize, grpcDefaultRecvLimit)
+	}
+}
+
 func TestConfigConnectParams_ReturnsErrorForInvalidValues(t *testing.T) {
 	tests := []struct {
 		name string

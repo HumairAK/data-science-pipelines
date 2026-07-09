@@ -543,6 +543,42 @@ func Test_executorInput_compileCmdAndArgs(t *testing.T) {
 	assert.Equal(t, "9312", config["sphinx_port"])
 }
 
+func Test_compileCmdAndArgs_ReplacesCommandAndComplexArgsPlaceholders(t *testing.T) {
+	executorInput := &pipelinespec.ExecutorInput{
+		Inputs: &pipelinespec.ExecutorInput_Inputs{
+			ParameterValues: map[string]*structpb.Value{
+				"entrypoint": structpb.NewStringValue("python"),
+				"list_arg": structpb.NewListValue(&structpb.ListValue{
+					Values: []*structpb.Value{
+						structpb.NewStringValue("a"),
+						structpb.NewStringValue("b"),
+					},
+				}),
+				"struct_arg": structpb.NewStructValue(&structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"alpha": structpb.NewStringValue("beta"),
+					},
+				}),
+			},
+		},
+	}
+
+	cmd, args, err := compileCmdAndArgs(
+		executorInput,
+		"{{$.inputs.parameters['entrypoint']}}",
+		[]string{
+			"--items={{$.inputs.parameters['list_arg']}}",
+			"--config={{$.inputs.parameters['struct_arg']}}",
+		},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "python", cmd)
+	assert.Equal(t, []string{
+		`--items=["a","b"]`,
+		`--config={"alpha":"beta"}`,
+	}, args)
+}
+
 // Tests executeV2 flow including parameter collection, artifact uploads, and task updates
 func Test_executeV2(t *testing.T) {
 	// Create component spec with input/output parameters and artifacts
@@ -716,6 +752,93 @@ func Test_executeV2(t *testing.T) {
 	metrics := launcher.batchUpdater.GetMetrics()
 	assert.Greater(t, metrics["queued_artifacts"], 0, "Expected artifacts to be queued for creation")
 	assert.Greater(t, metrics["queued_task_updates"], 0, "Expected task updates to be queued")
+}
+
+func Test_executeV2_IgnoresMissingOutputArtifactFile(t *testing.T) {
+	componentSpec := &pipelinespec.ComponentSpec{
+		OutputDefinitions: &pipelinespec.ComponentOutputsSpec{
+			Artifacts: map[string]*pipelinespec.ComponentOutputsSpec_ArtifactSpec{
+				"model": {
+					ArtifactType: &pipelinespec.ArtifactTypeSchema{
+						Kind: &pipelinespec.ArtifactTypeSchema_SchemaTitle{
+							SchemaTitle: "system.Model",
+						},
+					},
+				},
+			},
+		},
+	}
+	executorInput := &pipelinespec.ExecutorInput{
+		Outputs: &pipelinespec.ExecutorInput_Outputs{
+			Artifacts: map[string]*pipelinespec.ArtifactList{
+				"model": {
+					Artifacts: []*pipelinespec.RuntimeArtifact{
+						{
+							Name: "trained-model",
+							Uri:  "s3://bucket/output/model.pkl",
+							Type: &pipelinespec.ArtifactTypeSchema{
+								Kind: &pipelinespec.ArtifactTypeSchema_SchemaTitle{
+									SchemaTitle: "system.Model",
+								},
+							},
+						},
+					},
+				},
+			},
+			OutputFile: "/tmp/kfp_outputs/output_metadata.json",
+		},
+	}
+	executorInputJSON, err := protojson.Marshal(executorInput)
+	require.NoError(t, err)
+
+	mockAPI := kfpapi.NewMockAPI()
+	clientManager := client_manager.NewFakeClientManager(fake.NewClientset(), mockAPI)
+	run := &apiv2beta1.Run{
+		RunId: "test-run-123",
+		PipelineSource: &apiv2beta1.Run_PipelineSpec{
+			PipelineSpec: &structpb.Struct{},
+		},
+	}
+	mockAPI.AddRun(run)
+	task := &apiv2beta1.PipelineTask{
+		TaskId:  "test-task-456",
+		RunId:   "test-run-123",
+		Name:    "train-model",
+		State:   apiv2beta1.PipelineTask_RUNNING,
+		Type:    apiv2beta1.PipelineTask_RUNTIME,
+		Inputs:  &apiv2beta1.PipelineTask_InputOutputs{},
+		Outputs: &apiv2beta1.PipelineTask_InputOutputs{},
+	}
+	_, err = mockAPI.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{Task: task, RunId: task.GetRunId()})
+	require.NoError(t, err)
+
+	launcher, err := NewLauncherV2(
+		string(executorInputJSON),
+		[]string{"python", "train.py"},
+		&LauncherV2Options{
+			Namespace:     "default",
+			PodName:       "train-model-pod",
+			PodUID:        "pod-uid-123",
+			PipelineName:  "training-pipeline",
+			ComponentSpec: componentSpec,
+			TaskSpec:      &pipelinespec.PipelineTaskSpec{TaskInfo: &pipelinespec.PipelineTaskInfo{Name: "train-model"}},
+			Run:           run,
+			Task:          task,
+			PipelineSpec:  &structpb.Struct{},
+		},
+		clientManager,
+	)
+	require.NoError(t, err)
+
+	mockFS := NewMockFileSystem()
+	mockFS.SetFileContent("/tmp/kfp_outputs/output_metadata.json", []byte("{}"))
+	mockCmd := NewMockCommandExecutor()
+	mockObjStore := NewMockObjectStoreClient()
+	mockObjStore.UploadError = os.ErrNotExist
+	launcher.WithFileSystem(mockFS).WithCommandExecutor(mockCmd).WithObjectStore(mockObjStore)
+
+	_, err = launcher.ExecuteForTesting(context.Background())
+	require.NoError(t, err)
 }
 
 func Test_get_log_Writer(t *testing.T) {

@@ -36,6 +36,7 @@ const (
 	KFPAPIGRPCBackoffJitterEnvVar     = "ML_PIPELINE_GRPC_BACKOFF_JITTER"
 	KFPAPIGRPCBackoffMaxDelayEnvVar   = "ML_PIPELINE_GRPC_BACKOFF_MAX_DELAY"
 	KFPAPIGRPCMinConnectTimeoutEnvVar = "ML_PIPELINE_GRPC_MIN_CONNECT_TIMEOUT"
+	defaultMaxCallRecvMsgSize         = 100 * 1024 * 1024
 	defaultMinConnectTimeout          = 20 * time.Second
 )
 
@@ -98,6 +99,7 @@ func New(cfg *Config, tlsCfg *tls.Config) (*Client, error) {
 		creds = credentials.NewTLS(tlsCfg)
 	}
 	dialOptions := []grpc.DialOption{
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(defaultMaxCallRecvMsgSize)),
 		grpc.WithTransportCredentials(creds),
 	}
 	if tlsCfg != nil {

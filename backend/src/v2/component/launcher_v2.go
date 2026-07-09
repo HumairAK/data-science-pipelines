@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -845,6 +846,10 @@ func (l *LauncherV2) uploadOutputArtifacts(
 					}
 					err = l.objectStore.UploadArtifact(ctx, localPath, outputArtifact.Uri, artifactKey)
 					if err != nil {
+						if errors.Is(err, os.ErrNotExist) {
+							glog.Warningf("Local filepath %q does not exist for output artifact %q", localPath, artifactKey)
+							continue
+						}
 						return fmt.Errorf("failed to upload output artifact %q to remote storage URI %q: %w", artifactKey, outputArtifact.Uri, err)
 					}
 					artifact.Uri = util.StringPointer(outputArtifact.Uri)
@@ -1477,7 +1482,7 @@ func compileCmdAndArgs(executorInput *pipelinespec.ExecutorInput, cmd string, ar
 	compiledCmd := strings.ReplaceAll(cmd, executorInputJSONKey, executorInputJSONString)
 	compiledArgs := make([]string, 0, len(args))
 	for placeholder, replacement := range placeholders {
-		cmd = strings.ReplaceAll(cmd, placeholder, replacement)
+		compiledCmd = strings.ReplaceAll(compiledCmd, placeholder, replacement)
 	}
 	for _, arg := range args {
 		compiledArgTemplate := strings.ReplaceAll(arg, executorInputJSONKey, executorInputJSONString)
