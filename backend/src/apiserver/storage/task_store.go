@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/golang/glog"
@@ -63,6 +64,10 @@ var _ TaskStoreInterface = (*TaskStore)(nil)
 type TaskStoreInterface interface {
 	// CreateTask Create a task entry in the database.
 	CreateTask(task *model.Task) (*model.Task, error)
+
+	// FindTaskByLogicalIdentity returns an existing runtime task for the same
+	// logical pipeline node when one already exists.
+	FindTaskByLogicalIdentity(task *model.Task) (*model.Task, error)
 
 	// GetTask Fetches a task with a given id.
 	GetTask(id string) (*model.Task, error)
@@ -376,7 +381,114 @@ func (s *TaskStore) scanRows(rows *sql.Rows) ([]*model.Task, error) {
 	return tasks, nil
 }
 
+func taskIterationIndex(typeAttrs model.JSONData) (*int64, error) {
+	if typeAttrs == nil {
+		return nil, nil
+	}
+	rawValue, ok := typeAttrs["iterationIndex"]
+	if !ok || rawValue == nil {
+		return nil, nil
+	}
+	switch value := rawValue.(type) {
+	case float64:
+		iterationIndex := int64(value)
+		return &iterationIndex, nil
+	case int64:
+		iterationIndex := value
+		return &iterationIndex, nil
+	case int:
+		iterationIndex := int64(value)
+		return &iterationIndex, nil
+	case string:
+		parsedIterationIndex, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		return &parsedIterationIndex, nil
+	default:
+		return nil, fmt.Errorf("unexpected iterationIndex type %T", value)
+	}
+}
+
+func sameLogicalTaskIdentity(existingTask, candidateTask *model.Task) (bool, error) {
+	if existingTask == nil || candidateTask == nil {
+		return false, nil
+	}
+	if existingTask.RunUUID != candidateTask.RunUUID ||
+		existingTask.ScopePath != candidateTask.ScopePath ||
+		existingTask.Name != candidateTask.Name ||
+		existingTask.Type != candidateTask.Type {
+		return false, nil
+	}
+	existingIterationIndex, err := taskIterationIndex(existingTask.TypeAttrs)
+	if err != nil {
+		return false, err
+	}
+	candidateIterationIndex, err := taskIterationIndex(candidateTask.TypeAttrs)
+	if err != nil {
+		return false, err
+	}
+	if existingIterationIndex == nil && candidateIterationIndex == nil {
+		return true, nil
+	}
+	if existingIterationIndex == nil || candidateIterationIndex == nil {
+		return false, nil
+	}
+	return *existingIterationIndex == *candidateIterationIndex, nil
+}
+
+func (s *TaskStore) FindTaskByLogicalIdentity(task *model.Task) (*model.Task, error) {
+	if task == nil || task.RunUUID == "" || task.ScopePath == "" || task.Name == "" || task.Type == 0 {
+		return nil, nil
+	}
+
+	rowsSQL, rowsArgs, err := sq.
+		Select(taskColumns...).
+		From(tableName).
+		Where(sq.Eq{
+			"RunUUID":   task.RunUUID,
+			"ScopePath": task.ScopePath,
+			"Name":      task.Name,
+			"Type":      task.Type,
+		}).
+		OrderBy("CreatedAtInSec DESC", "UUID DESC").
+		ToSql()
+	if err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to create logical task identity query: %v", err.Error())
+	}
+
+	rows, err := s.db.Query(rowsSQL, rowsArgs...)
+	if err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to look up logical task identity: %v", err.Error())
+	}
+	defer rows.Close()
+
+	tasks, err := s.scanRows(rows)
+	if err != nil {
+		return nil, util.NewInternalServerError(err, "Failed to scan logical task identity results: %v", err.Error())
+	}
+
+	for _, existingTask := range tasks {
+		match, err := sameLogicalTaskIdentity(existingTask, task)
+		if err != nil {
+			return nil, util.NewInternalServerError(err, "Failed to compare logical task identity")
+		}
+		if match {
+			return existingTask, nil
+		}
+	}
+	return nil, nil
+}
+
 func (s *TaskStore) CreateTask(task *model.Task) (*model.Task, error) {
+	existingTask, err := s.FindTaskByLogicalIdentity(task)
+	if err != nil {
+		return nil, err
+	}
+	if existingTask != nil {
+		return existingTask, nil
+	}
+
 	// Set up UUID for task.
 	newTask := *task
 	id, err := s.uuid.NewRandom()

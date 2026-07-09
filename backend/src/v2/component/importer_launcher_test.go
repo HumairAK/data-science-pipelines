@@ -25,6 +25,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/kubeflow/pipelines/backend/src/v2/apiclient/kfpapi"
 	clientmanager "github.com/kubeflow/pipelines/backend/src/v2/client_manager"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -197,6 +198,109 @@ func TestImportLauncher_RefreshesRunBeforeUpdatingStatuses(t *testing.T) {
 	if updatedRootTask.GetState() != apiv2beta1.PipelineTask_SUCCEEDED {
 		t.Fatalf("expected root task to be succeeded, got %v", updatedRootTask.GetState())
 	}
+}
+
+func TestImportLauncher_RetryReusesExistingTask(t *testing.T) {
+	taskSpec := &pipelinespec.PipelineTaskSpec{
+		TaskInfo:     &pipelinespec.PipelineTaskInfo{Name: "importer"},
+		ComponentRef: &pipelinespec.ComponentRef{Name: "comp-importer"},
+	}
+	componentSpec := &pipelinespec.ComponentSpec{
+		OutputDefinitions: &pipelinespec.ComponentOutputsSpec{
+			Artifacts: map[string]*pipelinespec.ComponentOutputsSpec_ArtifactSpec{
+				"artifact": {
+					ArtifactType: &pipelinespec.ArtifactTypeSchema{
+						Kind:          &pipelinespec.ArtifactTypeSchema_SchemaTitle{SchemaTitle: "system.Dataset"},
+						SchemaVersion: "0.0.1",
+					},
+				},
+			},
+		},
+		Implementation: &pipelinespec.ComponentSpec_ExecutorLabel{ExecutorLabel: "exec-importer"},
+	}
+	pipelineSpec := &pipelinespec.PipelineSpec{
+		PipelineInfo: &pipelinespec.PipelineInfo{Name: "pipeline-with-importer"},
+		Root: &pipelinespec.ComponentSpec{
+			Implementation: &pipelinespec.ComponentSpec_Dag{
+				Dag: &pipelinespec.DagSpec{
+					Tasks: map[string]*pipelinespec.PipelineTaskSpec{
+						"importer": taskSpec,
+					},
+				},
+			},
+		},
+		Components: map[string]*pipelinespec.ComponentSpec{
+			"comp-importer": componentSpec,
+		},
+	}
+	pipelineSpecStruct, err := pipelineSpecToStruct(t, pipelineSpec)
+	require.NoError(t, err)
+	scopePath, err := util.ScopePathFromStringPathWithNewTask(pipelineSpecStruct, "root", "importer")
+	require.NoError(t, err)
+	importerSpec := &pipelinespec.PipelineDeploymentConfig_ImporterSpec{
+		ArtifactUri: &pipelinespec.ValueOrRuntimeParameter{
+			Value: &pipelinespec.ValueOrRuntimeParameter_Constant{
+				Constant: structpb.NewStringValue("gs://bucket/model"),
+			},
+		},
+		TypeSchema: &pipelinespec.ArtifactTypeSchema{
+			Kind:          &pipelinespec.ArtifactTypeSchema_SchemaTitle{SchemaTitle: "system.Dataset"},
+			SchemaVersion: "0.0.1",
+		},
+	}
+
+	runID := uuid.NewString()
+	rootTaskID := uuid.NewString()
+	rootTask := &apiv2beta1.PipelineTask{
+		TaskId:    rootTaskID,
+		RunId:     runID,
+		Name:      "root",
+		State:     apiv2beta1.PipelineTask_RUNNING,
+		Type:      apiv2beta1.PipelineTask_DAG,
+		ScopePath: "root",
+	}
+	staleRun := &apiv2beta1.Run{
+		RunId: runID,
+		Tasks: []*apiv2beta1.PipelineTask{rootTask},
+	}
+
+	mockAPI := &importerTestAPI{
+		MockAPI: kfpapi.NewMockAPI(),
+		runs: map[string]*apiv2beta1.Run{
+			runID: {RunId: runID},
+		},
+	}
+	_, err = mockAPI.CreateTask(context.Background(), &apiv2beta1.CreateTaskRequest{RunId: runID, Task: rootTask})
+	require.NoError(t, err)
+
+	clientManager := clientmanager.NewFakeClientManager(k8sfake.NewClientset(), mockAPI)
+	importerLauncher, err := NewImporterLauncher(&LauncherV2Options{
+		Namespace:     "test-namespace",
+		PodName:       "test-pod",
+		PodUID:        "test-pod-uid",
+		PipelineName:  pipelineSpec.GetPipelineInfo().GetName(),
+		ComponentSpec: componentSpec,
+		ImporterSpec:  importerSpec,
+		PipelineSpec:  pipelineSpecStruct,
+		TaskSpec:      taskSpec,
+		ScopePath:     scopePath,
+		Run:           staleRun,
+		ParentTask:    rootTask,
+	}, clientManager)
+	require.NoError(t, err)
+
+	require.NoError(t, importerLauncher.Execute(context.Background()))
+	require.NoError(t, importerLauncher.Execute(context.Background()))
+
+	refreshedRun, err := mockAPI.GetRun(context.Background(), &apiv2beta1.GetRunRequest{RunId: runID})
+	require.NoError(t, err)
+	var importerTasks []*apiv2beta1.PipelineTask
+	for _, task := range refreshedRun.GetTasks() {
+		if task.GetType() == apiv2beta1.PipelineTask_IMPORTER {
+			importerTasks = append(importerTasks, task)
+		}
+	}
+	require.Len(t, importerTasks, 1)
 }
 
 type importerTestAPI struct {

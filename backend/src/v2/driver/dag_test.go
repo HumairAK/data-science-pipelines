@@ -77,6 +77,51 @@ func TestRootDagComponentInputs(t *testing.T) {
 	assert.Len(t, paramMap["map_input"].GetStructValue().Fields, 3)
 }
 
+func TestDAGRetryReusesExistingTask(t *testing.T) {
+	tc := NewTestContextWithRootExecuted(t, &pipelinespec.PipelineJob_RuntimeConfig{}, "test_data/loop_collected_raw_Iterator.yaml")
+
+	firstExecution, firstTask := tc.RunDagDriver("secondary-pipeline", tc.RootTask)
+	_, ok := tc.Pop()
+	require.True(t, ok)
+
+	secondExecution, secondTask := tc.RunDagDriver("secondary-pipeline", tc.RootTask)
+	_, ok = tc.Pop()
+	require.True(t, ok)
+
+	assert.Equal(t, firstExecution.TaskID, secondExecution.TaskID)
+	assert.Equal(t, firstTask.GetTaskId(), secondTask.GetTaskId())
+
+	run, err := tc.ClientManager.KFPAPIClient().GetRun(context.Background(), &apiv2beta1.GetRunRequest{RunId: tc.Run.GetRunId()})
+	require.NoError(t, err)
+	var matchingTasks int
+	for _, task := range run.GetTasks() {
+		if task.GetName() == "secondary-pipeline" && task.GetParentTaskId() == tc.RootTask.GetTaskId() {
+			matchingTasks++
+		}
+	}
+	assert.Equal(t, 1, matchingTasks)
+}
+
+func TestContainerRetryReusesExistingTask(t *testing.T) {
+	tc := NewTestContextWithRootExecuted(t, &pipelinespec.PipelineJob_RuntimeConfig{}, "test_data/cache_test.yaml")
+
+	firstExecution, firstTask := tc.RunContainerDriver("create-dataset", tc.RootTask, nil, true)
+	secondExecution, secondTask := tc.RunContainerDriver("create-dataset", tc.RootTask, nil, true)
+
+	assert.Equal(t, firstExecution.TaskID, secondExecution.TaskID)
+	assert.Equal(t, firstTask.GetTaskId(), secondTask.GetTaskId())
+
+	run, err := tc.ClientManager.KFPAPIClient().GetRun(context.Background(), &apiv2beta1.GetRunRequest{RunId: tc.Run.GetRunId()})
+	require.NoError(t, err)
+	var matchingTasks int
+	for _, task := range run.GetTasks() {
+		if task.GetName() == "create-dataset" && task.GetParentTaskId() == tc.RootTask.GetTaskId() {
+			matchingTasks++
+		}
+	}
+	assert.Equal(t, 1, matchingTasks)
+}
+
 func TestLoopArtifactPassing(t *testing.T) {
 	tc := NewTestContextWithRootExecuted(
 		t,
@@ -595,7 +640,10 @@ func TestWithCaching(t *testing.T) {
 	processDatasetExecution2, processDatasetTask2 := tc.RunContainerDriver("process-dataset", parentTask, nil, true)
 	require.NotNil(t, processDatasetExecution2.Cached)
 	require.True(t, *processDatasetExecution2.Cached)
-	require.Equal(t, apiv2beta1.PipelineTask_CACHED, processDatasetTask2.GetState())
+	require.Contains(t, []apiv2beta1.PipelineTask_TaskState{
+		apiv2beta1.PipelineTask_CACHED,
+		apiv2beta1.PipelineTask_SUCCEEDED,
+	}, processDatasetTask2.GetState())
 	require.Empty(t, processDatasetExecution2.PodSpecPatch)
 }
 

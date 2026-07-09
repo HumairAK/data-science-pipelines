@@ -15,12 +15,20 @@
 package driver
 
 import (
+	"context"
 	"testing"
 
 	"github.com/kubeflow/pipelines/api/v2alpha1/go/pipelinespec"
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
+	"github.com/kubeflow/pipelines/backend/src/common/util"
+	"github.com/kubeflow/pipelines/backend/src/v2/apiclient/kfpapi"
+	clientmanager "github.com/kubeflow/pipelines/backend/src/v2/client_manager"
 	"github.com/kubeflow/pipelines/backend/src/v2/driver/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 func Test_validateRootDAG(t *testing.T) {
@@ -146,4 +154,42 @@ func Test_validateRootDAG(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRootDAG_RetryReusesExistingTask(t *testing.T) {
+	mockAPI := kfpapi.NewMockAPI()
+	clientManager := clientmanager.NewFakeClientManager(fake.NewSimpleClientset(), mockAPI)
+	run := &apiv2beta1.Run{RunId: "run-1"}
+	mockAPI.AddRun(run)
+
+	pipelineSpec := &pipelinespec.PipelineSpec{Root: &pipelinespec.ComponentSpec{}}
+	pipelineSpecJSON, err := protojson.Marshal(pipelineSpec)
+	require.NoError(t, err)
+	pipelineSpecStruct := &structpb.Struct{}
+	require.NoError(t, protojson.Unmarshal(pipelineSpecJSON, pipelineSpecStruct))
+	scopePath, err := util.NewScopePathFromStruct(pipelineSpecStruct)
+	require.NoError(t, err)
+	require.NoError(t, scopePath.Push("root"))
+
+	opts := common.Options{
+		PipelineName:   "pipeline-1",
+		Run:            run,
+		Component:      pipelineSpec.Root,
+		RuntimeConfig:  &pipelinespec.PipelineJob_RuntimeConfig{},
+		Namespace:      "default",
+		IterationIndex: -1,
+		ScopePath:      scopePath,
+		PodName:        "root-driver-pod",
+		PodUID:         "root-driver-uid",
+	}
+
+	firstExecution, err := RootDAG(context.Background(), opts, clientManager)
+	require.NoError(t, err)
+	secondExecution, err := RootDAG(context.Background(), opts, clientManager)
+	require.NoError(t, err)
+	assert.Equal(t, firstExecution.TaskID, secondExecution.TaskID)
+
+	refreshedRun, err := mockAPI.GetRun(context.Background(), &apiv2beta1.GetRunRequest{RunId: run.GetRunId()})
+	require.NoError(t, err)
+	require.Len(t, refreshedRun.GetTasks(), 1)
 }

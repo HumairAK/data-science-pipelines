@@ -24,6 +24,7 @@ import (
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -139,6 +140,91 @@ func TestCreateTask_Success(t *testing.T) {
 	assert.Equal(t, "taskA", fetched.Name)
 	assert.Equal(t, model.TaskStatus(1), fetched.State)
 	assert.Equal(t, model.TaskType(0), fetched.Type)
+}
+
+func TestCreateTask_ReusesExistingLogicalIdentity(t *testing.T) {
+	db, taskStore, _ := initializeTaskStore()
+	defer db.Close()
+
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID1, nil)
+	firstTask, err := taskStore.CreateTask(&model.Task{
+		Namespace:        "ns1",
+		RunUUID:          "run-1",
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTask_DRIVER)),
+		Fingerprint:      "fp-1",
+		Name:             "taskA",
+		ScopePath:        "root.pipeline.taskA",
+		State:            model.TaskStatus(apiv2beta1.PipelineTask_RUNNING),
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
+		Type:             model.TaskType(apiv2beta1.PipelineTask_RUNTIME),
+		TypeAttrs:        model.JSONData{},
+	})
+	require.NoError(t, err)
+
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID2, nil)
+	retriedTask, err := taskStore.CreateTask(&model.Task{
+		Namespace:        "ns1",
+		RunUUID:          "run-1",
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p2", "uid2", apiv2beta1.PipelineTask_DRIVER)),
+		Fingerprint:      "fp-2",
+		Name:             "taskA",
+		ScopePath:        "root.pipeline.taskA",
+		State:            model.TaskStatus(apiv2beta1.PipelineTask_RUNNING),
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
+		Type:             model.TaskType(apiv2beta1.PipelineTask_RUNTIME),
+		TypeAttrs:        model.JSONData{},
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, firstTask.UUID, retriedTask.UUID)
+	opts, _ := list.NewOptions(&model.Task{}, 10, "", nil)
+	tasks, total, _, err := taskStore.ListTasks(&model.FilterContext{}, opts)
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(tasks))
+	assert.Equal(t, 1, total)
+}
+
+func TestCreateTask_DifferentIterationIndexCreatesDistinctTasks(t *testing.T) {
+	db, taskStore, _ := initializeTaskStore()
+	defer db.Close()
+
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID1, nil)
+	firstTask, err := taskStore.CreateTask(&model.Task{
+		Namespace:        "ns1",
+		RunUUID:          "run-1",
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p1", "uid1", apiv2beta1.PipelineTask_DRIVER)),
+		Name:             "loop-body",
+		ScopePath:        "root.loop-body",
+		State:            model.TaskStatus(apiv2beta1.PipelineTask_RUNNING),
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
+		Type:             model.TaskType(apiv2beta1.PipelineTask_RUNTIME),
+		TypeAttrs:        model.JSONData{"iterationIndex": float64(0)},
+	})
+	require.NoError(t, err)
+
+	taskStore.uuid = util.NewFakeUUIDGeneratorOrFatal(testUUID2, nil)
+	secondTask, err := taskStore.CreateTask(&model.Task{
+		Namespace:        "ns1",
+		RunUUID:          "run-1",
+		Pods:             createTaskPodsAsJSONSlice(createTaskPod("p2", "uid2", apiv2beta1.PipelineTask_DRIVER)),
+		Name:             "loop-body",
+		ScopePath:        "root.loop-body",
+		State:            model.TaskStatus(apiv2beta1.PipelineTask_RUNNING),
+		StateHistory:     model.JSONSlice{},
+		InputParameters:  model.JSONSlice{},
+		OutputParameters: model.JSONSlice{},
+		Type:             model.TaskType(apiv2beta1.PipelineTask_RUNTIME),
+		TypeAttrs:        model.JSONData{"iterationIndex": float64(1)},
+	})
+	require.NoError(t, err)
+
+	assert.NotEqual(t, firstTask.UUID, secondTask.UUID)
 }
 
 func TestGetTask_NotFound(t *testing.T) {

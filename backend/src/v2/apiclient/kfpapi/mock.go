@@ -145,8 +145,43 @@ func (m *MockAPI) hydrateTask(task *apiv2beta1.PipelineTask) *apiv2beta1.Pipelin
 	return populatedTask
 }
 
+func taskIterationIndex(task *apiv2beta1.PipelineTask) *int64 {
+	if task == nil || task.GetTypeAttributes() == nil || task.GetTypeAttributes().IterationIndex == nil {
+		return nil
+	}
+	return task.GetTypeAttributes().IterationIndex
+}
+
+func sameLogicalTaskIdentity(existingTask, candidateTask *apiv2beta1.PipelineTask, runID string) bool {
+	if existingTask == nil || candidateTask == nil {
+		return false
+	}
+	if existingTask.GetRunId() != runID ||
+		existingTask.GetScopePath() != candidateTask.GetScopePath() ||
+		existingTask.GetName() != candidateTask.GetName() ||
+		existingTask.GetType() != candidateTask.GetType() {
+		return false
+	}
+	existingIterationIndex := taskIterationIndex(existingTask)
+	candidateIterationIndex := taskIterationIndex(candidateTask)
+	if existingIterationIndex == nil && candidateIterationIndex == nil {
+		return true
+	}
+	if existingIterationIndex == nil || candidateIterationIndex == nil {
+		return false
+	}
+	return *existingIterationIndex == *candidateIterationIndex
+}
+
 func (m *MockAPI) CreateTask(_ context.Context, req *apiv2beta1.CreateTaskRequest) (*apiv2beta1.PipelineTask, error) {
 	task := req.Task
+	if task != nil && task.GetRunId() != "" && task.GetScopePath() != "" && task.GetName() != "" && task.GetType() != apiv2beta1.PipelineTask_TASK_TYPE_UNSPECIFIED {
+		for _, existingTask := range m.tasks {
+			if sameLogicalTaskIdentity(existingTask, task, req.GetRunId()) {
+				return existingTask, nil
+			}
+		}
+	}
 	if task.TaskId == "" {
 		uuid, _ := uuid.NewRandom()
 		task.TaskId = uuid.String()
