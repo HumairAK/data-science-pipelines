@@ -222,3 +222,15 @@ func TestDownloadBlob_EmptyListingIsNoOp(t *testing.T) {
 	err := DownloadBlob(ctx, bucket, localPath, "artifacts/missing")
 	require.NoError(t, err)
 }
+
+func TestNormalizeBucketURLForBlobOpen(t *testing.T) {
+	t.Run("converts minio URL to s3 URL", func(t *testing.T) {
+		got := normalizeBucketURLForBlobOpen("minio://mlpipeline?prefix=v2/artifacts/root")
+		assert.Equal(t, "s3://mlpipeline?prefix=v2/artifacts/root", got)
+	})
+
+	t.Run("leaves other schemes untouched", func(t *testing.T) {
+		got := normalizeBucketURLForBlobOpen("s3://mlpipeline?prefix=v2/artifacts/root")
+		assert.Equal(t, "s3://mlpipeline?prefix=v2/artifacts/root", got)
+	})
+}

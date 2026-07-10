@@ -82,16 +82,19 @@ func OpenBucket(
 		}
 	}
 
-	bucketURL := config.bucketURL()
-	// Since query parameters are only supported for s3:// paths
-	// if we detect minio scheme in pipeline root, replace it with s3:// scheme
-	// ref: https://gocloud.dev/howto/blob/#s3-compatible
-	if len(config.QueryString) > 0 && strings.HasPrefix(bucketURL, "minio://") {
-		bucketURL = strings.Replace(bucketURL, "minio://", "s3://", 1)
-	}
+	bucketURL := normalizeBucketURLForBlobOpen(config.bucketURL())
 
 	// When no provider config is provided, or "FromEnv" is specified, use default credentials from the environment
 	return blob.OpenBucket(ctx, bucketURL)
+}
+
+func normalizeBucketURLForBlobOpen(bucketURL string) string {
+	// Go CDK uses the S3 driver for MinIO-compatible bucket URLs in the fallback
+	// blob.OpenBucket path, so normalize minio:// URLs before opening them.
+	if strings.HasPrefix(bucketURL, "minio://") {
+		return strings.Replace(bucketURL, "minio://", "s3://", 1)
+	}
+	return bucketURL
 }
 
 func UploadBlob(ctx context.Context, bucket *blob.Bucket, localPath, blobPath string) error {
