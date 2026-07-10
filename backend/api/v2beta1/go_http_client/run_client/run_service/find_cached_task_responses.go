@@ -127,7 +127,7 @@ An unexpected error response.
 type FindCachedTaskDefault struct {
 	_statusCode int
 
-	Payload *run_model.GooglerpcStatus
+	Payload *run_model.GoogleRPCStatus
 }
 
 // IsSuccess returns true when this find cached task default response has a 2xx status code
@@ -170,13 +170,13 @@ func (o *FindCachedTaskDefault) String() string {
 	return fmt.Sprintf("[POST /apis/v2beta1/tasks:findCached][%d] find_cached_task default %s", o._statusCode, payload)
 }
 
-func (o *FindCachedTaskDefault) GetPayload() *run_model.GooglerpcStatus {
+func (o *FindCachedTaskDefault) GetPayload() *run_model.GoogleRPCStatus {
 	return o.Payload
 }
 
 func (o *FindCachedTaskDefault) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(run_model.GooglerpcStatus)
+	o.Payload = new(run_model.GoogleRPCStatus)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {

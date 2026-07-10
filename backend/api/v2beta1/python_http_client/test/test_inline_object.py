@@ -16,11 +16,11 @@ import unittest
 import datetime
 
 import kfp_server_api
-from kfp_server_api.models.pipeline_task_task_status import PipelineTaskTaskStatus  # noqa: E501
+from kfp_server_api.models.inline_object import InlineObject  # noqa: E501
 from kfp_server_api.rest import ApiException
 
-class TestPipelineTaskTaskStatus(unittest.TestCase):
-    """PipelineTaskTaskStatus unit test stubs"""
+class TestInlineObject(unittest.TestCase):
+    """InlineObject unit test stubs"""
 
     def setUp(self):
         pass
@@ -29,15 +29,18 @@ class TestPipelineTaskTaskStatus(unittest.TestCase):
         pass
 
     def make_instance(self, include_optional):
-        """Test PipelineTaskTaskStatus
+        """Test InlineObject
             include_option is a boolean, when False only required
             params are included, when True both required and
             optional params are included """
-        # model = kfp_server_api.models.pipeline_task_task_status.PipelineTaskTaskStatus()  # noqa: E501
+        # model = kfp_server_api.models.inline_object.InlineObject()  # noqa: E501
         if include_optional :
-            return PipelineTaskTaskStatus(
-                update_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                state = 'RUNTIME_STATE_UNSPECIFIED', 
+            return InlineObject(
+                display_name = '0', 
+                name = '0', 
+                description = '0', 
+                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                namespace = '0', 
                 error = kfp_server_api.models.google_rpc_status.googleRpcStatus(
                     code = 56, 
                     message = '0', 
@@ -45,14 +48,17 @@ class TestPipelineTaskTaskStatus(unittest.TestCase):
                         {
                             'key' : None
                             }
-                        ], )
+                        ], ), 
+                tags = {
+                    'key' : '0'
+                    }
             )
         else :
-            return PipelineTaskTaskStatus(
+            return InlineObject(
         )
 
-    def testPipelineTaskTaskStatus(self):
-        """Test PipelineTaskTaskStatus"""
+    def testInlineObject(self):
+        """Test InlineObject"""
         inst_req_only = self.make_instance(include_optional=False)
         inst_req_and_optional = self.make_instance(include_optional=True)
 

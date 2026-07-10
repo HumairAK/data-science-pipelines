@@ -16,11 +16,11 @@ import unittest
 import datetime
 
 import kfp_server_api
-from kfp_server_api.models.googlerpc_status import GooglerpcStatus  # noqa: E501
+from kfp_server_api.models.google_rpc_status import GoogleRpcStatus  # noqa: E501
 from kfp_server_api.rest import ApiException
 
-class TestGooglerpcStatus(unittest.TestCase):
-    """GooglerpcStatus unit test stubs"""
+class TestGoogleRpcStatus(unittest.TestCase):
+    """GoogleRpcStatus unit test stubs"""
 
     def setUp(self):
         pass
@@ -29,13 +29,13 @@ class TestGooglerpcStatus(unittest.TestCase):
         pass
 
     def make_instance(self, include_optional):
-        """Test GooglerpcStatus
+        """Test GoogleRpcStatus
             include_option is a boolean, when False only required
             params are included, when True both required and
             optional params are included """
-        # model = kfp_server_api.models.googlerpc_status.GooglerpcStatus()  # noqa: E501
+        # model = kfp_server_api.models.google_rpc_status.GoogleRpcStatus()  # noqa: E501
         if include_optional :
-            return GooglerpcStatus(
+            return GoogleRpcStatus(
                 code = 56, 
                 message = '0', 
                 details = [
@@ -45,11 +45,11 @@ class TestGooglerpcStatus(unittest.TestCase):
                     ]
             )
         else :
-            return GooglerpcStatus(
+            return GoogleRpcStatus(
         )
 
-    def testGooglerpcStatus(self):
-        """Test GooglerpcStatus"""
+    def testGoogleRpcStatus(self):
+        """Test GoogleRpcStatus"""
         inst_req_only = self.make_instance(include_optional=False)
         inst_req_and_optional = self.make_instance(include_optional=True)
 

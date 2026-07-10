@@ -16,11 +16,11 @@ import unittest
 import datetime
 
 import kfp_server_api
-from kfp_server_api.models.predicate_int_values import PredicateIntValues  # noqa: E501
+from kfp_server_api.models.google_rpc_status import GoogleRpcStatus  # noqa: E501
 from kfp_server_api.rest import ApiException
 
-class TestPredicateIntValues(unittest.TestCase):
-    """PredicateIntValues unit test stubs"""
+class TestGoogleRpcStatus(unittest.TestCase):
+    """GoogleRpcStatus unit test stubs"""
 
     def setUp(self):
         pass
@@ -29,23 +29,27 @@ class TestPredicateIntValues(unittest.TestCase):
         pass
 
     def make_instance(self, include_optional):
-        """Test PredicateIntValues
+        """Test GoogleRpcStatus
             include_option is a boolean, when False only required
             params are included, when True both required and
             optional params are included """
-        # model = kfp_server_api.models.predicate_int_values.PredicateIntValues()  # noqa: E501
+        # model = kfp_server_api.models.google_rpc_status.GoogleRpcStatus()  # noqa: E501
         if include_optional :
-            return PredicateIntValues(
-                values = [
-                    56
+            return GoogleRpcStatus(
+                code = 56, 
+                message = '0', 
+                details = [
+                    {
+                        'key' : None
+                        }
                     ]
             )
         else :
-            return PredicateIntValues(
+            return GoogleRpcStatus(
         )
 
-    def testPredicateIntValues(self):
-        """Test PredicateIntValues"""
+    def testGoogleRpcStatus(self):
+        """Test GoogleRpcStatus"""
         inst_req_only = self.make_instance(include_optional=False)
         inst_req_and_optional = self.make_instance(include_optional=True)
 
