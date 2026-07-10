@@ -97,12 +97,14 @@ func getToken() string {
 	return tok.AccessToken
 }
 
-type tokenPerRPCCredentials struct{}
+type tokenPerRPCCredentials struct {
+	requireTransportSecurity bool
+}
 
 var _ credentials.PerRPCCredentials = (*tokenPerRPCCredentials)(nil)
 
-func newTokenPerRPCCredentials() credentials.PerRPCCredentials {
-	return &tokenPerRPCCredentials{}
+func newTokenPerRPCCredentials(requireTransportSecurity bool) credentials.PerRPCCredentials {
+	return &tokenPerRPCCredentials{requireTransportSecurity: requireTransportSecurity}
 }
 
 func (c *tokenPerRPCCredentials) GetRequestMetadata(
@@ -117,5 +119,5 @@ func (c *tokenPerRPCCredentials) GetRequestMetadata(
 }
 
 func (c *tokenPerRPCCredentials) RequireTransportSecurity() bool {
-	return true
+	return c.requireTransportSecurity
 }

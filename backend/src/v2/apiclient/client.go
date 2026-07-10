@@ -101,9 +101,7 @@ func New(cfg *Config, tlsCfg *tls.Config) (*Client, error) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(defaultMaxCallRecvMsgSize)),
 		grpc.WithTransportCredentials(creds),
-	}
-	if tlsCfg != nil {
-		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(newTokenPerRPCCredentials()))
+		grpc.WithPerRPCCredentials(newTokenPerRPCCredentials(tlsCfg != nil)),
 	}
 	connectParams, err := cfg.connectParams()
 	if err != nil {

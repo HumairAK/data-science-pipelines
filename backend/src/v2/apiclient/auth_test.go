@@ -15,10 +15,19 @@ func setTokenSourceForTest(token string) {
 }
 
 func TestTokenPerRPCCredentialsRequireTransportSecurity(t *testing.T) {
-	creds := newTokenPerRPCCredentials()
-	if !creds.RequireTransportSecurity() {
-		t.Fatalf("RequireTransportSecurity() = false, want true")
-	}
+	t.Run("requires transport security when configured", func(t *testing.T) {
+		creds := newTokenPerRPCCredentials(true)
+		if !creds.RequireTransportSecurity() {
+			t.Fatalf("RequireTransportSecurity() = false, want true")
+		}
+	})
+
+	t.Run("allows insecure transport when configured", func(t *testing.T) {
+		creds := newTokenPerRPCCredentials(false)
+		if creds.RequireTransportSecurity() {
+			t.Fatalf("RequireTransportSecurity() = true, want false")
+		}
+	})
 }
 
 func TestTokenPerRPCCredentialsGetRequestMetadata(t *testing.T) {
@@ -30,7 +39,7 @@ func TestTokenPerRPCCredentialsGetRequestMetadata(t *testing.T) {
 	t.Run("adds bearer token when available", func(t *testing.T) {
 		setTokenSourceForTest("test-token")
 
-		metadata, err := newTokenPerRPCCredentials().GetRequestMetadata(context.Background())
+		metadata, err := newTokenPerRPCCredentials(true).GetRequestMetadata(context.Background())
 		if err != nil {
 			t.Fatalf("GetRequestMetadata() error = %v", err)
 		}
@@ -42,7 +51,7 @@ func TestTokenPerRPCCredentialsGetRequestMetadata(t *testing.T) {
 	t.Run("returns empty metadata when token missing", func(t *testing.T) {
 		setTokenSourceForTest("")
 
-		metadata, err := newTokenPerRPCCredentials().GetRequestMetadata(context.Background())
+		metadata, err := newTokenPerRPCCredentials(false).GetRequestMetadata(context.Background())
 		if err != nil {
 			t.Fatalf("GetRequestMetadata() error = %v", err)
 		}
