@@ -202,7 +202,7 @@ func resolveArtifactBucketConfig(
 		return nil, "", err
 	}
 	if launcherConfig == nil {
-		return bucketConfig, bucketConfig.BucketURL(), nil
+		return bucketConfig, bucketConfig.SessionInfoPath(), nil
 	}
 
 	underPipelineRoot, err := launcherConfig.IsPathUnderDefaultPipelineRoot(prefix)
@@ -215,11 +215,11 @@ func resolveArtifactBucketConfig(
 			return nil, "", err
 		}
 		bucketConfig.QueryString = pipelineRootConfig.QueryString
-		return bucketConfig, bucketConfig.BucketURL(), nil
+		return bucketConfig, bucketConfig.SessionInfoPath(), nil
 	}
 
 	if bucketConfig.QueryString != "" {
-		return bucketConfig, bucketConfig.BucketURL(), nil
+		return bucketConfig, bucketConfig.SessionInfoPath(), nil
 	}
 
 	hasExplicitOverride, err := launcherConfig.HasExplicitBucketOverride(prefix)
@@ -227,7 +227,7 @@ func resolveArtifactBucketConfig(
 		return nil, "", err
 	}
 	if hasExplicitOverride {
-		return bucketConfig, bucketConfig.BucketURL(), nil
+		return bucketConfig, bucketConfig.SessionInfoPath(), nil
 	}
 
 	return nil, "", fmt.Errorf(

@@ -82,6 +82,17 @@ func (b *Config) BucketURL() string {
 	return b.bucketURL()
 }
 
+// SessionInfoPath preserves the object prefix in the path portion so provider
+// lookup can distinguish real bucket query parameters from the synthetic
+// ?prefix=... query added for blob.OpenBucket.
+func (b *Config) SessionInfoPath() string {
+	sessionInfoPath := b.PrefixedBucket()
+	if len(b.QueryString) > 0 {
+		sessionInfoPath += b.QueryString
+	}
+	return sessionInfoPath
+}
+
 func (b *Config) PrefixedBucket() string {
 	return b.Scheme + path.Join(b.BucketName, b.Prefix)
 }
