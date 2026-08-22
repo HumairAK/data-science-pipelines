@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { CommonTestWrapper } from 'src/TestWrapper';
 import { Apis } from '../lib/Apis';
 import { expectErrors, testBestPractices } from '../TestUtils';
@@ -22,6 +22,45 @@ import ArtifactPreview from './ArtifactPreview';
 
 testBestPractices();
 describe('ArtifactPreview', () => {
+  it('keeps the exact URI available in a selectable disclosure without loading a preview', () => {
+    const uri = 's3://bucket/a-long-object-prefix/output.html?region=us-west-2';
+    const readFile = vi.spyOn(Apis, 'readFile');
+    const { container } = render(
+      <CommonTestWrapper>
+        <ArtifactPreview value={uri} />
+      </CommonTestWrapper>,
+    );
+    expect(screen.getByRole('link')).toHaveAttribute('title', uri);
+    expect(container.querySelector('details')).not.toHaveAttribute('open');
+    fireEvent.click(screen.getByText('Full URI'));
+    expect(screen.getByRole('textbox', { name: 'Full artifact URI' })).toHaveValue(uri);
+    expect(screen.getByRole('textbox', { name: 'Full artifact URI' })).toHaveAttribute('readonly');
+    expect(readFile).not.toHaveBeenCalled();
+  });
+
+  it('loads bounded inline previews when requested by the containing surface', async () => {
+    const readFile = vi.spyOn(Apis, 'readFile').mockResolvedValue('inline preview');
+    const { rerender } = render(
+      <CommonTestWrapper>
+        <ArtifactPreview value={{ uri: 's3://bucket/first' }} namespace='team-a' autoLoad />
+      </CommonTestWrapper>,
+    );
+    expect(await screen.findByText('inline preview')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Preview file contents' })).not.toBeInTheDocument();
+    expect(readFile).toHaveBeenCalledWith(
+      expect.objectContaining({ namespace: 'team-a', peek: 256 }),
+    );
+    readFile.mockResolvedValue('second preview');
+    rerender(
+      <CommonTestWrapper>
+        <ArtifactPreview value={{ uri: 's3://bucket/second' }} namespace='team-a' autoLoad />
+      </CommonTestWrapper>,
+    );
+    expect(await screen.findByText('second preview')).toBeVisible();
+    expect(screen.queryByText('inline preview')).not.toBeInTheDocument();
+    expect(readFile).toHaveBeenCalledTimes(2);
+  });
+
   it('handles undefined artifact', () => {
     render(
       <CommonTestWrapper>
@@ -59,7 +98,141 @@ describe('ArtifactPreview', () => {
         <ArtifactPreview value={'minio://'} namespace={'kubeflow'} />
       </CommonTestWrapper>,
     );
+    fireEvent.click(screen.getByRole('button', { name: 'Preview file contents' }));
     await waitFor(() => screen.getByText('Error in retrieving artifact preview.'));
+  });
+
+  it('allows a failed lazy preview to be retried', async () => {
+    const readFileSpy = vi
+      .spyOn(Apis, 'readFile')
+      .mockRejectedValueOnce(new Error('temporary storage failure'))
+      .mockResolvedValueOnce('recovered preview');
+
+    render(
+      <CommonTestWrapper>
+        <ArtifactPreview value='minio://bucket/key' namespace='kubeflow' />
+      </CommonTestWrapper>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Preview file contents' }));
+    await screen.findByText('Error in retrieving artifact preview.');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry preview' }));
+
+    expect(await screen.findByText('recovered preview')).toBeVisible();
+    expect(readFileSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows progress while a lazy preview is loading', async () => {
+    let resolvePreview!: (value: string) => void;
+    vi.spyOn(Apis, 'readFile').mockReturnValue(
+      new Promise((resolve) => {
+        resolvePreview = resolve;
+      }),
+    );
+
+    render(
+      <CommonTestWrapper>
+        <ArtifactPreview value='minio://bucket/key' namespace='kubeflow' />
+      </CommonTestWrapper>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Preview file contents' }));
+
+    expect(
+      await screen.findByRole('progressbar', { name: 'Loading artifact preview' }),
+    ).toBeVisible();
+
+    resolvePreview('loaded preview');
+    expect(await screen.findByText('loaded preview')).toBeVisible();
+  });
+
+  it('renders an explicit state for an empty artifact preview', async () => {
+    vi.spyOn(Apis, 'readFile').mockResolvedValue('');
+
+    render(
+      <CommonTestWrapper>
+        <ArtifactPreview value='minio://bucket/key' namespace='kubeflow' />
+      </CommonTestWrapper>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Preview file contents' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Empty file');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+  });
+
+  it('does not display cached preview state before a remounted row requests it', async () => {
+    const readFileSpy = vi.spyOn(Apis, 'readFile').mockResolvedValue('cached preview');
+    const preview = (
+      <CommonTestWrapper>
+        <ArtifactPreview value='minio://bucket/key' namespace='kubeflow' />
+      </CommonTestWrapper>
+    );
+    const { rerender } = render(preview);
+    fireEvent.click(screen.getByRole('button', { name: 'Preview file contents' }));
+    expect(await screen.findByText('cached preview')).toBeVisible();
+
+    rerender(
+      <CommonTestWrapper>
+        <div>row removed</div>
+      </CommonTestWrapper>,
+    );
+    rerender(preview);
+
+    expect(screen.getByRole('button', { name: 'Preview file contents' })).toBeVisible();
+    expect(screen.queryByText('cached preview')).toBeNull();
+    expect(readFileSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not display a cached preview error before a remounted row requests it', async () => {
+    const readFileSpy = vi.spyOn(Apis, 'readFile').mockRejectedValue(new Error('cached failure'));
+    const preview = (
+      <CommonTestWrapper>
+        <ArtifactPreview value='minio://bucket/key' namespace='kubeflow' />
+      </CommonTestWrapper>
+    );
+    const { rerender } = render(preview);
+    fireEvent.click(screen.getByRole('button', { name: 'Preview file contents' }));
+    expect(await screen.findByText('Error in retrieving artifact preview.')).toBeVisible();
+
+    rerender(
+      <CommonTestWrapper>
+        <div>row removed</div>
+      </CommonTestWrapper>,
+    );
+    rerender(preview);
+
+    expect(screen.getByRole('button', { name: 'Preview file contents' })).toBeVisible();
+    expect(screen.queryByText('Error in retrieving artifact preview.')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Retry preview' })).toBeNull();
+    expect(readFileSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('requires fresh preview consent when the artifact changes in place', async () => {
+    const readFileSpy = vi
+      .spyOn(Apis, 'readFile')
+      .mockResolvedValueOnce('artifact A preview')
+      .mockResolvedValueOnce('artifact B preview');
+    const { rerender } = render(
+      <CommonTestWrapper>
+        <ArtifactPreview value='minio://bucket/artifact-a' namespace='kubeflow' />
+      </CommonTestWrapper>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Preview file contents' }));
+    expect(await screen.findByText('artifact A preview')).toBeVisible();
+
+    rerender(
+      <CommonTestWrapper>
+        <ArtifactPreview value='minio://bucket/artifact-b' namespace='kubeflow' />
+      </CommonTestWrapper>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Preview file contents' })).toBeVisible();
+    expect(screen.queryByText('artifact A preview')).toBeNull();
+    expect(readFileSpy).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Preview file contents' }));
+    expect(await screen.findByText('artifact B preview')).toBeVisible();
+    expect(readFileSpy).toHaveBeenCalledTimes(2);
   });
 
   it('handles gcs artifact', async () => {
@@ -70,6 +243,7 @@ describe('ArtifactPreview', () => {
       </CommonTestWrapper>,
     );
     await waitFor(() => screen.getByText('gs://bucket/key'));
+    fireEvent.click(screen.getByRole('button', { name: 'Preview file contents' }));
     await waitFor(() => screen.getByText('gcs preview'));
   });
 
@@ -84,25 +258,9 @@ describe('ArtifactPreview', () => {
     const downloadLink = screen.getByRole('link', { name: 'minio://bucket/key' });
     expect(downloadLink).toHaveAttribute(
       'href',
-      'artifacts/get?source=minio&namespace=kubeflow&bucket=bucket&key=key&download=true',
+      'artifacts/get?source=minio&namespace=kubeflow&bucket=bucket&key=key&keyEncoding=storage&download=true',
     );
     expect(downloadLink).toHaveAttribute('download');
-    expect(screen.getAllByRole('link')).toHaveLength(1);
-  });
-
-  it('carries providerInfo from the session map into the download link', async () => {
-    vi.spyOn(Apis, 'readFile').mockResolvedValueOnce('s3 content');
-    const sessionMap = new Map([['s3://bucket/key', '{"Provider":"s3"}']]);
-    render(
-      <CommonTestWrapper>
-        <ArtifactPreview value={'s3://bucket/key'} namespace={'kubeflow'} sessionMap={sessionMap} />
-      </CommonTestWrapper>,
-    );
-    await waitFor(() => screen.getByRole('link', { name: 's3://bucket/key' }));
-    expect(screen.getByRole('link', { name: 's3://bucket/key' })).toHaveAttribute(
-      'href',
-      'artifacts/get?source=s3&namespace=kubeflow&providerInfo=%7B%22Provider%22%3A%22s3%22%7D&bucket=bucket&key=key&download=true',
-    );
     expect(screen.getAllByRole('link')).toHaveLength(1);
   });
 
@@ -120,6 +278,7 @@ describe('ArtifactPreview', () => {
       </CommonTestWrapper>,
     );
     await waitFor(() => screen.getByText('minio://bucket/key'));
+    fireEvent.click(screen.getByRole('button', { name: 'Preview file contents' }));
     await waitFor(() => screen.getByText(`012 345 ...`));
   });
 
@@ -136,6 +295,7 @@ describe('ArtifactPreview', () => {
       </CommonTestWrapper>,
     );
     await waitFor(() => screen.getByText('minio://bucket/key'));
+    fireEvent.click(screen.getByRole('button', { name: 'Preview file contents' }));
     await waitFor(() => screen.getByText(`012 345 67 ...`));
   });
 });
