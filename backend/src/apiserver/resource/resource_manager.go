@@ -2272,10 +2272,6 @@ func (r *ResourceManager) reportWorkflowResource(
 			},
 		}
 		createdRun, err := r.runStore.CreateRun(proposedRun)
-		if r.options.CollectMetrics && !execStatus.StartedAtTime().Time.IsZero() {
-			reportGap := time.Since(execStatus.StartedAtTime().Time).Seconds()
-			recurringPipelineRunReportGap.Observe(reportGap)
-		}
 		if err != nil {
 			return nil, util.Wrapf(err, "Failed to report a workflow due to error creating run %s", runId)
 		}
