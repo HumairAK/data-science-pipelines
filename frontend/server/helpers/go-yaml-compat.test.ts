@@ -23,6 +23,15 @@ describe('Go YAML compatibility', () => {
     });
   });
 
+  it('resolves yaml.v2 null spellings as null', () => {
+    expect(parseGoYaml('a: ~\nb: Null\nc: NULL\nd: null')).toEqual({
+      a: null,
+      b: null,
+      c: null,
+      d: null,
+    });
+  });
+
   it('resolves yaml.v2 integer forms and keeps date-like scalars as strings', () => {
     expect(parseGoYaml('binary: 0b101\noctal: 077\nhex: 0x10\ndate: 2026-01-01')).toEqual({
       binary: 5n,
@@ -53,6 +62,12 @@ describe('Go YAML compatibility', () => {
     expect(() =>
       normalizeRecognizedKeys({ endpoint: 'a', ENDPOINT: 'b' }, ['endpoint'], 'providers.s3'),
     ).toThrow(LauncherConfigParseError);
+  });
+
+  it('rejects case-colliding recognized keys even when one value is null', () => {
+    expect(() =>
+      normalizeRecognizedKeys({ endpoint: null, ENDPOINT: 'store' }, ['endpoint'], 'provider'),
+    ).toThrow(/case-colliding keys/i);
   });
 
   it.each([

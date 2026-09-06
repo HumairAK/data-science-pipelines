@@ -53,7 +53,18 @@ const LAUNCHER_YAML_SCHEMA = JSON_SCHEMA.extend({
   implicit: [
     new Type('tag:yaml.org,2002:merge', {
       kind: 'scalar',
-      resolve: (value) => value === '<<' || value === null,
+      resolve: (value) => value === '<<',
+    }),
+    new Type('tag:yaml.org,2002:null', {
+      kind: 'scalar',
+      resolve: (value) =>
+        value === null ||
+        value === '' ||
+        value === '~' ||
+        value === 'null' ||
+        value === 'Null' ||
+        value === 'NULL',
+      construct: () => null,
     }),
     new Type('tag:yaml.org,2002:bool', {
       kind: 'scalar',
@@ -261,7 +272,7 @@ export function normalizeRecognizedKeys(
   const sourceKeyByCanonical = new Map<string, string>();
   for (const [sourceKey, entry] of Object.entries(value)) {
     const canonicalKey = canonicalByLowerCase.get(sourceKey.toLowerCase());
-    if (canonicalKey === undefined || entry === null) continue;
+    if (canonicalKey === undefined) continue;
     const previousSourceKey = sourceKeyByCanonical.get(canonicalKey);
     if (previousSourceKey !== undefined) {
       throw new LauncherConfigParseError(
@@ -270,6 +281,7 @@ export function normalizeRecognizedKeys(
       );
     }
     sourceKeyByCanonical.set(canonicalKey, sourceKey);
+    if (entry === null) continue;
     normalized[canonicalKey] = entry;
   }
   return normalized;
