@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { JSON_SCHEMA, load, Type } from 'js-yaml';
+import { defineScalarTag, JSON_SCHEMA, load, mergeTag, NOT_RESOLVED, nullYaml11Tag } from 'js-yaml';
 
 const YAML_1_1_INTEGER = /^[-+]?(?:0[bB][01]+|0[xX][0-9a-fA-F]+|0[oO][0-7]+|0[0-7]*|[1-9][0-9]*)$/;
 const YAML_1_1_FLOAT = /^[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)(?:[eE][-+]?[0-9]+)?$/;
@@ -49,63 +49,54 @@ const YAML_NAN_VALUES = new Set(['.nan', '.NaN', '.NAN']);
 const YAML_UINT64_MAX = 18_446_744_073_709_551_615n;
 const YAML_INT64_MIN_MAGNITUDE = 9_223_372_036_854_775_808n;
 
-const LAUNCHER_YAML_SCHEMA = JSON_SCHEMA.extend({
-  implicit: [
-    new Type('tag:yaml.org,2002:merge', {
-      kind: 'scalar',
-      resolve: (value) => value === '<<',
-    }),
-    new Type('tag:yaml.org,2002:null', {
-      kind: 'scalar',
-      resolve: (value) =>
-        value === null ||
-        value === '' ||
-        value === '~' ||
-        value === 'null' ||
-        value === 'Null' ||
-        value === 'NULL',
-      construct: () => null,
-    }),
-    new Type('tag:yaml.org,2002:bool', {
-      kind: 'scalar',
-      resolve: (value) => YAML_TRUE_VALUES.has(value) || YAML_FALSE_VALUES.has(value),
-      construct: (value) => YAML_TRUE_VALUES.has(value),
-    }),
-    new Type('tag:yaml.org,2002:int', {
-      kind: 'scalar',
-      resolve: (value) => parseYamlInteger(value) !== undefined,
-      construct: (value) => parseYamlInteger(value)!,
-    }),
-    new Type('tag:yaml.org,2002:float', {
-      kind: 'scalar',
-      resolve: (value) => {
-        const normalized = value.replaceAll('_', '');
-        return (
-          YAML_POSITIVE_INFINITY_VALUES.has(normalized) ||
-          YAML_NEGATIVE_INFINITY_VALUES.has(normalized) ||
-          YAML_NAN_VALUES.has(normalized) ||
-          (isYamlNumericCandidate(value) &&
-            YAML_1_1_FLOAT.test(normalized) &&
-            Number.isFinite(Number(normalized)))
-        );
-      },
-      construct: (value) => {
-        const normalized = value.replaceAll('_', '');
-        if (YAML_POSITIVE_INFINITY_VALUES.has(normalized)) return Number.POSITIVE_INFINITY;
-        if (YAML_NEGATIVE_INFINITY_VALUES.has(normalized)) return Number.NEGATIVE_INFINITY;
-        if (YAML_NAN_VALUES.has(normalized)) return Number.NaN;
+const LAUNCHER_YAML_SCHEMA = JSON_SCHEMA.withTags(
+  mergeTag,
+  nullYaml11Tag,
+  defineScalarTag('tag:yaml.org,2002:bool', {
+    implicit: true,
+    implicitFirstChars: [...'yYnNtTfFoO'],
+    resolve: (value) => {
+      if (YAML_TRUE_VALUES.has(value)) return true;
+      if (YAML_FALSE_VALUES.has(value)) return false;
+      return NOT_RESOLVED;
+    },
+    identify: () => false,
+  }),
+  defineScalarTag('tag:yaml.org,2002:int', {
+    implicit: true,
+    implicitFirstChars: [...'+-0123456789'],
+    resolve: (value) => parseYamlInteger(value) ?? NOT_RESOLVED,
+    identify: () => false,
+  }),
+  defineScalarTag('tag:yaml.org,2002:float', {
+    implicit: true,
+    implicitFirstChars: [...'+-.0123456789'],
+    resolve: (value) => {
+      const normalized = value.replaceAll('_', '');
+      if (YAML_POSITIVE_INFINITY_VALUES.has(normalized)) return Number.POSITIVE_INFINITY;
+      if (YAML_NEGATIVE_INFINITY_VALUES.has(normalized)) return Number.NEGATIVE_INFINITY;
+      if (YAML_NAN_VALUES.has(normalized)) return Number.NaN;
+      if (
+        isYamlNumericCandidate(value) &&
+        YAML_1_1_FLOAT.test(normalized) &&
+        Number.isFinite(Number(normalized))
+      ) {
         return Number(normalized);
-      },
-    }),
-  ],
-  explicit: [
-    new Type('tag:yaml.org,2002:binary', {
-      kind: 'scalar',
-      resolve: (value) => YAML_BINARY.test(value.replaceAll(/\s/g, '')),
-      construct: (value) => Uint8Array.from(Buffer.from(value.replaceAll(/\s/g, ''), 'base64')),
-    }),
-  ],
-});
+      }
+      return NOT_RESOLVED;
+    },
+    identify: () => false,
+  }),
+  defineScalarTag('tag:yaml.org,2002:binary', {
+    resolve: (value) => {
+      const normalized = value.replaceAll(/\s/g, '');
+      return YAML_BINARY.test(normalized)
+        ? Uint8Array.from(Buffer.from(normalized, 'base64'))
+        : NOT_RESOLVED;
+    },
+    identify: () => false,
+  }),
+);
 
 export class LauncherConfigError extends Error {}
 

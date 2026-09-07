@@ -90,7 +90,7 @@ describe('Go YAML compatibility', () => {
   });
 
   it.each(fixtures)(
-    'matches the checked-in Go float32 oracle for bits $bits',
+    'matches the checked-in Go float32 oracle for bits $bits ($label)',
     ({ bits, expected }) => {
       const bytes = new ArrayBuffer(4);
       new DataView(bytes).setUint32(0, Number.parseInt(bits, 16));

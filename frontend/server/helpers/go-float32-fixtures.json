@@ -80,6 +80,36 @@
     "expected": "NaN"
   },
   {
+    "bits": "38d1b716",
+    "expected": "9.999999e-05",
+    "label": "neighbor around 1e-4 formatting threshold"
+  },
+  {
+    "bits": "38d1b717",
+    "expected": "0.0001",
+    "label": "neighbor around 1e-4 formatting threshold"
+  },
+  {
+    "bits": "38d1b718",
+    "expected": "0.000100000005",
+    "label": "neighbor around 1e-4 formatting threshold"
+  },
+  {
+    "bits": "497423ff",
+    "expected": "999999.94",
+    "label": "neighbor around 1e6 formatting threshold"
+  },
+  {
+    "bits": "49742400",
+    "expected": "1e+06",
+    "label": "neighbor around 1e6 formatting threshold"
+  },
+  {
+    "bits": "49742401",
+    "expected": "1.00000006e+06",
+    "label": "neighbor around 1e6 formatting threshold"
+  },
+  {
     "bits": "42d0d7c4",
     "expected": "104.42142"
   },
@@ -577,7 +607,8 @@
   },
   {
     "bits": "47718610",
-    "expected": "61830.062"
+    "expected": "61830.062",
+    "label": "midpoint tie"
   },
   {
     "bits": "302d222f",
