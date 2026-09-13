@@ -37,6 +37,7 @@ require (
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/kubeflow/pipelines/api v0.0.0-20250102152816-873e9dedd766
 	github.com/kubeflow/pipelines/kubernetes_platform v0.0.0-20240725205754-d911c8b73b49
+	github.com/kubeflow/pipelines/third_party/ml-metadata v0.0.0
 	github.com/lestrrat-go/strftime v1.2.0
 	github.com/mattn/go-sqlite3 v1.14.50
 	github.com/minio/minio-go/v7 v7.3.0
@@ -272,6 +273,7 @@ require (
 replace (
 	github.com/kubeflow/pipelines/api => ./api
 	github.com/kubeflow/pipelines/kubernetes_platform => ./kubernetes_platform
+	github.com/kubeflow/pipelines/third_party/ml-metadata => ./third_party/ml-metadata
 )
 
 exclude github.com/mitchellh/osext v0.0.0-20151018003038-5e2d6d41470f

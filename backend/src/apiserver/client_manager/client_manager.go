@@ -80,6 +80,8 @@ const (
 	archiveLogPathPrefix = "ARCHIVE_CONFIG_LOG_PATH_PREFIX"
 	dbConMaxLifeTime     = "DBConfig.ConMaxLifeTime"
 
+	mlmdToNativeMigrationCommand = "mlmd-to-native"
+
 	VisualizationServiceHost = "ML_PIPELINE_VISUALIZATIONSERVER_SERVICE_HOST"
 	VisualizationServicePort = "ML_PIPELINE_VISUALIZATIONSERVER_SERVICE_PORT"
 
@@ -528,6 +530,11 @@ func InitDBClient(initConnectionTimeout time.Duration) (*sql.DB, sqldrv.DBDialec
 	util.TerminateIfError(err)
 	dbDialect := sqldrv.NewDBDialect(driverName)
 
+	mlmdRuntimeSchema, err := hasLegacyMLMDRuntimeSchema(db)
+	if err != nil {
+		glog.Fatalf("failed to detect MLMD-backed runtime metadata: %v", err)
+	}
+
 	legacy, err := isLegacySchema(db)
 	if err != nil {
 		glog.Fatalf("failed to detect schema version: %v", err)
@@ -540,6 +547,12 @@ func InitDBClient(initConnectionTimeout time.Duration) (*sql.DB, sqldrv.DBDialec
 		// Non-legacy schema (>=2.15): run autoMigrate for both first-time installs and
 		// upgrades between >=2.15 versions.
 		util.TerminateIfError(autoMigrate(db))
+	}
+	// AutoMigrate creates the marker table before the gate reads it. The legacy
+	// signal was captured above because schema reconciliation may add native
+	// columns to the old tables.
+	if err := validateMLMDToNativeMigrationGate(db, mlmdRuntimeSchema); err != nil {
+		glog.Fatalf("%v", err)
 	}
 
 	// Runs on both paths: a deployment that took the legacy upgrade before this
@@ -571,6 +584,92 @@ func InitDBClient(initConnectionTimeout time.Duration) (*sql.DB, sqldrv.DBDialec
 		glog.Fatalf("Failed to retrieve *sql.DB from gorm.DB. Error: %v", err)
 	}
 	return newdb, dbDialect, gcIndexChecker
+}
+
+// hasLegacyMLMDRuntimeSchema detects the pre-native runtime representation
+// before AutoMigrate can add the native schema. Native installations may retain
+// compatibility columns, so schema presence alone is not a signal: the legacy
+// columns must contain an actual MLMD reference.
+func hasLegacyMLMDRuntimeSchema(db *gorm.DB) (bool, error) {
+	if db.Migrator().HasTable(&model.Task{}) &&
+		db.Migrator().HasColumn(&model.Task{}, "MLMDExecutionID") {
+		var count int64
+		executionIDColumn := db.Statement.Quote("MLMDExecutionID")
+		if err := db.Model(&model.Task{}).
+			Where(fmt.Sprintf("%s IS NOT NULL AND %s <> ?", executionIDColumn, executionIDColumn), "").
+			Limit(1).Count(&count).Error; err != nil {
+			return false, fmt.Errorf("inspect legacy MLMD execution IDs: %w", err)
+		}
+		if count > 0 {
+			return true, nil
+		}
+	}
+
+	if !db.Migrator().HasTable(&model.Run{}) ||
+		!db.Migrator().HasColumn(&model.Run{}, "PipelineContextId") ||
+		!db.Migrator().HasColumn(&model.Run{}, "PipelineRunContextId") {
+		return false, nil
+	}
+
+	var count int64
+	pipelineContextColumn := db.Statement.Quote("PipelineContextId")
+	pipelineRunContextColumn := db.Statement.Quote("PipelineRunContextId")
+	err := db.Model(&model.Run{}).
+		Where(fmt.Sprintf("%s <> ? OR %s <> ?", pipelineContextColumn, pipelineRunContextColumn), 0, 0).
+		Limit(1).
+		Count(&count).Error
+	if err != nil {
+		return false, fmt.Errorf("inspect legacy MLMD context IDs: %w", err)
+	}
+	return count > 0, nil
+}
+
+// validateMLMDToNativeMigrationGate prevents an MLMD-backed installation from
+// serving with an empty native runtime history. Fresh and already-native
+// installations do not require a migration marker.
+func validateMLMDToNativeMigrationGate(db *gorm.DB, legacyMLMDRuntime bool) error {
+	if !legacyMLMDRuntime {
+		return nil
+	}
+
+	var migration model.RuntimeMetadataMigration
+	err := db.Where(map[string]any{
+		"Name":    model.RuntimeMetadataMigrationName,
+		"Version": model.RuntimeMetadataMigrationVersion,
+	}).First(&migration).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf(
+			"MLMD-backed runtime metadata requires migration %q version %d before the API server can start; run %s, rerun it to resume, use --dry-run to validate, verify a database backup, and see docs/migration/mlmd-to-native.md",
+			model.RuntimeMetadataMigrationName,
+			model.RuntimeMetadataMigrationVersion,
+			mlmdToNativeMigrationCommand,
+		)
+	}
+	if err != nil {
+		return fmt.Errorf("read MLMD-to-native migration status: %w", err)
+	}
+	if migration.Status != model.RuntimeMetadataMigrationCompleted {
+		return fmt.Errorf(
+			"MLMD-to-native migration %q version %d is %s; the API server will remain stopped until %s completes validation; rerun it to resume, use --dry-run to validate, verify a database backup, and see docs/migration/mlmd-to-native.md",
+			migration.Name,
+			migration.Version,
+			migration.Status,
+			mlmdToNativeMigrationCommand,
+		)
+	}
+	if migration.CompletedAtInSec <= 0 ||
+		strings.TrimSpace(string(migration.SourceCounts)) == "" ||
+		strings.TrimSpace(string(migration.DestinationCounts)) == "" ||
+		strings.TrimSpace(string(migration.ValidationError)) != "" ||
+		strings.TrimSpace(migration.ToolVersion) == "" {
+		return fmt.Errorf(
+			"MLMD-to-native migration %q version %d has a COMPLETED marker without durable completion evidence; rerun %s to produce validated source/destination counts, and see docs/migration/mlmd-to-native.md",
+			migration.Name,
+			migration.Version,
+			mlmdToNativeMigrationCommand,
+		)
+	}
+	return nil
 }
 
 // Initializes Database driver. Use `driverName` to indicate which type of DB to use:
