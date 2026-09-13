@@ -23,6 +23,41 @@ import (
 // may be resumed by a later invocation.
 const migrationLeaseDuration = time.Hour
 
+// Renew extends the lease only when the caller still owns the RUNNING marker.
+// This prevents a paused or stale worker from extending a lease acquired by a
+// newer migration invocation.
+func Renew(db *gorm.DB, token string, now time.Time) error {
+	if db == nil {
+		return fmt.Errorf("migration lease renewal requires a database")
+	}
+	result := db.Model(&model.RuntimeMetadataMigration{}).
+		Where(map[string]interface{}{
+			"Name": model.RuntimeMetadataMigrationName, "Version": model.RuntimeMetadataMigrationVersion,
+			"Status": model.RuntimeMetadataMigrationRunning, "LeaseToken": token,
+		}).
+		Updates(map[string]interface{}{"LeaseExpiresAtInSec": now.Add(migrationLeaseDuration).Unix()})
+	if result.Error != nil {
+		return fmt.Errorf("renew migration lease: %w", result.Error)
+	}
+	if result.RowsAffected != 1 {
+		return fmt.Errorf("migration lease is no longer owned by this process")
+	}
+	return nil
+}
+
+func EnsureLease(db *gorm.DB, token string, now time.Time) error {
+	var marker model.RuntimeMetadataMigration
+	if err := db.Where(map[string]interface{}{
+		"Name": model.RuntimeMetadataMigrationName, "Version": model.RuntimeMetadataMigrationVersion,
+	}).First(&marker).Error; err != nil {
+		return fmt.Errorf("read migration lease: %w", err)
+	}
+	if marker.Status != model.RuntimeMetadataMigrationRunning || marker.LeaseToken != token || marker.LeaseExpiresAtInSec <= now.Unix() {
+		return fmt.Errorf("migration lease is no longer owned by this process")
+	}
+	return nil
+}
+
 func Start(db *gorm.DB, toolVersion string, now time.Time) (string, bool, error) {
 	if db == nil {
 		return "", false, fmt.Errorf("migration start requires a database")
@@ -80,8 +115,9 @@ func Start(db *gorm.DB, toolVersion string, now time.Time) (string, bool, error)
 	return existing.LeaseToken, false, nil
 }
 
-// Fail records the error that stopped the operator job. It intentionally does
-// not hide the original error, so callers can return it to job logs as well.
+// Fail records the error that stopped the operator job. It returns nil when
+// the FAILED marker was durably written. If the lease is stale, the original
+// error is returned and the newer owner is left untouched.
 func Fail(db *gorm.DB, token string, err error) error {
 	if db == nil {
 		return fmt.Errorf("migration failure requires a database: %w", err)
@@ -90,12 +126,17 @@ func Fail(db *gorm.DB, token string, err error) error {
 		"Status":          model.RuntimeMetadataMigrationFailed,
 		"ValidationError": err.Error(),
 	}
-	if updateErr := db.Model(&model.RuntimeMetadataMigration{}).
+	result := db.Model(&model.RuntimeMetadataMigration{}).
 		Where(map[string]interface{}{"Name": model.RuntimeMetadataMigrationName, "Version": model.RuntimeMetadataMigrationVersion, "Status": model.RuntimeMetadataMigrationRunning, "LeaseToken": token}).
-		Updates(update).Error; updateErr != nil {
+		Updates(update)
+	if result.Error != nil {
+		updateErr := result.Error
 		return fmt.Errorf("record migration failure: %w (original error: %v)", updateErr, err)
 	}
-	return err
+	if result.RowsAffected != 1 {
+		return err
+	}
+	return nil
 }
 
 // Complete validates the migrated destination and writes the completion

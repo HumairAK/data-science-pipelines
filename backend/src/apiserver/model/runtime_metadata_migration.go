@@ -29,7 +29,7 @@ const (
 // tool has validated all migrated data.
 type RuntimeMetadataMigration struct {
 	Name                string    `gorm:"column:Name; not null; primaryKey; type:varchar(64);"`
-	Version             int       `gorm:"column:Version; not null;"`
+	Version             int       `gorm:"column:Version; not null; primaryKey;"`
 	Status              string    `gorm:"column:Status; not null; type:varchar(32);"`
 	StartedAtInSec      int64     `gorm:"column:StartedAtInSec; not null; default:0;"`
 	CompletedAtInSec    int64     `gorm:"column:CompletedAtInSec; not null; default:0;"`

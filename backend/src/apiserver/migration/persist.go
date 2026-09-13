@@ -13,6 +13,7 @@ import (
 
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -99,6 +100,9 @@ func Persist(db *gorm.DB, snapshot *ConvertedSnapshot) (Counts, error) {
 			if artifact == nil || artifact.UUID == "" {
 				continue
 			}
+			if artifact.URIHash == "" && artifact.URI != nil {
+				artifact.URIHash = storage.ArtifactURIHash(*artifact.URI)
+			}
 			result := tx.Omit("ArtifactTasks").Clauses(ignoreConflict()).Create(artifact)
 			if result.Error != nil {
 				return fmt.Errorf("persist artifact %q: %w", artifact.UUID, result.Error)
@@ -160,6 +164,14 @@ func Run(ctx context.Context, db *gorm.DB, source MLMDSource, pageSize int32, to
 		progress = func(string, ...any) {}
 	}
 	var migrationLeaseToken string
+	runContext := ctx
+	var leaseErrors <-chan error
+	var stopLeaseHeartbeat func()
+	defer func() {
+		if stopLeaseHeartbeat != nil {
+			stopLeaseHeartbeat()
+		}
+	}()
 	if !dryRun {
 		leaseToken, completed, err := Start(db, toolVersion, time.Now())
 		if err != nil {
@@ -177,14 +189,18 @@ func Run(ctx context.Context, db *gorm.DB, source MLMDSource, pageSize int32, to
 			return counts, nil
 		}
 		migrationLeaseToken = leaseToken
+		runContext, leaseErrors, stopLeaseHeartbeat = startLeaseHeartbeat(ctx, db, migrationLeaseToken)
 	}
-	snapshot, err := LoadSnapshot(ctx, source, pageSize)
+	snapshot, err := LoadSnapshot(runContext, source, pageSize)
 	if err != nil {
 		if !dryRun {
 			if failureErr := Fail(db, migrationLeaseToken, err); failureErr != nil {
 				return Counts{}, fmt.Errorf("migration failed: %w; additionally failed to record FAILED state: %v", err, failureErr)
 			}
 		}
+		return Counts{}, err
+	}
+	if err := pendingLeaseError(leaseErrors); err != nil {
 		return Counts{}, err
 	}
 	progress("loaded MLMD snapshot: contexts=%d executions=%d artifacts=%d", len(snapshot.Contexts), len(snapshot.Executions), len(snapshot.Artifacts))
@@ -195,6 +211,9 @@ func Run(ctx context.Context, db *gorm.DB, source MLMDSource, pageSize int32, to
 				return Counts{}, fmt.Errorf("migration failed: %w; additionally failed to record FAILED state: %v", err, failureErr)
 			}
 		}
+		return Counts{}, err
+	}
+	if err := pendingLeaseError(leaseErrors); err != nil {
 		return Counts{}, err
 	}
 	progress("converted native records: runs=%d tasks=%d artifacts=%d relationships=%d metrics=%d skipped=%d unsupported=%d", len(converted.Runs), len(converted.Tasks), len(converted.Artifacts), len(converted.Relationships), len(converted.Metrics), len(converted.Skipped), len(converted.Unsupported))
@@ -218,11 +237,20 @@ func Run(ctx context.Context, db *gorm.DB, source MLMDSource, pageSize int32, to
 		}
 		return Counts{}, err
 	}
+	if err := EnsureLease(db, migrationLeaseToken, time.Now()); err != nil {
+		return Counts{}, err
+	}
 	counts, err := Persist(db, converted)
 	if err != nil {
 		if failureErr := Fail(db, migrationLeaseToken, err); failureErr != nil {
 			return Counts{}, fmt.Errorf("migration failed: %w; additionally failed to record FAILED state: %v", err, failureErr)
 		}
+		return Counts{}, err
+	}
+	if err := pendingLeaseError(leaseErrors); err != nil {
+		return Counts{}, err
+	}
+	if err := EnsureLease(db, migrationLeaseToken, time.Now()); err != nil {
 		return Counts{}, err
 	}
 	sourceCounts := map[string]int64{
@@ -242,6 +270,54 @@ func Run(ctx context.Context, db *gorm.DB, source MLMDSource, pageSize int32, to
 	}
 	progress("migration completed: runs=%d tasks=%d artifacts=%d relationships=%d", counts.Runs, counts.Tasks, counts.Artifacts, counts.Relationships)
 	return counts, nil
+}
+
+func startLeaseHeartbeat(ctx context.Context, db *gorm.DB, token string) (context.Context, <-chan error, func()) {
+	leaseContext, cancel := context.WithCancel(ctx)
+	errors := make(chan error, 1)
+	stop := make(chan struct{})
+	stopOnce := make(chan struct{}, 1)
+	go func() {
+		ticker := time.NewTicker(migrationLeaseDuration / 3)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := Renew(db, token, time.Now()); err != nil {
+					select {
+					case errors <- err:
+					default:
+					}
+					cancel()
+					return
+				}
+			case <-stop:
+				return
+			case <-leaseContext.Done():
+				return
+			}
+		}
+	}()
+	return leaseContext, errors, func() {
+		select {
+		case stopOnce <- struct{}{}:
+			close(stop)
+			cancel()
+		default:
+		}
+	}
+}
+
+func pendingLeaseError(errors <-chan error) error {
+	if errors == nil {
+		return nil
+	}
+	select {
+	case err := <-errors:
+		return fmt.Errorf("migration lease lost: %w", err)
+	default:
+		return nil
+	}
 }
 
 func countEvents(snapshot *Snapshot) int64 {
@@ -332,7 +408,7 @@ func validateSnapshotRows(tx *gorm.DB, snapshot *ConvertedSnapshot) error {
 		if err := tx.Where(map[string]interface{}{"UUID": artifact.UUID}).First(&stored).Error; err != nil {
 			return fmt.Errorf("artifact %q cannot be loaded for semantic validation: %w", artifact.UUID, err)
 		}
-		if stored.Namespace != artifact.Namespace || stored.Name != artifact.Name || stored.Type != artifact.Type || !sameStringPtr(stored.URI, artifact.URI) {
+		if stored.Namespace != artifact.Namespace || stored.Name != artifact.Name || stored.Type != artifact.Type || stored.URIHash != artifact.URIHash || !sameStringPtr(stored.URI, artifact.URI) || !sameStringPtr(stored.IdentityKey, artifact.IdentityKey) {
 			return fmt.Errorf("artifact %q conflicts with existing native artifact data", artifact.UUID)
 		}
 	}

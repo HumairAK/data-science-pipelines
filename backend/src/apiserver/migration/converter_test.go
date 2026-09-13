@@ -48,6 +48,8 @@ func TestConvertSnapshotPreservesArtifactURIAndCompletedCacheFingerprint(t *test
 	require.Equal(t, model.TaskStatus(apiv2beta1.PipelineTask_SUCCEEDED), converted.Tasks[0].State)
 	require.Len(t, converted.Tasks[0].StateHistory, 1)
 	require.Equal(t, uri, *converted.Artifacts[0].URI)
+	require.Equal(t, model.ArtifactType(apiv2beta1.Artifact_Artifact), converted.Artifacts[0].Type)
+	require.Len(t, converted.Artifacts[0].URIHash, 64)
 	require.Equal(t, model.IOType(apiv2beta1.IOType_OUTPUT), converted.Relationships[0].Type)
 	require.Equal(t, "team-a", converted.Artifacts[0].Namespace)
 }
@@ -101,6 +103,8 @@ func TestConvertSnapshotPreservesTaskSemanticsMetricsAndProducerLinks(t *testing
 	require.Equal(t, int64(3), taskIteration(converted.Tasks[1]))
 	require.Len(t, converted.Artifacts, 1)
 	require.Len(t, converted.Metrics, 1)
+	require.Equal(t, model.ArtifactType(apiv2beta1.Artifact_Model), converted.Artifacts[0].Type)
+	require.Len(t, converted.Artifacts[0].URIHash, 64)
 	require.InDelta(t, 0.91, converted.Metrics[0].NumberValue, 0.0001)
 	require.Contains(t, string(converted.Metrics[0].Payload), `"RunUUID":"run-1"`)
 	require.Contains(t, string(converted.Metrics[0].Payload), `"NodeID":"producer"`)

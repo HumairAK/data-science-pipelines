@@ -94,6 +94,12 @@ func TestProductionLikeUpgradeFixture(t *testing.T) {
 	var historical model.Artifact
 	require.NoError(t, db.Where("URI = ? AND Namespace = ?", "minio://mlpipeline/v2/artifacts/shared/output", "team-a").First(&historical).Error)
 	require.Equal(t, "team-a", historical.Namespace)
+	require.Equal(t, model.ArtifactType(apiv2beta1.Artifact_Model), historical.Type)
+	require.Len(t, historical.URIHash, 64)
+
+	var running model.Task
+	require.NoError(t, db.Where("Name = ? AND Namespace = ?", "running-task", "team-a").First(&running).Error)
+	require.Zero(t, running.FinishedInSec)
 
 	second, err := Run(context.Background(), db, source, 100, "fixture/1", false, nil)
 	require.NoError(t, err)

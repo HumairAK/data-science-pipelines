@@ -14,6 +14,7 @@ import (
 
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
+	"github.com/kubeflow/pipelines/backend/src/apiserver/storage"
 	"github.com/kubeflow/pipelines/backend/src/common/util"
 	mlmd "github.com/kubeflow/pipelines/third_party/ml-metadata/go/ml_metadata"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -149,13 +150,17 @@ func ConvertSnapshot(snapshot *Snapshot) (*ConvertedSnapshot, error) {
 		sourceIdentity := fmt.Sprintf("mlmd:%d:%s:%s", execution.GetId(), namespace, runID)
 		logicalKey := "mlmd:" + util.NewDeterministicUUID(sourceIdentity)
 		created := millisToSeconds(execution.GetCreateTimeSinceEpoch())
+		finished := int64(0)
+		if isTerminalExecution(execution.GetLastKnownState()) {
+			finished = millisToSeconds(execution.GetLastUpdateTimeSinceEpoch())
+		}
 		task := &model.Task{
 			UUID:           util.NewDeterministicUUID(logicalKey),
 			Namespace:      namespace,
 			RunUUID:        runID,
 			CreatedAtInSec: created,
 			StartedInSec:   created,
-			FinishedInSec:  millisToSeconds(execution.GetLastUpdateTimeSinceEpoch()),
+			FinishedInSec:  finished,
 			Fingerprint:    completedFingerprint(execution),
 			Name:           name,
 			DisplayName:    valueString(execution.GetCustomProperties(), keyDisplayName),
@@ -220,6 +225,7 @@ func ConvertSnapshot(snapshot *Snapshot) (*ConvertedSnapshot, error) {
 		}
 		uri := artifact.GetUri()
 		identity := fmt.Sprintf("mlmd-artifact:%d:%s", artifact.GetId(), namespace)
+		identityKey := util.NewDeterministicUUID(identity)
 		native := &model.Artifact{
 			UUID:            util.NewDeterministicUUID(identity),
 			Namespace:       namespace,
@@ -228,11 +234,14 @@ func ConvertSnapshot(snapshot *Snapshot) (*ConvertedSnapshot, error) {
 			CreatedAtInSec:  millisToSeconds(artifact.GetCreateTimeSinceEpoch()),
 			LastUpdateInSec: millisToSeconds(artifact.GetCreateTimeSinceEpoch()),
 			Metadata:        valuesToJSON(artifact.GetCustomProperties()),
-			IdentityKey:     &identity,
+			IdentityKey:     &identityKey,
+			URIHash:         storage.ArtifactURIHash(uri),
 		}
 		if artifactType, numberValue, ok := metricArtifact(artifact); ok {
 			native.Type = artifactType
 			native.NumberValue = &numberValue
+		} else {
+			native.Type = ordinaryArtifactType(artifact.GetType())
 		}
 		artifactsByID[artifact.GetId()] = native
 		// Metric artifacts are represented by the native run-metrics API. Keep
@@ -497,6 +506,30 @@ func metricType(typeName string) model.ArtifactType {
 		return model.ArtifactType(apiv2beta1.Artifact_ClassificationMetric)
 	default:
 		return model.ArtifactType(apiv2beta1.Artifact_Metric)
+	}
+}
+
+func ordinaryArtifactType(typeName string) model.ArtifactType {
+	switch strings.ToLower(typeName) {
+	case "system.model", "model":
+		return model.ArtifactType(apiv2beta1.Artifact_Model)
+	case "system.dataset", "dataset":
+		return model.ArtifactType(apiv2beta1.Artifact_Dataset)
+	case "system.html", "html":
+		return model.ArtifactType(apiv2beta1.Artifact_HTML)
+	case "system.markdown", "markdown":
+		return model.ArtifactType(apiv2beta1.Artifact_Markdown)
+	default:
+		return model.ArtifactType(apiv2beta1.Artifact_Artifact)
+	}
+}
+
+func isTerminalExecution(state mlmd.Execution_State) bool {
+	switch state {
+	case mlmd.Execution_COMPLETE, mlmd.Execution_CACHED, mlmd.Execution_FAILED, mlmd.Execution_CANCELED:
+		return true
+	default:
+		return false
 	}
 }
 

@@ -35,6 +35,7 @@ concurrency:
 
 jobs:
   build:
+    # TODO(#14029): Remove the opt-in gate after deployed upgrade coverage is available.
     # The full upgrade workflow remains opt-in because it creates a Kubernetes
     # cluster and mutates a deployed database.
     if: ${{ vars.KFP_ENABLE_MLMD_UPGRADE_TESTS == 'true' }}

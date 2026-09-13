@@ -34,6 +34,26 @@ func TestMigrationLeaseRejectsConcurrentWorkerAndIgnoresStaleFailure(t *testing.
 	require.NoError(t, db.First(&marker).Error)
 	require.Equal(t, model.RuntimeMetadataMigrationRunning, marker.Status)
 	require.Equal(t, owner, marker.LeaseToken)
+	require.NoError(t, Fail(db, owner, assertError("recorded failure")))
+	require.NoError(t, db.First(&marker).Error)
+	require.Equal(t, model.RuntimeMetadataMigrationFailed, marker.Status)
+}
+
+func TestMigrationLedgerUsesNameAndVersionAsCompositeIdentity(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open("file:migration_ledger_version_test?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(model.AllModels()...))
+
+	require.NoError(t, db.Create(&model.RuntimeMetadataMigration{
+		Name:    model.RuntimeMetadataMigrationName,
+		Version: model.RuntimeMetadataMigrationVersion + 1,
+		Status:  model.RuntimeMetadataMigrationNotStarted,
+	}).Error)
+
+	var count int64
+	require.NoError(t, db.Model(&model.RuntimeMetadataMigration{}).
+		Where("Name = ?", model.RuntimeMetadataMigrationName).Count(&count).Error)
+	require.EqualValues(t, 1, count)
 }
 
 func assertError(message string) error { return &migrationTestError{message: message} }

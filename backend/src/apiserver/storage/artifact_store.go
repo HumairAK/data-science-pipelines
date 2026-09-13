@@ -60,6 +60,12 @@ func artifactURIHash(uri string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// ArtifactURIHash returns the indexed hash used by URI lookups. It is exposed
+// for migration code that writes native artifact rows outside ArtifactStore.
+func ArtifactURIHash(uri string) string {
+	return artifactURIHash(uri)
+}
+
 // Ensure that ClientManager implements the resource.ClientManagerInterface interface.
 var _ ArtifactStoreInterface = &ArtifactStore{}
 

@@ -72,7 +72,7 @@ func TestRealKubernetesMLMDUpgrade(t *testing.T) {
 	response, err := http.DefaultClient.Do(request)
 	require.NoError(t, err)
 	defer response.Body.Close()
-	require.Less(t, response.StatusCode, http.StatusInternalServerError)
+	require.Equal(t, http.StatusOK, response.StatusCode)
 }
 
 func requireEnv(t *testing.T, name string) string {
