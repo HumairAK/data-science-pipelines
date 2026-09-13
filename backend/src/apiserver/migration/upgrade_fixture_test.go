@@ -9,6 +9,7 @@ import (
 	"context"
 	"testing"
 
+	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
 	"github.com/kubeflow/pipelines/backend/src/apiserver/model"
 	mlmd "github.com/kubeflow/pipelines/third_party/ml-metadata/go/ml_metadata"
 	"github.com/stretchr/testify/require"
@@ -50,6 +51,34 @@ func TestProductionLikeUpgradeFixture(t *testing.T) {
 	require.NoError(t, db.Model(&model.Task{}).Where("Fingerprint = ''").Count(&ineligible).Error)
 	require.EqualValues(t, 4, eligible)
 	require.EqualValues(t, 18, ineligible)
+
+	// Exercise every relationship semantic that the converter derives from
+	// historical execution metadata, across both namespaces.
+	for _, relationshipType := range []struct {
+		name string
+		io   apiv2beta1.IOType
+		want int64
+	}{
+		{name: "iterator output", io: apiv2beta1.IOType_ITERATOR_OUTPUT, want: 2},
+		{name: "iterator input", io: apiv2beta1.IOType_ITERATOR_INPUT, want: 2},
+		{name: "one of output", io: apiv2beta1.IOType_ONE_OF_OUTPUT, want: 2},
+		{name: "collected input", io: apiv2beta1.IOType_COLLECTED_INPUTS, want: 2},
+		{name: "task final status", io: apiv2beta1.IOType_TASK_FINAL_STATUS_OUTPUT, want: 2},
+	} {
+		t.Run(relationshipType.name, func(t *testing.T) {
+			var count int64
+			require.NoError(t, db.Model(&model.ArtifactTask{}).
+				Where("Type = ?", relationshipType.io).
+				Count(&count).Error)
+			require.Equal(t, relationshipType.want, count)
+		})
+	}
+
+	var exitHandlerCount int64
+	require.NoError(t, db.Model(&model.Task{}).
+		Where("Name = ? AND Type = ?", "exit-handler-cleanup", apiv2beta1.PipelineTask_RUNTIME).
+		Count(&exitHandlerCount).Error)
+	require.EqualValues(t, 2, exitHandlerCount)
 
 	// Every relationship must remain in the same tenant and run as both of its
 	// endpoints. This also validates the historical unnamespaced URI path: the
@@ -121,9 +150,20 @@ func productionLikeFixtureSource() *fakeSource {
 			if executionID == loopID {
 				properties[keyTaskType] = stringValue("loop")
 				properties[keyIteration] = intValue(2)
+				properties[keyIterator] = fixtureBoolValue(true)
 			}
 			if executionID == branchID {
 				properties[keyTaskType] = stringValue("condition_branch")
+				properties[keyOneOf] = fixtureBoolValue(true)
+			}
+			if executionID == dagChildID {
+				properties[keyCollected] = fixtureBoolValue(true)
+			}
+			if executionID == runningID {
+				properties[keyIterator] = fixtureBoolValue(true)
+			}
+			if executionID == exitID {
+				properties[keyFinalStatus] = fixtureBoolValue(true)
 			}
 			if executionID == cachedID || executionID == dagChildID {
 				properties[keyCacheFingerprint] = stringValue("cache-" + namespace)
@@ -156,4 +196,8 @@ func productionLikeFixtureSource() *fakeSource {
 		contexts:       contextByExecution,
 		events:         events,
 	}
+}
+
+func fixtureBoolValue(value bool) *mlmd.Value {
+	return &mlmd.Value{Value: &mlmd.Value_BoolValue{BoolValue: value}}
 }

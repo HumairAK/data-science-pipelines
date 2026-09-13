@@ -23,6 +23,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -496,6 +497,137 @@ func TestAutoMigrateSucceeds(t *testing.T) {
 	assertColumnExists("run_metrics", "RunUUID")
 	assertColumnExists("tasks", "RunUUID")
 	assertColumnExists("resource_references", "ResourceUUID")
+	assertColumnExists("runtime_metadata_migrations", "Status")
+}
+
+func TestHasLegacyMLMDRuntimeSchema(t *testing.T) {
+	t.Run("fresh database", func(t *testing.T) {
+		db := getTestSQLite(t)
+		legacy, err := hasLegacyMLMDRuntimeSchema(db)
+		require.NoError(t, err)
+		assert.False(t, legacy)
+	})
+
+	t.Run("native database with empty context IDs", func(t *testing.T) {
+		db := getTestSQLite(t)
+		require.NoError(t, autoMigrate(db))
+		require.NoError(t, db.Create(&model.Run{
+			UUID: "run-native", DisplayName: "run-native", K8SName: "run-native",
+			Namespace: "ns", StorageState: model.StorageStateAvailable,
+		}).Error)
+
+		legacy, err := hasLegacyMLMDRuntimeSchema(db)
+		require.NoError(t, err)
+		assert.False(t, legacy)
+	})
+
+	t.Run("legacy task schema", func(t *testing.T) {
+		db := getTestSQLite(t)
+		require.NoError(t, db.Exec("CREATE TABLE tasks (MLMDExecutionID TEXT NOT NULL)").Error)
+		require.NoError(t, db.Exec("INSERT INTO tasks (MLMDExecutionID) VALUES (?)", "execution-1").Error)
+
+		legacy, err := hasLegacyMLMDRuntimeSchema(db)
+		require.NoError(t, err)
+		assert.True(t, legacy)
+	})
+
+	t.Run("native compatibility task column without data", func(t *testing.T) {
+		db := getTestSQLite(t)
+		require.NoError(t, db.Exec("CREATE TABLE tasks (MLMDExecutionID TEXT)").Error)
+
+		legacy, err := hasLegacyMLMDRuntimeSchema(db)
+		require.NoError(t, err)
+		assert.False(t, legacy)
+	})
+
+	t.Run("legacy context is detected when task compatibility column is empty", func(t *testing.T) {
+		db := getTestSQLite(t)
+		require.NoError(t, autoMigrate(db))
+		require.NoError(t, db.Exec("ALTER TABLE tasks ADD COLUMN MLMDExecutionID TEXT").Error)
+		require.NoError(t, db.Create(&model.Run{
+			UUID: "run-legacy-context", DisplayName: "run-legacy-context", K8SName: "run-legacy-context",
+			Namespace: "ns", StorageState: model.StorageStateAvailable,
+			RunDetails: model.RunDetails{PipelineContextId: 21, PipelineRunContextId: 22},
+		}).Error)
+
+		legacy, err := hasLegacyMLMDRuntimeSchema(db)
+		require.NoError(t, err)
+		assert.True(t, legacy)
+	})
+
+	t.Run("legacy populated context", func(t *testing.T) {
+		db := getTestSQLite(t)
+		require.NoError(t, autoMigrate(db))
+		require.NoError(t, db.Create(&model.Run{
+			UUID: "run-legacy", DisplayName: "run-legacy", K8SName: "run-legacy",
+			Namespace: "ns", StorageState: model.StorageStateAvailable,
+			RunDetails: model.RunDetails{PipelineContextId: 11, PipelineRunContextId: 12},
+		}).Error)
+
+		legacy, err := hasLegacyMLMDRuntimeSchema(db)
+		require.NoError(t, err)
+		assert.True(t, legacy)
+	})
+}
+
+func TestValidateMLMDToNativeMigrationGate(t *testing.T) {
+	db := getTestSQLite(t)
+	require.NoError(t, autoMigrate(db))
+
+	require.NoError(t, validateMLMDToNativeMigrationGate(db, false))
+
+	err := validateMLMDToNativeMigrationGate(db, true)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "requires migration")
+	assert.Contains(t, err.Error(), mlmdToNativeMigrationCommand)
+
+	for _, status := range []string{
+		model.RuntimeMetadataMigrationNotStarted,
+		model.RuntimeMetadataMigrationRunning,
+		model.RuntimeMetadataMigrationFailed,
+	} {
+		require.NoError(t, db.Where("Name = ?", model.RuntimeMetadataMigrationName).
+			Assign(model.RuntimeMetadataMigration{
+				Name:    model.RuntimeMetadataMigrationName,
+				Version: model.RuntimeMetadataMigrationVersion,
+				Status:  status,
+			}).FirstOrCreate(&model.RuntimeMetadataMigration{}).Error)
+		err = validateMLMDToNativeMigrationGate(db, true)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), status)
+	}
+
+	require.NoError(t, db.Model(&model.RuntimeMetadataMigration{}).
+		Where("Name = ?", model.RuntimeMetadataMigrationName).
+		Updates(map[string]any{"Status": model.RuntimeMetadataMigrationCompleted}).Error)
+	err = validateMLMDToNativeMigrationGate(db, true)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "without durable completion evidence")
+
+	require.NoError(t, db.Model(&model.RuntimeMetadataMigration{}).
+		Where("Name = ?", model.RuntimeMetadataMigrationName).
+		Updates(map[string]any{
+			"CompletedAtInSec":  time.Now().Unix(),
+			"SourceCounts":      model.LargeText(`{"executions":1}`),
+			"DestinationCounts": model.LargeText(`{"tasks":1}`),
+			"ValidationError":   model.LargeText(""),
+			"ToolVersion":       "test",
+		}).Error)
+	require.NoError(t, validateMLMDToNativeMigrationGate(db, true))
+}
+
+func TestValidateMLMDToNativeMigrationGateRejectsWrongVersion(t *testing.T) {
+	db := getTestSQLite(t)
+	require.NoError(t, autoMigrate(db))
+	require.NoError(t, db.Create(&model.RuntimeMetadataMigration{
+		Name:    model.RuntimeMetadataMigrationName,
+		Version: model.RuntimeMetadataMigrationVersion + 1,
+		Status:  model.RuntimeMetadataMigrationCompleted,
+	}).Error)
+
+	err := validateMLMDToNativeMigrationGate(db, true)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "requires migration")
 }
 
 // insertLegacyRunWithPipelineRef writes a run the way v1 did, with the pipeline

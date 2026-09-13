@@ -90,5 +90,6 @@ func AllModels() []any {
 		&ArtifactTask{},
 		&ResourceReference{},
 		&MigrationStatus{},
+		&RuntimeMetadataMigration{},
 	}
 }

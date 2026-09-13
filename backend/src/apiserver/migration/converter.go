@@ -346,6 +346,9 @@ func relationshipIOType(event *mlmd.Event, task *model.Task) apiv2beta1.IOType {
 	}
 	isOutput := isOutputEvent(event.GetType())
 	if !isOutput {
+		if taskAttributeBool(task, keyCollected) {
+			return apiv2beta1.IOType_COLLECTED_INPUTS
+		}
 		if taskAttributeBool(task, keyIterator) {
 			return apiv2beta1.IOType_ITERATOR_INPUT
 		}
