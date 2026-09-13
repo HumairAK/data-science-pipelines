@@ -594,8 +594,9 @@ func hasLegacyMLMDRuntimeSchema(db *gorm.DB) (bool, error) {
 	if db.Migrator().HasTable(&model.Task{}) &&
 		db.Migrator().HasColumn(&model.Task{}, "MLMDExecutionID") {
 		var count int64
+		executionIDColumn := db.Statement.Quote("MLMDExecutionID")
 		if err := db.Model(&model.Task{}).
-			Where("MLMDExecutionID IS NOT NULL AND MLMDExecutionID <> ''").
+			Where(fmt.Sprintf("%s IS NOT NULL AND %s <> ?", executionIDColumn, executionIDColumn), "").
 			Limit(1).Count(&count).Error; err != nil {
 			return false, fmt.Errorf("inspect legacy MLMD execution IDs: %w", err)
 		}
@@ -611,8 +612,10 @@ func hasLegacyMLMDRuntimeSchema(db *gorm.DB) (bool, error) {
 	}
 
 	var count int64
+	pipelineContextColumn := db.Statement.Quote("PipelineContextId")
+	pipelineRunContextColumn := db.Statement.Quote("PipelineRunContextId")
 	err := db.Model(&model.Run{}).
-		Where("PipelineContextId <> 0 OR PipelineRunContextId <> 0").
+		Where(fmt.Sprintf("%s <> ? OR %s <> ?", pipelineContextColumn, pipelineRunContextColumn), 0, 0).
 		Limit(1).
 		Count(&count).Error
 	if err != nil {

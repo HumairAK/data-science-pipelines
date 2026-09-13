@@ -43,8 +43,10 @@ func main() {
 	if err != nil {
 		fatal("open native database: %v", err)
 	}
-	if err := db.AutoMigrate(model.AllModels()...); err != nil {
-		fatal("create native schema: %v", err)
+	if !dryRun {
+		if err := db.AutoMigrate(model.AllModels()...); err != nil {
+			fatal("create native schema: %v", err)
+		}
 	}
 	conn, err := grpc.Dial(metadataAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {

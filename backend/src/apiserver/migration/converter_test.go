@@ -7,6 +7,7 @@ package migration
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	apiv2beta1 "github.com/kubeflow/pipelines/backend/api/v2beta1/go_client"
@@ -77,7 +78,7 @@ func TestConvertSnapshotPreservesTaskSemanticsMetricsAndProducerLinks(t *testing
 		Executions: []*mlmd.Execution{producer, consumer},
 		Artifacts: []*mlmd.Artifact{
 			{Id: &artifactID, Uri: &uri, Type: stringPtr("system.Model")},
-			{Id: &metricID, Uri: &metricURI, Type: stringPtr("system.SlicedClassificationMetric"), CustomProperties: map[string]*mlmd.Value{"double_value": doubleValue(0.91)}},
+			{Id: &metricID, Uri: &metricURI, Name: stringPtr("metric"), Type: stringPtr("system.SlicedClassificationMetric"), CustomProperties: map[string]*mlmd.Value{"double_value": doubleValue(0.91)}},
 		},
 		ContextsByExecID: map[int64][]*mlmd.Context{producerID: {contexts[0]}, consumerID: {contexts[0]}},
 		EventsByExecution: map[int64][]*mlmd.Event{
@@ -101,6 +102,9 @@ func TestConvertSnapshotPreservesTaskSemanticsMetricsAndProducerLinks(t *testing
 	require.Len(t, converted.Artifacts, 1)
 	require.Len(t, converted.Metrics, 1)
 	require.InDelta(t, 0.91, converted.Metrics[0].NumberValue, 0.0001)
+	require.Contains(t, string(converted.Metrics[0].Payload), `"RunUUID":"run-1"`)
+	require.Contains(t, string(converted.Metrics[0].Payload), `"NodeID":"producer"`)
+	require.Contains(t, string(converted.Metrics[0].Payload), `"Name":"metric"`)
 	require.Len(t, converted.Relationships, 2)
 	var input model.ArtifactTask
 	for _, relationship := range converted.Relationships {
@@ -113,6 +117,27 @@ func TestConvertSnapshotPreservesTaskSemanticsMetricsAndProducerLinks(t *testing
 	encoded, err := json.Marshal(converted.Tasks[1].TypeAttrs)
 	require.NoError(t, err)
 	require.Contains(t, string(encoded), "mlmd_type")
+}
+
+func TestConvertSnapshotKeepsOrphanRunsDistinctAndLogicalKeysBounded(t *testing.T) {
+	complete := mlmd.Execution_COMPLETE
+	firstID, secondID := int64(101), int64(102)
+	longNamespace := strings.Repeat("n", 63)
+	converted, err := ConvertSnapshot(&Snapshot{Executions: []*mlmd.Execution{
+		{Id: &firstID, Type: stringPtr(containerExecutionTypeName), LastKnownState: &complete, CustomProperties: map[string]*mlmd.Value{
+			keyNamespace: stringValue(longNamespace), keyTaskName: stringValue("first"),
+		}},
+		{Id: &secondID, Type: stringPtr(containerExecutionTypeName), LastKnownState: &complete, CustomProperties: map[string]*mlmd.Value{
+			keyNamespace: stringValue(longNamespace), keyTaskName: stringValue("second"),
+		}},
+	}})
+	require.NoError(t, err)
+	require.Len(t, converted.Runs, 2)
+	require.NotEqual(t, converted.Tasks[0].RunUUID, converted.Tasks[1].RunUUID)
+	for _, task := range converted.Tasks {
+		require.NotNil(t, task.LogicalKey)
+		require.LessOrEqual(t, len(*task.LogicalKey), 64)
+	}
 }
 
 func stringPtr(value string) *string { return &value }

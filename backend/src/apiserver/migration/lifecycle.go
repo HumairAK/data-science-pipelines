@@ -41,7 +41,7 @@ func Start(db *gorm.DB, toolVersion string, now time.Time) (string, bool, error)
 	alreadyCompleted := false
 	if err := db.Transaction(func(tx *gorm.DB) error {
 		var existing model.RuntimeMetadataMigration
-		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("Name = ? AND Version = ?", record.Name, record.Version).First(&existing).Error
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where(map[string]interface{}{"Name": record.Name, "Version": record.Version}).First(&existing).Error
 		if err == nil {
 			if existing.Status == model.RuntimeMetadataMigrationCompleted {
 				alreadyCompleted = true
@@ -74,7 +74,7 @@ func Start(db *gorm.DB, toolVersion string, now time.Time) (string, bool, error)
 		return "", true, nil
 	}
 	var existing model.RuntimeMetadataMigration
-	if err := db.Where("Name = ? AND Version = ?", model.RuntimeMetadataMigrationName, model.RuntimeMetadataMigrationVersion).First(&existing).Error; err != nil {
+	if err := db.Where(map[string]interface{}{"Name": model.RuntimeMetadataMigrationName, "Version": model.RuntimeMetadataMigrationVersion}).First(&existing).Error; err != nil {
 		return "", false, err
 	}
 	return existing.LeaseToken, false, nil
@@ -91,7 +91,7 @@ func Fail(db *gorm.DB, token string, err error) error {
 		"ValidationError": err.Error(),
 	}
 	if updateErr := db.Model(&model.RuntimeMetadataMigration{}).
-		Where("Name = ? AND Version = ? AND Status = ? AND LeaseToken = ?", model.RuntimeMetadataMigrationName, model.RuntimeMetadataMigrationVersion, model.RuntimeMetadataMigrationRunning, token).
+		Where(map[string]interface{}{"Name": model.RuntimeMetadataMigrationName, "Version": model.RuntimeMetadataMigrationVersion, "Status": model.RuntimeMetadataMigrationRunning, "LeaseToken": token}).
 		Updates(update).Error; updateErr != nil {
 		return fmt.Errorf("record migration failure: %w (original error: %v)", updateErr, err)
 	}
@@ -116,7 +116,7 @@ func Complete(db *gorm.DB, token string, sourceCounts, destinationCounts map[str
 	}
 	if err := db.Transaction(func(tx *gorm.DB) error {
 		var current model.RuntimeMetadataMigration
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("Name = ? AND Version = ?", model.RuntimeMetadataMigrationName, model.RuntimeMetadataMigrationVersion).First(&current).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where(map[string]interface{}{"Name": model.RuntimeMetadataMigrationName, "Version": model.RuntimeMetadataMigrationVersion}).First(&current).Error; err != nil {
 			return err
 		}
 		if current.Status == model.RuntimeMetadataMigrationCompleted {
@@ -131,7 +131,7 @@ func Complete(db *gorm.DB, token string, sourceCounts, destinationCounts map[str
 			}
 		}
 		result := tx.Model(&model.RuntimeMetadataMigration{}).
-			Where("Name = ? AND Version = ?", model.RuntimeMetadataMigrationName, model.RuntimeMetadataMigrationVersion).
+			Where(map[string]interface{}{"Name": model.RuntimeMetadataMigrationName, "Version": model.RuntimeMetadataMigrationVersion}).
 			Updates(map[string]interface{}{
 				"Status":              model.RuntimeMetadataMigrationCompleted,
 				"CompletedAtInSec":    now.Unix(),

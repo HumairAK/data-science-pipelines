@@ -79,7 +79,7 @@ func ConvertSnapshot(snapshot *Snapshot) (*ConvertedSnapshot, error) {
 			if context == nil || context.GetType() != pipelineRunContextTypeName {
 				continue
 			}
-			runID := runUUID([]*mlmd.Context{context})
+			runID := runUUID([]*mlmd.Context{context}, context.GetId())
 			if _, ok := runsByUUID[runID]; ok {
 				continue
 			}
@@ -131,7 +131,7 @@ func ConvertSnapshot(snapshot *Snapshot) (*ConvertedSnapshot, error) {
 			result.Unsupported = append(result.Unsupported, MigrationIssue{Kind: "execution", SourceID: execution.GetId(), Reason: fmt.Sprintf("unsupported execution type %q", execution.GetType())})
 			continue
 		}
-		runID := runUUID(snapshot.ContextsByExecID[execution.GetId()])
+		runID := runUUID(snapshot.ContextsByExecID[execution.GetId()], execution.GetId())
 		namespace := valueString(execution.GetCustomProperties(), keyNamespace)
 		if namespace == "" {
 			namespace = contextNamespace(snapshot.ContextsByExecID[execution.GetId()])
@@ -146,7 +146,8 @@ func ConvertSnapshot(snapshot *Snapshot) (*ConvertedSnapshot, error) {
 		if name == "" {
 			name = fmt.Sprintf("mlmd-execution-%d", execution.GetId())
 		}
-		logicalKey := fmt.Sprintf("mlmd:%d:%s:%s", execution.GetId(), namespace, runID)
+		sourceIdentity := fmt.Sprintf("mlmd:%d:%s:%s", execution.GetId(), namespace, runID)
+		logicalKey := "mlmd:" + util.NewDeterministicUUID(sourceIdentity)
 		created := millisToSeconds(execution.GetCreateTimeSinceEpoch())
 		task := &model.Task{
 			UUID:           util.NewDeterministicUUID(logicalKey),
@@ -190,7 +191,7 @@ func ConvertSnapshot(snapshot *Snapshot) (*ConvertedSnapshot, error) {
 			parentID = valueInt(execution.GetCustomProperties(), keyParentTaskID)
 		}
 		if parentID != 0 {
-			parentKey := fmt.Sprintf("mlmd:%d:%s:%s", parentID, namespace, runID)
+			parentKey := "mlmd:" + util.NewDeterministicUUID(fmt.Sprintf("mlmd:%d:%s:%s", parentID, namespace, runID))
 			parentUUID := util.NewDeterministicUUID(parentKey)
 			task.ParentTaskUUID = &parentUUID
 		}
@@ -299,13 +300,27 @@ func ConvertSnapshot(snapshot *Snapshot) (*ConvertedSnapshot, error) {
 		if task == nil {
 			continue
 		}
-		payload, err := json.Marshal(artifact.Metadata)
-		if err != nil {
-			return nil, fmt.Errorf("encode metric metadata for artifact %d: %w", artifactID, err)
-		}
 		name := artifact.Name
 		if name == "" {
 			name = fmt.Sprintf("mlmd-metric-%d", artifactID)
+		}
+		payload, err := json.Marshal(struct {
+			RunUUID     string         `json:"RunUUID"`
+			NodeID      string         `json:"NodeID"`
+			Name        string         `json:"Name"`
+			NumberValue float64        `json:"NumberValue"`
+			Format      string         `json:"Format"`
+			Metadata    model.JSONData `json:"metadata,omitempty"`
+		}{
+			RunUUID:     task.RunUUID,
+			NodeID:      task.Name,
+			Name:        name,
+			NumberValue: *artifact.NumberValue,
+			Format:      "RAW",
+			Metadata:    artifact.Metadata,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("encode metric metadata for artifact %d: %w", artifactID, err)
 		}
 		result.Metrics = append(result.Metrics, &model.RunMetricV1{
 			RunUUID:     task.RunUUID,
@@ -581,7 +596,7 @@ func completedFingerprint(execution *mlmd.Execution) string {
 	return valueString(execution.GetCustomProperties(), keyCacheFingerprint)
 }
 
-func runUUID(contexts []*mlmd.Context) string {
+func runUUID(contexts []*mlmd.Context, fallbackSourceID int64) string {
 	for _, context := range contexts {
 		if context != nil && context.GetType() == pipelineRunContextTypeName {
 			if id := valueString(context.GetCustomProperties(), "run_uuid"); id != "" {
@@ -590,7 +605,7 @@ func runUUID(contexts []*mlmd.Context) string {
 			return util.NewDeterministicUUID("mlmd-context:" + strconv.FormatInt(context.GetId(), 10))
 		}
 	}
-	return util.NewDeterministicUUID("mlmd-orphan-run")
+	return util.NewDeterministicUUID(fmt.Sprintf("mlmd-orphan-run:%d", fallbackSourceID))
 }
 
 func contextNamespace(contexts []*mlmd.Context) string {

@@ -50,6 +50,7 @@ func Persist(db *gorm.DB, snapshot *ConvertedSnapshot) (Counts, error) {
 	}
 	var counts Counts
 	err := db.Transaction(func(tx *gorm.DB) error {
+		insertedTaskIDs := make(map[string]struct{})
 		for _, run := range snapshot.Runs {
 			if run == nil || run.UUID == "" {
 				continue
@@ -76,6 +77,7 @@ func Persist(db *gorm.DB, snapshot *ConvertedSnapshot) (Counts, error) {
 			counts.Tasks++
 			if result.RowsAffected == 1 {
 				counts.InsertedTasks++
+				insertedTaskIDs[task.UUID] = struct{}{}
 			} else {
 				counts.ExistingTasks++
 			}
@@ -86,7 +88,10 @@ func Persist(db *gorm.DB, snapshot *ConvertedSnapshot) (Counts, error) {
 			if task == nil || task.ParentTaskUUID == nil {
 				continue
 			}
-			if err := tx.Model(&model.Task{}).Where("UUID = ?", task.UUID).Update("ParentTaskUUID", task.ParentTaskUUID).Error; err != nil {
+			if _, inserted := insertedTaskIDs[task.UUID]; !inserted {
+				continue
+			}
+			if err := tx.Model(&model.Task{}).Where(map[string]interface{}{"UUID": task.UUID}).Update("ParentTaskUUID", task.ParentTaskUUID).Error; err != nil {
 				return fmt.Errorf("persist parent task for %q: %w", task.UUID, err)
 			}
 		}
@@ -162,7 +167,7 @@ func Run(ctx context.Context, db *gorm.DB, source MLMDSource, pageSize int32, to
 		}
 		if completed {
 			var marker model.RuntimeMetadataMigration
-			if err := db.Where("Name = ? AND Version = ?", model.RuntimeMetadataMigrationName, model.RuntimeMetadataMigrationVersion).First(&marker).Error; err != nil {
+			if err := db.Where(map[string]interface{}{"Name": model.RuntimeMetadataMigrationName, "Version": model.RuntimeMetadataMigrationVersion}).First(&marker).Error; err != nil {
 				return Counts{}, fmt.Errorf("read completed migration counts: %w", err)
 			}
 			var counts Counts
@@ -269,14 +274,14 @@ func validateSnapshotRows(tx *gorm.DB, snapshot *ConvertedSnapshot) error {
 			continue
 		}
 		var count int64
-		if err := tx.Model(&model.Run{}).Where("UUID = ? AND Namespace = ?", run.UUID, run.Namespace).Count(&count).Error; err != nil || count != 1 {
+		if err := tx.Model(&model.Run{}).Where(map[string]interface{}{"UUID": run.UUID, "Namespace": run.Namespace}).Count(&count).Error; err != nil || count != 1 {
 			return fmt.Errorf("run %q failed namespace validation", run.UUID)
 		}
 		var stored model.Run
-		if err := tx.Where("UUID = ?", run.UUID).First(&stored).Error; err != nil {
+		if err := tx.Where(map[string]interface{}{"UUID": run.UUID}).First(&stored).Error; err != nil {
 			return fmt.Errorf("run %q cannot be loaded for semantic validation: %w", run.UUID, err)
 		}
-		if stored.Namespace != run.Namespace || stored.DisplayName != run.DisplayName || stored.PipelineId != run.PipelineId || stored.PipelineVersionId != run.PipelineVersionId {
+		if stored.Namespace != run.Namespace || stored.DisplayName != run.DisplayName || stored.PipelineId != run.PipelineId || stored.PipelineVersionId != run.PipelineVersionId || stored.State != run.State || stored.Conditions != run.Conditions {
 			return fmt.Errorf("run %q conflicts with existing native run data", run.UUID)
 		}
 	}
@@ -285,22 +290,29 @@ func validateSnapshotRows(tx *gorm.DB, snapshot *ConvertedSnapshot) error {
 			continue
 		}
 		var count int64
-		if err := tx.Model(&model.Task{}).Where("UUID = ? AND RunUUID = ? AND Namespace = ?", task.UUID, task.RunUUID, task.Namespace).Count(&count).Error; err != nil || count != 1 {
+		if err := tx.Model(&model.Task{}).Where(map[string]interface{}{"UUID": task.UUID, "RunUUID": task.RunUUID, "Namespace": task.Namespace}).Count(&count).Error; err != nil || count != 1 {
 			return fmt.Errorf("task %q failed referential validation", task.UUID)
 		}
 		var stored model.Task
-		if err := tx.Where("UUID = ?", task.UUID).First(&stored).Error; err != nil {
+		if err := tx.Where(map[string]interface{}{"UUID": task.UUID}).First(&stored).Error; err != nil {
 			return fmt.Errorf("task %q cannot be loaded for semantic validation: %w", task.UUID, err)
 		}
-		if stored.RunUUID != task.RunUUID || stored.Namespace != task.Namespace || stored.Name != task.Name || stored.Type != task.Type || stored.State != task.State || stored.Fingerprint != task.Fingerprint {
+		if stored.RunUUID != task.RunUUID || stored.Namespace != task.Namespace || stored.Name != task.Name || stored.Type != task.Type || stored.State != task.State || stored.Fingerprint != task.Fingerprint || !sameStringPtr(stored.ParentTaskUUID, task.ParentTaskUUID) {
 			return fmt.Errorf("task %q conflicts with existing native task data", task.UUID)
+		}
+		var run model.Run
+		if err := tx.Where(map[string]interface{}{"UUID": task.RunUUID}).First(&run).Error; err != nil {
+			return fmt.Errorf("task %q owning run is missing: %w", task.UUID, err)
+		}
+		if run.Namespace != task.Namespace {
+			return fmt.Errorf("task %q crosses run namespace boundary", task.UUID)
 		}
 		if task.Fingerprint != "" && stored.State != model.TaskStatus(apiv2beta1.PipelineTask_SUCCEEDED) {
 			return fmt.Errorf("task %q has a cache fingerprint but is not complete", task.UUID)
 		}
 		if task.ParentTaskUUID != nil {
 			var parent model.Task
-			if err := tx.Where("UUID = ?", *task.ParentTaskUUID).First(&parent).Error; err != nil {
+			if err := tx.Where(map[string]interface{}{"UUID": *task.ParentTaskUUID}).First(&parent).Error; err != nil {
 				return fmt.Errorf("task %q parent %q is missing: %w", task.UUID, *task.ParentTaskUUID, err)
 			}
 			if parent.RunUUID != task.RunUUID || parent.Namespace != task.Namespace {
@@ -313,11 +325,11 @@ func validateSnapshotRows(tx *gorm.DB, snapshot *ConvertedSnapshot) error {
 			continue
 		}
 		var count int64
-		if err := tx.Model(&model.Artifact{}).Where("UUID = ? AND Namespace = ?", artifact.UUID, artifact.Namespace).Count(&count).Error; err != nil || count != 1 {
+		if err := tx.Model(&model.Artifact{}).Where(map[string]interface{}{"UUID": artifact.UUID, "Namespace": artifact.Namespace}).Count(&count).Error; err != nil || count != 1 {
 			return fmt.Errorf("artifact %q failed namespace validation", artifact.UUID)
 		}
 		var stored model.Artifact
-		if err := tx.Where("UUID = ?", artifact.UUID).First(&stored).Error; err != nil {
+		if err := tx.Where(map[string]interface{}{"UUID": artifact.UUID}).First(&stored).Error; err != nil {
 			return fmt.Errorf("artifact %q cannot be loaded for semantic validation: %w", artifact.UUID, err)
 		}
 		if stored.Namespace != artifact.Namespace || stored.Name != artifact.Name || stored.Type != artifact.Type || !sameStringPtr(stored.URI, artifact.URI) {
@@ -329,19 +341,19 @@ func validateSnapshotRows(tx *gorm.DB, snapshot *ConvertedSnapshot) error {
 			continue
 		}
 		var count int64
-		if err := tx.Model(&model.ArtifactTask{}).Where("UUID = ?", relationship.UUID).Count(&count).Error; err != nil || count != 1 {
+		if err := tx.Model(&model.ArtifactTask{}).Where(map[string]interface{}{"UUID": relationship.UUID}).Count(&count).Error; err != nil || count != 1 {
 			return fmt.Errorf("relationship %q failed referential validation", relationship.UUID)
 		}
 		var task model.Task
 		var artifact model.Artifact
-		if err := tx.Where("UUID = ?", relationship.TaskID).First(&task).Error; err != nil {
+		if err := tx.Where(map[string]interface{}{"UUID": relationship.TaskID}).First(&task).Error; err != nil {
 			return fmt.Errorf("relationship %q task is missing: %w", relationship.UUID, err)
 		}
-		if err := tx.Where("UUID = ?", relationship.ArtifactID).First(&artifact).Error; err != nil {
+		if err := tx.Where(map[string]interface{}{"UUID": relationship.ArtifactID}).First(&artifact).Error; err != nil {
 			return fmt.Errorf("relationship %q artifact is missing: %w", relationship.UUID, err)
 		}
 		var stored model.ArtifactTask
-		if err := tx.Where("UUID = ?", relationship.UUID).First(&stored).Error; err != nil {
+		if err := tx.Where(map[string]interface{}{"UUID": relationship.UUID}).First(&stored).Error; err != nil {
 			return fmt.Errorf("relationship %q cannot be loaded for semantic validation: %w", relationship.UUID, err)
 		}
 		if stored.ArtifactID != relationship.ArtifactID || stored.TaskID != relationship.TaskID || stored.RunUUID != relationship.RunUUID || stored.Type != relationship.Type || stored.Iteration != relationship.Iteration || stored.ArtifactKey != relationship.ArtifactKey {
@@ -359,7 +371,7 @@ func validateSnapshotRows(tx *gorm.DB, snapshot *ConvertedSnapshot) error {
 				return fmt.Errorf("relationship %q has invalid producer metadata", relationship.UUID)
 			}
 			var producer model.Task
-			if err := tx.Where("RunUUID = ? AND Namespace = ? AND Name = ?", relationship.RunUUID, task.Namespace, producerName).First(&producer).Error; err != nil {
+			if err := tx.Where(map[string]interface{}{"RunUUID": relationship.RunUUID, "Namespace": task.Namespace, "Name": producerName}).First(&producer).Error; err != nil {
 				return fmt.Errorf("relationship %q references missing producer task %q: %w", relationship.UUID, producerName, err)
 			}
 		}
@@ -369,21 +381,21 @@ func validateSnapshotRows(tx *gorm.DB, snapshot *ConvertedSnapshot) error {
 			continue
 		}
 		var run model.Run
-		if err := tx.Where("UUID = ?", metric.RunUUID).First(&run).Error; err != nil {
+		if err := tx.Where(map[string]interface{}{"UUID": metric.RunUUID}).First(&run).Error; err != nil {
 			return fmt.Errorf("metric %q references missing run %q: %w", metric.Name, metric.RunUUID, err)
 		}
 		var task model.Task
-		if err := tx.Where("RunUUID = ? AND Name = ?", metric.RunUUID, metric.NodeID).First(&task).Error; err != nil {
+		if err := tx.Where(map[string]interface{}{"RunUUID": metric.RunUUID, "Name": metric.NodeID}).First(&task).Error; err != nil {
 			return fmt.Errorf("metric %q references missing task %q: %w", metric.Name, metric.NodeID, err)
 		}
 		if task.Namespace != run.Namespace {
 			return fmt.Errorf("metric %q crosses run namespace boundary", metric.Name)
 		}
 		var stored model.RunMetricV1
-		if err := tx.Where("RunUUID = ? AND NodeID = ? AND Name = ?", metric.RunUUID, metric.NodeID, metric.Name).First(&stored).Error; err != nil {
+		if err := tx.Where(map[string]interface{}{"RunUUID": metric.RunUUID, "NodeID": metric.NodeID, "Name": metric.Name}).First(&stored).Error; err != nil {
 			return fmt.Errorf("metric %q cannot be loaded for semantic validation: %w", metric.Name, err)
 		}
-		if stored.NumberValue != metric.NumberValue || stored.Format != metric.Format {
+		if stored.NumberValue != metric.NumberValue || stored.Format != metric.Format || stored.Payload != metric.Payload {
 			return fmt.Errorf("metric %q conflicts with existing native metric data", metric.Name)
 		}
 	}
